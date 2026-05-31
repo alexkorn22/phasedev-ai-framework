@@ -1,0 +1,45 @@
+codex:
+  default:
+    model: gpt-5.5 # варианты: gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, gpt-5.2
+    reasoningEffort: medium # варианты: minimal, low, medium, high, xhigh
+
+  stages:
+    setup:
+      model: gpt-5.5
+      reasoningEffort: medium
+    research:
+      model: gpt-5.5
+      reasoningEffort: medium
+    design:
+      model: gpt-5.5
+      reasoningEffort: medium
+    plan:
+      model: gpt-5.5
+      reasoningEffort: medium
+    implementation:
+      model: gpt-5.5
+      reasoningEffort: medium
+    phase_validation:
+      model: gpt-5.5
+      reasoningEffort: medium
+    final_validation:
+      model: gpt-5.5
+      reasoningEffort: medium
+    repair:
+      model: gpt-5.5
+      reasoningEffort: medium
+    archive:
+      model: gpt-5.5
+      reasoningEffort: medium
+
+  sandboxMode: workspace-write # варианты: workspace-write, danger-full-access; workspace-write = полный доступ на запись внутри проекта
+  approvalPolicy: never # варианты: never, on-request, on-failure, untrusted
+  networkAccessEnabled: false # варианты: true, false
+  streamAgentOutput: false # варианты: true, false; true = печатать полный streaming вывод Codex agent в консоль
+
+loop:
+  maxIterations: 10 # максимум сессий этапов за один запуск
+  stopOnNoProgress: true # защита от бесконечного цикла, если этап не продвинул состояние flow
+  logDir: openspec/flow-ralph # путь относительно projectPath
+  enableLogs: true # включение/выключение логов ответов агента
+

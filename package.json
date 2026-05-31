@@ -1,0 +1,20 @@
+{
+  "name": "agentic-flow-engine",
+  "version": "1.0.0",
+  "description": "Autonomous Agentic Engineering Flow controller",
+  "main": "src/flow-cli.ts",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "flow:ralph": "bun run src/flow-ralph.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "latest",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
