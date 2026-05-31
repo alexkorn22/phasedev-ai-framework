@@ -8,14 +8,19 @@ import { FlowPrompt } from "../../entities/flow-stage/types";
 import { getInitPrompt, getNextPrompt } from "../flow-control";
 import { createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { FlowRalphConfig, getStageModelConfig, resolveProjectLogDir } from "./config";
+import { createRalphOutput, RalphOutput } from "./ralph-output";
+import { FetchLike } from "./telegram-notifier";
 import { initializeMarkdownLog, logAgentResponse } from "./run-logs";
 
 export interface FlowRalphDependencies {
-  createCodex: () => Promise<CodexFactory> | CodexFactory;
+  createCodex?: () => Promise<CodexFactory> | CodexFactory;
   getInitPrompt?: typeof getInitPrompt;
   getNextPrompt?: typeof getNextPrompt;
   findActiveChangeDir?: typeof findActiveChangeDir;
   reporter?: Pick<typeof console, "log">;
+  output?: RalphOutput;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: FetchLike;
   now?: () => Date;
 }
 
@@ -120,91 +125,103 @@ function snapshotProjectState(projectPath: string, logDir: string): string {
   return hash.digest("hex");
 }
 
-export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = { createCodex: createDefaultCodexFactory }): Promise<FlowRalphResult> {
+export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = {}): Promise<FlowRalphResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
 
   const getInit = dependencies.getInitPrompt ?? getInitPrompt;
   const getNext = dependencies.getNextPrompt ?? getNextPrompt;
   const findActive = dependencies.findActiveChangeDir ?? findActiveChangeDir;
-  const reporter = dependencies.reporter ?? console;
+  const reporter = dependencies.output ?? createRalphOutput(
+    config.loop.notifications.telegram,
+    dependencies.reporter ?? console,
+    { env: dependencies.env, fetchImpl: dependencies.fetchImpl }
+  );
+  const createCodex = dependencies.createCodex ?? createDefaultCodexFactory;
   const now = dependencies.now ?? (() => new Date());
   const logDir = resolveProjectLogDir(resolvedProjectPath, config.loop.logDir);
   const logPath = path.join(logDir, "log.md");
 
-  if (config.loop.enableLogs) {
-    initializeMarkdownLog(logDir, reporter);
-  }
-
-  let codex: CodexFactory | null = null;
-
-  for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
-    const beforeActiveChange = findActive(resolvedProjectPath);
-    const nextPrompt = getNext(resolvedProjectPath, config);
-
-    if (nextPrompt.blocked) {
-      reporter.log(`[FLOW RALPH] blocked at stage: ${nextPrompt.stage}`);
-      reporter.log(`[FLOW RALPH] reason: ${nextPrompt.reason ?? "Flow controller blocked."}`);
-      reporter.log(`[FLOW RALPH] log: ${logPath}`);
-      return { status: "blocked", iterations: iteration - 1, logPath, reason: nextPrompt.reason ?? "Flow controller blocked." };
-    }
-
-    const stageModel = getStageModelConfig(config, nextPrompt.stage);
-    reporter.log(`[FLOW RALPH] iteration ${iteration}/${config.loop.maxIterations}`);
-    reporter.log(`[FLOW RALPH] stage: ${nextPrompt.stage}`);
-    reporter.log(`[FLOW RALPH] model: ${stageModel.model}`);
-    reporter.log(`[FLOW RALPH] reasoning: ${stageModel.reasoningEffort}`);
-    reporter.log(`[FLOW RALPH] active change: ${beforeActiveChange ?? "none"}`);
-    reporter.log("[FLOW RALPH] starting Codex session...");
-
-    codex = codex ?? await dependencies.createCodex();
-    const thread = codex.startThread({
-      workingDirectory: resolvedProjectPath,
-      model: stageModel.model,
-      modelReasoningEffort: stageModel.reasoningEffort,
-      sandboxMode: config.codex.sandboxMode,
-      approvalPolicy: config.codex.approvalPolicy,
-      networkAccessEnabled: config.codex.networkAccessEnabled
-    });
-
-    reporter.log("[FLOW RALPH] running flow init...");
-    await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
-    reporter.log("[FLOW RALPH] flow init completed");
-    const beforeStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
-    reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
-    const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
-    const afterStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
-
+  try {
     if (config.loop.enableLogs) {
-      logAgentResponse(
-        logDir,
-        iteration,
-        nextPrompt.stage,
-        stageModel.model,
-        stageModel.reasoningEffort,
-        turn.finalResponse ?? "",
-        now,
-        reporter
-      );
+      initializeMarkdownLog(logDir, reporter);
     }
 
-    const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
+    let codex: CodexFactory | null = null;
 
-    if (archived) {
+    for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
+      const beforeActiveChange = findActive(resolvedProjectPath);
+      const nextPrompt = getNext(resolvedProjectPath, config);
+
+      if (nextPrompt.blocked) {
+        reporter.log(`[FLOW RALPH] blocked at stage: ${nextPrompt.stage}`);
+        reporter.log(`[FLOW RALPH] reason: ${nextPrompt.reason ?? "Flow controller blocked."}`);
+        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        return { status: "blocked", iterations: iteration - 1, logPath, reason: nextPrompt.reason ?? "Flow controller blocked." };
+      }
+
+      const stageModel = getStageModelConfig(config, nextPrompt.stage);
+      reporter.log(`[FLOW RALPH] iteration ${iteration}/${config.loop.maxIterations}`);
+      reporter.log(`[FLOW RALPH] stage: ${nextPrompt.stage}`);
+      reporter.log(`[FLOW RALPH] model: ${stageModel.model}`);
+      reporter.log(`[FLOW RALPH] reasoning: ${stageModel.reasoningEffort}`);
+      reporter.log(`[FLOW RALPH] active change: ${beforeActiveChange ?? "none"}`);
+      reporter.log("[FLOW RALPH] starting Codex session...");
+
+      codex = codex ?? await createCodex();
+      const thread = codex.startThread({
+        workingDirectory: resolvedProjectPath,
+        model: stageModel.model,
+        modelReasoningEffort: stageModel.reasoningEffort,
+        sandboxMode: config.codex.sandboxMode,
+        approvalPolicy: config.codex.approvalPolicy,
+        networkAccessEnabled: config.codex.networkAccessEnabled
+      });
+
+      reporter.log("[FLOW RALPH] running flow init...");
+      await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
+      reporter.log("[FLOW RALPH] flow init completed");
+      const beforeStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
+      reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
+      const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
+      const afterStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
+
+      if (config.loop.enableLogs) {
+        const logEntry = logAgentResponse(
+          logDir,
+          iteration,
+          nextPrompt.stage,
+          stageModel.model,
+          stageModel.reasoningEffort,
+          turn.finalResponse ?? "",
+          now,
+          reporter
+        );
+        if (logEntry !== null) {
+          reporter.notify(logEntry);
+        }
+      }
+
+      const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
+
+      if (archived) {
+        reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);
+        reporter.log("[FLOW RALPH] archived");
+        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
+      }
+
+      if (beforeStageSnapshot === afterStageSnapshot) {
+        reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
+        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };
+      }
+
       reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);
-      reporter.log("[FLOW RALPH] archived");
-      reporter.log(`[FLOW RALPH] log: ${logPath}`);
-      return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
     }
 
-    if (beforeStageSnapshot === afterStageSnapshot) {
-      reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
-      reporter.log(`[FLOW RALPH] log: ${logPath}`);
-      return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };
-    }
-
-    reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);
+    return { status: "max_iterations", iterations: config.loop.maxIterations, logPath, reason: "Reached loop.maxIterations." };
+  } finally {
+    await reporter.flush();
   }
-
-  return { status: "max_iterations", iterations: config.loop.maxIterations, logPath, reason: "Reached loop.maxIterations." };
 }

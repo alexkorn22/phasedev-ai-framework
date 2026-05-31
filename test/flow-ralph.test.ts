@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { FlowPrompt, FlowStage } from "../src/entities/flow-stage/types";
-import { DEFAULT_FLOW_RALPH_CONFIG, FlowRalphConfig, runFlowRalph } from "../src/features/ralph-runner";
+import { runFlowRalphCli } from "../src/flow-ralph";
+import { DEFAULT_FLOW_RALPH_CONFIG, FlowRalphConfig, runFlowRalph, splitTelegramMessage } from "../src/features/ralph-runner";
 
 const testTmpDir = path.resolve(__dirname, "..", "test-ralph-temp");
 
@@ -32,6 +33,19 @@ function makeConfig(overrides: Partial<FlowRalphConfig["loop"]> = {}, codexOverr
   };
 }
 
+function makeTelegramConfig(overrides: Partial<FlowRalphConfig["loop"]> = {}, codexOverrides: Partial<FlowRalphConfig["codex"]> = {}): FlowRalphConfig {
+  return makeConfig({
+    ...overrides,
+    notifications: {
+      telegram: {
+        enabled: true,
+        botTokenEnv: "TEST_TELEGRAM_BOT_TOKEN",
+        chatIdEnv: "TEST_TELEGRAM_CHAT_ID"
+      }
+    }
+  }, codexOverrides);
+}
+
 function flowPrompt(command: "init" | "next", stage: FlowStage, text: string, blocked = false): FlowPrompt {
   return { command, stage, prompt: text, blocked, reason: blocked ? "blocked" : undefined };
 }
@@ -54,6 +68,19 @@ date: 2026-05-30
 ${rows}
 `, "utf-8");
 }
+
+function telegramFetchRecorder(messages: string[]): typeof fetch {
+  return async (_input, init) => {
+    const body = JSON.parse(String(init?.body));
+    messages.push(String(body.text));
+    return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+  };
+}
+
+const telegramEnv = {
+  TEST_TELEGRAM_BOT_TOKEN: "123:test-token",
+  TEST_TELEGRAM_CHAT_ID: "456"
+};
 
 describe("flow-ralph runner", () => {
   beforeEach(() => cleanupTestDir());
@@ -340,6 +367,46 @@ describe("flow-ralph runner", () => {
     expect(logContent).toContain("stage streamed response");
   });
 
+  test("mirrors Ralph console output, streamed Codex output, and log.md entry to Telegram", async () => {
+    const projectPath = setupProject();
+    const reporterMessages: string[] = [];
+    const telegramMessages: string[] = [];
+
+    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-telegram-stream",
+          async runStreamed(prompt: string) {
+            const isStageTurn = prompt.includes("FLOW NEXT PROMPT");
+            return {
+              events: streamEvents([
+                { type: "turn.started" },
+                { type: "item.completed", item: { id: "cmd-1", type: "command_execution", command: "bun test", aggregated_output: "tests passed", exit_code: 0, status: "completed" } },
+                { type: "item.completed", item: { id: "msg-1", type: "agent_message", text: isStageTurn ? "stage telegram response" : "init telegram response" } },
+                { type: "turn.completed", usage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 2, reasoning_output_tokens: 3 } }
+              ])
+            };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: message => reporterMessages.push(message) },
+      env: telegramEnv,
+      fetchImpl: telegramFetchRecorder(telegramMessages),
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
+    expect(reporterMessages.some(message => message.startsWith("## ["))).toBe(false);
+    expect(telegramMessages).toContain("[FLOW RALPH] iteration 1/1");
+    expect(telegramMessages).toContain("[CODEX flow init] command output:\ntests passed");
+    expect(telegramMessages).toContain("[CODEX implementation] agent_message:\nstage telegram response");
+    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("stage telegram response"))).toBe(true);
+  });
+
   test("can disable Codex stream output and fall back to buffered run", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
@@ -371,6 +438,37 @@ describe("flow-ralph runner", () => {
 
     const logContent = fs.readFileSync(result.logPath, "utf-8");
     expect(logContent).toContain("buffered stage response");
+  });
+
+  test("does not invent Codex stream messages for Telegram in buffered mode", async () => {
+    const projectPath = setupProject();
+    const telegramMessages: string[] = [];
+
+    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-buffered-telegram",
+          async run(prompt: string) {
+            return { finalResponse: prompt.includes("FLOW NEXT PROMPT") ? "buffered telegram response" : "buffered init response" };
+          },
+          async runStreamed() {
+            throw new Error("stream should be disabled");
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      env: telegramEnv,
+      fetchImpl: telegramFetchRecorder(telegramMessages),
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(telegramMessages.some(message => message.startsWith("[CODEX "))).toBe(false);
+    expect(telegramMessages).toContain("[FLOW RALPH] running flow init...");
+    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("buffered telegram response"))).toBe(true);
   });
 
   test("throws when streamed Codex turn fails", async () => {
@@ -766,5 +864,116 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("no_progress");
     expect(messages.some(msg => msg.includes("Failed to write to log.md"))).toBe(true);
+  });
+
+  test("does not crash or send Telegram requests when Telegram env vars are missing", async () => {
+    const projectPath = setupProject();
+    const reporterMessages: string[] = [];
+    let fetchCount = 0;
+
+    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-missing-env",
+          async run() {
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: message => reporterMessages.push(message) },
+      env: {},
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(fetchCount).toBe(0);
+    expect(reporterMessages.some(message => message.includes("Telegram notifications disabled: missing TEST_TELEGRAM_BOT_TOKEN or TEST_TELEGRAM_CHAT_ID"))).toBe(true);
+  });
+
+  test("continues when Telegram API sends fail and does not recursively notify the failure", async () => {
+    const projectPath = setupProject();
+    const reporterMessages: string[] = [];
+    let fetchCount = 0;
+
+    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-telegram-failure",
+          async run() {
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: message => reporterMessages.push(message) },
+      env: telegramEnv,
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response("bad gateway", { status: 502 });
+      },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    const failureMessages = reporterMessages.filter(message => message.includes("Failed to send Telegram notification"));
+    expect(result.status).toBe("no_progress");
+    expect(fetchCount).toBeGreaterThan(0);
+    expect(failureMessages.length).toBeGreaterThan(0);
+    expect(fetchCount).toBeLessThan(reporterMessages.length + failureMessages.length);
+  });
+
+  test("splits long Telegram messages below the Telegram sendMessage limit", () => {
+    const chunks = splitTelegramMessage("x".repeat(8200));
+
+    expect(chunks.length).toBe(3);
+    expect(chunks.every(chunk => chunk.length <= 3900)).toBe(true);
+    expect(chunks.join("")).toBe("x".repeat(8200));
+  });
+
+  test("flow:ralph CLI final status lines use the same Telegram output path", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "ralph-config.yaml");
+    const reporterMessages: string[] = [];
+    const telegramMessages: string[] = [];
+
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  notifications:
+    telegram:
+      enabled: true
+      botTokenEnv: TEST_TELEGRAM_BOT_TOKEN
+      chatIdEnv: TEST_TELEGRAM_CHAT_ID
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+
+    await runFlowRalphCli(["--project-path", projectPath, "--config", configPath], {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-cli",
+          async run() {
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      reporter: { log: message => reporterMessages.push(message) },
+      env: telegramEnv,
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
+
+    expect(reporterMessages).toContain("[FLOW RALPH] status: no_progress");
+    expect(reporterMessages).toContain("[FLOW RALPH] iterations: 1");
+    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
+    expect(telegramMessages).toContain("[FLOW RALPH] iterations: 1");
+    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done"))).toBe(true);
   });
 });

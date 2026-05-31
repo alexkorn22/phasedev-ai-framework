@@ -160,6 +160,12 @@ codex:
 loop:
   maxIterations: 10 # максимум сессий этапов за один запуск
   logDir: openspec/flow-ralph # путь относительно projectPath
+  enableLogs: true # включение/выключение log.md ответов агента
+  notifications:
+    telegram:
+      enabled: false # true = зеркалировать вывод Ralph Loop и log.md записи в Telegram
+      botTokenEnv: FLOW_RALPH_TELEGRAM_BOT_TOKEN # имя env var с токеном Telegram bot
+      chatIdEnv: FLOW_RALPH_TELEGRAM_CHAT_ID # имя env var с chat id получателя
 ```
 
 `codex.default` задает модель и уровень reasoning по умолчанию. `codex.stages` позволяет переопределить их для отдельных этапов: `setup`, `research`, `design`, `plan`, `implementation`, `phase_validation`, `final_validation`, `repair`, `archive`. Если этап не указан в `codex.stages`, используется `codex.default`.
@@ -197,6 +203,28 @@ Skills не наследуются из `codex.default`: каждый stage до
 ```
 
 Если `codex.streamAgentOutput: true`, Codex streaming выводится полностью: reasoning summary, команды, aggregated output команд, изменения файлов, tool calls, web search, todo list, финальные сообщения агента и usage. Если поставить `false`, в консоли останутся только сообщения `[FLOW RALPH]`, а Codex turn будет выполняться в buffered-режиме. Полный скрытый chain-of-thought модели не выводится, потому что Codex SDK его не раскрывает.
+
+### Telegram-уведомления Ralph Loop
+
+Telegram-уведомления относятся только к `npm run flow:ralph`. Ручные команды `flow-cli init` и `flow-cli next` не отправляют уведомления.
+
+Чтобы включить зеркало Ralph Loop в Telegram:
+
+```bash
+export FLOW_RALPH_TELEGRAM_BOT_TOKEN="123456:bot-token"
+export FLOW_RALPH_TELEGRAM_CHAT_ID="123456789"
+```
+
+```yaml
+loop:
+  notifications:
+    telegram:
+      enabled: true
+```
+
+При включении Telegram получает тот же текст, который Ralph Loop печатает в консоль, включая `[FLOW RALPH]` сообщения и `[CODEX ...]` streaming output, если `codex.streamAgentOutput: true`. Также Telegram получает каждую запись, которая успешно добавлена в `log.md`. Сообщения отправляются plain text без Markdown parse mode и автоматически дробятся на части ниже лимита Telegram `sendMessage`.
+
+Если Telegram API недоступен, отсутствуют env vars или отправка завершилась ошибкой, Ralph Loop продолжает работу и пишет диагностическое сообщение в консоль. Так как вывод зеркалируется без фильтрации, команды, tool payloads и ответы агента могут содержать чувствительные данные.
 
 ## Журналы
 

@@ -25,6 +25,11 @@ loop:
     expect(config.loop.maxIterations).toBe(3);
     expect(config.loop.logDir).toBe("openspec/flow-ralph");
     expect(config.loop.enableLogs).toBe(true);
+    expect(config.loop.notifications.telegram).toEqual({
+      enabled: false,
+      botTokenEnv: "FLOW_RALPH_TELEGRAM_BOT_TOKEN",
+      chatIdEnv: "FLOW_RALPH_TELEGRAM_CHAT_ID"
+    });
     expect(getStageModelConfig(config, "archive")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "low" });
     expect(getStageModelConfig(config, "implementation")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "medium" });
     expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
@@ -127,6 +132,39 @@ loop:
 loop:
   enableLogs: 123
 `)).toThrow("loop.enableLogs");
+  });
+
+  test("parses telegram notification override", () => {
+    const config = parseFlowRalphConfig(`
+loop:
+  notifications:
+    telegram:
+      enabled: true
+      botTokenEnv: CUSTOM_BOT_TOKEN
+      chatIdEnv: CUSTOM_CHAT_ID
+`);
+
+    expect(config.loop.notifications.telegram).toEqual({
+      enabled: true,
+      botTokenEnv: "CUSTOM_BOT_TOKEN",
+      chatIdEnv: "CUSTOM_CHAT_ID"
+    });
+  });
+
+  test("rejects invalid telegram notification config", () => {
+    expect(() => parseFlowRalphConfig(`
+loop:
+  notifications:
+    telegram:
+      enabled: yes
+`)).toThrow("loop.notifications.telegram.enabled");
+
+    expect(() => parseFlowRalphConfig(`
+loop:
+  notifications:
+    telegram:
+      botTokenEnv: ""
+`)).toThrow("loop.notifications.telegram.botTokenEnv");
   });
 
   test("rejects invalid enum values", () => {

@@ -22,6 +22,16 @@ export type StageConfig = StageModelConfig & {
   skills: StageSkillConfig;
 };
 
+export type TelegramNotificationConfig = {
+  enabled: boolean;
+  botTokenEnv: string;
+  chatIdEnv: string;
+};
+
+export type NotificationConfig = {
+  telegram: TelegramNotificationConfig;
+};
+
 export interface FlowRalphConfig {
   codex: {
     default: StageModelConfig;
@@ -35,6 +45,7 @@ export interface FlowRalphConfig {
     maxIterations: number;
     logDir: string;
     enableLogs: boolean;
+    notifications: NotificationConfig;
   };
 }
 
@@ -59,7 +70,14 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
   loop: {
     maxIterations: 10,
     logDir: "openspec/flow-ralph",
-    enableLogs: true
+    enableLogs: true,
+    notifications: {
+      telegram: {
+        enabled: false,
+        botTokenEnv: "FLOW_RALPH_TELEGRAM_BOT_TOKEN",
+        chatIdEnv: "FLOW_RALPH_TELEGRAM_CHAT_ID"
+      }
+    }
   }
 };
 
@@ -177,6 +195,22 @@ function parseStageConfig(value: unknown, fallback: StageModelConfig, key: strin
   };
 }
 
+function parseTelegramNotificationConfig(value: unknown, fallback: TelegramNotificationConfig, key: string): TelegramNotificationConfig {
+  const telegram = asRecord(value, key);
+  return {
+    enabled: readBoolean(telegram.enabled, fallback.enabled, `${key}.enabled`),
+    botTokenEnv: readString(telegram.botTokenEnv, fallback.botTokenEnv, `${key}.botTokenEnv`),
+    chatIdEnv: readString(telegram.chatIdEnv, fallback.chatIdEnv, `${key}.chatIdEnv`)
+  };
+}
+
+function parseNotificationConfig(value: unknown, fallback: NotificationConfig, key: string): NotificationConfig {
+  const notifications = asRecord(value, key);
+  return {
+    telegram: parseTelegramNotificationConfig(notifications.telegram, fallback.telegram, `${key}.telegram`)
+  };
+}
+
 export function parseFlowRalphConfig(content: string): FlowRalphConfig {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
@@ -207,7 +241,8 @@ export function parseFlowRalphConfig(content: string): FlowRalphConfig {
     loop: {
       maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_FLOW_RALPH_CONFIG.loop.maxIterations, "loop.maxIterations"),
       logDir: readString(loop.logDir, DEFAULT_FLOW_RALPH_CONFIG.loop.logDir, "loop.logDir"),
-      enableLogs: readBoolean(loop.enableLogs, DEFAULT_FLOW_RALPH_CONFIG.loop.enableLogs, "loop.enableLogs")
+      enableLogs: readBoolean(loop.enableLogs, DEFAULT_FLOW_RALPH_CONFIG.loop.enableLogs, "loop.enableLogs"),
+      notifications: parseNotificationConfig(loop.notifications, DEFAULT_FLOW_RALPH_CONFIG.loop.notifications, "loop.notifications")
     }
   };
 }

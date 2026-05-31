@@ -28,6 +28,27 @@ export function initializeMarkdownLog(logDir: string, reporter: Pick<typeof cons
   }
 }
 
+export function formatAgentResponseLogEntry(
+  iteration: number,
+  stage: string,
+  model: string,
+  reasoningEffort: string,
+  response: string,
+  now: () => Date
+): string {
+  const timestamp = formatLogDate(now());
+  return [
+    `## [${timestamp}] Iteration: ${iteration} | Stage: ${stage}`,
+    `**Model:** ${model} (${reasoningEffort})`,
+    "",
+    response,
+    "",
+    "---",
+    "",
+    ""
+  ].join("\n");
+}
+
 export function logAgentResponse(
   logDir: string,
   iteration: number,
@@ -37,7 +58,7 @@ export function logAgentResponse(
   response: string,
   now: () => Date,
   reporter: Pick<typeof console, "log">
-): void {
+): string | null {
   try {
     const mdLogPath = path.join(logDir, "log.md");
     let existingContent = "";
@@ -45,21 +66,13 @@ export function logAgentResponse(
       existingContent = fs.readFileSync(mdLogPath, "utf-8");
     }
 
-    const timestamp = formatLogDate(now());
-    const logEntry = [
-      `## [${timestamp}] Iteration: ${iteration} | Stage: ${stage}`,
-      `**Model:** ${model} (${reasoningEffort})`,
-      "",
-      response,
-      "",
-      "---",
-      "",
-      ""
-    ].join("\n");
+    const logEntry = formatAgentResponseLogEntry(iteration, stage, model, reasoningEffort, response, now);
 
     fs.mkdirSync(path.dirname(mdLogPath), { recursive: true });
     fs.writeFileSync(mdLogPath, logEntry + existingContent, "utf-8");
+    return logEntry;
   } catch (error) {
     reporter.log(`[FLOW RALPH] Failed to write to log.md: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
   }
 }

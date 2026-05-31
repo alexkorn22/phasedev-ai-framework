@@ -11,9 +11,11 @@ export {
 export type {
   ApprovalPolicy,
   FlowRalphConfig,
+  NotificationConfig,
   ReasoningEffort,
   SandboxMode,
   StageConfig,
   StageModelConfig,
-  StageSkillConfig
+  StageSkillConfig,
+  TelegramNotificationConfig
 } from "../../entities/flow-config/config";
