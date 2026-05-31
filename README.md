@@ -211,9 +211,17 @@ Telegram-уведомления относятся только к `npm run flow
 Чтобы включить зеркало Ralph Loop в Telegram:
 
 ```bash
-export FLOW_RALPH_TELEGRAM_BOT_TOKEN="123456:bot-token"
-export FLOW_RALPH_TELEGRAM_CHAT_ID="123456789"
+cp .env.example .env
 ```
+
+Заполните `.env`:
+
+```dotenv
+FLOW_RALPH_TELEGRAM_BOT_TOKEN=123456:bot-token
+FLOW_RALPH_TELEGRAM_CHAT_ID=123456789
+```
+
+`npm run flow:ralph` автоматически читает `.env` из директории используемого `config.yaml`. При стандартном запуске это `.env` в корне `ag-dev-flow`. Значения из уже установленного окружения имеют приоритет над `.env`.
 
 ```yaml
 loop:

@@ -9,3 +9,6 @@
 /test-results
 /test-results-*/
 .DS_Store
+.env
+.env.*
+!.env.example

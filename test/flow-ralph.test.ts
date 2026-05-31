@@ -976,4 +976,42 @@ codex:
     expect(telegramMessages).toContain("[FLOW RALPH] iterations: 1");
     expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done"))).toBe(true);
   });
+
+  test("flow:ralph CLI loads Telegram credentials from .env next to config", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "ralph-config.yaml");
+    const envPath = path.join(testTmpDir, ".env");
+    const telegramMessages: string[] = [];
+
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  notifications:
+    telegram:
+      enabled: true
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+    fs.writeFileSync(envPath, `
+FLOW_RALPH_TELEGRAM_BOT_TOKEN=123:from-env-file
+FLOW_RALPH_TELEGRAM_CHAT_ID=789
+`, "utf-8");
+
+    await runFlowRalphCli(["--project-path", projectPath, "--config", configPath], {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-cli-env-file",
+          async run() {
+            return { finalResponse: "done from env file" };
+          }
+        })
+      }),
+      reporter: { log: () => undefined },
+      env: {},
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
+
+    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
+    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done from env file"))).toBe(true);
+  });
 });

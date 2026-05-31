@@ -84,6 +84,7 @@ codex:
         routers: []
         main:
           - code-review-and-quality
+          - security-and-hardening
         additional:
           - test-audit
           - api-audit
@@ -100,8 +101,8 @@ codex:
         routers: []
         main:
           - code-review-and-quality
-        additional:
           - security-and-hardening
+        additional:
           - code-audit
           - review
           - test-audit
@@ -119,6 +120,7 @@ codex:
         main:
           - dev-core
           - receive-review
+          - incremental-implementation
         additional:
           - debugging-and-error-recovery
           - debug
@@ -151,6 +153,6 @@ loop:
   enableLogs: true # включение/выключение логов ответов агента
   notifications:
     telegram:
-      enabled: false # true = зеркалировать вывод Ralph Loop и log.md записи в Telegram
+      enabled: true # true = зеркалировать вывод Ralph Loop и log.md записи в Telegram
       botTokenEnv: FLOW_RALPH_TELEGRAM_BOT_TOKEN # имя env var с токеном Telegram bot
       chatIdEnv: FLOW_RALPH_TELEGRAM_CHAT_ID # имя env var с chat id получателя
