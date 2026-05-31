@@ -264,7 +264,7 @@ npm run flow:ralph -- --project-path /absolute/project
 2. До печати prompt контроллер переносит active change из `openspec/changes/<change-name>` в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>`.
 3. В archived change создается pending-state файл `.flow-archive.json` со статусом `in_progress`.
 4. Prompt архивации ссылается уже на archived change path.
-5. Агент создает delta specs в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>/specs`, обновляет `openspec/specs`, затем меняет `.flow-archive.json` на `status: "completed"`.
+5. Агент создает delta specs в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>/specs`, разбивая их по функциональным областям (`specs/<capability>/spec.md`), обновляет `openspec/specs`, затем меняет `.flow-archive.json` на `status: "completed"`.
 
 Отдельного archive script и отдельной archive-команды нет. Повторный `flow next` при незавершенном archive stage находит pending `.flow-archive.json` и печатает тот же Archive prompt для уже archived change. Это позволяет возобновить archive stage после сбоя без потери active change.
 

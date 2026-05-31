@@ -40,7 +40,12 @@ Gate-status файл:
 3. Если spec-level изменений нет, явно зафиксируйте в финальном отчете: `Spec sync skipped: no requirement-level changes`.
 4. Если изменения есть, создайте delta specs в archived change-директории: [{{archive_path}}/specs]({{change_specs_path}}).
    - Путь capability spec: `{{archive_path}}/specs/<capability>/spec.md`.
+   - One spec file = one functional area.
+   - Перед созданием файлов выделите функциональные области из `prd.md`, `rules.md`, `research_facts.md`, `architecture/design.md` и `implementation_plan.md`.
+   - Не создавайте один большой catch-all spec вроде `specification`, `change`, `archive` или `{{change_name}}`.
+   - Если change затрагивает несколько независимых пользовательских сценариев, workflow, API/интерфейсов, модулей, доменов, ролей или интеграций, создайте несколько capability directories.
    - Не создавайте новую capability, если изменение должно обновить существующую capability.
+   - Если изменение обновляет existing capability, пишите delta spec для этой capability, но не смешивайте unrelated требования из других функциональных областей.
    - Не переносите в specs внутренние implementation details, временные задачи, тестовые команды или validation findings.
 
 Используйте формат OpenSpec delta specs:

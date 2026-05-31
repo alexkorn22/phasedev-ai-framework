@@ -867,6 +867,8 @@ describe("flow templates", () => {
     expect(archiveTemplate).toContain("[implementation_plan.md]({{plan_path}})");
     expect(archiveTemplate).toContain("Не используйте `validation_findings.md` как источник требований");
     expect(archiveTemplate).toContain("{{archive_path}}/specs/<capability>/spec.md");
+    expect(archiveTemplate).toContain("One spec file = one functional area.");
+    expect(archiveTemplate).toContain("Не создавайте один большой catch-all spec");
     expect(archiveTemplate).toContain("## ADDED Requirements");
     expect(archiveTemplate).toContain("{{archive_state_path}}");
     expect(archiveTemplate).toContain("status: \"completed\"");
