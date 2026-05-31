@@ -738,16 +738,20 @@ describe("flow templates", () => {
     const repairTemplate = readTemplate("step5r_repair.md");
 
     for (const template of [phaseTemplate, finalTemplate]) {
-      expect(template).toContain("проверьте существующий `validation_findings.md`");
+      expect(template).toContain("прочитайте всю историю существующего `validation_findings.md`");
+      expect(template).toContain("не очищайте старые findings");
       expect(template).toContain("сохраните прежний `ID` и близкое исходное `Description`");
+      expect(template).toContain("без нового конкретного evidence из рабочего кода вне `openspec/**`");
       expect(template).toContain("Status` = `reopened");
       expect(template).toContain("reopened/regression");
       expect(template).toContain("не меняя остальной текст `Description`");
+      expect(template).toContain("полностью игнорируйте `openspec/**`");
+      expect(template).toContain("не diff, не review и не report любые файлы под `openspec/**`");
     }
 
     expect(repairTemplate).toContain("сохраняйте repair evidence");
-    expect(repairTemplate).toContain("не меняйте исходный `Description`");
-    expect(repairTemplate).toContain("используется для распознавания повторов");
+    expect(repairTemplate).toContain("не редактируйте и не удаляйте старые findings");
+    expect(repairTemplate).toContain("считайте актуальным статусом finding последнюю запись");
     expect(repairTemplate).toContain("changed area");
     expect(repairTemplate).toContain("verification performed");
     expect(repairTemplate).toContain("tradeoff");

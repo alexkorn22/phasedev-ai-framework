@@ -33,7 +33,6 @@ export interface FlowRalphConfig {
   };
   loop: {
     maxIterations: number;
-    stopOnNoProgress: boolean;
     logDir: string;
     enableLogs: boolean;
   };
@@ -59,7 +58,6 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
   },
   loop: {
     maxIterations: 10,
-    stopOnNoProgress: true,
     logDir: "openspec/flow-ralph",
     enableLogs: true
   }
@@ -208,7 +206,6 @@ export function parseFlowRalphConfig(content: string): FlowRalphConfig {
     },
     loop: {
       maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_FLOW_RALPH_CONFIG.loop.maxIterations, "loop.maxIterations"),
-      stopOnNoProgress: readBoolean(loop.stopOnNoProgress, DEFAULT_FLOW_RALPH_CONFIG.loop.stopOnNoProgress, "loop.stopOnNoProgress"),
       logDir: readString(loop.logDir, DEFAULT_FLOW_RALPH_CONFIG.loop.logDir, "loop.logDir"),
       enableLogs: readBoolean(loop.enableLogs, DEFAULT_FLOW_RALPH_CONFIG.loop.enableLogs, "loop.enableLogs")
     }

@@ -159,7 +159,6 @@ codex:
 
 loop:
   maxIterations: 10 # максимум сессий этапов за один запуск
-  stopOnNoProgress: true # защита от бесконечного цикла, если этап не продвинул состояние flow
   logDir: openspec/flow-ralph # путь относительно projectPath
 ```
 
@@ -201,24 +200,20 @@ Skills не наследуются из `codex.default`: каждый stage до
 
 ## Журналы
 
-Раннер пишет JSONL-журналы в:
+Раннер пишет только `log.md` в директорию `loop.logDir` рабочего проекта:
 
 ```text
-<projectPath>/openspec/flow-ralph
+<projectPath>/<loop.logDir>/log.md
 ```
 
 В журнале фиксируются:
 
 - номер итерации;
-- id сессии Codex;
 - текущий этап;
 - модель и уровень reasoning;
-- активное изменение до и после этапа;
-- snapshot состояния flow до и после этапа;
-- итоговый ответ агента;
-- статус итерации.
+- итоговый ответ агента.
 
-Журналы не пишутся в папку активного изменения, чтобы не загрязнять артефакты flow.
+Отдельные JSONL-журналы и flow snapshots раннер больше не пишет.
 
 ## Проверки с участием человека
 
@@ -256,9 +251,9 @@ npm run flow:ralph -- --project-path /absolute/project
 
 Если найден `repair_required`, следующий `flow next` отправит агента в Repair Loop. После исправления Ralph-раннер стартует новую сессию Codex, снова выполнит `flow init`, затем текущий `flow next`, и проверка будет повторена.
 
-Ralph-раннер защищает validation/repair цикл от простого зацикливания. После Repair Loop он запоминает blocking findings, которые были переведены в `resolved`, по semantic signature из `type`, `Phase`, `Class` и нормализованного `Description`. Если следующая Phase Validation или Final Validation снова открывает такой же blocking finding, раннер останавливается со статусом `blocked` и причиной вида `Repeated validation finding after repair: ...`.
+Validation полностью игнорирует `openspec/**` при поиске implementation findings. OpenSpec используется как системный контракт flow: validation читает требования, дизайн, план и историю `validation_findings.md`, но не создает замечания по файлам внутри `openspec/**`.
 
-Для этой защиты validation prompts требуют сохранять прежний `ID` и близкое исходное `Description` для семантически того же finding. Если finding вернулся после repair, validation должна поставить `Status` = `reopened` и добавить в `Description` только префикс `reopened/regression: ` перед прежним текстом. Repair Loop не должен менять issue-текст `Description` у resolved finding; evidence по исправлению пишется рядом с таблицей: changed area, verification performed и tradeoff.
+`validation_findings.md` ведется как история: validation и repair читают прошлые записи, не удаляют старые findings/resolved sections и добавляют новый результат новой секцией. Если прежний finding был `resolved`, validation не должна reopen-ить его без нового конкретного evidence из рабочего кода вне `openspec/**`.
 
 ## Архивация
 
@@ -311,12 +306,6 @@ npm run typecheck
 - Только одна фаза может иметь статус `[~]`.
 - Каждая фаза должна иметь хотя бы один task checkbox.
 
-Если раннер остановился с `no_progress`:
-
-- Агент не изменил состояние flow за сессию этапа.
-- Проверьте последний JSONL-журнал в `openspec/flow-ralph`.
-- Частая причина: агент задал вопрос пользователю, не смог выполнить команду или уперся в недоступную среду.
-
 Если раннер остановился с `max_iterations`:
 
 - Flow не дошел до архивации за `loop.maxIterations`.
@@ -326,4 +315,3 @@ npm run typecheck
 
 - Это штатное поведение.
 - Проверьте сообщение контроллера, выполните проверку человеком или исправьте указанную проблему, затем запустите раннер снова.
-- Если причина blocker начинается с `Repeated validation finding after repair`, проверьте конфликт между исправлениями: одно repair-изменение могло восстановить прежний blocking finding. В этом случае нужен human decision: изменить design/plan, принять риск или выполнить более широкий repair.

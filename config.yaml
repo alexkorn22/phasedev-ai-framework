@@ -147,6 +147,5 @@ codex:
 
 loop:
   maxIterations: 10 # максимум сессий этапов за один запуск
-  stopOnNoProgress: true # защита от бесконечного цикла, если этап не продвинул состояние flow
   logDir: openspec/flow-ralph # путь относительно projectPath
   enableLogs: true # включение/выключение логов ответов агента

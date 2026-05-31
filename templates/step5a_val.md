@@ -12,13 +12,17 @@ Stage contract: проверить готовность текущей фазы 
 
 Обязательные проверки stage contract:
 - соответствие результата текущей фазы approved design и criteria из plan;
-- полнота change set и task statuses текущей фазы проверены review-методами без запуска тестов;
+- полнота production/test/source/config changes текущей фазы и task statuses текущей фазы проверены review-методами без запуска тестов;
+- полностью игнорируйте `openspec/**` при поиске implementation findings: не diff, не review и не report любые файлы под `openspec/**` как change set, product code, PR scope или источник замечаний;
+- используйте `openspec/changes/<active>` только как read-only входной контракт flow: requirements, rules, approved design, plan и previous validation history;
 - тесты и дополнительные проверки из Implementation stage считаются уже успешно пройденными, потому что Implementation не может завершиться с failed tests/checks;
 - не запускайте тесты и дополнительные проверки повторно на этом этапе;
 - validation evidence записан в [validation_findings.md]({{findings_path}}).
-- перед записью нового результата проверьте существующий `validation_findings.md`, если он есть;
+- перед поиском новых ошибок прочитайте всю историю существующего `validation_findings.md`, если он есть;
+- не очищайте старые findings, resolved записи или прошлые validation sections; новый результат добавляйте новой секцией и обновляйте YAML frontmatter сверху;
 - если finding семантически совпадает с прежним, сохраните прежний `ID` и близкое исходное `Description`;
-- если finding вернулся после repair, поставьте `Status` = `reopened` и добавьте в `Description` только префикс `reopened/regression: ` перед прежним текстом, не меняя остальной текст `Description`.
+- если прежний finding был `resolved`, не reopen-ьте его без нового конкретного evidence из рабочего кода вне `openspec/**`;
+- если finding действительно вернулся после repair, поставьте `Status` = `reopened` и добавьте в `Description` только префикс `reopened/regression: ` перед прежним текстом, не меняя остальной текст `Description`.
 
 Формат `validation_findings.md`:
 ---

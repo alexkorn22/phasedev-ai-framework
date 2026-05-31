@@ -14,18 +14,20 @@ Stage contract: обработать open findings из validation и подго
 {{open_findings}}
 
 Правила обработки findings:
-- перед началом работы над конкретным finding измените его статус в [validation_findings.md]({{findings_path}}) с `open` на `in_progress`;
+- считайте актуальным статусом finding последнюю запись с тем же `ID` в [validation_findings.md]({{findings_path}});
+- не редактируйте и не удаляйте старые findings, resolved записи или прошлые validation/repair sections;
+- перед началом работы над конкретным finding добавьте новую repair запись/секцию со статусом `in_progress`;
 - `implementation`: обновите change set в рамках текущего approved design и plan;
 - `plan`: обновите [implementation_plan.md]({{plan_path}}), затем обновите affected change set;
 - `design`: обновите [design.md]({{design_path}}) и связанные architecture files, затем обновите affected plan/change set;
 - `requirements`: после обсуждения с пользователем обновите [prd.md]({{prd_path}}), затем affected design/plan/change set;
-- после обработки finding измените его статус на `resolved`.
-- не меняйте исходный `Description` у resolved finding: он используется для распознавания повторов;
+- после обработки finding добавьте новую repair запись/секцию со статусом `resolved`.
+- не меняйте исходный `Description` у resolved finding: он используется для сопоставления истории validation;
 - для каждого `resolved` finding сохраняйте repair evidence рядом с таблицей: changed area, verification performed, tradeoff.
 
 Правило verdict:
-- не меняйте `verdict: repair_required`, пока все findings не имеют статус `resolved`;
-- когда все findings `resolved`, установите `verdict: repaired` и обновите дату;
+- не меняйте `verdict: repair_required`, пока все актуальные blocking findings не имеют последний статус `resolved`;
+- когда все актуальные blocking findings имеют последний статус `resolved`, установите `verdict: repaired` и обновите дату;
 - не устанавливайте `ready` или `ready_with_risks` на Repair Loop этапе.
 
 ## Repair Visual Formatting

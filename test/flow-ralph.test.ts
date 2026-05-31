@@ -196,14 +196,14 @@ describe("flow-ralph runner", () => {
     });
 
     expect(seenInitConfigs).toEqual([config]);
-    expect(seenNextConfigs).toEqual([config, config]);
+    expect(seenNextConfigs).toEqual([config]);
   });
 
-  test("stops on no progress after one stage session", async () => {
+  test("continues to maxIterations when stage makes no progress", async () => {
     const projectPath = setupProject();
     const threads: Array<{ prompts: string[] }> = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           const thread = { prompts: [] as string[] };
@@ -224,9 +224,9 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("no_progress");
-    expect(result.iterations).toBe(1);
-    expect(threads).toHaveLength(1);
+    expect(result.status).toBe("max_iterations");
+    expect(result.iterations).toBe(2);
+    expect(threads).toHaveLength(2);
   });
 
   test("stops at maxIterations", async () => {
@@ -234,7 +234,7 @@ describe("flow-ralph runner", () => {
     let promptCounter = 0;
     const threads: unknown[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           threads.push({});
@@ -258,10 +258,10 @@ describe("flow-ralph runner", () => {
     expect(threads).toHaveLength(2);
   });
 
-  test("writes per-stage JSONL logs under project openspec flow-ralph directory", async () => {
+  test("writes only formatted log.md under project log directory", async () => {
     const projectPath = setupProject();
 
-    const result = await runFlowRalph(projectPath, makeConfig(), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-1",
@@ -278,18 +278,19 @@ describe("flow-ralph runner", () => {
     });
 
     expect(fs.existsSync(result.logPath)).toBe(true);
-    const logLine = fs.readFileSync(result.logPath, "utf-8").trim();
-    expect(logLine).toContain('"threadId":"thread-1"');
-    expect(logLine).toContain('"stage":"implementation"');
-    expect(logLine).toContain('"beforeSnapshot"');
-    expect(result.logPath).toContain(path.join(projectPath, "openspec", "flow-ralph"));
+    expect(result.logPath).toBe(path.join(projectPath, "openspec", "flow-ralph", "log.md"));
+    const logContent = fs.readFileSync(result.logPath, "utf-8");
+    expect(logContent).toContain("## [");
+    expect(logContent).toContain("Iteration: 1 | Stage: implementation");
+    expect(logContent).toContain("done");
+    expect(fs.readdirSync(path.dirname(result.logPath)).some(file => file.endsWith(".jsonl"))).toBe(false);
   });
 
   test("streams Codex events to reporter and logs finalResponse from agent message", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig(), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-stream",
@@ -319,7 +320,7 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("no_progress");
+    expect(result.status).toBe("max_iterations");
     expect(messages).toContain("[CODEX flow init] thread.started: thread-stream");
     expect(messages).toContain("[CODEX flow init] reasoning: checking flow state");
     expect(messages).toContain("[CODEX flow init] command: bun test");
@@ -331,8 +332,8 @@ describe("flow-ralph runner", () => {
     expect(messages).toContain("[CODEX implementation] agent_message:\nstage streamed response");
     expect(messages).toContain("[CODEX implementation] turn.completed usage: input=10, cached=2, output=3, reasoning=4");
 
-    const logLine = fs.readFileSync(result.logPath, "utf-8").trim();
-    expect(logLine).toContain('"finalResponse":"stage streamed response"');
+    const logContent = fs.readFileSync(result.logPath, "utf-8");
+    expect(logContent).toContain("stage streamed response");
   });
 
   test("can disable Codex stream output and fall back to buffered run", async () => {
@@ -340,7 +341,7 @@ describe("flow-ralph runner", () => {
     const messages: string[] = [];
     const prompts: string[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({}, { streamAgentOutput: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-buffered",
@@ -360,12 +361,12 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("no_progress");
+    expect(result.status).toBe("max_iterations");
     expect(prompts).toHaveLength(2);
     expect(messages.some(message => message.startsWith("[CODEX "))).toBe(false);
 
-    const logLine = fs.readFileSync(result.logPath, "utf-8").trim();
-    expect(logLine).toContain('"finalResponse":"buffered stage response"');
+    const logContent = fs.readFileSync(result.logPath, "utf-8");
+    expect(logContent).toContain("buffered stage response");
   });
 
   test("throws when streamed Codex turn fails", async () => {
@@ -397,7 +398,7 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const options: unknown[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, stopOnNoProgress: false }, {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }, {
       stages: {
         implementation: { model: "gpt-5.3-codex", reasoningEffort: "medium" }
       }
@@ -483,7 +484,7 @@ describe("flow-ralph runner", () => {
     expect(threads).toHaveLength(2);
   });
 
-  test("blocks when validation reopens a blocking finding resolved by the prior repair", async () => {
+  test("continues when validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
@@ -496,8 +497,7 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
 
-    const messages: string[] = [];
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5, stopOnNoProgress: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repeat",
@@ -520,20 +520,17 @@ describe("flow-ralph runner", () => {
           : flowPrompt("next", "phase_validation", "validation prompt");
       },
       findActiveChangeDir: () => changeDir,
-      reporter: { log: message => messages.push(message) },
+      reporter: { log: () => undefined },
       now: () => new Date("2026-05-30T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("blocked");
+    expect(result.status).toBe("max_iterations");
     expect(result.iterations).toBe(2);
-    expect(result.reason).toBe("Repeated validation finding after repair: phase|phase 1|implementation|api response omits required error handling");
-    expect(messages).toContain("[FLOW RALPH] blocked at stage: phase_validation");
-    const logLines = fs.readFileSync(result.logPath, "utf-8").trim().split("\n");
-    expect(logLines[1]).toContain('"status":"blocked"');
-    expect(logLines[1]).toContain("Repeated validation finding after repair");
+    expect(result.reason).toBe("Reached loop.maxIterations.");
+    expect(fs.readFileSync(result.logPath, "utf-8")).toContain("done");
   });
 
-  test("blocks when final validation reopens a blocking finding resolved by the prior repair", async () => {
+  test("continues when final validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
@@ -546,7 +543,7 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Final | API response omits required error handling. |", "final");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5, stopOnNoProgress: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-final-repeat",
@@ -573,9 +570,9 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-30T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("blocked");
+    expect(result.status).toBe("max_iterations");
     expect(result.iterations).toBe(2);
-    expect(result.reason).toBe("Repeated validation finding after repair: final|final|implementation|api response omits required error handling");
+    expect(result.reason).toBe("Reached loop.maxIterations.");
   });
 
   test("continues when validation reports a different blocking finding after repair", async () => {
@@ -592,7 +589,7 @@ describe("flow-ralph runner", () => {
     writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
 
     let stageTurns = 0;
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -639,7 +636,7 @@ describe("flow-ralph runner", () => {
     writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
 
     let stageTurns = 0;
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -676,7 +673,7 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     let promptCounter = 0;
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false, enableLogs: true }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-log-test",
@@ -713,7 +710,7 @@ describe("flow-ralph runner", () => {
   test("does not write log.md when enableLogs is false", async () => {
     const projectPath = setupProject();
 
-    await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, stopOnNoProgress: false, enableLogs: false }), {
+    await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-no-log",
@@ -741,7 +738,7 @@ describe("flow-ralph runner", () => {
     const conflictPath = path.join(logDir, "log.md");
     fs.mkdirSync(conflictPath, { recursive: true });
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, stopOnNoProgress: false, enableLogs: true }), {
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-fs-error",
