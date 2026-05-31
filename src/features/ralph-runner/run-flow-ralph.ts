@@ -97,7 +97,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
   for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
     const startedAt = now();
     const beforeActiveChange = findActive(resolvedProjectPath);
-    const nextPrompt = getNext(resolvedProjectPath);
+    const nextPrompt = getNext(resolvedProjectPath, config);
     const beforeSnapshot = createSnapshot(beforeActiveChange, nextPrompt);
 
     if (nextPrompt.blocked) {
@@ -138,7 +138,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
     });
 
     reporter.log("[FLOW RALPH] running flow init...");
-    await runCodexTurn(thread, getInit(resolvedProjectPath).prompt, "flow init", reporter, config.codex.streamAgentOutput);
+    await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
     reporter.log("[FLOW RALPH] flow init completed");
     reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
     const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
@@ -158,7 +158,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
 
     const afterActiveChange = findActive(resolvedProjectPath);
     const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
-    const afterNextPrompt = archived ? nextPrompt : getNext(resolvedProjectPath);
+    const afterNextPrompt = archived ? nextPrompt : getNext(resolvedProjectPath, config);
     const afterSnapshot = archived
       ? { ...beforeSnapshot, activeChange: afterActiveChange, stage: "archive" as FlowStage }
       : createSnapshot(afterActiveChange, afterNextPrompt);

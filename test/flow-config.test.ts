@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import * as path from "path";
-import { getStageModelConfig, parseFlowRalphConfig, resolveProjectLogDir } from "../src/features/ralph-runner/config";
+import { getStageModelConfig, getStageSkillConfig, parseFlowRalphConfig, resolveProjectLogDir } from "../src/features/ralph-runner/config";
 
 describe("flow-ralph config", () => {
   test("parses config with comments and defaults", () => {
@@ -27,6 +27,81 @@ loop:
     expect(config.loop.enableLogs).toBe(true);
     expect(getStageModelConfig(config, "archive")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "low" });
     expect(getStageModelConfig(config, "implementation")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "medium" });
+    expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
+  });
+
+  test("parses stage skills without inheriting skills from default", () => {
+    const config = parseFlowRalphConfig(`
+codex:
+  default:
+    model: gpt-5.4-mini
+    reasoningEffort: medium
+  stages:
+    implementation:
+      skills:
+        routers:
+          - using-zuvo
+        main:
+          - dev-core
+          - test-driven-development
+        additional:
+          - api-and-interface-design
+          - security-and-hardening
+    archive:
+      model: gpt-5.4
+`);
+
+    expect(getStageSkillConfig(config, "implementation")).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core", "test-driven-development"],
+      additional: ["api-and-interface-design", "security-and-hardening"]
+    });
+    expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
+  });
+
+  test("allows stages with only main and additional skills", () => {
+    const config = parseFlowRalphConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        main:
+          - dev-core
+        additional:
+          - frontend-ui-engineering
+`);
+
+    expect(getStageSkillConfig(config, "implementation")).toEqual({
+      routers: [],
+      main: ["dev-core"],
+      additional: ["frontend-ui-engineering"]
+    });
+  });
+
+  test("deduplicates stage skills by priority", () => {
+    const config = parseFlowRalphConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        routers:
+          - using-zuvo
+          - using-zuvo
+        main:
+          - using-zuvo
+          - dev-core
+          - dev-core
+        additional:
+          - dev-core
+          - test-driven-development
+          - test-driven-development
+`);
+
+    expect(getStageSkillConfig(config, "implementation")).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core"],
+      additional: ["test-driven-development"]
+    });
   });
 
   test("parses streamAgentOutput override", () => {
@@ -60,6 +135,25 @@ codex:
   default:
     reasoningEffort: huge
 `)).toThrow("codex.default.reasoningEffort");
+  });
+
+  test("rejects invalid skill config", () => {
+    expect(() => parseFlowRalphConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        main: dev-core
+`)).toThrow("codex.stages.implementation.skills.main");
+
+    expect(() => parseFlowRalphConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        additional:
+          - ""
+`)).toThrow("codex.stages.implementation.skills.additional[0]");
   });
 
   test("rejects invalid stage keys", () => {

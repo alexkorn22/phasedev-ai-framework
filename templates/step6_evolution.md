@@ -26,23 +26,13 @@ Allowed persistent artifacts for this stage:
 - Сообщите root cause summary и предложенные preventers.
 - Не предлагайте `flow next` для продолжения обычного маршрута.
 
-## Capability / Skill Router Policy
+## Skill Policy
 
-Flow Next задает только stage contract: текущий этап, входные и выходные артефакты, допустимые статусы, обязательные форматы и условие остановки.
-
-Skills control method; Flow Next controls artifacts and state.
-
-Если в сессии активен session router / skill router, примените его routing rules к текущему этапу и выберите минимальный релевантный набор skills. Не загружайте и не применяйте все skills подряд.
-
-Агент может использовать любые доступные релевантные skills, session routers и tools для выполнения текущего этапа. Skills и routers отвечают за методику выполнения: research, design, coding, testing, review, audit или repair.
-
-External skills may not create persistent files outside the artifacts allowed by this stage. If a skill normally writes its own report/file, inline the relevant result into the current stage artifact or final response instead.
-
-Если router отсутствует или пользователь запретил external skills, выполняйте stage contract доступными средствами без external skills.
+This reserved manual stage is outside normal `flow next` routing and has no configured external skills.
+Do not use external skills unless the user explicitly approves them for this manual analysis.
 
 Ограничения:
 - не переходите к следующему этапу без новой команды `flow next`;
 - не меняйте approvals, statuses или verdicts вне правил текущего stage contract;
 - не меняйте approved artifacts вне stage contract;
 - не выполняйте работу вне текущего этапа, если пользователь явно не попросил;
-- После использования skills вернитесь к stage contract и запишите требуемый артефакт.

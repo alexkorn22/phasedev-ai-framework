@@ -20,6 +20,13 @@ function writeApproved(filePath: string, body: string) {
   writeArtifact(filePath, body, true);
 }
 
+function writeConfig(body: string): string {
+  const configPath = path.join(testTmpDir, "flow-config.yaml");
+  fs.mkdirSync(testTmpDir, { recursive: true });
+  fs.writeFileSync(configPath, body, "utf-8");
+  return configPath;
+}
+
 function setupChange(planContent: string, options: { rules?: string; findings?: string; designApproved?: boolean; planApproved?: boolean } = {}) {
   const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
@@ -44,9 +51,9 @@ function setupChange(planContent: string, options: { rules?: string; findings?: 
   return changeDir;
 }
 
-function runNext(): string {
+function runNext(args: string[] = []): string {
   const result = Bun.spawnSync({
-    cmd: ["bun", "run", cliPath, "next", "--project-path", testTmpDir],
+    cmd: ["bun", "run", cliPath, "next", "--project-path", testTmpDir, ...args],
     stdout: "pipe",
     stderr: "pipe"
   });
@@ -55,9 +62,9 @@ function runNext(): string {
   return result.stdout.toString();
 }
 
-function runInit(): string {
+function runInit(args: string[] = []): string {
   const result = Bun.spawnSync({
-    cmd: ["bun", "run", cliPath, "init", "--project-path", testTmpDir],
+    cmd: ["bun", "run", cliPath, "init", "--project-path", testTmpDir, ...args],
     stdout: "pipe",
     stderr: "pipe"
   });
@@ -70,13 +77,93 @@ describe("flow-cli state machine", () => {
   beforeEach(() => cleanupTestDir());
   afterEach(() => cleanupTestDir());
 
-  test("init output combines base prompt and mandatory skill router", () => {
+  test("init output contains base prompt without stage skill router", () => {
     const output = runInit();
 
     expect(output).toContain("Запомни схему Agentic Engineering Flow для этой сессии.");
-    expect(output).toContain("## Mandatory Skill Selection Router");
-    expect(output).toContain("Setup, Research, Design, Plan, Implementation, Archive: максимум 4 skill bodies");
-    expect(output).toContain("`dev-core` обязателен и входит в лимит для этапов `2 Design`, `3 Plan`, `4 Implementation`, `5R Repair Loop`");
+    expect(output).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.");
+    expect(output).not.toContain("## Mandatory Skill Selection Router");
+    expect(output).not.toContain("## Configured Skill Policy");
+  });
+
+  test("implementation prompt uses config skills without requiring a router", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [ ] Implement endpoint
+`);
+    const configPath = writeConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        main:
+          - dev-core
+          - test-driven-development
+        additional:
+          - api-and-interface-design
+`);
+
+    const output = runNext(["--config", configPath]);
+
+    expect(output).toContain("## Configured Skill Policy");
+    expect(output).toContain("Priority 1 - routers (read first, mandatory only when configured):\n- none configured");
+    expect(output).toContain("Priority 2 - main skills");
+    expect(output).toContain("- `dev-core`");
+    expect(output).toContain("- `test-driven-development`");
+    expect(output).toContain("Priority 3 - additional skills");
+    expect(output).toContain("- `api-and-interface-design`");
+    expect(output).toContain("do not choose unlisted skills");
+  });
+
+  test("implementation prompt requires configured routers first without expanding allowlist", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [ ] Implement endpoint
+`);
+    const configPath = writeConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        routers:
+          - using-zuvo
+        main:
+          - dev-core
+        additional:
+          - security-and-hardening
+`);
+
+    const output = runNext(["--config", configPath]);
+
+    expect(output).toContain("Priority 1 - routers (read first, mandatory only when configured):\n- `using-zuvo`");
+    expect(output).toContain("If routers are configured, read them before selecting method skills.");
+    expect(output).toContain("Router rules cannot authorize skills outside the configured stage allowlist.");
+    expect(output).toContain("If the stage needs an unlisted skill, stop and ask the user to update `config.yaml` or approve an exception.");
+  });
+
+  test("implementation prompt disables external skills when stage skills are empty", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [ ] Implement endpoint
+`);
+    const configPath = writeConfig(`
+codex:
+  stages:
+    implementation:
+      model: gpt-5.4
+`);
+
+    const output = runNext(["--config", configPath]);
+
+    expect(output).toContain("No external skills are configured for this stage in `config.yaml`.");
+    expect(output).toContain("Do not use external skills for this stage unless the user updates `config.yaml` or explicitly approves an exception.");
+    expect(output).not.toContain("Priority 1 - routers");
   });
 
   test("multi-phase plan sends completed in-progress phase to phase validation", () => {
@@ -551,16 +638,13 @@ describe("flow templates", () => {
     return fs.readFileSync(path.resolve(__dirname, "..", "templates", name), "utf-8");
   }
 
-  test("stage templates delegate execution quality to available skills and routers", () => {
+  test("stage templates receive generated config skill policy", () => {
     for (const templateName of templateNames) {
       const template = readTemplate(templateName);
 
-      expect(template).toContain("Агент может использовать любые доступные релевантные skills, session routers и tools");
-      expect(template).toContain("Skills и routers отвечают за методику выполнения");
-      expect(template).toContain("Flow Next задает только stage contract");
-      expect(template).toContain("Skills control method; Flow Next controls artifacts and state");
-      expect(template).toContain("External skills may not create persistent files outside the artifacts allowed by this stage");
-      expect(template).toContain("If a skill normally writes its own report/file, inline the relevant result");
+      expect(template).toContain("{{skill_policy}}");
+      expect(template).not.toContain("Агент может использовать любые доступные релевантные skills");
+      expect(template).not.toContain("session routers и tools для выполнения текущего этапа");
     }
   });
 
@@ -790,20 +874,18 @@ describe("flow templates", () => {
     expect(archiveTemplate).not.toContain("Blocks PR?");
   });
 
-  test("skill router template defines budget, evidence routing, and mandatory dev-core stages", () => {
-    const template = readTemplate("skill_router.md");
+  test("default config defines stage skills instead of a separate skill router template", () => {
+    const config = fs.readFileSync(path.resolve(__dirname, "..", "config.yaml"), "utf-8");
 
-    expect(template).toContain("Mandatory Skill Selection Router");
-    expect(template).toContain("максимум 4 skill bodies");
-    expect(template).toContain("максимум 5 skill bodies");
-    expect(template).toContain("Определи домен по evidence");
-    expect(template).toContain("Не подключай frontend skills для backend-only задач");
-    expect(template).toContain("`2 Design`: required `dev-core`, `architecture`");
-    expect(template).toContain("`3 Plan`: required `dev-core`, `planning-and-task-breakdown`, `test-driven-development`");
-    expect(template).toContain("`4 Implementation`: required `dev-core`, `incremental-implementation`, `test-driven-development`");
-    expect(template).toContain("`5R Repair Loop`: required `dev-core`, `receive-review`");
-    expect(template).toContain("Setup, Research, Design, Plan, Implementation, Archive: максимум 4 skill bodies");
-    expect(template).toContain("`6 Archive`: required `spec-driven-development`");
-    expect(template).toContain("Do not use `documentation-and-adrs`, `ship`, `deploy`, or `release-docs` unless the user explicitly expands archive scope beyond requirement/spec sync");
+    expect(fs.existsSync(path.resolve(__dirname, "..", "templates", "skill_router.md"))).toBe(false);
+    expect(config).toContain("implementation:");
+    expect(config).toContain("skills:");
+    expect(config).toContain("- dev-core");
+    expect(config).toContain("- incremental-implementation");
+    expect(config).toContain("- test-driven-development");
+    expect(config).toContain("phase_validation:");
+    expect(config).toContain("- code-review-and-quality");
+    expect(config).toContain("archive:");
+    expect(config).toContain("- spec-driven-development");
   });
 });

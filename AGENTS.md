@@ -18,8 +18,8 @@ Do not reintroduce separate root archive, parser, checker, template, controller,
 Root `src/` must stay thin. Put logic in:
 
 - `src/features/flow-control`: flow stage routing, prompt construction, blockers, archive stage orchestration.
-- `src/features/ralph-runner`: Ralph loop, Codex turns, streaming reporter, snapshots, logs, config.
-- `src/entities`: flow-stage types, flow-change paths/state/approval, implementation-plan parsing/validation, validation findings, test commands.
+- `src/features/ralph-runner`: Ralph loop, Codex turns, streaming reporter, snapshots, logs.
+- `src/entities`: flow-stage types, flow-change paths/state/approval, flow config parsing, implementation-plan parsing/validation, validation findings, test commands.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 
 Dependency direction should be:
@@ -36,10 +36,30 @@ Keep these contracts stable unless the user explicitly changes them:
 - Stage routing before Archive.
 - Phase heading format: `## Phase N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`.
-- `config.yaml` shape.
+- `config.yaml` shape, including per-stage `skills.routers`, `skills.main`, and `skills.additional`.
 - Ralph result statuses: `archived`, `blocked`, `no_progress`, `max_iterations`.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
+
+## Config-Driven Skill Policy
+
+Stage skill routing is configured in `config.yaml`, not in a separate `skill_router.md` template.
+
+For each `codex.stages.<stage>.skills`:
+
+- `routers`: optional routing/control skills. If present, the generated stage prompt must tell the agent to read them first.
+- `main`: primary allowed method skills. These are not mandatory preloads; the agent should load them only when stage evidence requires them.
+- `additional`: secondary allowed method skills. These are used only when `main` is insufficient or an additional skill is clearly more suitable.
+
+Keep these contracts stable:
+
+- Allowed external skills for a stage are only `routers + main + additional`.
+- Router rules must not expand the allowlist to unlisted skills.
+- If a needed skill is unlisted, the agent must stop and ask the user to update config or approve an exception.
+- Skills do not inherit from `codex.default`; they are explicit per stage.
+- If `skills` is omitted or empty, the generated stage prompt must say no external skills are configured.
+- `flow init` must not include stage-specific skill policy; executable `flow next` prompts inject it.
+- Approval/blocker prompts stay policy-free because they are controller stop messages.
 
 ## Archive Stage
 

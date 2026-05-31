@@ -1,6 +1,6 @@
 # Agentic Engineering Flow
 
-`newFLow` управляет поэтапной работой ИИ-агента над изменением в проекте. Контроллер не выполняет работу сам: он определяет текущий этап, печатает точный контракт этапа и задает допустимые артефакты, статусы и условия остановки.
+`Agentic Development Flow` управляет поэтапной работой ИИ-агента над изменением в проекте. Контроллер не выполняет работу сам: он определяет текущий этап, печатает точный контракт этапа и задает допустимые артефакты, статусы и условия остановки.
 
 Главный принцип: flow хранит состояние в файлах проекта, а не в истории переписки. Поэтому любой этап можно выполнить в новой сессии агента, если передать ему `flow init`, а затем текущий `flow next`.
 
@@ -37,10 +37,10 @@ Flow использует такие этапы:
 
 ## Ручной режим
 
-Перейдите в папку `newFLow`:
+Перейдите в папку контроллера:
 
 ```bash
-cd /Users/oleksandrkorniienko/MY/AgenticWorkflow/newFLow
+cd /Users/oleksandrkorniienko/WORK/ag-dev-flow
 ```
 
 Установите зависимости перед первым запуском Ralph-раннера:
@@ -61,6 +61,12 @@ bun run src/flow-cli.ts init --project-path /absolute/project
 bun run src/flow-cli.ts next --project-path /absolute/project
 ```
 
+Для ручного CLI можно передать другой config:
+
+```bash
+bun run src/flow-cli.ts next --project-path /absolute/project --config /absolute/path/to/config.yaml
+```
+
 Обычный ручной цикл:
 
 1. Выполнить `flow init` в новой сессии агента.
@@ -70,11 +76,11 @@ bun run src/flow-cli.ts next --project-path /absolute/project
 5. Если контроллер просит human approval, проверить файл и изменить `approved: false` на `approved: true`.
 6. Для следующего этапа открыть новую сессию агента и снова выполнить `flow init`, затем `flow next`.
 
-Пример для проекта `OpenSpec`:
+Пример для проекта, которым управляет flow:
 
 ```bash
-bun run src/flow-cli.ts init --project-path /Users/oleksandrkorniienko/MY/AgenticWorkflow/OpenSpec
-bun run src/flow-cli.ts next --project-path /Users/oleksandrkorniienko/MY/AgenticWorkflow/OpenSpec
+bun run src/flow-cli.ts init --project-path /absolute/project
+bun run src/flow-cli.ts next --project-path /absolute/project
 ```
 
 ## Ralph-раннер
@@ -104,7 +110,7 @@ npm run flow:ralph -- --project-path /absolute/project
 Пример:
 
 ```bash
-npm run flow:ralph -- --project-path /Users/oleksandrkorniienko/MY/AgenticWorkflow/OpenSpec
+npm run flow:ralph -- --project-path /absolute/project
 ```
 
 Можно передать другой config:
@@ -115,7 +121,11 @@ npm run flow:ralph -- --project-path /absolute/project --config /absolute/path/t
 
 ## Конфигурация
 
-Настройки находятся в `newFLow/config.yaml`.
+Настройки находятся в `config.yaml` в корне этого репозитория:
+
+```text
+/Users/oleksandrkorniienko/WORK/ag-dev-flow/config.yaml
+```
 
 ```yaml
 codex:
@@ -127,6 +137,14 @@ codex:
     implementation:
       model: gpt-5.4
       reasoningEffort: high
+      skills:
+        routers: []
+        main:
+          - dev-core
+          - incremental-implementation
+          - test-driven-development
+        additional:
+          - api-and-interface-design
     final_validation:
       model: gpt-5.4
       reasoningEffort: high
@@ -146,6 +164,10 @@ loop:
 ```
 
 `codex.default` задает модель и уровень reasoning по умолчанию. `codex.stages` позволяет переопределить их для отдельных этапов: `setup`, `research`, `design`, `plan`, `implementation`, `phase_validation`, `final_validation`, `repair`, `archive`. Если этап не указан в `codex.stages`, используется `codex.default`.
+
+`codex.stages.<stage>.skills` задает строгий список external skills для prompt текущего этапа. `routers` читаются первыми, если указаны. `main` — основной допустимый пул, `additional` — запасной допустимый пул. Агент не должен предварительно читать все skill bodies; он выбирает минимальный нужный набор по evidence этапа. Если нужного skill нет в `routers`, `main` или `additional`, агент должен остановиться и попросить обновить config или явно разрешить исключение.
+
+Skills не наследуются из `codex.default`: каждый stage должен перечислять их явно. Если `skills` пустой или отсутствует, prompt этапа запрещает external skills без отдельного разрешения пользователя.
 
 `flow init` и текущий `flow next` внутри одной сессии этапа используют одну и ту же модель: модель выбирается по этапу, который вернул `flow next`.
 

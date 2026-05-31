@@ -11,3 +11,13 @@ export function parseProjectPath(args: string[]): string {
 
   return path.resolve(projectPath);
 }
+
+export function parseConfigPath(args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--config" && args[i + 1]) {
+      return path.resolve(args[i + 1]);
+    }
+  }
+
+  return undefined;
+}

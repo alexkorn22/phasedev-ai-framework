@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
 import { createArchiveState, findPendingArchiveState, FlowArchiveState } from "../../entities/flow-change/archive-state";
 import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths } from "../../entities/flow-change/paths";
 import { FlowPrompt } from "../../entities/flow-stage/types";
@@ -7,6 +8,7 @@ import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
+import { renderSkillPolicy } from "./skill-policy";
 
 interface ArchiveUrls {
   prd_path: string;
@@ -28,7 +30,7 @@ function archiveUrls(paths: ChangePaths): ArchiveUrls {
   };
 }
 
-function archivePrompt(projectPath: string, state: FlowArchiveState): FlowPrompt {
+function archivePrompt(projectPath: string, state: FlowArchiveState, config: FlowRalphConfig): FlowPrompt {
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 
@@ -43,17 +45,18 @@ function archivePrompt(projectPath: string, state: FlowArchiveState): FlowPrompt
     main_specs_path: toFileUrl(path.join(projectPath, "openspec", "specs")),
     change_specs_path: toFileUrl(path.join(state.archivePath, "specs")),
     archive_state_path: toFileUrl(path.join(state.archivePath, ".flow-archive.json")),
-    archive_path: state.archivePath
+    archive_path: state.archivePath,
+    skill_policy: renderSkillPolicy("archive", config)
   }));
 }
 
-export function getPendingArchivePrompt(projectPath: string): FlowPrompt | null {
+export function getPendingArchivePrompt(projectPath: string, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt | null {
   const pendingState = findPendingArchiveState(projectPath);
-  return pendingState ? archivePrompt(projectPath, pendingState) : null;
+  return pendingState ? archivePrompt(projectPath, pendingState, config) : null;
 }
 
-export function startArchiveStage(projectPath: string, changeDir: string, now: Date): FlowPrompt {
-  const pendingPrompt = getPendingArchivePrompt(projectPath);
+export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt {
+  const pendingPrompt = getPendingArchivePrompt(projectPath, config);
   if (pendingPrompt) {
     return pendingPrompt;
   }
@@ -73,5 +76,5 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
   fs.mkdirSync(archiveRootPath(projectPath), { recursive: true });
   moveDirectory(changeDir, archiveTarget);
   const state = createArchiveState(changeName, archiveTarget, now);
-  return archivePrompt(projectPath, state);
+  return archivePrompt(projectPath, state, config);
 }

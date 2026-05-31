@@ -143,6 +143,49 @@ describe("flow-ralph runner", () => {
     expect(messages).toContain("[FLOW RALPH] blocked at stage: design");
   });
 
+  test("passes loaded config into init and next prompt builders", async () => {
+    const projectPath = setupProject();
+    const config = makeConfig({ maxIterations: 1 }, {
+      stages: {
+        implementation: {
+          model: "gpt-5.4",
+          reasoningEffort: "high",
+          skills: {
+            routers: [],
+            main: ["dev-core"],
+            additional: []
+          }
+        }
+      }
+    });
+    const seenInitConfigs: FlowRalphConfig[] = [];
+    const seenNextConfigs: FlowRalphConfig[] = [];
+
+    await runFlowRalph(projectPath, config, {
+      createCodex: () => ({
+        startThread: () => ({
+          async run() {
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: (_projectPath, promptConfig) => {
+        if (promptConfig) seenInitConfigs.push(promptConfig);
+        return flowPrompt("init", "init", "init prompt");
+      },
+      getNextPrompt: (_projectPath, promptConfig) => {
+        if (promptConfig) seenNextConfigs.push(promptConfig);
+        return flowPrompt("next", "implementation", "same next prompt");
+      },
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(seenInitConfigs).toEqual([config]);
+    expect(seenNextConfigs).toEqual([config, config]);
+  });
+
   test("stops on no progress after one stage session", async () => {
     const projectPath = setupProject();
     const threads: Array<{ prompts: string[] }> = [];

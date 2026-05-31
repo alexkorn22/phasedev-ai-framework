@@ -7,30 +7,138 @@ codex:
     setup:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - spec-driven-development
+          - context-engineering
+        additional:
+          - env-audit
+          - git-workflow-and-versioning
     research:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - architecture
+        additional:
+          - source-driven-development
+          - context7-docs-lookup
+          - code-audit
+          - api-audit
+          - db-audit
+          - security-audit
+          - dependency-audit
     design:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - dev-core
+          - architecture
+        additional:
+          - api-and-interface-design
+          - security-and-hardening
+          - frontend-ui-engineering
+          - frontend-design
+          - architecture-patterns
+          - fsd-2-1-architect
+          - deprecation-and-migration
     plan:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - dev-core
+          - planning-and-task-breakdown
+          - test-driven-development
+        additional:
+          - incremental-implementation
+          - write-e2e
+          - ci-cd-and-automation
+          - security-and-hardening
     implementation:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - dev-core
+          - incremental-implementation
+          - test-driven-development
+        additional:
+          - api-and-interface-design
+          - frontend-ui-engineering
+          - frontend-design
+          - security-and-hardening
+          - performance-optimization
+          - source-driven-development
+          - context7-docs-lookup
     phase_validation:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - code-review-and-quality
+        additional:
+          - test-audit
+          - api-audit
+          - security-audit
+          - browser-testing-with-devtools
+          - playwright
+          - performance-audit
+          - a11y-audit
+          - design-review
     final_validation:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - code-review-and-quality
+          - security-and-hardening
+        additional:
+          - code-audit
+          - review
+          - test-audit
+          - dependency-audit
+          - db-audit
+          - performance-audit
+          - a11y-audit
+          - design-review
+          - ci-audit
     repair:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - dev-core
+          - receive-review
+        additional:
+          - debugging-and-error-recovery
+          - debug
+          - fix-tests
+          - write-tests
+          - refactor
+          - code-simplification
+          - security-and-hardening
     archive:
       model: gpt-5.5
       reasoningEffort: medium
+      skills:
+        routers: []
+        main:
+          - spec-driven-development
+        additional:
+          - architecture
+          - api-and-interface-design
+          - deprecation-and-migration
+          - source-driven-development
 
   sandboxMode: workspace-write # варианты: workspace-write, danger-full-access; workspace-write = полный доступ на запись внутри проекта
   approvalPolicy: never # варианты: never, on-request, on-failure, untrusted
@@ -42,4 +150,3 @@ loop:
   stopOnNoProgress: true # защита от бесконечного цикла, если этап не продвинул состояние flow
   logDir: openspec/flow-ralph # путь относительно projectPath
   enableLogs: true # включение/выключение логов ответов агента
-

@@ -1,8 +1,9 @@
 import * as fs from "fs";
+import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
 import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/flow-change/approval";
 import { findActiveChangeDir } from "../../entities/flow-change/active-change";
 import { buildChangePaths } from "../../entities/flow-change/paths";
-import { FlowPrompt } from "../../entities/flow-stage/types";
+import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { validatePlanStructure } from "../../entities/implementation-plan/validate-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
@@ -12,6 +13,7 @@ import { getPendingArchivePrompt, startArchiveStage } from "./archive-stage";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./phase-routing";
+import { renderSkillPolicy } from "./skill-policy";
 
 function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
   return {
@@ -24,13 +26,20 @@ function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
   };
 }
 
-function handleResearchAndDesign(changeDir: string, urls: Urls, designPath: string, researchPath: string): FlowPrompt | null {
+function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
+  return renderTemplate(templateName, {
+    ...variables,
+    skill_policy: renderSkillPolicy(stage, config)
+  });
+}
+
+function handleResearchAndDesign(changeDir: string, urls: Urls, designPath: string, researchPath: string, config: FlowRalphConfig): FlowPrompt | null {
   if (!fs.existsSync(researchPath)) {
-    return prompt("next", "research", renderTemplate("step1_research", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path }));
+    return prompt("next", "research", renderStageTemplate("research", "step1_research", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path }, config));
   }
 
   if (!fs.existsSync(designPath)) {
-    return prompt("next", "design", renderTemplate("step2_design", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path, design_path: urls.design_path, date: new Date().toISOString().split("T")[0] }));
+    return prompt("next", "design", renderStageTemplate("design", "step2_design", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path, design_path: urls.design_path, date: new Date().toISOString().split("T")[0] }, config));
   }
 
   if (!isDesignApproved(changeDir)) {
@@ -40,9 +49,9 @@ function handleResearchAndDesign(changeDir: string, urls: Urls, designPath: stri
   return null;
 }
 
-function handlePlanAndExecution(projectPath: string, changeDir: string, urls: Urls, planPath: string, findingsPath: string, rulesPath: string): FlowPrompt {
+function handlePlanAndExecution(projectPath: string, changeDir: string, urls: Urls, planPath: string, findingsPath: string, rulesPath: string, config: FlowRalphConfig): FlowPrompt {
   if (!fs.existsSync(planPath)) {
-    return prompt("next", "plan", renderTemplate("step3_plan", { design_path: urls.design_path, rules_path: urls.rules_path, plan_path: urls.plan_path, date: new Date().toISOString().split("T")[0] }));
+    return prompt("next", "plan", renderStageTemplate("plan", "step3_plan", { design_path: urls.design_path, rules_path: urls.rules_path, plan_path: urls.plan_path, date: new Date().toISOString().split("T")[0] }, config));
   }
 
   if (!isPlanApproved(changeDir)) {
@@ -53,7 +62,7 @@ function handlePlanAndExecution(projectPath: string, changeDir: string, urls: Ur
   const verdictType = parseValidationVerdictType(findingsPath);
 
   if (fs.existsSync(findingsPath) && (verdict === "repair_required" || verdict === "unknown")) {
-    return repairPrompt(urls, findingsPath);
+    return repairPrompt(urls, findingsPath, config);
   }
 
   const planPhases = parsePlan(planPath);
@@ -75,39 +84,39 @@ function handlePlanAndExecution(projectPath: string, changeDir: string, urls: Ur
       );
     }
 
-    return startArchiveStage(projectPath, changeDir, new Date());
+    return startArchiveStage(projectPath, changeDir, new Date(), config);
   }
 
   const testCommands = parseTestCommands(rulesPath).commands;
   const activePhase = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
   if (activePhase) {
-    return handlePhase(planPath, activePhase, planPhases.length, urls, testCommands, rulesPath);
+    return handlePhase(planPath, activePhase, planPhases.length, urls, testCommands, rulesPath, config);
   }
 
-  return prompt("next", "final_validation", renderTemplate("step5b_val", {
+  return prompt("next", "final_validation", renderStageTemplate("final_validation", "step5b_val", {
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
     date: new Date().toISOString().split("T")[0]
-  }));
+  }, config));
 }
 
-export function getNextPrompt(projectPath: string): FlowPrompt {
-  const pendingArchivePrompt = getPendingArchivePrompt(projectPath);
+export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt {
+  const pendingArchivePrompt = getPendingArchivePrompt(projectPath, config);
   if (pendingArchivePrompt) {
     return pendingArchivePrompt;
   }
 
   const changeDir = findActiveChangeDir(projectPath);
   if (!changeDir) {
-    return prompt("next", "setup", renderTemplate("step0_setup", { date: new Date().toISOString().split("T")[0] }));
+    return prompt("next", "setup", renderStageTemplate("setup", "step0_setup", { date: new Date().toISOString().split("T")[0] }, config));
   }
 
   const paths = buildChangePaths(changeDir);
   if (!fs.existsSync(paths.prdPath) || !fs.existsSync(paths.rulesPath)) {
-    return prompt("next", "setup", renderTemplate("step0_setup", { date: new Date().toISOString().split("T")[0] }));
+    return prompt("next", "setup", renderStageTemplate("setup", "step0_setup", { date: new Date().toISOString().split("T")[0] }, config));
   }
 
   if (!isSetupApproved(changeDir).approved) {
@@ -115,10 +124,10 @@ export function getNextPrompt(projectPath: string): FlowPrompt {
   }
 
   const urls = urlsFor(paths);
-  const researchOrDesignPrompt = handleResearchAndDesign(changeDir, urls, paths.designPath, paths.researchPath);
+  const researchOrDesignPrompt = handleResearchAndDesign(changeDir, urls, paths.designPath, paths.researchPath, config);
   if (researchOrDesignPrompt) {
     return researchOrDesignPrompt;
   }
 
-  return handlePlanAndExecution(projectPath, changeDir, urls, paths.planPath, paths.findingsPath, paths.rulesPath);
+  return handlePlanAndExecution(projectPath, changeDir, urls, paths.planPath, paths.findingsPath, paths.rulesPath, config);
 }

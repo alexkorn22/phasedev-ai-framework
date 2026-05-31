@@ -64,34 +64,5 @@ Approval artifacts должны быть удобны для human review, но 
 - не используй эмоджи в YAML frontmatter, командах, file paths, code blocks и machine-readable частях flow;
 - сохрани все machine-readable элементы, которые нужны controller: approval fields, `## Test Commands`, phase headings и checkbox statuses.
 
-## Capability / Skill Router Policy
-
-Если в сессии активен один или несколько session routers / skill routers, агент ДОЛЖЕН применить их правила маршрутизации к текущей задаче этапа.
-
-Flow Next задает только stage contract:
-- текущий этап;
-- входные и выходные артефакты;
-- допустимые статусы;
-- обязательные форматы;
-- условие остановки.
-
-Skills control method; Flow Next controls artifacts and state.
-
-Если active router выбирает skills, используй минимальный релевантный набор для текущего этапа. Не загружай и не применяй все skills подряд.
-
-Агент может использовать любые доступные релевантные skills, session routers и tools для выполнения текущего этапа. Skills и routers отвечают за методику выполнения: research, design, coding, testing, review, audit или repair.
-
-External skills may not create persistent files outside the artifacts allowed by the current stage. If a skill normally writes its own report/file, inline the relevant result into the current stage artifact or final response instead.
-
-Если router отсутствует или пользователь запретил external skills, выполняй stage contract доступными средствами без external skills.
-
-После использования skills агент обязан вернуться к stage contract текущего этапа Flow Next и записать требуемый артефакт.
-
-## Conflict resolution
-
-Если инструкция Flow Next конфликтует с инструкцией дополнительного skill:
-1. Не выходи за границы stage contract текущего этапа Flow Next.
-2. Не переходи к следующему этапу без новой команды пользователя.
-3. Не меняй файлы, которые текущий этап не разрешает менять.
-4. Не меняй approvals, statuses или verdicts вне правил текущего stage contract.
-5. Если skill требует действие, запрещенное текущим этапом, пропусти это действие и кратко зафиксируй причину.
+Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.
+Do not infer allowed skills from this init prompt.
