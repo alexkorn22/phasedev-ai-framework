@@ -5,7 +5,7 @@ import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
-import { parseBlockingValidationFindings, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
+import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
 
@@ -254,6 +254,65 @@ date: 2026-05-30
     expect(findings).toHaveLength(1);
     expect(findings[0].description).toBe("Type guard misses `A | B` response.");
     expect(findings[0].signature).toBe("phase|phase 1|implementation|type guard misses a b response");
+  });
+
+  test("parseCurrentValidationFindings returns latest finding state by ID", () => {
+    const findingsFile = path.join(testTmpDir, "current_findings.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: final
+date: 2026-05-30
+---
+
+## Validation Run: 2026-05-30
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
+|---|---|---|---|---|---|---|---|
+| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. | Missing try/catch. |
+| F2 | 🟡 | open | implementation | No | Final | Non-blocking naming note. | Name is vague. |
+
+## Repair Run: 2026-05-30
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
+|---|---|---|---|---|---|---|---|
+| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. | Added error mapping. |
+| F3 | 🔴 | reopened | test | Yes | Final | reopened/regression: Missing auth failure coverage!!! | Test still absent. |
+`, "utf-8");
+
+    const findings = parseCurrentValidationFindings(findingsFile);
+
+    expect(findings).toEqual([
+      {
+        id: "F1",
+        signature: "phase|phase 1|implementation|api response omits required error handling",
+        latestStatus: "resolved",
+        className: "implementation",
+        blocksPr: true,
+        phase: "Phase 1",
+        canonicalDescription: "API response omits required error handling.",
+        latestEvidence: "Added error mapping."
+      },
+      {
+        id: "F2",
+        signature: "final|final|implementation|non blocking naming note",
+        latestStatus: "open",
+        className: "implementation",
+        blocksPr: false,
+        phase: "Final",
+        canonicalDescription: "Non-blocking naming note.",
+        latestEvidence: "Name is vague."
+      },
+      {
+        id: "F3",
+        signature: "final|final|test|missing auth failure coverage",
+        latestStatus: "reopened",
+        className: "test",
+        blocksPr: true,
+        phase: "Final",
+        canonicalDescription: "Missing auth failure coverage!!!",
+        latestEvidence: "Test still absent."
+      }
+    ]);
   });
 
   test("parseTestCommands extracts unit, phase, and full commands from rules markdown", () => {

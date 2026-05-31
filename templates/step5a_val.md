@@ -2,6 +2,8 @@
 
 Stage contract: проверить готовность текущей фазы в multi-phase плане.
 
+Validation mode: review-only stage. Этот этап проверяет completeness/correctness review-методами и не является test execution gate.
+
 Входные артефакты:
 - Правила разработки: [rules.md]({{rules_path}})
 - Утвержденный дизайн: [design.md]({{design_path}})
@@ -48,7 +50,7 @@ Visual markers не заменяют machine-readable поля. Источник
 не используйте эмоджи в командах, file paths, code blocks и обязательных machine-readable labels.
 
 Правила verdict:
-- `ready` — blocking findings нет, gate evidence достаточен.
+- `ready` — blocking findings нет, review evidence достаточен, а Implementation checks считаются declared passed.
 - `ready_with_risks` — есть только non-blocking findings.
 - `repair_required` — есть blocking findings или недостаточный review evidence.
 - `ready_with_risks` допустим только если все findings имеют `Blocks PR? = No`.

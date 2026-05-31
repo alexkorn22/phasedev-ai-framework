@@ -328,6 +328,68 @@ No phase headings yet.
     expect(output).not.toContain("Этап 5A. Phase Validation.");
   });
 
+  test("repair prompt includes compact queue instead of full findings history", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [x] Implement endpoint
+`, {
+      findings: `---
+verdict: repair_required
+type: phase
+date: 2026-05-28
+---
+
+## Validation Run: 2026-05-28
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
+|---|---|---|---|---|---|---|---|
+| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. | Missing error branch. |
+| F2 | 🔴 | open | test | Yes | Phase 1 | Missing regression coverage. | No test exists. |
+
+## Repair Run: 2026-05-28
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
+|---|---|---|---|---|---|---|---|
+| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. | Added error branch. |
+`
+    });
+
+    const output = runNext();
+
+    expect(output).toContain("Этап 5R. Repair Loop.");
+    expect(output).toContain("## Current Repair Queue");
+    expect(output).toContain("| F2 | test | Phase 1 | Missing regression coverage. | No test exists. |");
+    expect(output).toContain("Full findings history:");
+    expect(output).not.toContain("Missing error branch.");
+    expect(output).not.toContain("Added error branch.");
+  });
+
+  test("repair prompt warns when repair_required has no parseable current queue", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [x] Implement endpoint
+`, {
+      findings: `---
+verdict: repair_required
+type: phase
+date: 2026-05-28
+---
+
+No markdown finding table here.
+`
+    });
+
+    const output = runNext();
+
+    expect(output).toContain("## Current Repair Queue");
+    expect(output).toContain("No current blocking findings were parsed");
+    expect(output).toContain("Full findings history:");
+  });
+
   test("successful final validation routes to archive stage", () => {
     setupChange(`
 # Plan
@@ -579,6 +641,36 @@ Additional checks:
     expect(output).toContain("Browser smoke for login flow");
   });
 
+  test("implementation prompt includes the full current phase excerpt", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [ ]
+- [ ] Implement endpoint
+
+Definition of Done:
+- Endpoint handles not found responses.
+
+Additional checks:
+- \`bun test:e2e auth\`
+
+Implementation note:
+- Keep API contract unchanged.
+
+## Phase 2: UI [ ]
+- [ ] Build page
+`);
+
+    const output = runNext();
+
+    expect(output).toContain("Контекст текущей фазы из плана:");
+    expect(output).toContain("Definition of Done:");
+    expect(output).toContain("Endpoint handles not found responses.");
+    expect(output).toContain("Implementation note:");
+    expect(output).toContain("Keep API contract unchanged.");
+    expect(output).not.toContain("## Phase 2: UI");
+  });
+
   test("phase validation prompt does not include additional checks from implementation plan", () => {
     setupChange(`
 # Plan
@@ -738,6 +830,8 @@ describe("flow templates", () => {
     const repairTemplate = readTemplate("step5r_repair.md");
 
     for (const template of [phaseTemplate, finalTemplate]) {
+      expect(template).toContain("Validation mode: review-only stage");
+      expect(template).toContain("не является test execution gate");
       expect(template).toContain("прочитайте всю историю существующего `validation_findings.md`");
       expect(template).toContain("не очищайте старые findings");
       expect(template).toContain("сохраните прежний `ID` и близкое исходное `Description`");
@@ -765,8 +859,8 @@ describe("flow templates", () => {
       readTemplate("step3_plan.md")
     ];
 
-    expect(initTemplate).toContain("Human Review Formatting Policy");
-    expect(initTemplate).toContain("не является жестким skeleton");
+    expect(initTemplate).not.toContain("Human Review Formatting Policy");
+    expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("Human Review Formatting Policy");
@@ -785,8 +879,8 @@ describe("flow templates", () => {
       readTemplate("step3_plan.md")
     ];
 
-    expect(initTemplate).toContain("compact visual review surface");
-    expect(initTemplate).toContain("не является фиксированной секцией");
+    expect(initTemplate).not.toContain("compact visual review surface");
+    expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("compact visual review surface");
@@ -809,8 +903,8 @@ describe("flow templates", () => {
       readTemplate("step3_plan.md")
     ];
 
-    expect(initTemplate).toContain("Если вопрос влияет на approval artifact");
-    expect(initTemplate).toContain("long flat lists");
+    expect(initTemplate).not.toContain("Если вопрос влияет на approval artifact");
+    expect(initTemplate).toContain("Используй субагентов только когда");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("Если вопрос влияет на approval artifact");

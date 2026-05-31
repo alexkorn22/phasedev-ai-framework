@@ -10,11 +10,11 @@ Stage contract: обработать open findings из validation и подго
 - Результаты исследования: [research_facts.md]({{research_path}})
 - Правила разработки: [rules.md]({{rules_path}})
 
-Список открытых замечаний для исправления:
-{{open_findings}}
+{{repair_queue}}
 
 Правила обработки findings:
 - считайте актуальным статусом finding последнюю запись с тем же `ID` в [validation_findings.md]({{findings_path}});
+- рабочая очередь выше содержит только актуальные blocking findings для исправления; полную историю открывайте только когда нужен prior evidence по finding из очереди или когда очередь сообщает о parse ambiguity;
 - не редактируйте и не удаляйте старые findings, resolved записи или прошлые validation/repair sections;
 - перед началом работы над конкретным finding добавьте новую repair запись/секцию со статусом `in_progress`;
 - `implementation`: обновите change set в рамках текущего approved design и plan;

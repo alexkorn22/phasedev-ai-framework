@@ -253,7 +253,11 @@ npm run flow:ralph -- --project-path /absolute/project
 
 Validation полностью игнорирует `openspec/**` при поиске implementation findings. OpenSpec используется как системный контракт flow: validation читает требования, дизайн, план и историю `validation_findings.md`, но не создает замечания по файлам внутри `openspec/**`.
 
+Validation — это review-only этап, а не повторный test execution gate. Он намеренно не запускает `unit`, `phase`, `full` или дополнительные проверки повторно: успешное выполнение проверок является ответственностью Implementation stage, который не должен завершаться с failed checks.
+
 `validation_findings.md` ведется как история: validation и repair читают прошлые записи, не удаляют старые findings/resolved sections и добавляют новый результат новой секцией. Если прежний finding был `resolved`, validation не должна reopen-ить его без нового конкретного evidence из рабочего кода вне `openspec/**`.
+
+Repair Loop получает compact repair queue из актуальных open/reopened blocking findings, чтобы не загружать всю append-only историю как текущую задачу. Полный `validation_findings.md` остается memory layer для duplicate prevention, stable IDs и проверки prior evidence.
 
 ## Архивация
 

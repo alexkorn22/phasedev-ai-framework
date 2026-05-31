@@ -2,6 +2,8 @@
 
 Stage contract: проверить реализованный рабочий код перед Archive.
 
+Validation mode: review-only stage. Этот этап проверяет completeness/correctness review-методами и не является test execution gate.
+
 Входные артефакты:
 - Требования PRD: [prd.md]({{prd_path}})
 - Правила разработки: [rules.md]({{rules_path}})
@@ -47,7 +49,7 @@ Visual markers не заменяют machine-readable поля. Источник
 не используйте эмоджи в командах, file paths, code blocks и обязательных machine-readable labels.
 
 Правила verdict:
-- `ready` — blocking findings нет, gate evidence достаточен.
+- `ready` — blocking findings нет, review evidence достаточен, а Implementation checks считаются declared passed.
 - `ready_with_risks` — есть только non-blocking findings.
 - `repair_required` — есть blocking findings или недостаточный review evidence.
 - `ready_with_risks` допустим только если все findings имеют `Blocks PR? = No`.

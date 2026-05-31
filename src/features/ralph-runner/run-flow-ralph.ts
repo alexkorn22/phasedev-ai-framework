@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { createHash } from "crypto";
 import { findActiveChangeDir } from "../../entities/flow-change/active-change";
 import { readArchiveState } from "../../entities/flow-change/archive-state";
 import { archiveRootPath } from "../../entities/flow-change/paths";
@@ -18,7 +19,7 @@ export interface FlowRalphDependencies {
   now?: () => Date;
 }
 
-export type FlowRalphStatus = "archived" | "blocked" | "max_iterations";
+export type FlowRalphStatus = "archived" | "blocked" | "no_progress" | "max_iterations";
 
 export interface FlowRalphResult {
   status: FlowRalphStatus;
@@ -75,6 +76,50 @@ function hasCompletedArchivedChange(projectPath: string, previousActiveChange: s
   });
 }
 
+function isIgnoredSnapshotPath(itemPath: string, projectPath: string, logDir: string): boolean {
+  const relativePath = path.relative(projectPath, itemPath);
+  if (relativePath === "") return false;
+
+  const firstSegment = relativePath.split(path.sep)[0];
+  return firstSegment === ".git" ||
+         firstSegment === "node_modules" ||
+         firstSegment === ".cache" ||
+         firstSegment === "dist" ||
+         firstSegment === "build" ||
+         itemPath === logDir ||
+         itemPath.startsWith(`${logDir}${path.sep}`);
+}
+
+function snapshotProjectState(projectPath: string, logDir: string): string {
+  const hash = createHash("sha256");
+  const root = path.resolve(projectPath);
+
+  function visit(itemPath: string): void {
+    if (isIgnoredSnapshotPath(itemPath, root, logDir)) {
+      return;
+    }
+
+    const stat = fs.statSync(itemPath);
+    const relativePath = path.relative(root, itemPath);
+    hash.update(relativePath);
+    hash.update(String(stat.size));
+
+    if (stat.isDirectory()) {
+      for (const item of fs.readdirSync(itemPath).sort()) {
+        visit(path.join(itemPath, item));
+      }
+      return;
+    }
+
+    if (stat.isFile()) {
+      hash.update(fs.readFileSync(itemPath));
+    }
+  }
+
+  visit(root);
+  return hash.digest("hex");
+}
+
 export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = { createCodex: createDefaultCodexFactory }): Promise<FlowRalphResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
@@ -125,8 +170,10 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
     reporter.log("[FLOW RALPH] running flow init...");
     await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
     reporter.log("[FLOW RALPH] flow init completed");
+    const beforeStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
     reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
     const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
+    const afterStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
 
     if (config.loop.enableLogs) {
       logAgentResponse(
@@ -148,6 +195,12 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       reporter.log("[FLOW RALPH] archived");
       reporter.log(`[FLOW RALPH] log: ${logPath}`);
       return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
+    }
+
+    if (beforeStageSnapshot === afterStageSnapshot) {
+      reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
+      reporter.log(`[FLOW RALPH] log: ${logPath}`);
+      return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };
     }
 
     reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);

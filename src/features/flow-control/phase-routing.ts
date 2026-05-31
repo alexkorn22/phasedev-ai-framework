@@ -4,9 +4,10 @@ import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
+import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
-import { formatAdditionalChecks, formatTaskList } from "./prompt-formatters";
+import { formatAdditionalChecks, formatPhaseExcerpt, formatTaskList, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
 
 export interface Urls {
@@ -65,6 +66,7 @@ export function handlePhase(planPath: string, activePhase: Phase, totalPhases: n
   return prompt("next", "implementation", renderStageTemplate("implementation", "step4_impl", {
     phase_id: `Phase ${activePhase.id}: ${activePhase.name}`,
     phase_tasks: formatTaskList(activePhase),
+    phase_excerpt: formatPhaseExcerpt(activePhase),
     test_command: testCommand,
     phase_checks: formatAdditionalChecks(activePhase),
     rules_path: urls.rules_path,
@@ -73,9 +75,59 @@ export function handlePhase(planPath: string, activePhase: Phase, totalPhases: n
   }, config));
 }
 
+function escapeMarkdownTableCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+}
+
+function isQueuedRepairFinding(finding: ValidationFindingState): boolean {
+  return finding.blocksPr && ["open", "reopened", "in_progress"].includes(finding.latestStatus);
+}
+
+function formatRepairQueue(findingsPath: string): string {
+  if (!fs.existsSync(findingsPath)) {
+    return [
+      "## Current Repair Queue",
+      "",
+      "No findings file found.",
+      "",
+      "Full findings history: unavailable."
+    ].join("\n");
+  }
+
+  const queue = parseCurrentValidationFindings(findingsPath).filter(isQueuedRepairFinding);
+  const historyLink = `Full findings history: [validation_findings.md](${toFileUrl(findingsPath)})`;
+
+  if (queue.length === 0) {
+    return [
+      "## Current Repair Queue",
+      "",
+      "No current blocking findings were parsed from the findings history.",
+      "Open the full findings history only to resolve this ambiguity: either fix malformed finding rows or confirm that all blocking findings are resolved before setting `verdict: repaired`.",
+      "",
+      historyLink
+    ].join("\n");
+  }
+
+  return [
+    "## Current Repair Queue",
+    "",
+    "| ID | Class | Phase | Description | Latest Evidence |",
+    "|---|---|---|---|---|",
+    ...queue.map(finding => [
+      finding.id,
+      finding.className,
+      finding.phase,
+      finding.canonicalDescription,
+      finding.latestEvidence
+    ].map(escapeMarkdownTableCell).join(" | ")).map(row => `| ${row} |`),
+    "",
+    historyLink
+  ].join("\n");
+}
+
 export function repairPrompt(urls: Urls, findingsPath: string, config: FlowRalphConfig): FlowPrompt {
   return prompt("next", "repair", renderStageTemplate("repair", "step5r_repair", {
-    open_findings: fs.existsSync(findingsPath) ? fs.readFileSync(findingsPath, "utf-8") : "No findings file found.",
+    repair_queue: formatRepairQueue(findingsPath),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,
     design_path: urls.design_path,

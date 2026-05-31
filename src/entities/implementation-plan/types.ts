@@ -9,4 +9,5 @@ export interface Phase {
   status: "completed" | "in_progress" | "not_started";
   tasks: Task[];
   additionalChecks: string[];
+  rawContent?: string;
 }

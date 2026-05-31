@@ -11,6 +11,17 @@ export interface BlockingValidationFinding {
   signature: string;
 }
 
+export interface ValidationFindingState {
+  id: string;
+  signature: string;
+  latestStatus: string;
+  className: string;
+  blocksPr: boolean;
+  phase: string;
+  canonicalDescription: string;
+  latestEvidence: string;
+}
+
 export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "unknown" {
   const verdict = readFrontmatterValue(filePath, "verdict")?.toLowerCase();
   if (verdict === "ready" || verdict === "ready_with_risks" || verdict === "repaired" || verdict === "repair_required") {
@@ -77,6 +88,16 @@ function normalizeSignaturePart(value: string): string {
     .replace(/[^\p{L}\p{N}\s]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function canonicalDescriptionFor(value: string): string {
+  return value
+    .replace(/^reopened\s*\/\s*regression\s*:\s*/i, "")
+    .trim();
+}
+
+function validationTypeForPhase(phase: string): "phase" | "final" {
+  return normalizeSignaturePart(phase) === "final" ? "final" : "phase";
 }
 
 function signatureFor(type: string, phase: string, className: string, description: string): string {
@@ -148,4 +169,72 @@ export function parseBlockingValidationFindings(filePath: string): BlockingValid
   }
 
   return findings;
+}
+
+export function parseCurrentValidationFindings(filePath: string): ValidationFindingState[] {
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  const lines = content.split("\n");
+  const findings = new Map<string, ValidationFindingState>();
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (!line.trim().startsWith("|")) continue;
+
+    const headers = splitMarkdownTableRow(line);
+    const headerIndexes = new Map(headers.map((header, columnIndex) => [normalizeHeader(header), columnIndex]));
+    const requiredColumns = ["id", "status", "class", "blockspr?", "phase", "description"];
+    if (!requiredColumns.every(column => headerIndexes.has(column))) {
+      continue;
+    }
+
+    let rowIndex = index + 1;
+    if (rowIndex < lines.length && isSeparatorRow(splitMarkdownTableRow(lines[rowIndex]))) {
+      rowIndex++;
+    }
+
+    for (; rowIndex < lines.length; rowIndex++) {
+      const rowLine = lines[rowIndex];
+      if (!rowLine.trim().startsWith("|")) {
+        break;
+      }
+
+      const cells = splitMarkdownTableRow(rowLine);
+      if (isSeparatorRow(cells)) {
+        continue;
+      }
+
+      const id = cells[headerIndexes.get("id") ?? -1]?.trim() ?? "";
+      if (id.length === 0) {
+        continue;
+      }
+
+      const latestStatus = cells[headerIndexes.get("status") ?? -1]?.trim().toLowerCase() ?? "";
+      const className = cells[headerIndexes.get("class") ?? -1]?.trim() ?? "";
+      const blocksPr = (cells[headerIndexes.get("blockspr?") ?? -1]?.trim().toLowerCase() ?? "") === "yes";
+      const phase = cells[headerIndexes.get("phase") ?? -1]?.trim() ?? "";
+      const description = cells[headerIndexes.get("description") ?? -1]?.trim() ?? "";
+      const evidenceColumn = headerIndexes.get("evidence");
+      const latestEvidence = evidenceColumn === undefined ? description : cells[evidenceColumn]?.trim() ?? "";
+      const previous = findings.get(id);
+      const canonicalDescription = previous?.canonicalDescription ?? canonicalDescriptionFor(description);
+      const validationType = validationTypeForPhase(phase);
+
+      findings.set(id, {
+        id,
+        signature: signatureFor(validationType, phase, className, canonicalDescription),
+        latestStatus,
+        className,
+        blocksPr,
+        phase,
+        canonicalDescription,
+        latestEvidence
+      });
+    }
+  }
+
+  return Array.from(findings.values());
 }

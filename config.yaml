@@ -21,9 +21,9 @@ codex:
       skills:
         routers: []
         main:
-          - architecture
-        additional:
           - source-driven-development
+        additional:
+          - architecture
           - context7-docs-lookup
           - code-audit
           - api-audit
@@ -100,8 +100,8 @@ codex:
         routers: []
         main:
           - code-review-and-quality
-          - security-and-hardening
         additional:
+          - security-and-hardening
           - code-audit
           - review
           - test-audit

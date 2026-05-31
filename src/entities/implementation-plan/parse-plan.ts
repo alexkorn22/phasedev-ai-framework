@@ -59,16 +59,18 @@ export function parsePlan(filePath: string): Phase[] {
   const phaseRegex = /^##\s*Phase\s*(\d+)\s*:\s*(.*?)\s*\[\s*(x|~| |\/)\s*\]/i;
 
   let currentPhaseLines: string[] = [];
+  let currentPhaseHeading = "";
   let currentPhaseMeta: { id: number; name: string; status: Phase["status"] } | null = null;
 
   for (const line of lines) {
     const match = line.match(phaseRegex);
     if (match && match[1] !== undefined && match[2] !== undefined && match[3] !== undefined) {
       if (currentPhaseMeta !== null) {
-        phases.push({ ...currentPhaseMeta, tasks: parseTasks(currentPhaseLines), additionalChecks: parseAdditionalChecks(currentPhaseLines) });
+        phases.push({ ...currentPhaseMeta, tasks: parseTasks(currentPhaseLines), additionalChecks: parseAdditionalChecks(currentPhaseLines), rawContent: [currentPhaseHeading, ...currentPhaseLines].join("\n").trim() });
       }
 
       currentPhaseLines = [];
+      currentPhaseHeading = line;
       const statusChar = match[3].toLowerCase();
       const status = statusChar === "x" ? "completed" : statusChar === "~" || statusChar === "/" ? "in_progress" : "not_started";
       currentPhaseMeta = {
@@ -85,7 +87,7 @@ export function parsePlan(filePath: string): Phase[] {
   }
 
   if (currentPhaseMeta !== null) {
-    phases.push({ ...currentPhaseMeta, tasks: parseTasks(currentPhaseLines), additionalChecks: parseAdditionalChecks(currentPhaseLines) });
+    phases.push({ ...currentPhaseMeta, tasks: parseTasks(currentPhaseLines), additionalChecks: parseAdditionalChecks(currentPhaseLines), rawContent: [currentPhaseHeading, ...currentPhaseLines].join("\n").trim() });
   }
 
   return phases;

@@ -199,7 +199,7 @@ describe("flow-ralph runner", () => {
     expect(seenNextConfigs).toEqual([config]);
   });
 
-  test("continues to maxIterations when stage makes no progress", async () => {
+  test("stops with no_progress when stage makes no flow state change", async () => {
     const projectPath = setupProject();
     const threads: Array<{ prompts: string[] }> = [];
 
@@ -224,13 +224,14 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("max_iterations");
-    expect(result.iterations).toBe(2);
-    expect(threads).toHaveLength(2);
+    expect(result.status).toBe("no_progress");
+    expect(result.iterations).toBe(1);
+    expect(threads).toHaveLength(1);
   });
 
   test("stops at maxIterations", async () => {
     const projectPath = setupProject();
+    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "progress.md");
     let promptCounter = 0;
     const threads: unknown[] = [];
 
@@ -240,7 +241,10 @@ describe("flow-ralph runner", () => {
           threads.push({});
           return {
             id: `thread-${threads.length}`,
-            async run() {
+            async run(prompt: string) {
+              if (prompt.includes("FLOW NEXT PROMPT")) {
+                fs.writeFileSync(progressPath, `iteration ${threads.length}\n`, "utf-8");
+              }
               return { finalResponse: "done" };
             }
           };
@@ -320,7 +324,7 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("max_iterations");
+    expect(result.status).toBe("no_progress");
     expect(messages).toContain("[CODEX flow init] thread.started: thread-stream");
     expect(messages).toContain("[CODEX flow init] reasoning: checking flow state");
     expect(messages).toContain("[CODEX flow init] command: bun test");
@@ -361,7 +365,7 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("max_iterations");
+    expect(result.status).toBe("no_progress");
     expect(prompts).toHaveLength(2);
     expect(messages.some(message => message.startsWith("[CODEX "))).toBe(false);
 
@@ -421,7 +425,7 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("max_iterations");
+    expect(result.status).toBe("no_progress");
     expect(options).toContainEqual(expect.objectContaining({
       model: "gpt-5.3-codex",
       modelReasoningEffort: "medium"
@@ -671,15 +675,21 @@ describe("flow-ralph runner", () => {
 
   test("writes formatted agent response logs and supports prepending when enableLogs is true", async () => {
     const projectPath = setupProject();
-    let promptCounter = 0;
+    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "progress.md");
+    let stageCounter = 0;
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-log-test",
-          async run() {
-            promptCounter++;
-            return { finalResponse: `Agent response for iteration ${promptCounter}` };
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              stageCounter++;
+              fs.writeFileSync(progressPath, `iteration ${stageCounter}\n`, "utf-8");
+              return { finalResponse: `Agent response for iteration ${stageCounter}` };
+            }
+
+            return { finalResponse: "Init response" };
           }
         })
       }),
@@ -754,7 +764,7 @@ describe("flow-ralph runner", () => {
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    expect(result.status).toBe("max_iterations");
+    expect(result.status).toBe("no_progress");
     expect(messages.some(msg => msg.includes("Failed to write to log.md"))).toBe(true);
   });
 });
