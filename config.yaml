@@ -48,7 +48,7 @@ codex:
           - deprecation-and-migration
     plan:
       model: gpt-5.5
-      reasoningEffort: medium
+      reasoningEffort: high
       skills:
         routers: []
         main:
