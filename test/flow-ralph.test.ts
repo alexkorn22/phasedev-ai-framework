@@ -42,6 +42,19 @@ async function* streamEvents(events: unknown[]): AsyncGenerator<unknown> {
   }
 }
 
+function writeValidationFindings(filePath: string, verdict: "repair_required" | "repaired", rows: string, type: "phase" | "final" = "phase"): void {
+  fs.writeFileSync(filePath, `---
+verdict: ${verdict}
+type: ${type}
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+${rows}
+`, "utf-8");
+}
+
 describe("flow-ralph runner", () => {
   beforeEach(() => cleanupTestDir());
   afterEach(() => cleanupTestDir());
@@ -468,6 +481,195 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("archived");
     expect(threads).toHaveLength(2);
+  });
+
+  test("blocks when validation reopens a blocking finding resolved by the prior repair", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const planPath = path.join(changeDir, "implementation_plan.md");
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    fs.writeFileSync(planPath, `
+# Plan
+
+## Phase 1: API [~]
+- [x] Implement endpoint
+`, "utf-8");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+
+    const messages: string[] = [];
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5, stopOnNoProgress: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-repeat",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("repair prompt")) {
+              writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+            }
+            if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("validation prompt")) {
+              writeValidationFindings(findingsPath, "repair_required", "| F9 | 🔴 | reopened | implementation | Yes | Phase 1 | API response omits required error handling!!! |");
+            }
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => {
+        const content = fs.readFileSync(findingsPath, "utf-8");
+        return content.includes("verdict: repair_required")
+          ? flowPrompt("next", "repair", "repair prompt")
+          : flowPrompt("next", "phase_validation", "validation prompt");
+      },
+      findActiveChangeDir: () => changeDir,
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-30T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(2);
+    expect(result.reason).toBe("Repeated validation finding after repair: phase|phase 1|implementation|api response omits required error handling");
+    expect(messages).toContain("[FLOW RALPH] blocked at stage: phase_validation");
+    const logLines = fs.readFileSync(result.logPath, "utf-8").trim().split("\n");
+    expect(logLines[1]).toContain('"status":"blocked"');
+    expect(logLines[1]).toContain("Repeated validation finding after repair");
+  });
+
+  test("blocks when final validation reopens a blocking finding resolved by the prior repair", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const planPath = path.join(changeDir, "implementation_plan.md");
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    fs.writeFileSync(planPath, `
+# Plan
+
+## Phase 1: API [x]
+- [x] Implement endpoint
+`, "utf-8");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Final | API response omits required error handling. |", "final");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5, stopOnNoProgress: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-final-repeat",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("repair prompt")) {
+              writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Final | API response omits required error handling. |", "final");
+            }
+            if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("final validation prompt")) {
+              writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | reopened | implementation | Yes | Final | API response omits required error handling. |", "final");
+            }
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => {
+        const content = fs.readFileSync(findingsPath, "utf-8");
+        return content.includes("verdict: repair_required")
+          ? flowPrompt("next", "repair", "repair prompt")
+          : flowPrompt("next", "final_validation", "final validation prompt");
+      },
+      findActiveChangeDir: () => changeDir,
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-30T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(2);
+    expect(result.reason).toBe("Repeated validation finding after repair: final|final|implementation|api response omits required error handling");
+  });
+
+  test("continues when validation reports a different blocking finding after repair", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const planPath = path.join(changeDir, "implementation_plan.md");
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    fs.writeFileSync(planPath, `
+# Plan
+
+## Phase 1: API [~]
+- [x] Implement endpoint
+`, "utf-8");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+
+    let stageTurns = 0;
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: `thread-${stageTurns + 1}`,
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              stageTurns++;
+              if (stageTurns === 1) {
+                writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+              } else {
+                writeValidationFindings(findingsPath, "repair_required", "| F2 | 🔴 | open | implementation | Yes | Phase 1 | API response lacks pagination guard. |");
+              }
+            }
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => {
+        const content = fs.readFileSync(findingsPath, "utf-8");
+        return content.includes("verdict: repair_required")
+          ? flowPrompt("next", "repair", "repair prompt")
+          : flowPrompt("next", "phase_validation", "validation prompt");
+      },
+      findActiveChangeDir: () => changeDir,
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-30T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    expect(result.iterations).toBe(2);
+  });
+
+  test("does not block when repeated finding is non-blocking", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const planPath = path.join(changeDir, "implementation_plan.md");
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    fs.writeFileSync(planPath, `
+# Plan
+
+## Phase 1: API [~]
+- [x] Implement endpoint
+`, "utf-8");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+
+    let stageTurns = 0;
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, stopOnNoProgress: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: `thread-${stageTurns + 1}`,
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              stageTurns++;
+              if (stageTurns === 1) {
+                writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+              } else {
+                writeValidationFindings(findingsPath, "repair_required", "| F9 | 🟡 | reopened | implementation | No | Phase 1 | API response omits required error handling. |");
+              }
+            }
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => {
+        const content = fs.readFileSync(findingsPath, "utf-8");
+        return content.includes("verdict: repair_required")
+          ? flowPrompt("next", "repair", "repair prompt")
+          : flowPrompt("next", "phase_validation", "validation prompt");
+      },
+      findActiveChangeDir: () => changeDir,
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-30T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    expect(result.iterations).toBe(2);
   });
 
   test("writes formatted agent response logs and supports prepending when enableLogs is true", async () => {

@@ -16,6 +16,9 @@ Stage contract: проверить готовность текущей фазы 
 - тесты и дополнительные проверки из Implementation stage считаются уже успешно пройденными, потому что Implementation не может завершиться с failed tests/checks;
 - не запускайте тесты и дополнительные проверки повторно на этом этапе;
 - validation evidence записан в [validation_findings.md]({{findings_path}}).
+- перед записью нового результата проверьте существующий `validation_findings.md`, если он есть;
+- если finding семантически совпадает с прежним, сохраните прежний `ID` и близкое исходное `Description`;
+- если finding вернулся после repair, поставьте `Status` = `reopened` и добавьте в `Description` только префикс `reopened/regression: ` перед прежним текстом, не меняя остальной текст `Description`.
 
 Формат `validation_findings.md`:
 ---

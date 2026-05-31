@@ -76,6 +76,18 @@ function hasCompletedArchivedChange(projectPath: string, previousActiveChange: s
   });
 }
 
+function isValidationStage(stage: FlowStage): boolean {
+  return stage === "phase_validation" || stage === "final_validation";
+}
+
+function findRepeatedBlockingFinding(afterSnapshot: ReturnType<typeof createSnapshot>, resolvedAfterRepair: Set<string>): string | null {
+  if (afterSnapshot.validationState?.verdict !== "repair_required") {
+    return null;
+  }
+
+  return afterSnapshot.validationState.openBlockingFindingSignatures.find(signature => resolvedAfterRepair.has(signature)) ?? null;
+}
+
 export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = { createCodex: createDefaultCodexFactory }): Promise<FlowRalphResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
@@ -93,6 +105,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
   }
 
   let codex: CodexFactory | null = null;
+  let resolvedBlockingSignaturesAfterRepair = new Set<string>();
 
   for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
     const startedAt = now();
@@ -162,6 +175,12 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
     const afterSnapshot = archived
       ? { ...beforeSnapshot, activeChange: afterActiveChange, stage: "archive" as FlowStage }
       : createSnapshot(afterActiveChange, afterNextPrompt);
+    const repeatedBlockingFinding = isValidationStage(nextPrompt.stage)
+      ? findRepeatedBlockingFinding(afterSnapshot, resolvedBlockingSignaturesAfterRepair)
+      : null;
+    const repeatedFindingReason = repeatedBlockingFinding
+      ? `Repeated validation finding after repair: ${repeatedBlockingFinding}`
+      : undefined;
     const noProgress = !archived && sameSnapshot(beforeSnapshot, afterSnapshot) && config.loop.stopOnNoProgress;
 
     appendLog(logPath, {
@@ -176,8 +195,8 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       afterSnapshot,
       nextBlocked: nextPrompt.blocked,
       finalResponse: turn.finalResponse ?? "",
-      status: archived ? "archived" : noProgress ? "no_progress" : "completed",
-      stopReason: archived ? "Archive state was completed." : noProgress ? "Flow state did not advance after stage session." : undefined
+      status: archived ? "archived" : repeatedFindingReason ? "blocked" : noProgress ? "no_progress" : "completed",
+      stopReason: archived ? "Archive state was completed." : repeatedFindingReason ?? (noProgress ? "Flow state did not advance after stage session." : undefined)
     });
 
     if (archived) {
@@ -187,11 +206,24 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
     }
 
+    if (repeatedFindingReason) {
+      reporter.log(`[FLOW RALPH] blocked at stage: ${nextPrompt.stage}`);
+      reporter.log(`[FLOW RALPH] reason: ${repeatedFindingReason}`);
+      reporter.log(`[FLOW RALPH] log: ${logPath}`);
+      return { status: "blocked", iterations: iteration, logPath, reason: repeatedFindingReason };
+    }
+
     if (noProgress) {
       reporter.log(`[FLOW RALPH] no progress at stage: ${nextPrompt.stage}`);
       reporter.log("[FLOW RALPH] reason: Flow state did not advance after stage session.");
       reporter.log(`[FLOW RALPH] log: ${logPath}`);
       return { status: "no_progress", iterations: iteration, logPath, reason: "Flow state did not advance after stage session." };
+    }
+
+    if (nextPrompt.stage === "repair") {
+      resolvedBlockingSignaturesAfterRepair = new Set(afterSnapshot.validationState?.resolvedBlockingFindingSignatures ?? []);
+    } else if (isValidationStage(nextPrompt.stage)) {
+      resolvedBlockingSignaturesAfterRepair = new Set();
     }
 
     reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);

@@ -5,7 +5,7 @@ import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
-import { parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
+import { parseBlockingValidationFindings, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
 
@@ -159,6 +159,101 @@ Definition of Done:
 
     const nonexistentPath = path.join(testTmpDir, "nonexistent.md");
     expect(parseValidationVerdictType(nonexistentPath)).toBe("unknown");
+  });
+
+  test("parseBlockingValidationFindings extracts blocking signatures from validation table", () => {
+    const findingsFile = path.join(testTmpDir, "findings_table.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |
+| F2 | 🟡 | open | implementation | No | Phase 1 | Non-blocking naming note. |
+| F3 | 🔴 | resolved | design | Yes | Phase 2 | Design does not cover retry behavior. |
+`, "utf-8");
+
+    const findings = parseBlockingValidationFindings(findingsFile);
+
+    expect(findings).toEqual([
+      {
+        id: "F1",
+        status: "open",
+        className: "implementation",
+        phase: "Phase 1",
+        description: "API response omits required error handling.",
+        signature: "phase|phase 1|implementation|api response omits required error handling"
+      },
+      {
+        id: "F3",
+        status: "resolved",
+        className: "design",
+        phase: "Phase 2",
+        description: "Design does not cover retry behavior.",
+        signature: "phase|phase 2|design|design does not cover retry behavior"
+      }
+    ]);
+  });
+
+  test("parseBlockingValidationFindings ignores IDs, signal, and status when building signatures", () => {
+    const findingsFile = path.join(testTmpDir, "changed_ids.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: final
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+| F7 | 🔴 | reopened | Implementation | Yes | Final | reopened/regression: API response omits required error handling!!! |
+`, "utf-8");
+
+    const findings = parseBlockingValidationFindings(findingsFile);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].signature).toBe("final|final|implementation|api response omits required error handling");
+  });
+
+  test("parseBlockingValidationFindings normalizes reopened prefix and hyphen variants", () => {
+    const findingsFile = path.join(testTmpDir, "hyphen_variants.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+| F7 | 🔴 | reopened | Implementation | Yes | Phase 1 | reopened/regression: API-response omits required error-handling!!! |
+`, "utf-8");
+
+    const findings = parseBlockingValidationFindings(findingsFile);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].signature).toBe("phase|phase 1|implementation|api response omits required error handling");
+  });
+
+  test("parseBlockingValidationFindings keeps escaped pipes inside descriptions", () => {
+    const findingsFile = path.join(testTmpDir, "escaped_pipe.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+| F1 | 🔴 | open | implementation | Yes | Phase 1 | Type guard misses \`A \\| B\` response. |
+`, "utf-8");
+
+    const findings = parseBlockingValidationFindings(findingsFile);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].description).toBe("Type guard misses `A | B` response.");
+    expect(findings[0].signature).toBe("phase|phase 1|implementation|type guard misses a b response");
   });
 
   test("parseTestCommands extracts unit, phase, and full commands from rules markdown", () => {

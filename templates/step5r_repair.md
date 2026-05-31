@@ -20,6 +20,8 @@ Stage contract: обработать open findings из validation и подго
 - `design`: обновите [design.md]({{design_path}}) и связанные architecture files, затем обновите affected plan/change set;
 - `requirements`: после обсуждения с пользователем обновите [prd.md]({{prd_path}}), затем affected design/plan/change set;
 - после обработки finding измените его статус на `resolved`.
+- не меняйте исходный `Description` у resolved finding: он используется для распознавания повторов;
+- для каждого `resolved` finding сохраняйте repair evidence рядом с таблицей: changed area, verification performed, tradeoff.
 
 Правило verdict:
 - не меняйте `verdict: repair_required`, пока все findings не имеют статус `resolved`;

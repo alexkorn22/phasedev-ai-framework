@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
-import { parseValidationVerdict, parseValidationVerdictType } from "../../entities/validation-findings/parse-validation-findings";
+import { parseBlockingValidationFindings, parseValidationVerdict, parseValidationVerdictType } from "../../entities/validation-findings/parse-validation-findings";
 
 export interface FlowSnapshot {
   activeChange: string | null;
@@ -16,6 +16,22 @@ export interface FlowSnapshot {
   validationState?: {
     verdict: string;
     type: string;
+    openBlockingFindingSignatures: string[];
+    resolvedBlockingFindingSignatures: string[];
+  };
+}
+
+function validationState(findingsPath: string): FlowSnapshot["validationState"] {
+  const blockingFindings = parseBlockingValidationFindings(findingsPath);
+  return {
+    verdict: parseValidationVerdict(findingsPath),
+    type: parseValidationVerdictType(findingsPath),
+    openBlockingFindingSignatures: blockingFindings
+      .filter(finding => finding.status !== "resolved")
+      .map(finding => finding.signature),
+    resolvedBlockingFindingSignatures: blockingFindings
+      .filter(finding => finding.status === "resolved")
+      .map(finding => finding.signature)
   };
 }
 
@@ -35,10 +51,7 @@ export function createSnapshot(activeChange: string | null, nextPrompt: FlowProm
       }))
       : undefined,
     validationState: activeChange && fs.existsSync(findingsPath)
-      ? {
-        verdict: parseValidationVerdict(findingsPath),
-        type: parseValidationVerdictType(findingsPath)
-      }
+      ? validationState(findingsPath)
       : undefined
   };
 }

@@ -256,6 +256,10 @@ npm run flow:ralph -- --project-path /absolute/project
 
 Если найден `repair_required`, следующий `flow next` отправит агента в Repair Loop. После исправления Ralph-раннер стартует новую сессию Codex, снова выполнит `flow init`, затем текущий `flow next`, и проверка будет повторена.
 
+Ralph-раннер защищает validation/repair цикл от простого зацикливания. После Repair Loop он запоминает blocking findings, которые были переведены в `resolved`, по semantic signature из `type`, `Phase`, `Class` и нормализованного `Description`. Если следующая Phase Validation или Final Validation снова открывает такой же blocking finding, раннер останавливается со статусом `blocked` и причиной вида `Repeated validation finding after repair: ...`.
+
+Для этой защиты validation prompts требуют сохранять прежний `ID` и близкое исходное `Description` для семантически того же finding. Если finding вернулся после repair, validation должна поставить `Status` = `reopened` и добавить в `Description` только префикс `reopened/regression: ` перед прежним текстом. Repair Loop не должен менять issue-текст `Description` у resolved finding; evidence по исправлению пишется рядом с таблицей: changed area, verification performed и tradeoff.
+
 ## Архивация
 
 После успешной Final Validation контроллер начинает Archive stage внутри обычного `next`:
@@ -322,3 +326,4 @@ npm run typecheck
 
 - Это штатное поведение.
 - Проверьте сообщение контроллера, выполните проверку человеком или исправьте указанную проблему, затем запустите раннер снова.
+- Если причина blocker начинается с `Repeated validation finding after repair`, проверьте конфликт между исправлениями: одно repair-изменение могло восстановить прежний blocking finding. В этом случае нужен human decision: изменить design/plan, принять риск или выполнить более широкий repair.

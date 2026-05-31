@@ -732,6 +732,27 @@ describe("flow templates", () => {
     }
   });
 
+  test("validation and repair prompts preserve finding identity and repair evidence", () => {
+    const phaseTemplate = readTemplate("step5a_val.md");
+    const finalTemplate = readTemplate("step5b_val.md");
+    const repairTemplate = readTemplate("step5r_repair.md");
+
+    for (const template of [phaseTemplate, finalTemplate]) {
+      expect(template).toContain("проверьте существующий `validation_findings.md`");
+      expect(template).toContain("сохраните прежний `ID` и близкое исходное `Description`");
+      expect(template).toContain("Status` = `reopened");
+      expect(template).toContain("reopened/regression");
+      expect(template).toContain("не меняя остальной текст `Description`");
+    }
+
+    expect(repairTemplate).toContain("сохраняйте repair evidence");
+    expect(repairTemplate).toContain("не меняйте исходный `Description`");
+    expect(repairTemplate).toContain("используется для распознавания повторов");
+    expect(repairTemplate).toContain("changed area");
+    expect(repairTemplate).toContain("verification performed");
+    expect(repairTemplate).toContain("tradeoff");
+  });
+
   test("approval prompts require flexible human-review formatting without rigid placeholder sections", () => {
     const initTemplate = readTemplate("init.md");
     const approvalTemplates = [
