@@ -27,6 +27,13 @@ function writeConfig(body: string): string {
   return configPath;
 }
 
+function writeProjectConfig(body: string): string {
+  const configPath = path.join(testTmpDir, "openspec", "config.yaml");
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, body, "utf-8");
+  return configPath;
+}
+
 function setupChange(planContent: string, options: { rules?: string; findings?: string; designApproved?: boolean; planApproved?: boolean } = {}) {
   const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
@@ -86,6 +93,24 @@ describe("flow-cli state machine", () => {
     expect(output).not.toContain("## Configured Skill Policy");
   });
 
+  test("init accepts project openspec config but keeps output policy-free", () => {
+    writeProjectConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        main:
+          - project-only-skill
+`);
+
+    const output = runInit();
+
+    expect(output).toContain("Запомни схему Agentic Engineering Flow для этой сессии.");
+    expect(output).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.");
+    expect(output).not.toContain("## Configured Skill Policy");
+    expect(output).not.toContain("project-only-skill");
+  });
+
   test("implementation prompt uses config skills without requiring a router", () => {
     setupChange(`
 # Plan
@@ -115,6 +140,28 @@ codex:
     expect(output).toContain("Priority 3 - additional skills");
     expect(output).toContain("- `api-and-interface-design`");
     expect(output).toContain("do not choose unlisted skills");
+  });
+
+  test("implementation prompt uses project openspec config without --config", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [ ] Implement endpoint
+`);
+    writeProjectConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        main:
+          - project-only-skill
+`);
+
+    const output = runNext();
+
+    expect(output).toContain("## Configured Skill Policy");
+    expect(output).toContain("- `project-only-skill`");
   });
 
   test("implementation prompt requires configured routers first without expanding allowlist", () => {

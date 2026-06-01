@@ -100,6 +100,23 @@ export function defaultConfigPath(): string {
   return path.resolve(__dirname, "..", "..", "..", "config.yaml");
 }
 
+export function projectConfigPath(projectPath: string): string {
+  return path.join(path.resolve(projectPath), "openspec", "config.yaml");
+}
+
+export function resolveFlowRalphConfigPath(projectPath: string, explicitConfigPath?: string): string {
+  if (explicitConfigPath) {
+    return path.resolve(explicitConfigPath);
+  }
+
+  const projectConfig = projectConfigPath(projectPath);
+  if (fs.existsSync(projectConfig)) {
+    return projectConfig;
+  }
+
+  return defaultConfigPath();
+}
+
 function asRecord(value: unknown, key: string): Record<string, unknown> {
   if (value === undefined || value === null) {
     return {};

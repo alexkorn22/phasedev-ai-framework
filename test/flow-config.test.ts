@@ -1,8 +1,36 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import * as fs from "fs";
 import * as path from "path";
-import { getStageModelConfig, getStageSkillConfig, parseFlowRalphConfig, resolveProjectLogDir } from "../src/features/ralph-runner/config";
+import {
+  defaultConfigPath,
+  getStageModelConfig,
+  getStageSkillConfig,
+  loadFlowRalphConfig,
+  parseFlowRalphConfig,
+  projectConfigPath,
+  resolveFlowRalphConfigPath,
+  resolveProjectLogDir
+} from "../src/features/ralph-runner/config";
+
+const testTmpDir = path.resolve(__dirname, "..", "test-config-temp");
+
+function cleanupTestDir() {
+  if (fs.existsSync(testTmpDir)) {
+    fs.rmSync(testTmpDir, { recursive: true, force: true });
+  }
+}
+
+function writeProjectConfig(projectPath: string, body: string): string {
+  const configPath = projectConfigPath(projectPath);
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, body, "utf-8");
+  return configPath;
+}
 
 describe("flow-ralph config", () => {
+  beforeEach(() => cleanupTestDir());
+  afterEach(() => cleanupTestDir());
+
   test("parses config with comments and defaults", () => {
     const config = parseFlowRalphConfig(`
 codex:
@@ -33,6 +61,46 @@ loop:
     expect(getStageModelConfig(config, "archive")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "low" });
     expect(getStageModelConfig(config, "implementation")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "medium" });
     expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
+  });
+
+  test("resolves explicit config before project config", () => {
+    const projectPath = path.join(testTmpDir, "project");
+    const explicitConfigPath = path.join(testTmpDir, "explicit-config.yaml");
+    writeProjectConfig(projectPath, `
+codex:
+  default:
+    model: project-model
+`);
+    fs.writeFileSync(explicitConfigPath, `
+codex:
+  default:
+    model: explicit-model
+`, "utf-8");
+
+    const resolvedPath = resolveFlowRalphConfigPath(projectPath, explicitConfigPath);
+
+    expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
+    expect(loadFlowRalphConfig(resolvedPath).codex.default.model).toBe("explicit-model");
+  });
+
+  test("resolves project openspec config before root default config", () => {
+    const projectPath = path.join(testTmpDir, "project");
+    const projectConfig = writeProjectConfig(projectPath, `
+codex:
+  default:
+    model: project-model
+`);
+
+    const resolvedPath = resolveFlowRalphConfigPath(projectPath);
+
+    expect(resolvedPath).toBe(projectConfig);
+    expect(loadFlowRalphConfig(resolvedPath).codex.default.model).toBe("project-model");
+  });
+
+  test("resolves root default config when project config is missing", () => {
+    const projectPath = path.join(testTmpDir, "project-without-config");
+
+    expect(resolveFlowRalphConfigPath(projectPath)).toBe(defaultConfigPath());
   });
 
   test("parses stage skills without inheriting skills from default", () => {

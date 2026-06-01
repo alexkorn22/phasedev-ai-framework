@@ -977,6 +977,46 @@ codex:
     expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done"))).toBe(true);
   });
 
+  test("flow:ralph CLI uses project openspec config without --config", async () => {
+    const projectPath = setupProject();
+    const projectConfigPath = path.join(projectPath, "openspec", "config.yaml");
+    const envPath = path.join(projectPath, "openspec", ".env");
+    const reporterMessages: string[] = [];
+    const telegramMessages: string[] = [];
+
+    fs.writeFileSync(projectConfigPath, `
+loop:
+  maxIterations: 1
+  notifications:
+    telegram:
+      enabled: true
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+    fs.writeFileSync(envPath, `
+FLOW_RALPH_TELEGRAM_BOT_TOKEN=123:from-project-env-file
+FLOW_RALPH_TELEGRAM_CHAT_ID=789
+`, "utf-8");
+
+    await runFlowRalphCli(["--project-path", projectPath], {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-project-config",
+          async run() {
+            return { finalResponse: "done from project config" };
+          }
+        })
+      }),
+      reporter: { log: message => reporterMessages.push(message) },
+      env: {},
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
+
+    expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
+    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
+    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done from project config"))).toBe(true);
+  });
+
   test("flow:ralph CLI loads Telegram credentials from .env next to config", async () => {
     const projectPath = setupProject();
     const configPath = path.join(testTmpDir, "ralph-config.yaml");

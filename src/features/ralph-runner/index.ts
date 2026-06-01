@@ -11,6 +11,8 @@ export {
   getStageSkillConfig,
   loadFlowRalphConfig,
   parseFlowRalphConfig,
+  projectConfigPath,
+  resolveFlowRalphConfigPath,
   resolveProjectLogDir
 } from "./config";
 export type {

@@ -1,5 +1,5 @@
 import * as path from "path";
-import { createRalphOutput, defaultConfigPath, FlowRalphDependencies, FlowRalphResult, loadFlowRalphConfig, runFlowRalph } from "./features/ralph-runner";
+import { createRalphOutput, FlowRalphDependencies, FlowRalphResult, loadFlowRalphConfig, resolveFlowRalphConfigPath, runFlowRalph } from "./features/ralph-runner";
 import { isMainModule } from "./shared/cli/main-module";
 import { parseRalphArgs } from "./shared/cli/parse-ralph-args";
 import { loadEnvFile } from "./shared/env/load-env-file";
@@ -8,8 +8,7 @@ export type FlowRalphCliDependencies = Pick<FlowRalphDependencies, "createCodex"
   reporter?: Pick<typeof console, "log">;
 };
 
-function resolveRalphEnv(configPath: string | undefined, baseEnv: Record<string, string | undefined>): Record<string, string | undefined> {
-  const resolvedConfigPath = configPath ? path.resolve(configPath) : defaultConfigPath();
+function resolveRalphEnv(resolvedConfigPath: string, baseEnv: Record<string, string | undefined>): Record<string, string | undefined> {
   const envPath = path.join(path.dirname(resolvedConfigPath), ".env");
   return {
     ...loadEnvFile(envPath),
@@ -19,8 +18,9 @@ function resolveRalphEnv(configPath: string | undefined, baseEnv: Record<string,
 
 export async function runFlowRalphCli(args: string[], dependencies: FlowRalphCliDependencies = {}): Promise<FlowRalphResult> {
   const { projectPath, configPath } = parseRalphArgs(args);
-  const config = loadFlowRalphConfig(configPath);
-  const env = resolveRalphEnv(configPath, dependencies.env ?? process.env);
+  const resolvedConfigPath = resolveFlowRalphConfigPath(projectPath, configPath);
+  const config = loadFlowRalphConfig(resolvedConfigPath);
+  const env = resolveRalphEnv(resolvedConfigPath, dependencies.env ?? process.env);
   const output = createRalphOutput(config.loop.notifications.telegram, dependencies.reporter ?? console, {
     env,
     fetchImpl: dependencies.fetchImpl

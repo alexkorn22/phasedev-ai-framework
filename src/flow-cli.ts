@@ -1,4 +1,4 @@
-import { loadFlowRalphConfig } from "./entities/flow-config/config";
+import { loadFlowRalphConfig, resolveFlowRalphConfigPath } from "./entities/flow-config/config";
 import { getInitPrompt, getNextPrompt } from "./features/flow-control";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
 
@@ -6,7 +6,8 @@ function main(): void {
   const args = process.argv.slice(2);
   const command = args[0];
   const projectPath = parseProjectPath(args);
-  const config = loadFlowRalphConfig(parseConfigPath(args));
+  const configPath = resolveFlowRalphConfigPath(projectPath, parseConfigPath(args));
+  const config = loadFlowRalphConfig(configPath);
 
   if (command === "init") {
     console.log(getInitPrompt(projectPath, config).prompt);
