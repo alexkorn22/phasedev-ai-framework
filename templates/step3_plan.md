@@ -23,16 +23,17 @@
 7. Заполните `## Generation Bundle` в [implementation_plan.md]({{plan_path}}); для каждой области используйте только `yes`, `no` или `not_applicable` и коротко объясните решение.
 8. План должен trace-ить `Intent Card` из [prd.md]({{prd_path}}):
    - `Generation Bundle` должен соответствовать `Generation target` и `Risk envelope`;
-   - phase sequencing должен покрывать success criteria и approved design;
+   - phase sequencing должен покрывать каждый `R#`, каждый `SC#` и approved design;
    - checks/evidence должны покрывать `Resolution signal`, если он не `not_applicable`;
    - если `Risk envelope` требует rollout, observability или rollback path, соответствующие строки `Generation Bundle` не должны быть `not_applicable`.
-9. План должен учитывать `Accepted Assumptions` и `Deferred Decisions` из PRD:
+9. План должен явно связать фазы, tasks, checks и `Check Evidence` с конкретными `R#` и `SC#`; не используйте обобщенные ссылки вроде "all requirements" без IDs.
+10. План должен учитывать `Accepted Assumptions` и `Deferred Decisions` из PRD:
    - accepted assumptions становятся constraints для sequencing, task scope и checks;
    - deferred decisions из PRD должны быть явно resolved by approved design или mapped to конкретную plan boundary/task/check;
    - не планируйте работу на silent assumptions, которых нет в PRD/design.
-10. Если approved design или plan decomposition не покрывает `Generation target`, `Resolution signal`, success criteria, accepted assumptions или risk envelope из PRD, остановитесь и попросите пользователя пересогласовать PRD/design вместо создания неполного плана.
-11. Для каждой фазы добавьте `### Check Evidence` сразу после `### Checks`; все строки evidence изначально должны иметь `Result = pending`, кроме явно неприменимых checks с `not_applicable`.
-12. Не используйте task checkboxes внутри `Check Evidence`; evidence rows должны быть обычными markdown table rows, чтобы не смешиваться с executable tasks.
+11. Если approved design или plan decomposition не покрывает `Generation target`, `Resolution signal`, конкретный `R#`, конкретный `SC#`, accepted assumptions или risk envelope из PRD, остановитесь и попросите пользователя пересогласовать PRD/design вместо создания неполного плана.
+12. Для каждой фазы добавьте `### Check Evidence` сразу после `### Checks`; все строки evidence изначально должны иметь `Result = pending`, кроме явно неприменимых checks с `not_applicable`.
+13. Не используйте task checkboxes внутри `Check Evidence`; evidence rows должны быть обычными markdown table rows, чтобы не смешиваться с executable tasks.
 
 ## Human Review Formatting Policy
 

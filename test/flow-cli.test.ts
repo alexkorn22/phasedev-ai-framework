@@ -41,7 +41,7 @@ Approve this test fixture change.
 
 ## Requirements
 
-- Route the flow according to approved artifacts.
+- R1: Route the flow according to approved artifacts.
 
 ## Scope Boundaries
 
@@ -50,7 +50,7 @@ Approve this test fixture change.
 
 ## Success Criteria
 
-- The expected stage prompt is rendered.
+- SC1: The expected stage prompt is rendered.
 
 ## Accepted Assumptions
 
@@ -947,14 +947,14 @@ codex:
 
   test("downstream stage templates consume PRD Intent Card fields", () => {
     const expectations: Array<[string, string[]]> = [
-      ["step1_research.md", ["ADLC-style Intent Card", "Resolution signal", "Risk envelope", "PRD Intent Trace", "Accepted Assumptions", "Deferred Decisions"]],
-      ["step2_design.md", ["ADLC-style Intent Card", "user/business intent", "generation target", "resolution signal", "risk envelope", "Accepted Assumptions", "Deferred Decisions"]],
-      ["step3_plan.md", ["Требования PRD и ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions"]],
-      ["step4_impl.md", ["Требования PRD и ADLC-style Intent Card", "Resolution signal", "Generation target", "accepted assumptions", "deferred decisions"]],
-      ["step5a_val.md", ["Требования PRD и ADLC-style Intent Card", "Risk envelope", "Resolution signal", "accepted assumptions", "deferred decisions"]],
-      ["step5b_val.md", ["ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions"]],
-      ["step5r_repair.md", ["ADLC-style Intent Card", "Risk envelope", "Generation target", "Resolution signal", "Accepted Assumptions", "Deferred Decisions"]],
-      ["step6_archive.md", ["ADLC-style Intent Card", "business intent", "resolution signal", "Accepted Assumptions", "Deferred Decisions"]]
+      ["step1_research.md", ["ADLC-style Intent Card", "Resolution signal", "Risk envelope", "PRD Intent Trace", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
+      ["step2_design.md", ["ADLC-style Intent Card", "user/business intent", "generation target", "resolution signal", "risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
+      ["step3_plan.md", ["Требования PRD и ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
+      ["step4_impl.md", ["Требования PRD и ADLC-style Intent Card", "Resolution signal", "Generation target", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`", "`In scope:`"]],
+      ["step5a_val.md", ["Требования PRD и ADLC-style Intent Card", "Risk envelope", "Resolution signal", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`"]],
+      ["step5b_val.md", ["ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "каждый `R#`", "каждый `SC#`"]],
+      ["step5r_repair.md", ["ADLC-style Intent Card", "Risk envelope", "Generation target", "Resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
+      ["step6_archive.md", ["ADLC-style Intent Card", "business intent", "resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#` requirements"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
@@ -963,6 +963,72 @@ codex:
         expect(template).toContain(fragment);
       }
     }
+  });
+
+  test("PRD template defines strict section contract", () => {
+    const prdTemplate = readTemplate("artifacts/prd.md");
+    const expectedOrder = [
+      "## Intent Card",
+      "## Approval Summary",
+      "## Requirements",
+      "## Scope Boundaries",
+      "## Success Criteria",
+      "## Accepted Assumptions",
+      "## Deferred Decisions"
+    ];
+
+    expect(prdTemplate).toContain("The final prd.md may contain only the # PRD title and the seven ## sections shown below, in this exact order.");
+    expect(prdTemplate).toContain("Do not add other ## sections such as Risks, Notes, Open Questions, Validation, Non-goals, or Security.");
+    expect(prdTemplate).toContain("Do not add ### or deeper headings.");
+    expect(prdTemplate).toContain("- R1:");
+    expect(prdTemplate).toContain("- SC1:");
+    expect(prdTemplate).toContain("- In scope:");
+    expect(prdTemplate).toContain("- Out of scope:");
+    expect(prdTemplate).toContain("The Intent Card table must contain only the rows shown below, in the same order.");
+
+    let previousIndex = -1;
+    for (const section of expectedOrder) {
+      const currentIndex = prdTemplate.indexOf(section);
+      expect(currentIndex).toBeGreaterThan(previousIndex);
+      previousIndex = currentIndex;
+    }
+  });
+
+  test("setup prompt forbids extra PRD sections and placeholders", () => {
+    const setupTemplate = readTemplate("step0_setup.md");
+
+    expect(setupTemplate).toContain("строго такую видимую структуру");
+    expect(setupTemplate).toContain("Не добавляйте в `prd.md` другие `##` sections");
+    expect(setupTemplate).toContain("Не добавляйте в `prd.md` заголовки `###` или глубже");
+    expect(setupTemplate).toContain("Если информации не хватает для `R#`, `SC#`, `In scope:` / `Out of scope:` или `Intent Card`, задайте вопрос и не пишите `prd.md`.");
+    expect(setupTemplate).toContain("`TBD`, `TODO`, `unknown`, `clarify later` или `to be decided`");
+  });
+
+  test("downstream prompts require trace by PRD requirement and success criterion ids", () => {
+    const expectations: Array<[string, string[]]> = [
+      ["step1_research.md", ["trace по каждому `R#` и `SC#`"]],
+      ["step2_design.md", ["design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion"]],
+      ["step3_plan.md", ["фазы, tasks, checks и `Check Evidence` с конкретными `R#` и `SC#`"]],
+      ["step4_impl.md", ["только связанные с текущей фазой `R#` и `SC#`"]],
+      ["step5a_val.md", ["против конкретных `R#` и `SC#`"]],
+      ["step5r_repair.md", ["ссылаться на конкретный `R#` или `SC#`"]],
+      ["step6_archive.md", ["`R#` requirements из `prd.md` как основной источник requirement-level содержания"]]
+    ];
+
+    for (const [templateName, fragments] of expectations) {
+      const template = readTemplate(templateName);
+      for (const fragment of fragments) {
+        expect(template).toContain(fragment);
+      }
+    }
+  });
+
+  test("final validation prompt checks every PRD requirement and success criterion", () => {
+    const finalTemplate = readTemplate("step5b_val.md");
+
+    expect(finalTemplate).toContain("каждый `R#` реализован фактическим change set или имеет finding");
+    expect(finalTemplate).toContain("каждый `SC#` доказуемо выполнен или имеет finding");
+    expect(finalTemplate).toContain("`In scope:` покрыт, `Out of scope:` не реализован самовольно");
   });
 
   test("downstream prompts treat PRD gaps as blockers instead of silent assumptions", () => {
@@ -1109,14 +1175,17 @@ codex:
 
   test("approval prompts require flexible human-review formatting without rigid placeholder sections", () => {
     const initTemplate = readTemplate("init.md");
+    const setupTemplate = readTemplate("step0_setup.md");
     const approvalTemplates = [
-      readTemplate("step0_setup.md"),
       readTemplate("step2_design.md"),
       readTemplate("step3_plan.md")
     ];
 
     expect(initTemplate).not.toContain("Human Review Formatting Policy");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
+    expect(setupTemplate).toContain("Human Review Formatting Policy");
+    expect(setupTemplate).toContain("Для `prd.md` не выбирайте структуру по содержанию");
+    expect(setupTemplate).toContain("используйте только строгий PRD contract");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("Human Review Formatting Policy");
@@ -1129,14 +1198,18 @@ codex:
 
   test("approval prompts require a compact visual review surface instead of plain markdown only", () => {
     const initTemplate = readTemplate("init.md");
+    const setupTemplate = readTemplate("step0_setup.md");
     const approvalTemplates = [
-      readTemplate("step0_setup.md"),
       readTemplate("step2_design.md"),
       readTemplate("step3_plan.md")
     ];
 
     expect(initTemplate).not.toContain("compact visual review surface");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
+    expect(setupTemplate).toContain("Compact visual review surface для `prd.md` разрешен только");
+    expect(setupTemplate).toContain("semantic emoji markers");
+    expect(setupTemplate).toContain("Не оставляйте approval artifact как обычную простыню");
+    expect(setupTemplate).toContain("Используйте один основной human language");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("compact visual review surface");
@@ -1153,14 +1226,20 @@ codex:
 
   test("approval prompts ask blocking questions before writing artifacts and group long lists", () => {
     const initTemplate = readTemplate("init.md");
+    const setupTemplate = readTemplate("step0_setup.md");
     const approvalTemplates = [
-      readTemplate("step0_setup.md"),
       readTemplate("step2_design.md"),
       readTemplate("step3_plan.md")
     ];
 
     expect(initTemplate).not.toContain("Если вопрос влияет на approval artifact");
     expect(initTemplate).toContain("Используй субагентов только когда");
+    expect(setupTemplate).toContain("Если вопрос влияет на approval artifact");
+    expect(setupTemplate).toContain("задайте его пользователю и остановитесь до ответа");
+    expect(setupTemplate).toContain("Не записывайте pending open questions");
+    expect(setupTemplate).toContain("Отделяйте accepted assumptions и deferred design-stage decisions");
+    expect(setupTemplate).toContain("Если список становится длиннее 7 пунктов");
+    expect(setupTemplate).toContain("Для `prd.md` используйте только разрешенные sections");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("Если вопрос влияет на approval artifact");

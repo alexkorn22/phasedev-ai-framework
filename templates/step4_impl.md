@@ -24,7 +24,8 @@ Stage contract: выполнить только текущую фазу approved
 
 Обязательные результаты:
 - задачи текущей фазы выполнены в рамках approved `prd.md`, approved design и approved plan;
-- change set текущей фазы не нарушает `Risk envelope`, scope boundaries, accepted assumptions, deferred decisions и success criteria из [prd.md]({{prd_path}});
+- change set текущей фазы выполняет только связанные с текущей фазой `R#` и `SC#` из approved plan и не расширяет scope за пределы `In scope:`;
+- change set текущей фазы не нарушает `Out of scope:`, `Risk envelope`, scope boundaries, accepted assumptions, deferred decisions и success criteria из [prd.md]({{prd_path}});
 - если во время implementation обнаружено, что approved plan/design не покрывает `Resolution signal`, `Generation target`, accepted assumptions, deferred decisions или risk boundary из PRD, остановитесь и сообщите blocker вместо расширения scope самостоятельно;
 - не разрешайте deferred decisions из PRD самостоятельно на Implementation этапе, если они не были resolved by approved design/plan;
 - task checkboxes текущей фазы в [implementation_plan.md]({{plan_path}}) обновлены на `[x]` для выполненных задач;
@@ -40,7 +41,7 @@ Stage contract: выполнить только текущую фазу approved
 - итоговый ответ содержит краткое описание change set, gate evidence и оставшиеся риски.
 
 Ограничения:
-- не расширяйте scope за пределы текущей фазы без явного решения пользователя;
+- не расширяйте scope за пределы текущей фазы, связанных `R#`/`SC#` и `In scope:` без явного решения пользователя;
 - не переводите фазу в `[x]` на этом этапе.
 
 ## Artifact allowlist

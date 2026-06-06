@@ -43,7 +43,7 @@ Generation Bundle contract:
 - Observability: yes when logging, metrics, tracing, alerts, or operational signal changes are planned.
 - Rollback path: yes when the change needs an explicit rollback path.
 - The Plan column must explain the selected value with concrete change-specific content.
-- Generation Bundle must align with PRD Generation target, Resolution signal, Risk envelope, Accepted Assumptions, Deferred Decisions, and Success Criteria.
+- Generation Bundle must align with PRD Generation target, Resolution signal, Risk envelope, Accepted Assumptions, Deferred Decisions, R# Requirements, and SC# Success Criteria.
 
 Phase Overview contract:
 - Add one row per phase.
@@ -57,7 +57,8 @@ Phase section contract:
 - Tasks contains only executable numbered task checkboxes for that phase.
 - Checks contains the unit gate and any additional phase-specific checks.
 - Additional checks may be omitted when none exist.
-- Phase goals, tasks, checks, and evidence rows must trace back to approved PRD requirements, success criteria, risk envelope, accepted assumptions, deferred decisions, and approved design.
+- Phase goals, tasks, checks, and evidence rows must trace back to concrete approved PRD R# requirements, SC# success criteria, risk envelope, accepted assumptions, deferred decisions, and approved design.
+- Do not use vague trace labels such as "all requirements"; reference concrete R# and SC# IDs.
 
 Check Evidence contract:
 - Keep Check Evidence as a plain markdown table. Do not use task checkboxes inside evidence rows.

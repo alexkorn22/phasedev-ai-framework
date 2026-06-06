@@ -39,6 +39,7 @@ date: {{date}}
 ---
 - краткое summary решения и что именно пользователь approve-ит;
 - явная связь design direction с ADLC-style `Intent Card` из [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline и risk envelope;
+- явная traceability table или список, показывающий какие design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion из PRD;
 - явное отражение `Accepted Assumptions` и `Deferred Decisions` из PRD: assumptions становятся design constraints, deferred decisions должны быть либо решены в design, либо явно оставлены как approved planning/implementation boundary;
 - compact visual review surface near the top;
 - обязательная таблица `Architecture Package Map`;
@@ -107,7 +108,7 @@ Allowed persistent artifacts for this stage:
 - Если вопрос влияет на approval artifact, задайте его пользователю и остановитесь до ответа.
 - Не записывайте pending open questions в `architecture/design.md` как замену вопросу пользователю.
 - Отделяйте accepted assumptions и deferred design-stage decisions от вопросов, которые требуют ответа до approval.
-- Не принимайте technical direction, который меняет `Generation target`, `Resolution signal`, scope boundaries, success criteria, accepted assumptions или `Risk envelope` из PRD; если design требует такого изменения, остановитесь и попросите пользователя пересогласовать PRD.
+- Не принимайте technical direction, который меняет `Generation target`, `Resolution signal`, `R#` requirements, scope boundaries, `SC#` success criteria, accepted assumptions или `Risk envelope` из PRD; если design требует такого изменения, остановитесь и попросите пользователя пересогласовать PRD.
 - Не создавайте пустые, декоративные или искусственные разделы вроде risks/alternatives/security, если там нет material content.
 - Используйте headings, короткие абзацы, bullets, tables, blockquotes и bold там, где это помогает чтению.
 - Если список становится длиннее 7 пунктов, сгруппируйте его по смысловым категориям вместо одного long flat list.
@@ -130,7 +131,7 @@ Allowed persistent artifacts for this stage:
 - Diagrams/tables показывают, что будет изменено и как это планируется, а не просто украшают документ.
 - Long prose не дублирует linked subdocuments.
 - Каждый linked subdocument начинается с purpose и visual review surface.
-- Design не расходится с PRD intent, generation target, resolution signal, accepted assumptions, deferred decisions и risk envelope.
+- Design не расходится с PRD intent, generation target, resolution signal, `R#`, `SC#`, accepted assumptions, deferred decisions и risk envelope.
 
 Завершение шага:
 - После записи architecture package остановите работу.

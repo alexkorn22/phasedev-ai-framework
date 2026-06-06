@@ -16,9 +16,9 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - все фазы в [implementation_plan.md]({{plan_path}}) имеют статус `[x]`; Final Validation не переводит фазы в `[x]`;
 - PRD-first проверка: фактический change set должен удовлетворять утвержденному [prd.md]({{prd_path}}), а не только implementation plan;
 - `Intent Card`: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline` и `Risk envelope` согласованы с фактической реализацией и validation evidence;
-- `Requirements`: каждое требование реализовано фактическим change set или имеет finding;
-- `Scope Boundaries`: in-scope покрыт, out-of-scope не реализован самовольно;
-- `Success Criteria`: каждый критерий успеха доказуемо выполнен или имеет finding;
+- `Requirements`: каждый `R#` реализован фактическим change set или имеет finding;
+- `Scope Boundaries`: `In scope:` покрыт, `Out of scope:` не реализован самовольно;
+- `Success Criteria`: каждый `SC#` доказуемо выполнен или имеет finding;
 - `Accepted Assumptions`: assumptions не опровергнуты фактическим change set; если assumption больше не верен, добавьте `requirements` или `design` finding по причине;
 - `Deferred Decisions`: resolved only через approved design/plan или остались outside implementation scope; если implementation решил deferred decision самовольно, добавьте finding;
 - `Generation target` из `Intent Card` покрыт approved plan/design и фактическим change set;
@@ -28,6 +28,7 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - `Generation Bundle` в [implementation_plan.md]({{plan_path}}) проверен против фактического change set: заявленные required areas должны быть выполнены или иметь finding;
 - `Check Evidence` для relevant phase scope в [implementation_plan.md]({{plan_path}}) проверен как evidence выполнения Implementation checks;
 - если relevant `Check Evidence` отсутствует, остается `pending`, содержит `failed`, или не объясняет `blocked`, добавьте finding с `Class = validation` или более точным class, если есть конкретная implementation/design/plan причина;
+- если finding относится к требованию или критерию успеха PRD, в `Finding` или `Required Fix` обязательно укажите конкретный `R#` или `SC#`;
 - полностью игнорируйте `openspec/**` при поиске implementation findings: не diff, не review и не report любые файлы под `openspec/**` как change set, product code, PR scope или источник замечаний;
 - используйте `openspec/changes/<active>` только как read-only входной контракт flow: requirements, rules, approved design, plan и previous validation history;
 - тесты и дополнительные проверки из Implementation stage считаются уже успешно пройденными, потому что Implementation не может завершиться с failed tests/checks;

@@ -20,7 +20,7 @@ Approve this test fixture change.
 
 ## Requirements
 
-- Route the flow according to approved artifacts.
+- R1: Route the flow according to approved artifacts.
 
 ## Scope Boundaries
 
@@ -29,7 +29,7 @@ Approve this test fixture change.
 
 ## Success Criteria
 
-- The expected stage prompt is rendered.
+- SC1: The expected stage prompt is rendered.
 
 ## Accepted Assumptions
 

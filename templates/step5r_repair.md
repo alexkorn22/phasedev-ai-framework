@@ -18,8 +18,9 @@ Stage contract: обработать open findings из validation и подго
 - перед изменением реестра прочитайте artifact template: [validation_findings.md template]({{validation_findings_template_path}});
 - [validation_findings.md]({{findings_path}}) должен строго соответствовать artifact template и strict registry rules из template comments;
 - рабочая очередь выше содержит только актуальные blocking findings;
-- repair должен сохранять соответствие `Intent Card`, scope boundaries, success criteria, `Accepted Assumptions`, `Deferred Decisions` и `Risk envelope` из [prd.md]({{prd_path}});
-- если fixing path требует изменить `Generation target`, `Resolution signal`, scope boundaries, success criteria, accepted assumptions, deferred decisions или risk envelope из PRD, это `requirements` finding path: обсудите с пользователем и сбросьте approval измененного `prd.md`;
+- repair должен сохранять соответствие `Intent Card`, `R#` requirements, scope boundaries, `SC#` success criteria, `Accepted Assumptions`, `Deferred Decisions` и `Risk envelope` из [prd.md]({{prd_path}});
+- если finding относится к requirement или success criterion, repair path и обновленная строка finding должны ссылаться на конкретный `R#` или `SC#`;
+- если fixing path требует изменить `Generation target`, `Resolution signal`, конкретный `R#`, scope boundaries, конкретный `SC#`, accepted assumptions, deferred decisions или risk envelope из PRD, это `requirements` finding path: обсудите с пользователем и сбросьте approval измененного `prd.md`;
 - не удаляйте строки замечаний;
 - исправление finding фиксируйте изменением `Status` существующей строки на `resolved`;
 - не меняйте стабильные поля существующей строки, если это не нужно для исправления явной ошибки в строке;
