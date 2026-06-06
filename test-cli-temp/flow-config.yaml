@@ -1,8 +1,0 @@
-
-codex:
-  stages:
-    final_validation:
-      skills:
-        additional:
-          - playwright
-          - performance-audit
