@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
 
 const REQUIRED_GENERATION_BUNDLE_AREAS = [
@@ -32,6 +33,40 @@ function hasParsedPlanContent(phases: Phase[]): boolean {
 
 function phaseHasSection(phase: Phase, sectionName: string): boolean {
   return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(phase.rawContent ?? "");
+}
+
+function extractRequirementsAndCriteriaFromPrd(prdPath: string): { requirements: string[]; criteria: string[] } {
+  if (!fs.existsSync(prdPath)) {
+    return { requirements: [], criteria: [] };
+  }
+  const content = fs.readFileSync(prdPath, "utf-8");
+  const lines = content.split("\n");
+
+  const requirements: string[] = [];
+  const criteria: string[] = [];
+
+  let currentSection = "";
+  for (const line of lines) {
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      currentSection = heading[1].trim().toLowerCase();
+      continue;
+    }
+
+    if (currentSection === "requirements") {
+      const match = line.match(/[-*]\s+(R\d+):/);
+      if (match) {
+        requirements.push(match[1]);
+      }
+    } else if (currentSection === "success criteria") {
+      const match = line.match(/[-*]\s+(SC\d+):/);
+      if (match) {
+        criteria.push(match[1]);
+      }
+    }
+  }
+
+  return { requirements, criteria };
 }
 
 function validateGenerationBundle(rows: GenerationBundleRow[], issues: string[]): void {
@@ -90,7 +125,7 @@ function validateCheckEvidenceRows(phase: Phase, rows: CheckEvidenceRow[], issue
   }
 }
 
-export function validatePlanStructure(phases: Phase[]): string[] {
+export function validatePlanStructure(phases: Phase[], prdPath?: string): string[] {
   const issues: string[] = [];
   const taskIds = new Map<string, string>();
 
@@ -172,6 +207,43 @@ export function validatePlanStructure(phases: Phase[]): string[] {
 
     if (phase.status === "completed" && hasIncompleteTask(phase.tasks)) {
       issues.push(`Phase ${phase.id}: ${phase.name} is [x] but contains incomplete tasks.`);
+    }
+
+    // Invariant: not-started phase must not contain completed tasks/evidence
+    if (phase.status === "not_started") {
+      const completedTasks = allTasks.filter(task => task.status === "completed");
+      if (completedTasks.length > 0) {
+        issues.push(`Phase ${phase.id}: ${phase.name} is not started [ ] but contains completed tasks: ${completedTasks.map(t => t.id).join(", ")}.`);
+      }
+
+      if (shouldValidateArtifactContract && phase.checkEvidence) {
+        const nonPendingEvidence = phase.checkEvidence.filter(
+          row => row.result !== "pending" && row.result !== "not_applicable"
+        );
+        if (nonPendingEvidence.length > 0) {
+          issues.push(`Phase ${phase.id}: ${phase.name} is not started [ ] but contains non-pending evidence results.`);
+        }
+      }
+    }
+  }
+
+  // Traceability checks against PRD
+  if (prdPath && fs.existsSync(prdPath)) {
+    const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
+    const planText = phases.map(phase => phase.rawContent ?? "").join("\n");
+
+    for (const req of requirements) {
+      const regex = new RegExp(`\\b${req}\\b`);
+      if (!regex.test(planText)) {
+        issues.push(`Requirement \`${req}\` is not mapped in the implementation plan.`);
+      }
+    }
+
+    for (const crit of criteria) {
+      const regex = new RegExp(`\\b${crit}\\b`);
+      if (!regex.test(planText)) {
+        issues.push(`Success criterion \`${crit}\` is not mapped in the implementation plan.`);
+      }
     }
   }
 

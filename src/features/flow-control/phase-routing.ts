@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { FlowRalphConfig } from "../../entities/flow-config/config";
 import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
-import { TestCommands } from "../../entities/test-commands/parse-test-commands";
+import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
@@ -51,6 +51,11 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
       findings_path: urls.findings_path,
       date: new Date().toISOString().split("T")[0]
     }, config));
+  }
+
+  const parsed = parseTestCommands(rulesPath);
+  if (parsed.missing.length > 0) {
+    return testCommandBlocker("implementation", rulesPath, parsed.missing);
   }
 
   const testCommand = getRequiredTestCommand("implementation", testCommands, "unit", rulesPath);

@@ -93,10 +93,6 @@ codex:
           - api-audit
           - security-audit
           - doubt-driven-development
-          - browser-testing-with-devtools
-          - playwright
-          - performance-audit
-          - a11y-audit
           - design-review
     final_validation:
       model: gpt-5.5
@@ -113,8 +109,6 @@ codex:
           - doubt-driven-development
           - dependency-audit
           - db-audit
-          - performance-audit
-          - a11y-audit
           - design-review
           - ci-audit
     repair:

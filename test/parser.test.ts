@@ -5,6 +5,8 @@ import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
 import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
+import { validateResearchFacts } from "../src/entities/research-facts/validate-research";
+import { validateDesign } from "../src/entities/design/validate-design";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
 import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved } from "../src/shared/markdown/frontmatter";
@@ -47,6 +49,10 @@ describe("Parser & Checker Utilities", () => {
     const missingFmFile = path.join(testTmpDir, "missing.md");
     fs.writeFileSync(missingFmFile, "approved: true\n# Title", "utf-8");
     expect(isApproved(missingFmFile)).toBe(false);
+
+    const notApprovedFile = path.join(testTmpDir, "not_approved.md");
+    fs.writeFileSync(notApprovedFile, "---\nnot_approved: true\n---\n# Title", "utf-8");
+    expect(isApproved(notApprovedFile)).toBe(false);
   });
 
   test("parsePlan extracts phases and task list statuses correctly", () => {
@@ -237,6 +243,62 @@ Update prompts.
     ]);
 
     expect(issues).toContain("Phase 1 must have a non-empty name.");
+  });
+
+  test("validatePlanStructure rejects unstarted phases containing completed tasks or non-pending evidence", () => {
+    const issues = validatePlanStructure([
+      {
+        id: 1,
+        name: "API",
+        status: "not_started",
+        tasks: [
+          { id: "1.1", name: "Task 1", status: "completed", children: [] }
+        ],
+        additionalChecks: [],
+        rawContent: "### Goal\nGoal\n### Tasks\n- [x] 1.1 Task 1\n### Checks\nchecks\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | passed | ok | none |\n",
+        checkEvidence: [
+          { check: "unit", commandOrMethod: "cmd", result: "passed", evidence: "ok", notes: "none" }
+        ]
+      }
+    ]);
+
+    expect(issues).toContain("Phase 1: API is not started [ ] but contains completed tasks: 1.1.");
+    expect(issues).toContain("Phase 1: API is not started [ ] but contains non-pending evidence results.");
+  });
+
+  test("validatePlanStructure validates traceability of requirements and criteria from PRD", () => {
+    const prdFile = path.join(testTmpDir, "traceability_prd.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(prdFile, `---
+approved: true
+date: 2026-06-02
+---
+# PRD
+## Requirements
+- R1: Require auth
+- R2: Require log
+## Success Criteria
+- SC1: Auth is tested
+- SC2: Log is tested
+`, "utf-8");
+
+    const phases = [
+      {
+        id: 1,
+        name: "Auth",
+        status: "in_progress",
+        tasks: [{ id: "1.1", name: "Implement auth", status: "not_started", children: [] }],
+        additionalChecks: [],
+        rawContent: "### Goal\nGoal\n### Tasks\n- [ ] 1.1 Implement auth (implements R1)\n### Checks\nunit\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | pending | | | /* verifies SC1 */\n"
+      }
+    ];
+
+    const issues = validatePlanStructure(phases, prdFile);
+    expect(issues).toContain("Requirement \`R2\` is not mapped in the implementation plan.");
+    expect(issues).toContain("Success criterion \`SC2\` is not mapped in the implementation plan.");
+    expect(issues).not.toContain("Requirement \`R1\` is not mapped in the implementation plan.");
+    expect(issues).not.toContain("Success criterion \`SC1\` is not mapped in the implementation plan.");
   });
 
   test("validatePlanStructure rejects invalid numbered task structure", () => {
@@ -608,8 +670,112 @@ None.
     expect(validatePrdArtifact(prdFile)).toContain("prd.md must not contain placeholder text: TODO.");
   });
 
+  test("validateResearchFacts accepts valid research facts and rejects invalid ones", () => {
+    const researchFile = path.join(testTmpDir, "valid_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(researchFile, `# Research Facts
+
+## PRD Intent Trace
+Trace details here.
+
+## Requirements & Success Criteria Trace
+Trace details here.
+
+## Source Facts
+- \`src/index.ts:42\` -- verified fact.
+
+## Research Gaps & Blockers
+No blockers.
+`, "utf-8");
+
+    expect(validateResearchFacts(researchFile)).toEqual([]);
+
+    const invalidResearchFile = path.join(testTmpDir, "invalid_research.md");
+    fs.writeFileSync(invalidResearchFile, `# Research Facts
+
+## PRD Intent Trace
+Trace details here.
+
+## Source Facts
+No line numbers here.
+
+## Research Gaps & Blockers
+TODO: find blockers.
+`, "utf-8");
+
+    const issues = validateResearchFacts(invalidResearchFile);
+    expect(issues).toContain("research_facts.md must contain section `## Requirements & Success Criteria Trace`.");
+    expect(issues).toContain("Section `## Source Facts` must contain at least one file path with a line number in the format `file:line` (e.g., `src/index.ts:42`).");
+    expect(issues).toContain("research_facts.md must not contain placeholder text: TODO.");
+  });
+
+  test("validateDesign accepts valid design and rejects invalid ones", () => {
+    const designFile = path.join(testTmpDir, "valid_design.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| Component | Target Files | Responsibility |
+|---|---|---|
+| auth | src/auth | handle authentication |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    expect(validateDesign(designFile)).toEqual([]);
+
+    const invalidDesignFile = path.join(testTmpDir, "invalid_design.md");
+    fs.writeFileSync(invalidDesignFile, `# Design
+
+## Executive Summary
+Summary.
+
+## Traceability Mapping
+Trace.
+
+## Architecture Package Map
+No table here.
+
+## Key Design Decisions
+TBD.
+
+## Database Schemas & API Contracts
+Contracts.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    const issues = validateDesign(invalidDesignFile);
+    expect(issues).toContain("design.md must start with YAML frontmatter.");
+    expect(issues).toContain("Section `## Architecture Package Map` must contain a markdown table.");
+    expect(issues).toContain("design.md must not contain placeholder text: TBD.");
+  });
+
   test("parseValidationVerdict extracts correct validation statuses", () => {
     const fileReady = path.join(testTmpDir, "ready.md");
+    cleanupTestDir();
+    setupTestDir();
     fs.writeFileSync(fileReady, "---\nverdict: ready\ndate: 2026-05-28\n---\n", "utf-8");
     expect(parseValidationVerdict(fileReady)).toBe("ready");
 
@@ -990,10 +1156,22 @@ date: 2026-05-30
 
   test("findActiveChangeDir ignores archive directory when selecting active change", () => {
     const changesDir = path.join(testTmpDir, "openspec", "changes");
+    cleanupTestDir();
+    setupTestDir();
     fs.mkdirSync(path.join(changesDir, "archive"), { recursive: true });
     fs.mkdirSync(path.join(changesDir, "sample-change"), { recursive: true });
 
     expect(findActiveChangeDir(testTmpDir)).toBe(path.join(changesDir, "sample-change"));
+  });
+
+  test("findActiveChangeDir throws error when multiple active changes exist", () => {
+    const changesDir = path.join(testTmpDir, "openspec", "changes");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.join(changesDir, "change-1"), { recursive: true });
+    fs.mkdirSync(path.join(changesDir, "change-2"), { recursive: true });
+
+    expect(() => findActiveChangeDir(testTmpDir)).toThrow("Multiple active changes found in openspec/changes");
   });
 
   afterAll(() => {

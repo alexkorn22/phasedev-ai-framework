@@ -258,7 +258,7 @@ describe("flow-ralph runner", () => {
 
   test("stops at maxIterations", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "progress.md");
+    const progressPath = path.join(projectPath, "progress.md");
     let promptCounter = 0;
     const threads: unknown[] = [];
 
@@ -773,7 +773,7 @@ describe("flow-ralph runner", () => {
 
   test("writes formatted agent response logs and supports prepending when enableLogs is true", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "progress.md");
+    const progressPath = path.join(projectPath, "progress.md");
     let stageCounter = 0;
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {

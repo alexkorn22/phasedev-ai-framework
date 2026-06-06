@@ -8,6 +8,8 @@ import { Phase } from "../../entities/implementation-plan/types";
 import { validatePlanStructure } from "../../entities/implementation-plan/validate-plan";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
+import { validateResearchFacts } from "../../entities/research-facts/validate-research";
+import { validateDesign } from "../../entities/design/validate-design";
 
 export type FlowRoute =
   | { kind: "pending_archive"; stage: "archive"; archiveState: FlowArchiveState; activeChangePath: string }
@@ -15,7 +17,9 @@ export type FlowRoute =
   | { kind: "invalid_prd"; stage: "setup"; paths: ChangePaths; issues: string[]; activeChangePath: string }
   | { kind: "setup_approval"; stage: "setup"; paths: ChangePaths; activeChangePath: string }
   | { kind: "research"; stage: "research"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "invalid_research"; stage: "research"; paths: ChangePaths; issues: string[]; activeChangePath: string }
   | { kind: "design"; stage: "design"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "invalid_design"; stage: "design"; paths: ChangePaths; issues: string[]; activeChangePath: string }
   | { kind: "design_approval"; stage: "design"; paths: ChangePaths; activeChangePath: string }
   | { kind: "plan"; stage: "plan"; paths: ChangePaths; activeChangePath: string }
   | { kind: "plan_approval"; stage: "plan"; paths: ChangePaths; activeChangePath: string }
@@ -31,8 +35,13 @@ function allTopLevelTasksCompleted(phase: Phase): boolean {
   return phase.tasks.length > 0 && phase.tasks.every(task => task.status === "completed");
 }
 
+function hasPendingOrFailedEvidence(phase: Phase): boolean {
+  if (!phase.checkEvidence) return false;
+  return phase.checkEvidence.some(row => row.result === "pending" || row.result === "failed");
+}
+
 function phaseStage(activePhase: Phase): "implementation" | "phase_validation" {
-  if (!allTopLevelTasksCompleted(activePhase)) {
+  if (!allTopLevelTasksCompleted(activePhase) || hasPendingOrFailedEvidence(activePhase)) {
     return "implementation";
   }
 
@@ -79,8 +88,18 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
     return { kind: "research", stage: "research", paths, activeChangePath: changeDir };
   }
 
+  const researchIssues = validateResearchFacts(paths.researchPath);
+  if (researchIssues.length > 0) {
+    return { kind: "invalid_research", stage: "research", paths, issues: researchIssues, activeChangePath: changeDir };
+  }
+
   if (!fs.existsSync(paths.designPath)) {
     return { kind: "design", stage: "design", paths, activeChangePath: changeDir };
+  }
+
+  const designIssues = validateDesign(paths.designPath);
+  if (designIssues.length > 0) {
+    return { kind: "invalid_design", stage: "design", paths, issues: designIssues, activeChangePath: changeDir };
   }
 
   if (!isDesignApproved(changeDir)) {
@@ -96,7 +115,7 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
   }
 
   const planPhases = parsePlan(paths.planPath);
-  const planIssues = validatePlanStructure(planPhases);
+  const planIssues = validatePlanStructure(planPhases, paths.prdPath);
   if (planIssues.length > 0) {
     return { kind: "invalid_plan", stage: "plan", paths, issues: planIssues, activeChangePath: changeDir };
   }
@@ -104,8 +123,8 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
   const findings = parseValidationFindingsArtifact(paths.findingsPath);
   if (findings.exists) {
     const onlyVerdictCannotBypassOpenBlocking = findings.openBlockingRows.length > 0 &&
-                                                findings.issues.length > 0 &&
-                                                findings.issues.every(isVerdictOnlyOpenBlockingIssue);
+                                                 findings.issues.length > 0 &&
+                                                 findings.issues.every(isVerdictOnlyOpenBlockingIssue);
     if (findings.issues.length > 0 && !onlyVerdictCannotBypassOpenBlocking) {
       return { kind: "invalid_findings", stage: "repair", paths, issues: findings.issues, activeChangePath: changeDir };
     }
@@ -124,7 +143,8 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");
   if (finalReady) {
     const allPhasesCompleted = planPhases.length > 0 && planPhases.every(phase => phase.status === "completed");
-    if (!allPhasesCompleted) {
+    const hasAnyPendingOrFailed = planPhases.some(hasPendingOrFailedEvidence);
+    if (!allPhasesCompleted || hasAnyPendingOrFailed) {
       return { kind: "archive_readiness_blocked", stage: "archive", paths, activeChangePath: changeDir };
     }
 

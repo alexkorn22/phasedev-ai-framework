@@ -87,8 +87,15 @@ ${planContent}`;
 
   return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
     let nextSection = section;
+    const isCompletedPhase = /## Phase \d+:.*\[x\]/i.test(section);
+    const resultStatus = isCompletedPhase ? "passed" : "pending";
+    const evidenceStr = isCompletedPhase ? "passed unit tests" : "";
+
     if (!/^###\s+Goal\s*$/im.test(nextSection)) {
-      nextSection += "\n\n### Goal\n\nComplete the fixture phase.";
+      nextSection += "\n\n### Goal\n\nComplete the fixture phase. Satisfies R1 and SC1.";
+    } else {
+      // If Goal exists, append requirement mapping to it
+      nextSection = nextSection.replace(/(###\s+Goal\s*)/i, "$1\nSatisfies R1 and SC1.\n");
     }
     if (!/^###\s+Tasks\s*$/im.test(nextSection)) {
       nextSection += "\n\n### Tasks\n";
@@ -97,10 +104,52 @@ ${planContent}`;
       nextSection += "\n\n### Checks\n\n- unit: `bun test unit`";
     }
     if (!/^###\s+Check Evidence\s*$/im.test(nextSection)) {
-      nextSection += "\n\n### Check Evidence\n\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | `bun test unit` | pending |  |  |";
+      nextSection += `\n\n### Check Evidence\n\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | \`bun test unit\` | ${resultStatus} | ${evidenceStr} |  |`;
     }
     return nextSection;
   });
+}
+
+function validResearchBody(): string {
+  return `# Research Facts
+
+## PRD Intent Trace
+Trace details here.
+
+## Requirements & Success Criteria Trace
+Trace details here.
+
+## Source Facts
+- \`src/index.ts:42\` -- verified fact.
+
+## Research Gaps & Blockers
+No blockers.
+`;
+}
+
+function validDesignBody(): string {
+  return `# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| Component | Target Files | Responsibility |
+|---|---|---|
+| auth | src/auth | handle authentication |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`;
 }
 
 function setupChange(planContent: string, options: { findings?: string; designApproved?: boolean; planApproved?: boolean } = {}) {
@@ -116,8 +165,8 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 - phase: \`bun test phase\`
 - full: \`bun test full\`
 `);
-  fs.writeFileSync(path.join(changeDir, "research_facts.md"), "# Research\n", "utf-8");
-  writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n", options.designApproved ?? true);
+  fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+  writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
   writeArtifact(path.join(changeDir, "implementation_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
 
   if (options.findings) {

@@ -55,7 +55,29 @@ export function invalidPrdBlocker(prdPath: string, issues: string[]): FlowPrompt
     "================================================================================"
   ].join("\n"), true, "Invalid prd.md");
 }
+export function invalidResearchBlocker(researchPath: string, issues: string[]): FlowPrompt {
+  return prompt("next", "research", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid research_facts.md",
+    "research_facts.md must follow the Research Facts artifact contract before this change can continue.",
+    ...issues.map(issue => `- ${issue}`),
+    `- Link: ${toFileUrl(researchPath)}`,
+    "Fix research_facts.md, then run 'flow next' again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid research_facts.md");
+}
 
+export function invalidDesignBlocker(designPath: string, issues: string[]): FlowPrompt {
+  return prompt("next", "design", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid design.md",
+    "design.md must follow the Design artifact contract before this change can continue.",
+    ...issues.map(issue => `- ${issue}`),
+    `- Link: ${toFileUrl(designPath)}`,
+    "Fix design.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid design.md");
+}
 export function archiveReadinessBlocker(title: string, filePath: string, details: string): FlowPrompt {
   return prompt("next", "archive", [
     "================================================================================",

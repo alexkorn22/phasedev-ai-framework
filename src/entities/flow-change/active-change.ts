@@ -13,8 +13,15 @@ export function findActiveChangeDir(projectRoot: string): string | null {
       return fs.statSync(fullPath).isDirectory() && !item.startsWith(".") && item !== "archive";
     });
 
+    if (directories.length > 1) {
+      throw new Error(`Multiple active changes found in openspec/changes: ${directories.join(", ")}. Only one active change is allowed.`);
+    }
+
     return directories.length > 0 ? path.join(changesDir, directories[0]) : null;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Multiple active changes found")) {
+      throw error;
+    }
     return null;
   }
 }
