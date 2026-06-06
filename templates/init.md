@@ -27,14 +27,14 @@
 2. Design: подготовить дизайн-документы для Human Review.
 3. Plan: разложить утвержденный дизайн в `implementation_plan.md` для Human Review.
 4. Implementation: выполнить одну фазу плана в чистом контексте.
-5A. Phase Validation: проверить готовый код одной фазы в multi-phase плане.
+5A. Phase Validation: проверить готовый код текущей фазы по implementation plan.
 5B. Final Validation: проверить весь change set перед PR после всех фаз.
 5R. Repair Loop: обработать замечания validation и исправить код/тесты/план/дизайн.
 6. Archive: синхронизировать OpenSpec delta specs из archived change в `openspec/specs` и завершить `.flow-archive.json`.
 
 Маршрутизация validation:
-- Если в плане одна фаза: `Implementation -> Final Validation`; Phase Validation не запускается отдельно.
-- Если в плане несколько фаз: `Implementation -> Phase Validation` для каждой фазы, затем `Final Validation`.
+- Каждая фаза, включая единственную фазу single-phase плана, проходит `Implementation -> Phase Validation`.
+- После успешной Phase Validation всех фаз flow идет в `Final Validation`.
 - В нормальном состоянии одновременно может быть только одна фаза со статусом `[~]`.
 - После успешной Final Validation следующий `flow next` запускает Archive.
 

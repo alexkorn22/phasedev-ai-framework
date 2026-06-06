@@ -443,7 +443,7 @@ No phase headings yet.
     expect(output).not.toContain("Этап 5B. Final Validation.");
   });
 
-  test("single-phase plan sends completed in-progress phase directly to final validation", () => {
+  test("single-phase plan sends completed in-progress phase to phase validation", () => {
     setupChange(`
 # Plan
 
@@ -453,11 +453,32 @@ No phase headings yet.
 
     const output = runNext();
 
+    expect(output).toContain("Этап 5A. Phase Validation.");
+    expect(output).toContain("Текущая фаза:\nPhase 1: Complete Change");
+    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).not.toContain("bun test phase");
+    expect(output).toContain("не запускайте тесты и дополнительные проверки повторно");
+  });
+
+  test("single-phase plan sends validated phase to final validation", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: Complete Change [x]
+- [x] 1.1 Implement change
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const output = runNext();
+
     expect(output).toContain("Этап 5B. Final Validation.");
     expect(output).not.toContain("Этап 5A. Phase Validation.");
     expect(output).not.toContain("bun test full");
     expect(output).toContain("не запускайте `unit`, `phase`, `full` или дополнительные проверки повторно");
-    expect(output).not.toContain("run full test suite");
+    expect(output).toContain("Intent Card");
+    expect(output).toContain("Requirements");
+    expect(output).toContain("Success Criteria");
   });
 
   test("repaired phase validation repeats phase validation for current in-progress phase", () => {
@@ -828,11 +849,11 @@ Additional checks:
     expect(output).not.toContain("additional checks выполнены");
   });
 
-  test("single-phase final validation does not include additional checks from implementation plan", () => {
+  test("final validation does not include additional checks from implementation plan", () => {
     setupChange(`
 # Plan
 
-## Phase 1: Complete Change [~]
+## Phase 1: Complete Change [x]
 - [x] 1.1 Implement change
 
 Additional checks:
@@ -880,7 +901,7 @@ describe("flow templates", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Phase 1: API [x]
 - [x] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
@@ -898,6 +919,8 @@ codex:
     expect(output).toContain("- `playwright`");
     expect(output).toContain("Validation stages are review-only");
     expect(output).toContain("do not run that workflow");
+    expect(output).toContain("do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`");
+    expect(output).toContain("put non-registry explanation only in the final response");
     expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Входные артефакты"));
   });
 
@@ -909,7 +932,7 @@ codex:
       ["step3_plan.md", ["Allowed persistent artifacts for this stage", "`implementation_plan.md`"]],
       ["step4_impl.md", ["Allowed persistent artifacts for this stage", "production/test code", "task checkboxes and `Check Evidence` rows in `implementation_plan.md`"]],
       ["step5a_val.md", ["Allowed persistent artifacts for this stage", "`validation_findings.md`", "phase status in `implementation_plan.md`"]],
-      ["step5b_val.md", ["Allowed persistent artifacts for this stage", "`validation_findings.md`", "phase status in `implementation_plan.md`"]],
+      ["step5b_val.md", ["Allowed persistent artifacts for this stage", "`validation_findings.md`"]],
       ["step5r_repair.md", ["Allowed persistent artifacts for this stage", "affected production/test code", "affected approved flow artifacts", "`validation_findings.md`"]],
       ["step6_archive.md", ["Allowed persistent artifacts for this stage", "OpenSpec delta specs", "`openspec/specs`"]]
     ];
@@ -1067,6 +1090,8 @@ codex:
       expect(template).toContain("не является test execution gate");
       expect(template).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
       expect(template).toContain("итоговый файл должен строго соответствовать artifact template");
+      expect(template).toContain("`validation_findings.md` содержит только YAML frontmatter и ровно одну markdown-таблицу findings");
+      expect(template).toContain("не добавляйте в `validation_findings.md` prose, headings, evidence blocks, summaries, visual markers или дополнительные таблицы");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
       expect(template).toContain("новое замечание добавляйте новой строкой в начало таблицы");
@@ -1241,15 +1266,15 @@ codex:
     expect(() => renderTemplate("step6_evolution", {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
   });
 
-  test("init and plan prompts document single-phase and multi-phase validation routing", () => {
+  test("init and plan prompts document phase validation before final validation", () => {
     const initTemplate = readTemplate("init.md");
     const planTemplate = readTemplate("step3_plan.md");
     const planContract = readTemplate("artifacts/implementation_plan.md");
 
-    expect(initTemplate).toContain("Если в плане одна фаза");
-    expect(initTemplate).toContain("Если в плане несколько фаз");
-    expect(planTemplate).toContain("Implementation -> Final Validation");
-    expect(planTemplate).toContain("Implementation -> Phase Validation");
+    expect(initTemplate).toContain("После успешной Phase Validation всех фаз flow идет в `Final Validation`");
+    expect(initTemplate).not.toContain("Phase Validation не запускается отдельно");
+    expect(planTemplate).toContain("каждая фаза, включая единственную, проходит `Implementation -> Phase Validation`");
+    expect(planTemplate).not.toContain("Implementation -> Final Validation` без отдельной Phase Validation");
     expect(planContract).toContain("Additional checks:");
   });
 

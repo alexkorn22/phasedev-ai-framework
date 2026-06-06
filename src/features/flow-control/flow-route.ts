@@ -24,19 +24,19 @@ export type FlowRoute =
   | { kind: "repair"; stage: "repair"; paths: ChangePaths; activeChangePath: string }
   | { kind: "archive_readiness_blocked"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
   | { kind: "archive_ready"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "phase"; stage: "implementation" | "phase_validation" | "final_validation"; paths: ChangePaths; activePhase: Phase; totalPhases: number; activeChangePath: string }
+  | { kind: "phase"; stage: "implementation" | "phase_validation"; paths: ChangePaths; activePhase: Phase; activeChangePath: string }
   | { kind: "final_validation"; stage: "final_validation"; paths: ChangePaths; activeChangePath: string };
 
 function allTopLevelTasksCompleted(phase: Phase): boolean {
   return phase.tasks.length > 0 && phase.tasks.every(task => task.status === "completed");
 }
 
-function phaseStage(activePhase: Phase, totalPhases: number): "implementation" | "phase_validation" | "final_validation" {
+function phaseStage(activePhase: Phase): "implementation" | "phase_validation" {
   if (!allTopLevelTasksCompleted(activePhase)) {
     return "implementation";
   }
 
-  return totalPhases === 1 ? "final_validation" : "phase_validation";
+  return "phase_validation";
 }
 
 function isVerdictOnlyOpenBlockingIssue(issue: string): boolean {
@@ -135,10 +135,9 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
   if (activePhase) {
     return {
       kind: "phase",
-      stage: phaseStage(activePhase, planPhases.length),
+      stage: phaseStage(activePhase),
       paths,
       activePhase,
-      totalPhases: planPhases.length,
       activeChangePath: changeDir
     };
   }

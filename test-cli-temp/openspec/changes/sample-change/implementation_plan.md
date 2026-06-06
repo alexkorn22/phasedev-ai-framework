@@ -17,7 +17,7 @@ approved: true
 
 # Plan
 
-## Phase 1: API [~]
+## Phase 1: API [x]
 - [x] 1.1 Implement endpoint
 
 

@@ -15,8 +15,8 @@
 3. Используйте HTML comments из template как authoring guidance, но удалите все comments из финального `implementation_plan.md`.
 4. Не меняйте `approved: false` на `approved: true`; approval делает только пользователь.
 5. Разделите реализацию на последовательные автономные фазы:
-   - если вся доработка помещается в одну фазу, flow будет идти `Implementation -> Final Validation` без отдельной Phase Validation;
-   - если фаз несколько, flow будет идти `Implementation -> Phase Validation` для каждой фазы, затем `Final Validation`;
+   - каждая фаза, включая единственную, проходит `Implementation -> Phase Validation`;
+   - после успешной Phase Validation всех фаз flow идет в `Final Validation`;
    - каждая фаза должна полностью выполняться в рамках одной рабочей сессии AI-агента без переполнения контекста;
    - оптимальный объем фазы — изменение от 3 до 10 файлов; не дробите маленький change искусственно.
 6. Не создавайте generic `Definition of Done`; phase completion определяется task/subtask checkboxes и required checks по artifact template.

@@ -22,8 +22,17 @@ function stageSpecificRules(stage: FlowStage): string[] {
 
   return [
     "- Validation stages are review-only. If a configured skill normally runs tests, browsers, builds, scanners, audits, or other tools, use only its review checklist/method guidance and do not run that workflow.",
-    "- Do not let a skill override the validation stage rule that Implementation checks are already declared passed and must not be re-executed."
+    "- Do not let a skill override the validation stage rule that Implementation checks are already declared passed and must not be re-executed.",
+    "- `validation_findings.md` may contain only YAML frontmatter and exactly one markdown findings table. Convert skill output into strict table rows when it is a finding; put non-registry explanation only in the final response."
   ];
+}
+
+function externalSkillArtifactRule(stage: FlowStage): string {
+  if (stage === "phase_validation" || stage === "final_validation") {
+    return "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`.";
+  }
+
+  return "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, inline the relevant result into the current stage artifact or final response instead.";
 }
 
 export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): string {
@@ -43,7 +52,7 @@ export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): st
   const rules = [
     "- Do not preload all configured skill bodies; keep the loaded set minimal for the current stage evidence.",
     ...routerRules,
-    "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, inline the relevant result into the current stage artifact or final response instead.",
+    externalSkillArtifactRule(stage),
     ...stageSpecificRules(stage),
     "- After using skills, return to the Flow stage contract and complete only the allowed stage work."
   ];

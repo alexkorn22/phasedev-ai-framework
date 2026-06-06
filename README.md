@@ -28,7 +28,7 @@ Flow использует такие этапы:
 - `2. Design`: подготовить документы дизайна для проверки человеком.
 - `3. Plan`: разложить дизайн на фазы в `implementation_plan.md`.
 - `4. Implementation`: выполнить текущую фазу.
-- `5A. Phase Validation`: проверить одну фазу в многофазном плане.
+- `5A. Phase Validation`: проверить текущую фазу по implementation plan.
 - `5B. Final Validation`: проверить весь набор изменений перед архивацией.
 - `5R. Repair Loop`: исправить замечания из проверки.
 - `6. Archive`: обновить спецификации по archived change и завершить archive state.
@@ -290,6 +290,8 @@ npm run flow:ralph -- --project-path /absolute/project
 Если найден `repair_required`, следующий `flow next` отправит агента в Repair Loop. После исправления Ralph-раннер стартует новую сессию Codex, снова выполнит `flow init`, затем текущий `flow next`, и проверка будет повторена.
 
 Validation полностью игнорирует `openspec/**` при поиске implementation findings. OpenSpec используется как системный контракт flow: validation читает требования, дизайн, план и историю `validation_findings.md`, но не создает замечания по файлам внутри `openspec/**`.
+
+Каждая фаза, включая единственную фазу single-phase плана, проходит Phase Validation перед Final Validation. Phase Validation — plan-first проверка текущей фазы по `implementation_plan.md`; PRD и design используются как approved constraints и traceability context. Final Validation — PRD-first проверка всего change set по `Intent Card`, requirements, scope boundaries, success criteria, risk envelope, accepted assumptions и deferred decisions.
 
 Validation — это review-only этап, а не повторный test execution gate. Он намеренно не запускает `unit`, `phase`, `full` или дополнительные проверки повторно: успешное выполнение проверок является ответственностью Implementation stage, который не должен завершаться с failed checks.
 

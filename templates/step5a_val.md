@@ -1,6 +1,6 @@
 Этап 5A. Phase Validation.
 
-Stage contract: проверить готовность текущей фазы в multi-phase плане.
+Stage contract: проверить готовность текущей фазы по implementation plan. Этот этап выполняется для каждой фазы, включая единственную фазу single-phase плана.
 
 Validation mode: review-only stage. Этот этап проверяет completeness/correctness review-методами и не является test execution gate.
 
@@ -16,8 +16,9 @@ Validation mode: review-only stage. Этот этап проверяет complet
 {{phase_id}}
 
 Обязательные проверки stage contract:
-- соответствие результата текущей фазы approved PRD scope/intent, approved design и criteria из plan;
-- текущая фаза не нарушает `Risk envelope`, scope boundaries, accepted assumptions и deferred decisions из [prd.md]({{prd_path}});
+- plan-first проверка: актуальная реализация текущей фазы соответствует `Goal`, `Tasks`, `Checks`, `Check Evidence` и phase scope из [implementation_plan.md]({{plan_path}});
+- PRD/design используются как approved constraints и traceability context, а не как полная PRD completeness validation;
+- текущая фаза не нарушает approved PRD scope, `Risk envelope`, accepted assumptions, deferred decisions или approved design boundaries;
 - текущая фаза не разрешает deferred PRD decisions и не меняет accepted assumptions вне approved design/plan;
 - если текущая фаза заявляет checks, связанные с `Resolution signal`, `Check Evidence` должен отражать их выполнение или объясненный blocker;
 - полнота production/test/source/config changes текущей фазы и task statuses текущей фазы проверены review-методами без запуска тестов;
@@ -32,6 +33,8 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - YAML frontmatter в [validation_findings.md]({{findings_path}}) должен иметь `type: phase` для Phase Validation;
 - перед поиском новых ошибок прочитайте существующий `validation_findings.md`, если он есть;
 - итоговый файл должен строго соответствовать artifact template и strict registry rules из template comments;
+- `validation_findings.md` содержит только YAML frontmatter и ровно одну markdown-таблицу findings;
+- не добавляйте в `validation_findings.md` prose, headings, evidence blocks, summaries, visual markers или дополнительные таблицы;
 - не удаляйте строки замечаний;
 - новое замечание добавляйте новой строкой в начало таблицы;
 - если finding семантически совпадает с прежним, обновите существующую строку с тем же `ID` и не создавайте дубликат;

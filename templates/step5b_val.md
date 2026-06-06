@@ -13,14 +13,17 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - План реализации: [implementation_plan.md]({{plan_path}})
 
 Обязательные проверки stage contract:
-- для multi-phase плана все фазы в [implementation_plan.md]({{plan_path}}) имеют статус `[x]`;
-- для single-phase плана единственная фаза может быть `[~]`, если все ее tasks `[x]` и сейчас выполняется final validation;
-- реализованный change set соответствует `Intent Card`, requirements, scope boundaries и success criteria из [prd.md]({{prd_path}});
-- `Generation target` из [prd.md]({{prd_path}}) покрыт approved plan/design и фактическим change set;
-- `Resolution signal` из [prd.md]({{prd_path}}) покрыт checks/evidence, если он не `not_applicable`;
-- `Risk envelope` из [prd.md]({{prd_path}}) не нарушен; если risk acceptance требуется, finding должен быть `RECOMMENDED` или `MUST-FIX` по severity;
-- `Accepted Assumptions` из [prd.md]({{prd_path}}) не опровергнуты фактическим change set; если assumption больше не верен, добавьте `requirements` или `design` finding по причине;
-- `Deferred Decisions` из [prd.md]({{prd_path}}) resolved only через approved design/plan или остались outside implementation scope; если implementation решил deferred decision самовольно, добавьте finding;
+- все фазы в [implementation_plan.md]({{plan_path}}) имеют статус `[x]`; Final Validation не переводит фазы в `[x]`;
+- PRD-first проверка: фактический change set должен удовлетворять утвержденному [prd.md]({{prd_path}}), а не только implementation plan;
+- `Intent Card`: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline` и `Risk envelope` согласованы с фактической реализацией и validation evidence;
+- `Requirements`: каждое требование реализовано фактическим change set или имеет finding;
+- `Scope Boundaries`: in-scope покрыт, out-of-scope не реализован самовольно;
+- `Success Criteria`: каждый критерий успеха доказуемо выполнен или имеет finding;
+- `Accepted Assumptions`: assumptions не опровергнуты фактическим change set; если assumption больше не верен, добавьте `requirements` или `design` finding по причине;
+- `Deferred Decisions`: resolved only через approved design/plan или остались outside implementation scope; если implementation решил deferred decision самовольно, добавьте finding;
+- `Generation target` из `Intent Card` покрыт approved plan/design и фактическим change set;
+- `Resolution signal` из `Intent Card` покрыт checks/evidence, если он не `not_applicable`;
+- `Risk envelope` из `Intent Card` не нарушен; если risk acceptance требуется, finding должен быть `RECOMMENDED` или `MUST-FIX` по severity;
 - полнота production/test/source/config changes approved plan-а проверена review-методами без запуска тестов;
 - `Generation Bundle` в [implementation_plan.md]({{plan_path}}) проверен против фактического change set: заявленные required areas должны быть выполнены или иметь finding;
 - `Check Evidence` для relevant phase scope в [implementation_plan.md]({{plan_path}}) проверен как evidence выполнения Implementation checks;
@@ -34,6 +37,8 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - YAML frontmatter в [validation_findings.md]({{findings_path}}) должен иметь `type: final` для Final Validation; не оставляйте template default `type: phase`;
 - перед поиском новых ошибок прочитайте существующий `validation_findings.md`, если он есть;
 - итоговый файл должен строго соответствовать artifact template и strict registry rules из template comments;
+- `validation_findings.md` содержит только YAML frontmatter и ровно одну markdown-таблицу findings;
+- не добавляйте в `validation_findings.md` prose, headings, evidence blocks, summaries, visual markers или дополнительные таблицы;
 - не удаляйте строки замечаний;
 - новое замечание добавляйте новой строкой в начало таблицы;
 - если finding семантически совпадает с прежним, обновите существующую строку с тем же `ID` и не создавайте дубликат;
@@ -41,16 +46,11 @@ Validation mode: review-only stage. Этот этап проверяет complet
 - если finding действительно вернулся после repair, отметьте его как reopened по artifact template rules;
 - если открытых замечаний нет, все равно сохраните пустую таблицу с header и separator row из artifact template.
 
-Если план состоит из одной фазы и итоговый verdict `ready` или `ready_with_risks`, измените статус этой фазы в [implementation_plan.md]({{plan_path}}) с `[~]` на `[x]`.
-
-Если итоговый verdict `repair_required`, не переводите незавалидированную фазу в `[x]`.
-
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
 - `validation_findings.md`
-- phase status in `implementation_plan.md`, only when allowed by validation verdict
 
 Завершение шага:
-- После записи `validation_findings.md` и возможного обновления single-phase статуса остановите работу.
+- После записи `validation_findings.md` остановите работу.
 - Сообщите пользователю verdict и следующий переход через `flow next`.

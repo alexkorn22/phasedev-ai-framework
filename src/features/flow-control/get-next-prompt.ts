@@ -76,7 +76,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
     case "phase": {
       const urls = urlsFor(route.paths);
       const testCommands = parseTestCommands(route.paths.rulesPath).commands;
-      return handlePhase(route.paths.planPath, route.activePhase, route.totalPhases, urls, testCommands, route.paths.rulesPath, config);
+      return handlePhase(route.paths.planPath, route.activePhase, urls, testCommands, route.paths.rulesPath, config);
     }
     case "final_validation": {
       const urls = urlsFor(route.paths);

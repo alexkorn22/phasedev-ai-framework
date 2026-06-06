@@ -243,7 +243,7 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Check Evidence");
   });
 
-  test("completed single-phase route reports final validation stage", () => {
+  test("completed single-phase route reports phase validation stage", () => {
     setupChange(`
 # Plan
 
@@ -253,10 +253,27 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
+    expect(result.stage).toBe("phase_validation");
+    expect(result.prompt).toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Check Evidence");
+  });
+
+  test("validated single-phase route reports final validation stage", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const result = getNextPrompt(testTmpDir);
+
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Этап 5B. Final Validation.");
     expect(result.prompt).toContain("Generation Bundle");
-    expect(result.prompt).toContain("Check Evidence");
+    expect(result.prompt).toContain("Intent Card");
   });
 
   test("repair route reports repair stage", () => {
