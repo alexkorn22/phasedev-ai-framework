@@ -192,6 +192,7 @@ function validateStageAllowlist(
 
     if (stage === "setup") {
       const isAllowed = relativeChangeDir && (
+        normalized === relativeChangeDir ||
         normalized === `${relativeChangeDir}/prd.md` ||
         normalized === `${relativeChangeDir}/rules.md`
       );

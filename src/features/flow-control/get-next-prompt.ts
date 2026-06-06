@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
 import { buildChangePaths } from "../../entities/flow-change/paths";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
@@ -39,8 +40,16 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
   switch (route.kind) {
     case "pending_archive":
       return archivePrompt(projectPath, route.archiveState, config);
-    case "setup":
-      return prompt("next", "setup", renderStageTemplate("setup", "step0_setup", { date: new Date().toISOString().split("T")[0] }, config));
+    case "setup": {
+      let taskContext = "";
+      const taskFile = process.env.FLOW_TASK_FILE;
+      if (taskFile && fs.existsSync(taskFile)) {
+        const content = fs.readFileSync(taskFile, "utf-8");
+        taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
+      }
+      const basePrompt = renderStageTemplate("setup", "step0_setup", { date: new Date().toISOString().split("T")[0] }, config);
+      return prompt("next", "setup", basePrompt + taskContext);
+    }
     case "invalid_prd":
       return invalidPrdBlocker(route.paths.prdPath, route.issues);
     case "setup_approval":

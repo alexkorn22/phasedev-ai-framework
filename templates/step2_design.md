@@ -31,20 +31,21 @@ Decomposition rules:
 - Не дублируйте большие фрагменты prose между `design.md` и subdocuments; `design.md` summarises and links, subdocuments hold details.
 
 Требования к `architecture/design.md`:
-- YAML frontmatter:
+- `architecture/design.md` должен быть создан строго на основе шаблона [design.md template]({{design_template_path}}). Все HTML-комментарии должны быть удалены.
+- YAML frontmatter остается первым в файле:
 ---
 approved: false
 approved_by: ""
 date: {{date}}
 ---
-- краткое summary решения и что именно пользователь approve-ит;
-- явная связь design direction с ADLC-style `Intent Card` из [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline и risk envelope;
-- явная traceability table или список, показывающий какие design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion из PRD;
+- краткое summary решения и что именно пользователь approve-ит в разделе `## Executive Summary`;
+- явная связь design direction с ADLC-style `Intent Card` из [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline и risk envelope в разделе `## Executive Summary` или `## Key Design Decisions`;
+- явная traceability table или список, показывающий какие design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion из PRD в разделе `## Traceability Mapping`;
 - явное отражение `Accepted Assumptions` и `Deferred Decisions` из PRD: assumptions становятся design constraints, deferred decisions должны быть либо решены в design, либо явно оставлены как approved planning/implementation boundary;
 - compact visual review surface near the top;
-- обязательная таблица `Architecture Package Map`;
-- список key design decisions, сгруппированный по смыслу;
-- открытые риски и вопросы;
+- обязательная таблица `Architecture Package Map` в разделе `## Architecture Package Map`;
+- список key design decisions, сгруппированный по смыслу в разделе `## Key Design Decisions`;
+- открытые риски и вопросы в разделе `## Risks & Open Questions`;
 - ссылки на все дополнительные architecture files, если они созданы.
 
 Формат `Architecture Package Map`:
