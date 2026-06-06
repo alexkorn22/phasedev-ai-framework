@@ -1,10 +1,106 @@
-import { Phase } from "./types";
+import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
+
+const REQUIRED_GENERATION_BUNDLE_AREAS = [
+  "Production code",
+  "Tests",
+  "Docs/specs",
+  "Migrations",
+  "Feature flags/rollout",
+  "Observability",
+  "Rollback path"
+];
+
+const ALLOWED_BUNDLE_VALUES = new Set(["yes", "no", "not_applicable"]);
+const ALLOWED_EVIDENCE_RESULTS = new Set(["pending", "passed", "failed", "blocked", "not_applicable"]);
+const REQUIRED_PHASE_SECTIONS = ["Goal", "Tasks", "Checks", "Check Evidence"];
+
+function flattenTasks(tasks: Task[]): Task[] {
+  return tasks.flatMap(task => [task, ...flattenTasks(task.children)]);
+}
+
+function hasIncompleteTask(tasks: Task[]): boolean {
+  return flattenTasks(tasks).some(task => task.status !== "completed");
+}
+
+function hasIncompleteChild(task: Task): boolean {
+  return flattenTasks(task.children).some(child => child.status !== "completed");
+}
+
+function hasParsedPlanContent(phases: Phase[]): boolean {
+  return phases.some(phase => phase.rawContent !== undefined);
+}
+
+function phaseHasSection(phase: Phase, sectionName: string): boolean {
+  return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(phase.rawContent ?? "");
+}
+
+function validateGenerationBundle(rows: GenerationBundleRow[], issues: string[]): void {
+  if (rows.length === 0) {
+    issues.push("implementation_plan.md must contain a non-empty Generation Bundle table.");
+    return;
+  }
+
+  const rowsByArea = new Map<string, GenerationBundleRow>();
+  for (const row of rows) {
+    if (!row.area) {
+      issues.push("Generation Bundle contains a row with an empty Area.");
+      continue;
+    }
+
+    if (rowsByArea.has(row.area)) {
+      issues.push(`Generation Bundle contains duplicate area \`${row.area}\`.`);
+    }
+    rowsByArea.set(row.area, row);
+
+    if (!ALLOWED_BUNDLE_VALUES.has(row.required)) {
+      issues.push(`Generation Bundle area \`${row.area}\` has invalid Required value \`${row.required}\`; expected yes, no, or not_applicable.`);
+    }
+    if (row.plan.trim().length === 0) {
+      issues.push(`Generation Bundle area \`${row.area}\` must have a non-empty Plan explanation.`);
+    }
+  }
+
+  for (const area of REQUIRED_GENERATION_BUNDLE_AREAS) {
+    if (!rowsByArea.has(area)) {
+      issues.push(`Generation Bundle must include area \`${area}\`.`);
+    }
+  }
+}
+
+function validateCheckEvidenceRows(phase: Phase, rows: CheckEvidenceRow[], issues: string[]): void {
+  if (rows.length === 0) {
+    issues.push(`Phase ${phase.id}: ${phase.name} must contain a non-empty Check Evidence table.`);
+    return;
+  }
+
+  for (const [index, row] of rows.entries()) {
+    const rowLabel = `Phase ${phase.id}: ${phase.name} Check Evidence row ${index + 1}`;
+    if (row.check.trim().length === 0) {
+      issues.push(`${rowLabel} has an empty Check.`);
+    }
+    if (row.commandOrMethod.trim().length === 0) {
+      issues.push(`${rowLabel} has an empty Command Or Method.`);
+    }
+    if (!ALLOWED_EVIDENCE_RESULTS.has(row.result)) {
+      issues.push(`${rowLabel} has invalid Result \`${row.result}\`; expected pending, passed, failed, blocked, or not_applicable.`);
+    }
+    if (["passed", "failed", "blocked"].includes(row.result) && row.evidence.trim().length === 0) {
+      issues.push(`${rowLabel} with Result \`${row.result}\` must have non-empty Evidence.`);
+    }
+  }
+}
 
 export function validatePlanStructure(phases: Phase[]): string[] {
   const issues: string[] = [];
+  const taskIds = new Map<string, string>();
 
   if (phases.length === 0) {
     return ["implementation_plan.md must contain at least one phase heading."];
+  }
+
+  const shouldValidateArtifactContract = hasParsedPlanContent(phases);
+  if (shouldValidateArtifactContract) {
+    validateGenerationBundle(phases[0].generationBundle ?? [], issues);
   }
 
   const phaseIdCounts = new Map<number, number>();
@@ -33,11 +129,48 @@ export function validatePlanStructure(phases: Phase[]): string[] {
   }
 
   for (const phase of phases) {
+    if (phase.name.trim().length === 0) {
+      issues.push(`Phase ${phase.id} must have a non-empty name.`);
+    }
+
+    if (shouldValidateArtifactContract) {
+      for (const section of REQUIRED_PHASE_SECTIONS) {
+        if (!phaseHasSection(phase, section)) {
+          issues.push(`Phase ${phase.id}: ${phase.name} must contain section \`### ${section}\`.`);
+        }
+      }
+      validateCheckEvidenceRows(phase, phase.checkEvidence ?? [], issues);
+    }
+
     if (phase.tasks.length === 0) {
       issues.push(`Phase ${phase.id}: ${phase.name} must contain at least one task checkbox.`);
     }
 
-    if (phase.status === "completed" && phase.tasks.some(task => task.status !== "completed")) {
+    const allTasks = flattenTasks(phase.tasks);
+    for (const task of allTasks) {
+      const taskLabel = task.id || task.name;
+      if (task.id.length === 0) {
+        issues.push(`Phase ${phase.id}: ${phase.name} has a task without a numbered ID: ${task.name}.`);
+        continue;
+      }
+
+      if (!task.id.startsWith(`${phase.id}.`)) {
+        issues.push(`Task ${task.id} must start with phase number ${phase.id}.`);
+      }
+
+      const existing = taskIds.get(task.id);
+      if (existing) {
+        issues.push(`Task IDs must be unique; duplicate task id \`${task.id}\` in ${existing} and Phase ${phase.id}: ${phase.name}.`);
+      } else {
+        taskIds.set(task.id, `Phase ${phase.id}: ${phase.name}`);
+      }
+
+      if (task.status === "completed" && hasIncompleteChild(task)) {
+        issues.push(`Task ${taskLabel} is [x] but contains incomplete subtasks.`);
+      }
+    }
+
+    if (phase.status === "completed" && hasIncompleteTask(phase.tasks)) {
       issues.push(`Phase ${phase.id}: ${phase.name} is [x] but contains incomplete tasks.`);
     }
   }

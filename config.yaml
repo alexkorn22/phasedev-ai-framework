@@ -41,6 +41,7 @@ codex:
         additional:
           - api-and-interface-design
           - security-and-hardening
+          - doubt-driven-development
           - frontend-ui-engineering
           - frontend-design
           - architecture-patterns
@@ -57,6 +58,7 @@ codex:
           - test-driven-development
         additional:
           - incremental-implementation
+          - doubt-driven-development
           - write-e2e
           - ci-cd-and-automation
           - security-and-hardening
@@ -74,6 +76,7 @@ codex:
           - frontend-ui-engineering
           - frontend-design
           - security-and-hardening
+          - doubt-driven-development
           - performance-optimization
           - source-driven-development
           - context7-docs-lookup
@@ -89,6 +92,7 @@ codex:
           - test-audit
           - api-audit
           - security-audit
+          - doubt-driven-development
           - browser-testing-with-devtools
           - playwright
           - performance-audit
@@ -106,6 +110,7 @@ codex:
           - code-audit
           - review
           - test-audit
+          - doubt-driven-development
           - dependency-audit
           - db-audit
           - performance-audit
@@ -126,6 +131,7 @@ codex:
           - debug
           - fix-tests
           - write-tests
+          - doubt-driven-development
           - refactor
           - code-simplification
           - security-and-hardening

@@ -4,8 +4,9 @@ import * as path from "path";
 import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
+import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
-import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
+import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
 
@@ -54,16 +55,17 @@ describe("Parser & Checker Utilities", () => {
 # Plan
 
 ## Phase 1: Database Setup [x]
-- [x] Create migration
-- [x] Create user model
+- [x] 1.1 Create migration
+- [x] 1.2 Create user model
 
 ## Phase 2: Core Auth APIs [~]
-- [x] Implement signup handler
-- [ ] Implement login handler
-- [ ] Add JWT middleware
+- [x] 2.1 Implement signup handler
+  - [x] 2.1.1 Add validation
+- [ ] 2.2 Implement login handler
+- [ ] 2.3 Add JWT middleware
 
 ## Phase 3: UI [ ]
-- [ ] Layout
+- [ ] 3.1 Layout
 `;
     fs.writeFileSync(planFile, planContent, "utf-8");
     const phases = parsePlan(planFile);
@@ -77,6 +79,8 @@ describe("Parser & Checker Utilities", () => {
     expect(phases[1].id).toBe(2);
     expect(phases[1].status).toBe("in_progress");
     expect(phases[1].tasks).toHaveLength(3);
+    expect(phases[1].tasks[0].id).toBe("2.1");
+    expect(phases[1].tasks[0].children[0].id).toBe("2.1.1");
     expect(phases[1].tasks[0].status).toBe("completed");
     expect(phases[1].tasks[1].status).toBe("not_started");
   });
@@ -87,13 +91,13 @@ describe("Parser & Checker Utilities", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 
 Additional checks:
 - \`bun test:e2e auth\`
 - Browser smoke for login flow
 
-Definition of Done:
+Checks:
 - Endpoint works.
 `;
     fs.writeFileSync(planFile, planContent, "utf-8");
@@ -103,13 +107,121 @@ Definition of Done:
     expect(phases[0].additionalChecks).toEqual(["`bun test:e2e auth`", "Browser smoke for login flow"]);
   });
 
+  test("parsePlan extracts generation bundle and check evidence without mixing them into tasks", () => {
+    const planFile = path.join(testTmpDir, "plan_evidence.md");
+    const planContent = `
+# Plan
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update prompt templates. |
+| Tests | yes | Add parser regression. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert prompt changes. |
+
+## Phase 1: Prompt Updates [~]
+
+### Goal
+
+Update prompts.
+
+### Tasks
+
+- [x] 1.1 Update setup prompt
+- [ ] 1.2 Update validation prompts
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+Additional checks:
+- \`npm run typecheck\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | 12 tests passed | none |
+| additional | \`npm run typecheck\` | pending |  |  |
+`;
+    fs.writeFileSync(planFile, planContent, "utf-8");
+    const phases = parsePlan(planFile);
+
+    expect(phases).toHaveLength(1);
+    expect(phases[0].tasks).toHaveLength(2);
+    expect(phases[0].tasks.map(task => task.id)).toEqual(["1.1", "1.2"]);
+    expect(phases[0].additionalChecks).toEqual(["`npm run typecheck`"]);
+    expect(phases[0].generationBundle?.map(row => row.area)).toEqual([
+      "Production code",
+      "Tests",
+      "Docs/specs",
+      "Migrations",
+      "Feature flags/rollout",
+      "Observability",
+      "Rollback path"
+    ]);
+    expect(phases[0].checkEvidence).toEqual([
+      { check: "unit", commandOrMethod: "`bun test test/parser.test.ts`", result: "passed", evidence: "12 tests passed", notes: "none" },
+      { check: "additional", commandOrMethod: "`npm run typecheck`", result: "pending", evidence: "", notes: "" }
+    ]);
+  });
+
+  test("validatePlanStructure enforces generation bundle and check evidence contract for parsed plans", () => {
+    const invalidPlanFile = path.join(testTmpDir, "invalid_plan_contract.md");
+    fs.writeFileSync(invalidPlanFile, `
+# Plan
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | maybe |  |
+| Tests | yes | Add tests. |
+
+## Phase 1: Prompt Updates [~]
+
+### Goal
+
+Update prompts.
+
+### Tasks
+
+- [x] 1.1 Update setup prompt
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit |  | passed |  | none |
+| additional | \`npm run typecheck\` | unknown |  |  |
+`, "utf-8");
+
+    const issues = validatePlanStructure(parsePlan(invalidPlanFile));
+
+    expect(issues).toContain("Generation Bundle area `Production code` has invalid Required value `maybe`; expected yes, no, or not_applicable.");
+    expect(issues).toContain("Generation Bundle area `Production code` must have a non-empty Plan explanation.");
+    expect(issues).toContain("Generation Bundle must include area `Docs/specs`.");
+    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 has an empty Command Or Method.");
+    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 with Result `passed` must have non-empty Evidence.");
+    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 2 has invalid Result `unknown`; expected pending, passed, failed, blocked, or not_applicable.");
+  });
+
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
     expect(validatePlanStructure([])).toContain("implementation_plan.md must contain at least one phase heading.");
 
     const issues = validatePlanStructure([
-      { id: 1, name: "API", status: "completed", tasks: [{ name: "Implement endpoint", status: "not_started" }], additionalChecks: [] },
+      { id: 1, name: "API", status: "completed", tasks: [{ id: "1.1", name: "Implement endpoint", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 1, name: "UI", status: "in_progress", tasks: [], additionalChecks: [] },
-      { id: 3, name: "Docs", status: "in_progress", tasks: [{ name: "Update docs", status: "completed" }], additionalChecks: [] }
+      { id: 3, name: "Docs", status: "in_progress", tasks: [{ id: "3.1", name: "Update docs", status: "completed", children: [] }], additionalChecks: [] }
     ]);
 
     expect(issues).toContain("Phase numbers must be unique; duplicate phase id(s): 1.");
@@ -117,6 +229,122 @@ Definition of Done:
     expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
     expect(issues).toContain("Phase 1: UI must contain at least one task checkbox.");
     expect(issues).toContain("Only one phase may have [~] status at a time; active phases: Phase 1: UI, Phase 3: Docs.");
+  });
+
+  test("validatePlanStructure rejects empty phase names", () => {
+    const issues = validatePlanStructure([
+      { id: 1, name: "", status: "not_started", tasks: [{ id: "1.1", name: "Implement prompt", status: "not_started", children: [] }], additionalChecks: [] }
+    ]);
+
+    expect(issues).toContain("Phase 1 must have a non-empty name.");
+  });
+
+  test("validatePlanStructure rejects invalid numbered task structure", () => {
+    const issues = validatePlanStructure([
+      {
+        id: 1,
+        name: "API",
+        status: "completed",
+        additionalChecks: [],
+        tasks: [
+          { id: "", name: "Missing task id", status: "completed", children: [] },
+          { id: "2.1", name: "Wrong phase id", status: "completed", children: [] },
+          { id: "1.2", name: "Parent task", status: "completed", children: [{ id: "1.2.1", name: "Child task", status: "not_started", children: [] }] },
+          { id: "1.2", name: "Duplicate task id", status: "completed", children: [] }
+        ]
+      }
+    ]);
+
+    expect(issues).toContain("Phase 1: API has a task without a numbered ID: Missing task id.");
+    expect(issues).toContain("Task 2.1 must start with phase number 1.");
+    expect(issues).toContain("Task 1.2 is [x] but contains incomplete subtasks.");
+    expect(issues).toContain("Task IDs must be unique; duplicate task id `1.2` in Phase 1: API and Phase 1: API.");
+    expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
+  });
+
+  test("validatePrdArtifact accepts required PRD Intent Card contract", () => {
+    const prdFile = path.join(testTmpDir, "valid_prd.md");
+    fs.writeFileSync(prdFile, `---
+approved: true
+approved_by: "tester"
+date: 2026-06-02
+---
+
+# PRD
+
+## Intent Card
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| User or business intent | Keep routing decisions grounded in approved requirements. |
+| Generation target | Update flow prompts and validation gates. |
+| Resolution signal | not_applicable |
+| Decision deadline | not_applicable |
+| Risk envelope | No behavior outside flow prompt routing changes. |
+
+## Approval Summary
+
+Approve the flow contract update.
+
+## Requirements
+
+- PRD must include Intent Card.
+
+## Scope Boundaries
+
+- In scope: flow prompts.
+- Out of scope: product code changes.
+
+## Success Criteria
+
+- Downstream stages consume PRD intent.
+
+## Accepted Assumptions
+
+None.
+
+## Deferred Decisions
+
+None.
+`, "utf-8");
+
+    expect(validatePrdArtifact(prdFile)).toEqual([]);
+  });
+
+  test("validatePrdArtifact rejects incomplete PRD template output", () => {
+    const prdFile = path.join(testTmpDir, "invalid_prd.md");
+    fs.writeFileSync(prdFile, `---
+approved: true
+date: 2026-06-02
+---
+
+<!-- leftover comment -->
+
+# PRD
+
+## Intent Card
+
+| Field | Value |
+|---|---|
+| Change type | bug |
+| User or business intent |  |
+| Generation target | not_applicable |
+| Resolution signal | not_applicable |
+| Decision deadline | not_applicable |
+| Risk envelope |  |
+
+## Requirements
+`, "utf-8");
+
+    const issues = validatePrdArtifact(prdFile);
+    expect(issues).toContain("prd.md must not contain HTML template comments.");
+    expect(issues).toContain("prd.md must contain section `## Scope Boundaries`.");
+    expect(issues).toContain("Intent Card field `Change type` must be one of: feature, fix, refactor, infra, experiment.");
+    expect(issues).toContain("Intent Card field `User or business intent` must be present and non-empty.");
+    expect(issues).toContain("Intent Card field `Risk envelope` must be present and non-empty.");
+    expect(issues).toContain("Intent Card field `Generation target` must not be not_applicable.");
+    expect(issues).toContain("Section `## Requirements` must not be empty.");
   });
 
   test("parseValidationVerdict extracts correct validation statuses", () => {
@@ -161,7 +389,7 @@ Definition of Done:
     expect(parseValidationVerdictType(nonexistentPath)).toBe("unknown");
   });
 
-  test("parseBlockingValidationFindings extracts blocking signatures from validation table", () => {
+  test("parseValidationFindingsArtifact accepts a strict single findings table", () => {
     const findingsFile = path.join(testTmpDir, "findings_table.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
@@ -169,36 +397,183 @@ type: phase
 date: 2026-05-30
 ---
 
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |
-| F2 | 🟡 | open | implementation | No | Phase 1 | Non-blocking naming note. |
-| F3 | 🔴 | resolved | design | Yes | Phase 2 | Design does not cover retry behavior. |
+| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+| F2 | open | RECOMMENDED | implementation | Phase 1 | Non-blocking naming note. | Rename in a follow-up. |
+| F3 | resolved | MUST-FIX | design | Phase 2 | Design does not cover retry behavior. | Document retry behavior. |
 `, "utf-8");
 
+    const artifact = parseValidationFindingsArtifact(findingsFile);
     const findings = parseBlockingValidationFindings(findingsFile);
 
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.openBlockingRows.map(row => row.id)).toEqual(["F1"]);
+    expect(artifact.openNonBlockingRows.map(row => row.id)).toEqual(["F2"]);
     expect(findings).toEqual([
       {
         id: "F1",
         status: "open",
+        severity: "MUST-FIX",
         className: "implementation",
         phase: "Phase 1",
-        description: "API response omits required error handling.",
+        finding: "API response omits required error handling.",
+        requiredFix: "Add error mapping.",
         signature: "phase|phase 1|implementation|api response omits required error handling"
       },
       {
         id: "F3",
         status: "resolved",
+        severity: "MUST-FIX",
         className: "design",
         phase: "Phase 2",
-        description: "Design does not cover retry behavior.",
+        finding: "Design does not cover retry behavior.",
+        requiredFix: "Document retry behavior.",
         signature: "phase|phase 2|design|design does not cover retry behavior"
       }
     ]);
   });
 
-  test("parseBlockingValidationFindings ignores IDs, signal, and status when building signatures", () => {
+  test("parseValidationFindingsArtifact accepts an empty strict findings table", () => {
+    const findingsFile = path.join(testTmpDir, "empty_findings_table.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: ready
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+`, "utf-8");
+
+    const artifact = parseValidationFindingsArtifact(findingsFile);
+
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.rows).toEqual([]);
+    expect(artifact.openBlockingRows).toEqual([]);
+  });
+
+  test("parseValidationFindingsArtifact rejects missing or extra strict tables", () => {
+    const noTableFile = path.join(testTmpDir, "no_table.md");
+    fs.writeFileSync(noTableFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+No markdown finding table here.
+`, "utf-8");
+
+    const twoTablesFile = path.join(testTmpDir, "two_tables.md");
+    fs.writeFileSync(twoTablesFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F2 | open | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |
+`, "utf-8");
+
+    expect(parseValidationFindingsArtifact(noTableFile).issues).toContain("validation_findings.md must contain exactly one markdown table, found 0.");
+    expect(parseValidationFindingsArtifact(noTableFile).issues).toContain("validation_findings.md may contain only YAML frontmatter and one findings table.");
+    expect(parseValidationFindingsArtifact(twoTablesFile).issues).toContain("validation_findings.md must contain exactly one markdown table, found 2.");
+  });
+
+  test("parseValidationFindingsArtifact rejects invalid table shape", () => {
+    const invalidFile = path.join(testTmpDir, "invalid_table.md");
+    fs.writeFileSync(invalidFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+|---|---|---|---|---|---|---|
+| F1 | red | open | implementation | Yes | Phase 1 | API response omits required error handling. |
+`, "utf-8");
+
+    const issues = parseValidationFindingsArtifact(invalidFile).issues;
+
+    expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Phase, Finding, Required Fix.");
+  });
+
+  test("parseValidationFindingsArtifact rejects duplicate IDs and invalid strict values", () => {
+    const invalidFile = path.join(testTmpDir, "invalid_values.md");
+    fs.writeFileSync(invalidFile, `---
+verdict: repair_required
+type: phase
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | bad | bad | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+| F1 | open | MUST-FIX | unknown | Phase 1 | Duplicate ID. | Fix duplicate. |
+`, "utf-8");
+
+    const issues = parseValidationFindingsArtifact(invalidFile).issues;
+
+    expect(issues).toContain("Finding F1 has invalid Status `bad`.");
+    expect(issues).toContain("Finding F1 has invalid Severity `bad`.");
+    expect(issues).toContain("Findings table contains duplicate ID `F1`.");
+    expect(issues).toContain("Finding F1 has invalid Class `unknown`.");
+  });
+
+  test("parseValidationFindingsArtifact accepts validation class for insufficient review evidence", () => {
+    const findingsFile = path.join(testTmpDir, "validation_class.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | validation | Final | Review evidence is insufficient to safely confirm the change set. | Repeat validation with concrete review evidence. |
+`, "utf-8");
+
+    const artifact = parseValidationFindingsArtifact(findingsFile);
+
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.openBlockingRows[0]?.className).toBe("validation");
+  });
+
+  test("parseValidationFindingsArtifact validates verdict consistency from severity", () => {
+    const readyRisksBlockingFile = path.join(testTmpDir, "ready_risks_blocking.md");
+    fs.writeFileSync(readyRisksBlockingFile, `---
+verdict: ready_with_risks
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | implementation | Final | Broken final check. | Repair final check. |
+`, "utf-8");
+
+    const repairWithoutBlockingFile = path.join(testTmpDir, "repair_without_blocking.md");
+    fs.writeFileSync(repairWithoutBlockingFile, `---
+verdict: repair_required
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |
+`, "utf-8");
+
+    expect(parseValidationFindingsArtifact(readyRisksBlockingFile).issues).toContain("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.");
+    expect(parseValidationFindingsArtifact(repairWithoutBlockingFile).issues).toContain("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.");
+  });
+
+  test("parseBlockingValidationFindings ignores IDs and status when building signatures", () => {
     const findingsFile = path.join(testTmpDir, "changed_ids.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
@@ -206,9 +581,9 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F7 | 🔴 | reopened | Implementation | Yes | Final | reopened/regression: API response omits required error handling!!! |
+| F7 | reopened | MUST-FIX | implementation | Final | reopened/regression: API response omits required error handling!!! | Restore the error handling fix. |
 `, "utf-8");
 
     const findings = parseBlockingValidationFindings(findingsFile);
@@ -225,9 +600,9 @@ type: phase
 date: 2026-05-30
 ---
 
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F7 | 🔴 | reopened | Implementation | Yes | Phase 1 | reopened/regression: API-response omits required error-handling!!! |
+| F7 | reopened | MUST-FIX | implementation | Phase 1 | reopened/regression: API-response omits required error-handling!!! | Restore the error handling fix. |
 `, "utf-8");
 
     const findings = parseBlockingValidationFindings(findingsFile);
@@ -244,19 +619,19 @@ type: phase
 date: 2026-05-30
 ---
 
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | 🔴 | open | implementation | Yes | Phase 1 | Type guard misses \`A \\| B\` response. |
+| F1 | open | MUST-FIX | implementation | Phase 1 | Type guard misses \`A \\| B\` response. | Add union response coverage. |
 `, "utf-8");
 
     const findings = parseBlockingValidationFindings(findingsFile);
 
     expect(findings).toHaveLength(1);
-    expect(findings[0].description).toBe("Type guard misses `A | B` response.");
+    expect(findings[0].finding).toBe("Type guard misses `A | B` response.");
     expect(findings[0].signature).toBe("phase|phase 1|implementation|type guard misses a b response");
   });
 
-  test("parseCurrentValidationFindings returns latest finding state by ID", () => {
+  test("parseCurrentValidationFindings returns current strict registry rows", () => {
     const findingsFile = path.join(testTmpDir, "current_findings.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
@@ -264,19 +639,11 @@ type: final
 date: 2026-05-30
 ---
 
-## Validation Run: 2026-05-30
-
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
-|---|---|---|---|---|---|---|---|
-| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. | Missing try/catch. |
-| F2 | 🟡 | open | implementation | No | Final | Non-blocking naming note. | Name is vague. |
-
-## Repair Run: 2026-05-30
-
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description | Evidence |
-|---|---|---|---|---|---|---|---|
-| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. | Added error mapping. |
-| F3 | 🔴 | reopened | test | Yes | Final | reopened/regression: Missing auth failure coverage!!! | Test still absent. |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |
+| F2 | open | RECOMMENDED | implementation | Final | Non-blocking naming note. | Rename in a follow-up. |
+| F3 | reopened | MUST-FIX | test | Final | reopened/regression: Missing auth failure coverage!!! | Add auth failure coverage. |
 `, "utf-8");
 
     const findings = parseCurrentValidationFindings(findingsFile);
@@ -286,31 +653,37 @@ date: 2026-05-30
         id: "F1",
         signature: "phase|phase 1|implementation|api response omits required error handling",
         latestStatus: "resolved",
+        severity: "MUST-FIX",
         className: "implementation",
         blocksPr: true,
         phase: "Phase 1",
-        canonicalDescription: "API response omits required error handling.",
-        latestEvidence: "Added error mapping."
+        canonicalFinding: "API response omits required error handling.",
+        requiredFix: "Keep the error mapping fix.",
+        latestEvidence: "API response omits required error handling."
       },
       {
         id: "F2",
         signature: "final|final|implementation|non blocking naming note",
         latestStatus: "open",
+        severity: "RECOMMENDED",
         className: "implementation",
         blocksPr: false,
         phase: "Final",
-        canonicalDescription: "Non-blocking naming note.",
-        latestEvidence: "Name is vague."
+        canonicalFinding: "Non-blocking naming note.",
+        requiredFix: "Rename in a follow-up.",
+        latestEvidence: "Non-blocking naming note."
       },
       {
         id: "F3",
         signature: "final|final|test|missing auth failure coverage",
         latestStatus: "reopened",
+        severity: "MUST-FIX",
         className: "test",
         blocksPr: true,
         phase: "Final",
-        canonicalDescription: "Missing auth failure coverage!!!",
-        latestEvidence: "Test still absent."
+        canonicalFinding: "Missing auth failure coverage!!!",
+        requiredFix: "Add auth failure coverage.",
+        latestEvidence: "reopened/regression: Missing auth failure coverage!!!"
       }
     ]);
   });

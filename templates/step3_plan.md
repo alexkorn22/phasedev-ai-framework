@@ -2,36 +2,37 @@
 
 Ваша задача — разложить утвержденный технический дизайн на пошаговый план реализации.
 
+{{skill_policy}}
+
 Входные артефакты (обязательно прочитайте их):
+- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
 - Утвержденный дизайн: [design.md]({{design_path}})
 - Правила разработки: [rules.md]({{rules_path}})
 
 Инструкция по планированию:
-1. Создайте файл плана реализации: [implementation_plan.md]({{plan_path}}).
-2. Обязательно вставьте в начало файла YAML frontmatter:
----
-approved: false
-approved_by: ""
-date: {{date}}
----
-   - **Важное правило**: ИИ-агент не имеет права изменять `approved: false` на `approved: true`. Это может сделать только пользователь при ручной проверке.
-
-3. Разделите реализацию проекта на последовательные автономные фазы (Phase 1, Phase 2 и т.д.):
-   - Каждая фаза должна иметь заголовок вида `## Phase N: <Название фазы> [<статус>]` (например, `## Phase 1: Database Setup [ ]`).
-   - Семантика статусов фазы: `[ ]` — не начата, `[~]` — implementation начат или завершен, но нужная validation еще не прошла, `[x]` — фаза прошла нужную validation.
-   - В нормальном состоянии одновременно может быть только одна фаза `[~]`.
-   - Если вся доработка помещается в одну фазу, flow будет идти `Implementation -> Final Validation` без отдельной Phase Validation.
-   - Если фаз несколько, flow будет идти `Implementation -> Phase Validation` для каждой фазы, затем `Final Validation`.
-   - **Баланс размера фаз**: Каждая фаза должна полностью выполняться в рамках одной рабочей сессии AI-агента (один автономный запуск/контекст работы агента) без переполнения лимита его контекста. Оптимальный объем фазы — изменение от 3 до 10 файлов. Избегайте избыточного дробления: если вся задача невелика, оформите её в виде одной фазы для одной сессии.
-   - Внутри каждой фазы распишите конкретные атомарные задачи с чекбоксами `- [ ] <описание задачи>`.
-   - Для каждой фазы укажите критерии готовности (Definition of Done) и точную команду запуска тестов (на основе `rules.md`).
-   - Если конкретной фазе нужны дополнительные проверки сверх defaults из `rules.md`, добавьте простой markdown-блок внутри фазы:
-```md
-Additional checks:
-- `...`
-- ...
-```
-     Эти проверки дополняют default commands из `rules.md`, а не заменяют их.
+1. Прочитайте artifact template: [implementation_plan.md template]({{implementation_plan_template_path}}).
+2. Создайте файл плана реализации: [implementation_plan.md]({{plan_path}}), instantiating этот template под текущий change.
+3. Используйте HTML comments из template как authoring guidance, но удалите все comments из финального `implementation_plan.md`.
+4. Не меняйте `approved: false` на `approved: true`; approval делает только пользователь.
+5. Разделите реализацию на последовательные автономные фазы:
+   - если вся доработка помещается в одну фазу, flow будет идти `Implementation -> Final Validation` без отдельной Phase Validation;
+   - если фаз несколько, flow будет идти `Implementation -> Phase Validation` для каждой фазы, затем `Final Validation`;
+   - каждая фаза должна полностью выполняться в рамках одной рабочей сессии AI-агента без переполнения контекста;
+   - оптимальный объем фазы — изменение от 3 до 10 файлов; не дробите маленький change искусственно.
+6. Не создавайте generic `Definition of Done`; phase completion определяется task/subtask checkboxes и required checks по artifact template.
+7. Заполните `## Generation Bundle` в [implementation_plan.md]({{plan_path}}); для каждой области используйте только `yes`, `no` или `not_applicable` и коротко объясните решение.
+8. План должен trace-ить `Intent Card` из [prd.md]({{prd_path}}):
+   - `Generation Bundle` должен соответствовать `Generation target` и `Risk envelope`;
+   - phase sequencing должен покрывать success criteria и approved design;
+   - checks/evidence должны покрывать `Resolution signal`, если он не `not_applicable`;
+   - если `Risk envelope` требует rollout, observability или rollback path, соответствующие строки `Generation Bundle` не должны быть `not_applicable`.
+9. План должен учитывать `Accepted Assumptions` и `Deferred Decisions` из PRD:
+   - accepted assumptions становятся constraints для sequencing, task scope и checks;
+   - deferred decisions из PRD должны быть явно resolved by approved design или mapped to конкретную plan boundary/task/check;
+   - не планируйте работу на silent assumptions, которых нет в PRD/design.
+10. Если approved design или plan decomposition не покрывает `Generation target`, `Resolution signal`, success criteria, accepted assumptions или risk envelope из PRD, остановитесь и попросите пользователя пересогласовать PRD/design вместо создания неполного плана.
+11. Для каждой фазы добавьте `### Check Evidence` сразу после `### Checks`; все строки evidence изначально должны иметь `Result = pending`, кроме явно неприменимых checks с `not_applicable`.
+12. Не используйте task checkboxes внутри `Check Evidence`; evidence rows должны быть обычными markdown table rows, чтобы не смешиваться с executable tasks.
 
 ## Human Review Formatting Policy
 
@@ -57,7 +58,7 @@ Additional checks:
 - не используйте эмоджи в YAML frontmatter.
 - не используйте эмоджи в командах, file paths, code blocks и обязательных machine-readable labels.
 - не используйте эмоджи в machine-parsed заголовках фаз `## Phase N: <Название фазы> [<статус>]`.
-- В `implementation_plan.md` сохраните все machine-readable элементы: phase headings, phase status checkboxes, task checkboxes и блок `Additional checks:`.
+- В `implementation_plan.md` сохраните все machine-readable элементы из artifact template.
 
 Завершение шага:
 - После записи файла `implementation_plan.md` остановите работу.
@@ -67,5 +68,3 @@ Additional checks:
 
 Allowed persistent artifacts for this stage:
 - `implementation_plan.md`
-
-{{skill_policy}}

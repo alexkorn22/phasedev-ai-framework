@@ -5,7 +5,7 @@ import { updatePhaseStatus } from "../../entities/implementation-plan/update-pha
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
-import { renderTemplate } from "../../shared/templates/render-template";
+import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
 import { formatAdditionalChecks, formatPhaseExcerpt, formatTaskList, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
@@ -27,6 +27,9 @@ function getRequiredTestCommand(stage: FlowStage, testCommands: TestCommands, ke
 function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
   return renderTemplate(templateName, {
     ...variables,
+    prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
+    implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
+    validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     skill_policy: renderSkillPolicy(stage, config)
   });
 }
@@ -52,6 +55,7 @@ export function handlePhase(planPath: string, activePhase: Phase, totalPhases: n
 
     return prompt("next", "phase_validation", renderStageTemplate("phase_validation", "step5a_val", {
       phase_id: `Phase ${activePhase.id}: ${activePhase.name}`,
+      prd_path: urls.prd_path,
       rules_path: urls.rules_path,
       design_path: urls.design_path,
       plan_path: urls.plan_path,
@@ -69,6 +73,7 @@ export function handlePhase(planPath: string, activePhase: Phase, totalPhases: n
     phase_excerpt: formatPhaseExcerpt(activePhase),
     test_command: testCommand,
     phase_checks: formatAdditionalChecks(activePhase),
+    prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,
     plan_path: urls.plan_path
@@ -80,7 +85,7 @@ function escapeMarkdownTableCell(value: string): string {
 }
 
 function isQueuedRepairFinding(finding: ValidationFindingState): boolean {
-  return finding.blocksPr && ["open", "reopened", "in_progress"].includes(finding.latestStatus);
+  return finding.blocksPr && ["open", "reopened"].includes(finding.latestStatus);
 }
 
 function formatRepairQueue(findingsPath: string): string {
@@ -90,38 +95,39 @@ function formatRepairQueue(findingsPath: string): string {
       "",
       "No findings file found.",
       "",
-      "Full findings history: unavailable."
+      "Full findings registry: unavailable."
     ].join("\n");
   }
 
   const queue = parseCurrentValidationFindings(findingsPath).filter(isQueuedRepairFinding);
-  const historyLink = `Full findings history: [validation_findings.md](${toFileUrl(findingsPath)})`;
+  const registryLink = `Full findings registry: [validation_findings.md](${toFileUrl(findingsPath)})`;
 
   if (queue.length === 0) {
     return [
       "## Current Repair Queue",
       "",
-      "No current blocking findings were parsed from the findings history.",
-      "Open the full findings history only to resolve this ambiguity: either fix malformed finding rows or confirm that all blocking findings are resolved before setting `verdict: repaired`.",
+      "No current blocking findings were parsed from the findings registry.",
+      "Open the full findings registry only to resolve this ambiguity: either fix malformed finding rows or confirm that all blocking findings are resolved before setting `verdict: repaired`.",
       "",
-      historyLink
+      registryLink
     ].join("\n");
   }
 
   return [
     "## Current Repair Queue",
     "",
-    "| ID | Class | Phase | Description | Latest Evidence |",
-    "|---|---|---|---|---|",
+    "| ID | Severity | Class | Phase | Finding | Required Fix |",
+    "|---|---|---|---|---|---|",
     ...queue.map(finding => [
       finding.id,
+      finding.severity,
       finding.className,
       finding.phase,
-      finding.canonicalDescription,
-      finding.latestEvidence
+      finding.canonicalFinding,
+      finding.requiredFix
     ].map(escapeMarkdownTableCell).join(" | ")).map(row => `| ${row} |`),
     "",
-    historyLink
+    registryLink
   ].join("\n");
 }
 

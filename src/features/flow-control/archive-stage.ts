@@ -30,7 +30,7 @@ function archiveUrls(paths: ChangePaths): ArchiveUrls {
   };
 }
 
-function archivePrompt(projectPath: string, state: FlowArchiveState, config: FlowRalphConfig): FlowPrompt {
+export function archivePrompt(projectPath: string, state: FlowArchiveState, config: FlowRalphConfig): FlowPrompt {
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 

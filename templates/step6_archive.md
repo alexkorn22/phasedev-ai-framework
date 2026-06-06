@@ -2,24 +2,28 @@
 
 Ваша задача — завершить уже перенесенный в архив change: синхронизировать спецификации OpenSpec на основании утвержденных артефактов archived change и завершить machine-state.
 
+{{skill_policy}}
+
 Controller уже проверил readiness gate:
 - `prd.md`, `rules.md`, `architecture/design.md`, `implementation_plan.md` утверждены;
 - все фазы в `implementation_plan.md` имеют статус `[x]`;
-- `validation_findings.md` имеет `type: final` и `verdict: ready` или `ready_with_risks`.
+- `validation_findings.md` является валидным строгим реестром, имеет `type: final`, `verdict: ready` или `ready_with_risks`, и не содержит open/reopened blocking findings.
 - active change уже перенесен в archive path: `{{archive_path}}`.
 - pending-state файл создан: [{{archive_state_path}}]({{archive_state_path}}).
 
 Входные артефакты требований и дизайна (обязательно прочитайте):
-- Требования PRD: [prd.md]({{prd_path}})
+- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
 - Правила разработки: [rules.md]({{rules_path}})
 - Факты исследования: [research_facts.md]({{research_path}})
 - Утвержденный дизайн: [design.md]({{design_path}})
-- План реализации: [implementation_plan.md]({{plan_path}})
+- План реализации, включая `Generation Bundle` и `Check Evidence`: [implementation_plan.md]({{plan_path}})
 
 Gate-status файл:
 - Validation status: [validation_findings.md]({{findings_path}})
 
 Не используйте `validation_findings.md` как источник требований, поведения продукта или архитектурных решений. Этот файл нужен только как gate status.
+Не используйте `Generation Bundle` или `Check Evidence` как источник новых требований, поведения продукта или архитектурных решений. Эти секции нужны только как delivery evidence и context для archive report.
+Используйте `Intent Card`, `Accepted Assumptions` и `Deferred Decisions` из `prd.md` как context для archive report и для проверки, что spec sync отражает approved requirements. Не создавайте OpenSpec requirements только из intent/risk/signal/assumption notes, если они не выражены как requirement-level capability change.
 
 ## Visual Formatting Scope
 
@@ -35,7 +39,7 @@ Gate-status файл:
 
 Работайте только с requirement-level изменениями, которые выводятся из артефактов archived change `{{change_name}}`.
 
-1. Прочитайте входные артефакты и выделите только пользовательские/системные capability changes, которые должны попасть в долгоживущие OpenSpec specs.
+1. Прочитайте входные артефакты и выделите только пользовательские/системные capability changes, которые должны попасть в долгоживущие OpenSpec specs. Сверьте выделение с `Intent Card`, `Accepted Assumptions` и `Deferred Decisions`, но не превращайте business intent, resolution signal, risk notes или assumption notes в specs без requirement-level behavior.
 2. Проанализируйте существующие спецификации: [openspec/specs]({{main_specs_path}}).
 3. Если spec-level изменений нет, явно зафиксируйте в финальном отчете: `Spec sync skipped: no requirement-level changes`.
 4. Если изменения есть, создайте delta specs в archived change-директории: [{{archive_path}}/specs]({{change_specs_path}}).
@@ -115,5 +119,3 @@ Allowed persistent artifacts for this stage:
 - OpenSpec delta specs in `{{archive_path}}/specs`
 - `openspec/specs`
 - `{{archive_state_path}}`
-
-{{skill_policy}}

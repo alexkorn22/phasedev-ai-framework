@@ -44,6 +44,18 @@ export function invalidPlanBlocker(planPath: string, issues: string[]): FlowProm
   ].join("\n"), true, "Invalid implementation plan");
 }
 
+export function invalidPrdBlocker(prdPath: string, issues: string[]): FlowPrompt {
+  return prompt("next", "setup", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid prd.md",
+    "prd.md must follow the PRD artifact contract before this change can continue.",
+    ...issues.map(issue => `- ${issue}`),
+    `- Link: ${toFileUrl(prdPath)}`,
+    "Fix prd.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid prd.md");
+}
+
 export function archiveReadinessBlocker(title: string, filePath: string, details: string): FlowPrompt {
   return prompt("next", "archive", [
     "================================================================================",
@@ -54,4 +66,16 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
     "Fix the archive readiness issue, then run 'flow next' again.",
     "================================================================================"
   ].join("\n"), true, "Archive readiness failed");
+}
+
+export function validationFindingsBlocker(findingsPath: string, issues: string[]): FlowPrompt {
+  return prompt("next", "repair", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md",
+    "validation_findings.md must contain YAML frontmatter followed by exactly one strict findings table.",
+    ...issues.map(issue => `- ${issue}`),
+    `- Link: ${toFileUrl(findingsPath)}`,
+    "Fix validation_findings.md, then run 'flow next' again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid validation_findings.md");
 }

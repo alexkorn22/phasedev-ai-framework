@@ -5,9 +5,11 @@ import * as fs from "fs";
 export interface BlockingValidationFinding {
   id: string;
   status: string;
+  severity: ValidationFindingSeverity;
   className: string;
   phase: string;
-  description: string;
+  finding: string;
+  requiredFix: string;
   signature: string;
 }
 
@@ -15,12 +17,48 @@ export interface ValidationFindingState {
   id: string;
   signature: string;
   latestStatus: string;
+  severity: ValidationFindingSeverity;
   className: string;
   blocksPr: boolean;
   phase: string;
-  canonicalDescription: string;
+  canonicalFinding: string;
+  requiredFix: string;
   latestEvidence: string;
 }
+
+export type ValidationFindingStatus = "open" | "reopened" | "resolved";
+export type ValidationFindingSeverity = "MUST-FIX" | "RECOMMENDED" | "NIT";
+export type ValidationFindingClass = "implementation" | "test" | "plan" | "design" | "requirements" | "validation";
+export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required";
+export type ValidationFindingsType = "phase" | "final";
+
+export interface ValidationFindingRow {
+  id: string;
+  status: ValidationFindingStatus;
+  severity: ValidationFindingSeverity;
+  className: ValidationFindingClass;
+  blocksPr: boolean;
+  phase: string;
+  finding: string;
+  requiredFix: string;
+  signature: string;
+}
+
+export interface ValidationFindingsArtifact {
+  exists: boolean;
+  verdict: ValidationFindingsVerdict | "unknown";
+  type: ValidationFindingsType | "unknown";
+  rows: ValidationFindingRow[];
+  issues: string[];
+  openRows: ValidationFindingRow[];
+  openBlockingRows: ValidationFindingRow[];
+  openNonBlockingRows: ValidationFindingRow[];
+}
+
+const STRICT_HEADERS = ["id", "status", "severity", "class", "phase", "finding", "requiredfix"];
+const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
+const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
+const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation"]);
 
 export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "unknown" {
   const verdict = readFrontmatterValue(filePath, "verdict")?.toLowerCase();
@@ -90,7 +128,7 @@ function normalizeSignaturePart(value: string): string {
     .trim();
 }
 
-function canonicalDescriptionFor(value: string): string {
+function canonicalFindingFor(value: string): string {
   return value
     .replace(/^reopened\s*\/\s*regression\s*:\s*/i, "")
     .trim();
@@ -100,13 +138,205 @@ function validationTypeForPhase(phase: string): "phase" | "final" {
   return normalizeSignaturePart(phase) === "final" ? "final" : "phase";
 }
 
-function signatureFor(type: string, phase: string, className: string, description: string): string {
+function signatureFor(type: string, phase: string, className: string, finding: string): string {
   return [
     normalizeSignaturePart(type),
     normalizeSignaturePart(phase),
     normalizeSignaturePart(className),
-    normalizeSignaturePart(description)
+    normalizeSignaturePart(finding)
   ].join("|");
+}
+
+function isOpenStatus(status: string): boolean {
+  return status === "open" || status === "reopened";
+}
+
+function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
+  const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
+  if (!frontmatterMatch) {
+    return { body: content, hasFrontmatter: false };
+  }
+
+  return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
+}
+
+function parseStrictTableBlocks(lines: string[]): Array<{ start: number; end: number }> {
+  const blocks: Array<{ start: number; end: number }> = [];
+
+  for (let index = 0; index < lines.length; index++) {
+    if (!lines[index].trim().startsWith("|")) {
+      continue;
+    }
+
+    const start = index;
+    while (index + 1 < lines.length && lines[index + 1].trim().startsWith("|")) {
+      index++;
+    }
+    blocks.push({ start, end: index });
+  }
+
+  return blocks;
+}
+
+function artifactWithDerivedRows(
+  exists: boolean,
+  verdict: ValidationFindingsArtifact["verdict"],
+  type: ValidationFindingsArtifact["type"],
+  rows: ValidationFindingRow[],
+  issues: string[]
+): ValidationFindingsArtifact {
+  const openRows = rows.filter(row => isOpenStatus(row.status));
+  const openBlockingRows = openRows.filter(row => row.severity === "MUST-FIX");
+  const openNonBlockingRows = openRows.filter(row => row.severity !== "MUST-FIX");
+
+  return {
+    exists,
+    verdict,
+    type,
+    rows,
+    issues,
+    openRows,
+    openBlockingRows,
+    openNonBlockingRows
+  };
+}
+
+export function parseValidationFindingsArtifact(filePath: string): ValidationFindingsArtifact {
+  if (!fs.existsSync(filePath)) {
+    return artifactWithDerivedRows(false, "unknown", "unknown", [], []);
+  }
+
+  const verdict = parseValidationVerdict(filePath);
+  const type = parseValidationVerdictType(filePath);
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  const { body, hasFrontmatter } = bodyAfterFrontmatter(content);
+  const bodyLines = body.split("\n");
+  const issues: string[] = [];
+  const rows: ValidationFindingRow[] = [];
+
+  if (!hasFrontmatter) {
+    issues.push("validation_findings.md must start with YAML frontmatter.");
+  }
+  if (verdict === "unknown") {
+    issues.push("YAML field `verdict` must be one of: ready, ready_with_risks, repaired, repair_required.");
+  }
+  if (type === "unknown") {
+    issues.push("YAML field `type` must be one of: phase, final.");
+  }
+
+  const tableBlocks = parseStrictTableBlocks(bodyLines);
+  if (tableBlocks.length !== 1) {
+    issues.push(`validation_findings.md must contain exactly one markdown table, found ${tableBlocks.length}.`);
+  }
+
+  const nonTableContent = bodyLines.filter(line => {
+    const trimmed = line.trim();
+    return trimmed.length > 0 && !trimmed.startsWith("|");
+  });
+  if (nonTableContent.length > 0) {
+    issues.push("validation_findings.md may contain only YAML frontmatter and one findings table.");
+  }
+
+  const tableBlock = tableBlocks[0];
+  if (!tableBlock) {
+    return artifactWithDerivedRows(true, verdict, type, rows, issues);
+  }
+
+  const headerCells = splitMarkdownTableRow(bodyLines[tableBlock.start]);
+  const normalizedHeaders = headerCells.map(normalizeHeader);
+  if (normalizedHeaders.length !== STRICT_HEADERS.length || !STRICT_HEADERS.every((header, index) => normalizedHeaders[index] === header)) {
+    issues.push("Findings table columns must be exactly: ID, Status, Severity, Class, Phase, Finding, Required Fix.");
+  }
+
+  const separatorIndex = tableBlock.start + 1;
+  if (separatorIndex > tableBlock.end || !isSeparatorRow(splitMarkdownTableRow(bodyLines[separatorIndex]))) {
+    issues.push("Findings table must include a separator row immediately after the header.");
+  }
+
+  const seenIds = new Set<string>();
+  const dataStart = separatorIndex + 1;
+  for (let rowIndex = dataStart; rowIndex <= tableBlock.end; rowIndex++) {
+    const cells = splitMarkdownTableRow(bodyLines[rowIndex]);
+    if (isSeparatorRow(cells)) {
+      issues.push(`Findings table row ${rowIndex + 1} contains an unexpected separator.`);
+      continue;
+    }
+
+    if (cells.length !== STRICT_HEADERS.length) {
+      issues.push(`Findings table row ${rowIndex + 1} must have exactly ${STRICT_HEADERS.length} cells.`);
+      continue;
+    }
+
+    const [id = "", rawStatus = "", rawSeverity = "", rawClassName = "", phase = "", finding = "", requiredFix = ""] = cells;
+    const status = rawStatus.toLowerCase();
+    const severity = rawSeverity;
+    const className = rawClassName.toLowerCase();
+    if (id.length === 0) {
+      issues.push(`Findings table row ${rowIndex + 1} has an empty ID.`);
+    }
+    if (seenIds.has(id)) {
+      issues.push(`Findings table contains duplicate ID \`${id}\`.`);
+    }
+    seenIds.add(id);
+    if (!ALLOWED_STATUSES.has(status)) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Status \`${rawStatus}\`.`);
+    }
+    if (!ALLOWED_SEVERITIES.has(severity)) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Severity \`${rawSeverity}\`.`);
+    }
+    if (!ALLOWED_CLASSES.has(className)) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Class \`${rawClassName}\`.`);
+    }
+    if (phase.length === 0) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Phase.`);
+    }
+    if (finding.length === 0) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Finding.`);
+    }
+    if (requiredFix.length === 0) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Required Fix.`);
+    }
+
+    if (
+      id.length > 0 &&
+      ALLOWED_STATUSES.has(status) &&
+      ALLOWED_SEVERITIES.has(severity) &&
+      ALLOWED_CLASSES.has(className) &&
+      phase.length > 0 &&
+      finding.length > 0 &&
+      requiredFix.length > 0
+    ) {
+      rows.push({
+        id,
+        status: status as ValidationFindingStatus,
+        severity: severity as ValidationFindingSeverity,
+        className: className as ValidationFindingClass,
+        blocksPr: severity === "MUST-FIX",
+        phase,
+        finding,
+        requiredFix,
+        signature: signatureFor(type, phase, className, finding)
+      });
+    }
+  }
+
+  const artifact = artifactWithDerivedRows(true, verdict, type, rows, issues);
+  if (artifact.issues.length === 0) {
+    if (artifact.verdict === "ready" && artifact.openRows.length > 0) {
+      artifact.issues.push("`verdict: ready` is allowed only when there are no open or reopened findings.");
+    }
+    if (artifact.verdict === "ready_with_risks" && artifact.openBlockingRows.length > 0) {
+      artifact.issues.push("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.");
+    }
+    if (artifact.verdict === "repair_required" && artifact.openBlockingRows.length === 0) {
+      artifact.issues.push("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.");
+    }
+    if (artifact.verdict === "repaired" && artifact.openBlockingRows.length > 0) {
+      artifact.issues.push("`verdict: repaired` is not allowed while open or reopened MUST-FIX findings exist.");
+    }
+  }
+
+  return artifact;
 }
 
 export function parseBlockingValidationFindings(filePath: string): BlockingValidationFinding[] {
@@ -114,61 +344,18 @@ export function parseBlockingValidationFindings(filePath: string): BlockingValid
     return [];
   }
 
-  const type = parseValidationVerdictType(filePath);
-  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const lines = content.split("\n");
-  const findings: BlockingValidationFinding[] = [];
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    if (!line.trim().startsWith("|")) continue;
-
-    const headers = splitMarkdownTableRow(line);
-    const headerIndexes = new Map(headers.map((header, columnIndex) => [normalizeHeader(header), columnIndex]));
-    const requiredColumns = ["id", "status", "class", "blockspr?", "phase", "description"];
-    if (!requiredColumns.every(column => headerIndexes.has(column))) {
-      continue;
-    }
-
-    let rowIndex = index + 1;
-    if (rowIndex < lines.length && isSeparatorRow(splitMarkdownTableRow(lines[rowIndex]))) {
-      rowIndex++;
-    }
-
-    for (; rowIndex < lines.length; rowIndex++) {
-      const rowLine = lines[rowIndex];
-      if (!rowLine.trim().startsWith("|")) {
-        break;
-      }
-
-      const cells = splitMarkdownTableRow(rowLine);
-      if (isSeparatorRow(cells)) {
-        continue;
-      }
-
-      const id = cells[headerIndexes.get("id") ?? -1]?.trim() ?? "";
-      const status = cells[headerIndexes.get("status") ?? -1]?.trim().toLowerCase() ?? "";
-      const className = cells[headerIndexes.get("class") ?? -1]?.trim() ?? "";
-      const blocksPr = cells[headerIndexes.get("blockspr?") ?? -1]?.trim().toLowerCase() ?? "";
-      const phase = cells[headerIndexes.get("phase") ?? -1]?.trim() ?? "";
-      const description = cells[headerIndexes.get("description") ?? -1]?.trim() ?? "";
-
-      if (blocksPr !== "yes") {
-        continue;
-      }
-
-      findings.push({
-        id,
-        status,
-        className,
-        phase,
-        description,
-        signature: signatureFor(type, phase, className, description)
-      });
-    }
-  }
-
-  return findings;
+  return parseValidationFindingsArtifact(filePath).rows
+    .filter(row => row.blocksPr)
+    .map(row => ({
+      id: row.id,
+      status: row.status,
+      severity: row.severity,
+      className: row.className,
+      phase: row.phase,
+      finding: row.finding,
+      requiredFix: row.requiredFix,
+      signature: row.signature
+    }));
 }
 
 export function parseCurrentValidationFindings(filePath: string): ValidationFindingState[] {
@@ -176,65 +363,21 @@ export function parseCurrentValidationFindings(filePath: string): ValidationFind
     return [];
   }
 
-  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const lines = content.split("\n");
-  const findings = new Map<string, ValidationFindingState>();
+  return parseValidationFindingsArtifact(filePath).rows.map(row => {
+    const canonicalFinding = canonicalFindingFor(row.finding);
+    const validationType = validationTypeForPhase(row.phase);
 
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    if (!line.trim().startsWith("|")) continue;
-
-    const headers = splitMarkdownTableRow(line);
-    const headerIndexes = new Map(headers.map((header, columnIndex) => [normalizeHeader(header), columnIndex]));
-    const requiredColumns = ["id", "status", "class", "blockspr?", "phase", "description"];
-    if (!requiredColumns.every(column => headerIndexes.has(column))) {
-      continue;
-    }
-
-    let rowIndex = index + 1;
-    if (rowIndex < lines.length && isSeparatorRow(splitMarkdownTableRow(lines[rowIndex]))) {
-      rowIndex++;
-    }
-
-    for (; rowIndex < lines.length; rowIndex++) {
-      const rowLine = lines[rowIndex];
-      if (!rowLine.trim().startsWith("|")) {
-        break;
-      }
-
-      const cells = splitMarkdownTableRow(rowLine);
-      if (isSeparatorRow(cells)) {
-        continue;
-      }
-
-      const id = cells[headerIndexes.get("id") ?? -1]?.trim() ?? "";
-      if (id.length === 0) {
-        continue;
-      }
-
-      const latestStatus = cells[headerIndexes.get("status") ?? -1]?.trim().toLowerCase() ?? "";
-      const className = cells[headerIndexes.get("class") ?? -1]?.trim() ?? "";
-      const blocksPr = (cells[headerIndexes.get("blockspr?") ?? -1]?.trim().toLowerCase() ?? "") === "yes";
-      const phase = cells[headerIndexes.get("phase") ?? -1]?.trim() ?? "";
-      const description = cells[headerIndexes.get("description") ?? -1]?.trim() ?? "";
-      const evidenceColumn = headerIndexes.get("evidence");
-      const latestEvidence = evidenceColumn === undefined ? description : cells[evidenceColumn]?.trim() ?? "";
-      const previous = findings.get(id);
-      const canonicalDescription = previous?.canonicalDescription ?? canonicalDescriptionFor(description);
-      const validationType = validationTypeForPhase(phase);
-
-      findings.set(id, {
-        id,
-        signature: signatureFor(validationType, phase, className, canonicalDescription),
-        latestStatus,
-        className,
-        blocksPr,
-        phase,
-        canonicalDescription,
-        latestEvidence
-      });
-    }
-  }
-
-  return Array.from(findings.values());
+    return {
+      id: row.id,
+      signature: signatureFor(validationType, row.phase, row.className, canonicalFinding),
+      latestStatus: row.status,
+      severity: row.severity,
+      className: row.className,
+      blocksPr: row.blocksPr,
+      phase: row.phase,
+      canonicalFinding,
+      requiredFix: row.requiredFix,
+      latestEvidence: row.finding
+    };
+  });
 }

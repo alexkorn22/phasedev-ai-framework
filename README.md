@@ -10,11 +10,11 @@
 
 Основные файлы:
 
-- `prd.md`: требования, границы задачи и критерии успеха.
+- `prd.md`: intent card, требования, границы задачи и критерии успеха.
 - `rules.md`: правила разработки, ограничения и команды проверок.
 - `research_facts.md`: подтвержденные факты исследования кодовой базы.
 - `architecture/design.md`: утвержденный технический дизайн.
-- `implementation_plan.md`: фазы реализации и task checkboxes.
+- `implementation_plan.md`: generation bundle, фазы реализации, task checkboxes и inline check evidence.
 - `validation_findings.md`: замечания проверки, итоговый вердикт и состояние исправлений.
 - `openspec/specs`: итоговые спецификации после архивации.
 - `openspec/flow-ralph`: журналы автоматического Ralph-раннера.
@@ -170,7 +170,7 @@ loop:
 
 `codex.default` задает модель и уровень reasoning по умолчанию. `codex.stages` позволяет переопределить их для отдельных этапов: `setup`, `research`, `design`, `plan`, `implementation`, `phase_validation`, `final_validation`, `repair`, `archive`. Если этап не указан в `codex.stages`, используется `codex.default`.
 
-`codex.stages.<stage>.skills` задает строгий список external skills для prompt текущего этапа. `routers` читаются первыми, если указаны. `main` — основной допустимый пул, `additional` — запасной допустимый пул. Агент не должен предварительно читать все skill bodies; он выбирает минимальный нужный набор по evidence этапа. Если нужного skill нет в `routers`, `main` или `additional`, агент должен остановиться и попросить обновить config или явно разрешить исключение.
+`codex.stages.<stage>.skills` задает источники external skills для prompt текущего этапа. `routers` читаются первыми, если указаны; skills, явно выбранные содержимым или routing table такого router, считаются разрешенными и имеют приоритет выше `main` и `additional`. `main` используется, когда routers не настроены или ни один router-selected skill не подходит под evidence этапа. `additional` — запасной допустимый пул. Агент не должен предварительно читать все skill bodies; он выбирает минимальный нужный набор по evidence этапа. Если подходящего skill нет среди configured routers, router-selected skills, `main` или `additional`, агент должен остановиться и попросить обновить config/router или явно разрешить исключение.
 
 Skills не наследуются из `codex.default`: каждый stage должен перечислять их явно. Если `skills` пустой или отсутствует, prompt этапа запрещает external skills без отдельного разрешения пользователя.
 
@@ -262,6 +262,8 @@ loop:
 - `architecture/design.md`;
 - `implementation_plan.md`.
 
+`architecture/design.md` является approval entrypoint для всего architecture package. Если в нем явно перечислены linked files внутри `architecture/`, человек утверждает этот пакет через один YAML approval в `architecture/design.md`.
+
 Если контроллер печатает `[FLOW CONTROLLER] BLOCKED`, раннер всегда останавливается до запуска Codex. Агент не должен автоматически менять `approved: false` на `approved: true`.
 
 После проверки файла человеком:
@@ -291,15 +293,23 @@ Validation полностью игнорирует `openspec/**` при поис
 
 Validation — это review-only этап, а не повторный test execution gate. Он намеренно не запускает `unit`, `phase`, `full` или дополнительные проверки повторно: успешное выполнение проверок является ответственностью Implementation stage, который не должен завершаться с failed checks.
 
-`validation_findings.md` ведется как история: validation и repair читают прошлые записи, не удаляют старые findings/resolved sections и добавляют новый результат новой секцией. Если прежний finding был `resolved`, validation не должна reopen-ить его без нового конкретного evidence из рабочего кода вне `openspec/**`.
+`prd.md` ведется по artifact template и содержит обязательный `Intent Card`: тип change, intent, generation target, resolution signal, decision deadline и risk envelope. Для обычных fix/refactor/infra changes signal/deadline могут быть `not_applicable`, но строки сохраняются для стабильного human review. Downstream stages используют `Intent Card`: research trace-ит intent к фактам, design отражает signal/risk в decisions, plan связывает generation bundle/checks с PRD, implementation и validation проверяют scope, success criteria и risk envelope.
 
-Repair Loop получает compact repair queue из актуальных open/reopened blocking findings, чтобы не загружать всю append-only историю как текущую задачу. Полный `validation_findings.md` остается memory layer для duplicate prevention, stable IDs и проверки prior evidence.
+`implementation_plan.md` ведется по artifact template: phase headings остаются machine-readable, а все executable task/subtask checkboxes имеют атомарные phase-scoped IDs (`1.1`, `1.1.1`, `2.1`). В начале плана есть `Generation Bundle`, где явно отмечены production code, tests, docs/specs, migrations, rollout, observability и rollback path. Generic `Definition of Done` не используется; готовность фазы определяется выполненными numbered tasks/subtasks и required checks.
+
+Каждая фаза содержит `Check Evidence` как обычную markdown-таблицу рядом с `Checks`. Implementation обновляет evidence после gate command и additional checks, используя результаты `pending`, `passed`, `failed`, `blocked` или `not_applicable`. Validation остается review-only: она не запускает checks повторно, а проверяет inline evidence как часть review surface.
+
+`validation_findings.md` ведется как строгий реестр замечаний: YAML frontmatter и ровно одна markdown-таблица с колонками `ID`, `Status`, `Severity`, `Class`, `Phase`, `Finding`, `Required Fix`. Новые замечания добавляются строками в начало таблицы, старые строки не удаляются. Repair Loop фиксирует исправление изменением `Status` существующей строки на `resolved`. Blocking выводится из `Severity = MUST-FIX`; `RECOMMENDED` и `NIT` считаются non-blocking risks. Если проблема состоит именно в недостаточном review evidence, используйте `Class = validation`.
+
+Validation и repair не добавляют отдельные секции, visual markers или дополнительные таблицы в `validation_findings.md`. Если прежний finding был `resolved`, validation не должна менять его на `reopened` без нового конкретного evidence из рабочего кода вне `openspec/**`.
+
+Repair Loop получает compact repair queue из актуальных open/reopened blocking findings. Если `validation_findings.md` сломан или YAML verdict противоречит таблице так, что repair queue нельзя определить безопасно, controller блокирует flow понятным сообщением вместо пустого repair loop.
 
 ## Архивация
 
 После успешной Final Validation контроллер начинает Archive stage внутри обычного `next`:
 
-1. `bun run src/flow-cli.ts next --project-path /absolute/project` проверяет `validation_findings.md`, что `type: final`, `verdict: ready` или `ready_with_risks`, и все фазы в `implementation_plan.md` имеют `[x]`.
+1. `bun run src/flow-cli.ts next --project-path /absolute/project` проверяет `validation_findings.md`, что файл является валидным строгим реестром, имеет `type: final`, `verdict: ready` или `ready_with_risks`, не содержит open/reopened blocking findings, и все фазы в `implementation_plan.md` имеют `[x]`.
 2. До печати prompt контроллер переносит active change из `openspec/changes/<change-name>` в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>`.
 3. В archived change создается pending-state файл `.flow-archive.json` со статусом `in_progress`.
 4. Prompt архивации ссылается уже на archived change path.

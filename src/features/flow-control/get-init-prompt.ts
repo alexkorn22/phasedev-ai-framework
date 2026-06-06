@@ -3,7 +3,9 @@ import * as path from "path";
 import { FlowRalphConfig } from "../../entities/flow-config/config";
 import { FlowPrompt } from "../../entities/flow-stage/types";
 import { renderTemplate } from "../../shared/templates/render-template";
+import { resolveCurrentFlowState } from "./current-flow-state";
 import { prompt } from "./prompt-blockers";
+import { toFileUrl } from "./prompt-formatters";
 
 export function getInitPrompt(projectPath: string, _config?: FlowRalphConfig): FlowPrompt {
   const changesDir = path.join(projectPath, "openspec", "changes");
@@ -11,5 +13,10 @@ export function getInitPrompt(projectPath: string, _config?: FlowRalphConfig): F
     fs.mkdirSync(changesDir, { recursive: true });
   }
 
-  return prompt("init", "init", renderTemplate("init", {}));
+  const state = resolveCurrentFlowState(projectPath);
+
+  return prompt("init", "init", renderTemplate("init", {
+    current_stage: state.stage,
+    active_change_path: state.activeChangePath ? toFileUrl(state.activeChangePath) : "none"
+  }));
 }

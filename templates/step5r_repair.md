@@ -2,47 +2,46 @@
 
 Stage contract: обработать open findings из validation и подготовить change к повторной validation.
 
+{{skill_policy}}
+
 Входные артефакты:
 - Отчет валидации: [validation_findings.md]({{findings_path}})
 - План реализации: [implementation_plan.md]({{plan_path}})
 - Технический дизайн: [design.md]({{design_path}})
-- Требования PRD: [prd.md]({{prd_path}})
+- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
 - Результаты исследования: [research_facts.md]({{research_path}})
 - Правила разработки: [rules.md]({{rules_path}})
 
 {{repair_queue}}
 
 Правила обработки findings:
-- считайте актуальным статусом finding последнюю запись с тем же `ID` в [validation_findings.md]({{findings_path}});
-- рабочая очередь выше содержит только актуальные blocking findings для исправления; полную историю открывайте только когда нужен prior evidence по finding из очереди или когда очередь сообщает о parse ambiguity;
-- не редактируйте и не удаляйте старые findings, resolved записи или прошлые validation/repair sections;
-- перед началом работы над конкретным finding добавьте новую repair запись/секцию со статусом `in_progress`;
+- перед изменением реестра прочитайте artifact template: [validation_findings.md template]({{validation_findings_template_path}});
+- [validation_findings.md]({{findings_path}}) должен строго соответствовать artifact template и strict registry rules из template comments;
+- рабочая очередь выше содержит только актуальные blocking findings;
+- repair должен сохранять соответствие `Intent Card`, scope boundaries, success criteria, `Accepted Assumptions`, `Deferred Decisions` и `Risk envelope` из [prd.md]({{prd_path}});
+- если fixing path требует изменить `Generation target`, `Resolution signal`, scope boundaries, success criteria, accepted assumptions, deferred decisions или risk envelope из PRD, это `requirements` finding path: обсудите с пользователем и сбросьте approval измененного `prd.md`;
+- не удаляйте строки замечаний;
+- исправление finding фиксируйте изменением `Status` существующей строки на `resolved`;
+- не меняйте стабильные поля существующей строки, если это не нужно для исправления явной ошибки в строке;
+- если repair повторно запускает checks или меняет evidence по затронутой фазе, обновите `Check Evidence` в [implementation_plan.md]({{plan_path}});
+- в `Check Evidence` используйте только `Result`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
+- не оставляйте relevant repair evidence в состоянии `pending` или `failed`, кроме внешнего blocker, который зафиксирован как `blocked` с причиной;
 - `implementation`: обновите change set в рамках текущего approved design и plan;
 - `plan`: обновите [implementation_plan.md]({{plan_path}}), затем обновите affected change set;
 - `design`: обновите [design.md]({{design_path}}) и связанные architecture files, затем обновите affected plan/change set;
 - `requirements`: после обсуждения с пользователем обновите [prd.md]({{prd_path}}), затем affected design/plan/change set;
-- после обработки finding добавьте новую repair запись/секцию со статусом `resolved`.
-- не меняйте исходный `Description` у resolved finding: он используется для сопоставления истории validation;
-- для каждого `resolved` finding сохраняйте repair evidence рядом с таблицей: changed area, verification performed, tradeoff.
+- если в table cell нужен символ `|`, он должен быть экранирован как `\|`.
 
 Правило verdict:
+- сохраняйте `type` в YAML frontmatter как scope последней validation: `phase` для Phase Validation repair, `final` для Final Validation repair; не сбрасывайте final repair на template default `phase`;
 - не меняйте `verdict: repair_required`, пока все актуальные blocking findings не имеют последний статус `resolved`;
 - когда все актуальные blocking findings имеют последний статус `resolved`, установите `verdict: repaired` и обновите дату;
 - не устанавливайте `ready` или `ready_with_risks` на Repair Loop этапе.
 
-## Repair Visual Formatting
-
-В `validation_findings.md` можно использовать эмоджи как смысловые visual markers, если они помогают быстро отличать blocking, non-blocking, resolved и informational items.
-
-Правила:
-- Visual markers не заменяют machine-readable поля `verdict`, `type`, `Status`, `Class`, `Blocks PR?`, `Phase`.
-- не используйте эмоджи в YAML frontmatter.
-- не используйте эмоджи в командах, file paths, code blocks и обязательных machine-readable labels.
-- Если finding исправлен, сохраняйте историю причины, исправления и проверки; visual marker можно обновить, но текстовый `Status` остается источником истины.
-
 Повторный human approval:
 - если во время repair изменили уже утвержденный `prd.md`, `architecture/design.md` или `implementation_plan.md`, измените YAML frontmatter этого артефакта с `approved: true` на `approved: false` и очистите `approved_by`, если поле есть;
 - это разрешено только для артефактов, которые действительно изменены в этом repair;
+- обновление только task checkboxes, phase status или `Check Evidence` в `implementation_plan.md` не считается изменением approved plan content и не требует сброса approval;
 - Для чистого `implementation` repair не меняйте approval-статусы требований, дизайна или плана.
 
 ## Artifact allowlist
@@ -53,7 +52,5 @@ Allowed persistent artifacts for this stage:
 - `validation_findings.md`
 
 Завершение шага:
-- После перевода всех findings в `resolved` и установки `verdict: repaired` остановите работу.
+- После перевода всех актуальных blocking findings в `resolved` и установки `verdict: repaired` остановите работу.
 - Сообщите пользователю, что repair готов к повторной validation через `flow next`.
-
-{{skill_policy}}

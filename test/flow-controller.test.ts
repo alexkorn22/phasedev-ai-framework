@@ -16,11 +16,98 @@ function writeArtifact(filePath: string, body: string, approved = true) {
   fs.writeFileSync(filePath, `---\napproved: ${approved ? "true" : "false"}\n---\n${body}`, "utf-8");
 }
 
+function validPrdBody(): string {
+  return `# PRD
+
+## Intent Card
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| User or business intent | Keep flow routing grounded in approved requirements. |
+| Generation target | Exercise the flow controller stage prompt. |
+| Resolution signal | not_applicable |
+| Decision deadline | not_applicable |
+| Risk envelope | Test fixture only; no production risk. |
+
+## Approval Summary
+
+Approve this test fixture change.
+
+## Requirements
+
+- Route the flow according to approved artifacts.
+
+## Scope Boundaries
+
+- In scope: test fixture flow state.
+- Out of scope: unrelated behavior.
+
+## Success Criteria
+
+- The expected stage prompt is rendered.
+
+## Accepted Assumptions
+
+None.
+
+## Deferred Decisions
+
+None.
+`;
+}
+
+function validationFindings(verdict: "ready" | "ready_with_risks" | "repair_required" | "repaired", type: "phase" | "final", rows = ""): string {
+  return `---
+verdict: ${verdict}
+type: ${type}
+date: 2026-05-29
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+${rows}`;
+}
+
+function withImplementationPlanContract(planContent: string): string {
+  const withBundle = planContent.includes("## Generation Bundle") ? planContent : `
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Exercise the test fixture production path. |
+| Tests | yes | Use fixture commands from rules.md. |
+| Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
+| Migrations | not_applicable | No persistence changes are part of this fixture. |
+| Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
+| Observability | not_applicable | No observability changes are part of this fixture. |
+| Rollback path | not_applicable | Revert the fixture change if needed. |
+
+${planContent}`;
+
+  return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
+    let nextSection = section;
+    if (!/^###\s+Goal\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Goal\n\nComplete the fixture phase.";
+    }
+    if (!/^###\s+Tasks\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Tasks\n";
+    }
+    if (!/^###\s+Checks\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Checks\n\n- unit: `bun test unit`";
+    }
+    if (!/^###\s+Check Evidence\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Check Evidence\n\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | `bun test unit` | pending |  |  |";
+    }
+    return nextSection;
+  });
+}
+
 function setupChange(planContent: string, options: { findings?: string; designApproved?: boolean; planApproved?: boolean } = {}) {
   const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
-  writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n");
+  writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
   writeArtifact(path.join(changeDir, "rules.md"), `
 # Rules
 
@@ -31,7 +118,7 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), "# Research\n", "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n", options.designApproved ?? true);
-  writeArtifact(path.join(changeDir, "implementation_plan.md"), planContent, options.planApproved ?? true);
+  writeArtifact(path.join(changeDir, "implementation_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
 
   if (options.findings) {
     fs.writeFileSync(path.join(changeDir, "validation_findings.md"), options.findings, "utf-8");
@@ -50,6 +137,66 @@ describe("flow controller typed stages", () => {
     expect(result.command).toBe("init");
     expect(result.stage).toBe("init");
     expect(result.blocked).toBe(false);
+    expect(result.prompt).toContain("## Current Flow State");
+    expect(result.prompt).toContain("- Stage: `setup`");
+    expect(result.prompt).toContain("- Active change: none");
+  });
+
+  test("next prompt blocks approved PRD that does not satisfy Intent Card contract", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent Card\n");
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("setup");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid prd.md");
+    expect(result.prompt).toContain("Intent Card field `Change type` must be present and non-empty.");
+  });
+
+  test("init prompt reports active change and current flow stage without running next", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Phase 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+
+    const result = getInitPrompt(testTmpDir);
+
+    expect(result.stage).toBe("init");
+    expect(result.prompt).toContain("- Stage: `implementation`");
+    expect(result.prompt).toContain(`- Active change: file://${changeDir}`);
+    expect(fs.existsSync(changeDir)).toBe(true);
+  });
+
+  test("init prompt reports archive-ready state without moving active change", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
+
+    const result = getInitPrompt(testTmpDir);
+
+    expect(result.prompt).toContain("- Stage: `archive`");
+    expect(result.prompt).toContain(`- Active change: file://${changeDir}`);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.existsSync(archiveDir)).toBe(false);
   });
 
   test("missing active change routes to setup stage", () => {
@@ -58,6 +205,8 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("setup");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Этап 0. AI Layer Setup.");
+    expect(result.prompt).toContain("prd.md template");
+    expect(result.prompt).toContain("## Intent Card");
   });
 
   test("implementation route reports implementation stage", () => {
@@ -65,7 +214,7 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [ ]
-- [ ] Implement endpoint
+- [ ] 1.1 Implement endpoint
 `);
 
     const result = getNextPrompt(testTmpDir);
@@ -73,6 +222,7 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("implementation");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Этап 4. Implementation.");
+    expect(result.prompt).toContain("Check Evidence");
   });
 
   test("completed multi-phase phase routes to phase validation stage", () => {
@@ -80,16 +230,17 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 
 ## Phase 2: UI [ ]
-- [ ] Build page
+- [ ] 2.1 Build page
 `);
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("phase_validation");
     expect(result.prompt).toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Check Evidence");
   });
 
   test("completed single-phase route reports final validation stage", () => {
@@ -97,13 +248,15 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `);
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Этап 5B. Final Validation.");
+    expect(result.prompt).toContain("Generation Bundle");
+    expect(result.prompt).toContain("Check Evidence");
   });
 
   test("repair route reports repair stage", () => {
@@ -111,9 +264,9 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, {
-      findings: "---\nverdict: repair_required\ntype: phase\ndate: 2026-05-29\n---\n"
+      findings: validationFindings("repair_required", "phase", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
     });
 
     const result = getNextPrompt(testTmpDir);
@@ -127,9 +280,9 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [x]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, {
-      findings: "---\nverdict: ready\ntype: final\ndate: 2026-05-29\n---\n"
+      findings: validationFindings("ready", "final")
     });
 
     const result = getNextPrompt(testTmpDir);
@@ -153,9 +306,9 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [x]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, {
-      findings: "---\nverdict: ready\ntype: final\ndate: 2026-05-29\n---\n"
+      findings: validationFindings("ready", "final")
     });
 
     const first = getNextPrompt(testTmpDir);
@@ -172,7 +325,7 @@ describe("flow controller typed stages", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, {
       designApproved: false
     });

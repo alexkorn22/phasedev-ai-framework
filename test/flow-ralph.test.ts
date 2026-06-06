@@ -63,7 +63,7 @@ type: ${type}
 date: 2026-05-30
 ---
 
-| ID | Signal | Status | Class | Blocks PR? | Phase | Description |
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 ${rows}
 `, "utf-8");
@@ -93,7 +93,7 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [ ] Implement endpoint
+- [ ] 1.1 Implement endpoint
 `, "utf-8");
     const threads: Array<{ id: string; prompts: string[] }> = [];
     const messages: string[] = [];
@@ -127,7 +127,7 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
                 }
               }
@@ -537,7 +537,7 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [ ] Implement endpoint
+- [ ] 1.1 Implement endpoint
 `, "utf-8");
     let archived = false;
     const threads: unknown[] = [];
@@ -555,7 +555,7 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
                 } else {
                   archived = true;
@@ -595,9 +595,9 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
-    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
@@ -605,10 +605,10 @@ describe("flow-ralph runner", () => {
           id: "thread-repeat",
           async run(prompt: string) {
             if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("repair prompt")) {
-              writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+              writeValidationFindings(findingsPath, "repaired", "| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |");
             }
             if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("validation prompt")) {
-              writeValidationFindings(findingsPath, "repair_required", "| F9 | 🔴 | reopened | implementation | Yes | Phase 1 | API response omits required error handling!!! |");
+              writeValidationFindings(findingsPath, "repair_required", "| F9 | reopened | MUST-FIX | implementation | Phase 1 | API response omits required error handling!!! | Restore the error mapping fix. |");
             }
             return { finalResponse: "done" };
           }
@@ -641,9 +641,9 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [x]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
-    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Final | API response omits required error handling. |", "final");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Final | API response omits required error handling. | Add error mapping. |", "final");
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
@@ -651,10 +651,10 @@ describe("flow-ralph runner", () => {
           id: "thread-final-repeat",
           async run(prompt: string) {
             if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("repair prompt")) {
-              writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Final | API response omits required error handling. |", "final");
+              writeValidationFindings(findingsPath, "repaired", "| F1 | resolved | MUST-FIX | implementation | Final | API response omits required error handling. | Keep the error mapping fix. |", "final");
             }
             if (prompt.includes("FLOW NEXT PROMPT") && prompt.includes("final validation prompt")) {
-              writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | reopened | implementation | Yes | Final | API response omits required error handling. |", "final");
+              writeValidationFindings(findingsPath, "repair_required", "| F1 | reopened | MUST-FIX | implementation | Final | API response omits required error handling. | Restore the error mapping fix. |", "final");
             }
             return { finalResponse: "done" };
           }
@@ -686,9 +686,9 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
-    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
@@ -699,9 +699,9 @@ describe("flow-ralph runner", () => {
             if (prompt.includes("FLOW NEXT PROMPT")) {
               stageTurns++;
               if (stageTurns === 1) {
-                writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+                writeValidationFindings(findingsPath, "repaired", "| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |");
               } else {
-                writeValidationFindings(findingsPath, "repair_required", "| F2 | 🔴 | open | implementation | Yes | Phase 1 | API response lacks pagination guard. |");
+                writeValidationFindings(findingsPath, "repair_required", "| F2 | open | MUST-FIX | implementation | Phase 1 | API response lacks pagination guard. | Add pagination guard. |");
               }
             }
             return { finalResponse: "done" };
@@ -733,9 +733,9 @@ describe("flow-ralph runner", () => {
 # Plan
 
 ## Phase 1: API [~]
-- [x] Implement endpoint
+- [x] 1.1 Implement endpoint
 `, "utf-8");
-    writeValidationFindings(findingsPath, "repair_required", "| F1 | 🔴 | open | implementation | Yes | Phase 1 | API response omits required error handling. |");
+    writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
@@ -746,9 +746,9 @@ describe("flow-ralph runner", () => {
             if (prompt.includes("FLOW NEXT PROMPT")) {
               stageTurns++;
               if (stageTurns === 1) {
-                writeValidationFindings(findingsPath, "repaired", "| F1 | 🟢 | resolved | implementation | Yes | Phase 1 | API response omits required error handling. |");
+                writeValidationFindings(findingsPath, "repaired", "| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |");
               } else {
-                writeValidationFindings(findingsPath, "repair_required", "| F9 | 🟡 | reopened | implementation | No | Phase 1 | API response omits required error handling. |");
+                writeValidationFindings(findingsPath, "repair_required", "| F9 | reopened | RECOMMENDED | implementation | Phase 1 | API response omits required error handling. | Track as follow-up. |");
               }
             }
             return { finalResponse: "done" };

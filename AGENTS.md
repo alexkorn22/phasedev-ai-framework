@@ -53,9 +53,9 @@ For each `codex.stages.<stage>.skills`:
 
 Keep these contracts stable:
 
-- Allowed external skills for a stage are only `routers + main + additional`.
-- Router rules must not expand the allowlist to unlisted skills.
-- If a needed skill is unlisted, the agent must stop and ask the user to update config or approve an exception.
+- Allowed external skills for a stage are configured `routers`, router-selected skills explicitly named by router content, `main`, and `additional`.
+- Router-selected skills are authorized by router content and have priority over `main` and `additional`.
+- If a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent must stop and ask the user to update config/router or approve an exception.
 - Skills do not inherit from `codex.default`; they are explicit per stage.
 - If `skills` is omitted or empty, the generated stage prompt must say no external skills are configured.
 - `flow init` must not include stage-specific skill policy; executable `flow next` prompts inject it.
