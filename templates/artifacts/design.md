@@ -30,14 +30,14 @@ Explicit mapping showing how requirements (R#) and success criteria (SC#) from p
 
 ## Architecture Package Map
 
-| Component | Target Files | Responsibility |
-|---|---|---|
-| | | |
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| `architecture/design.md` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
 
 ## Key Design Decisions
 
 <!--
-Detailed rationale for major technical choices and design patterns.
+Detailed rationale for major technical choices and design patterns. Keep implementation component mapping here or in a linked architecture subdocument only when it adds review value.
 -->
 
 ## Database Schemas & API Contracts

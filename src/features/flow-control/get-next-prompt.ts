@@ -5,7 +5,7 @@ import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { archivePrompt, startArchiveStage } from "./archive-stage";
-import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker } from "./prompt-blockers";
+import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./phase-routing";
 import { renderSkillPolicy } from "./skill-policy";
@@ -29,6 +29,7 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
     research_template_path: toFileUrl(resolveTemplatePath("artifacts/research_facts")),
     design_template_path: toFileUrl(resolveTemplatePath("artifacts/design")),
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
+    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     skill_policy: renderSkillPolicy(stage, config)
   });
@@ -52,6 +53,8 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
     }
     case "invalid_prd":
       return invalidPrdBlocker(route.paths.prdPath, route.issues);
+    case "invalid_rules":
+      return invalidRulesBlocker(route.paths.rulesPath, route.issues);
     case "setup_approval":
       return approvalBlocker("setup", "Setup incomplete", route.paths.prdPath, "prd.md & rules.md");
     case "research": {

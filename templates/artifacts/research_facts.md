@@ -22,9 +22,14 @@ Compactly trace how research confirms or constrains fields in the PRD Intent Car
 <!--
 Provide a trace for each R# and SC# requirement defined in prd.md. Show which facts confirm, limit, or block each requirement/criterion.
 Format:
-- R1: [description of findings]
-- SC1: [description of findings]
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | [evidence] | none |
+| SC1 | confirmed | [evidence] | none |
 -->
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
 
 ## Source Facts
 

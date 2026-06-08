@@ -10,9 +10,9 @@ Summary details.
 Trace details.
 
 ## Architecture Package Map
-| Component | Target Files | Responsibility |
-|---|---|---|
-| auth | src/auth | handle authentication |
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| `architecture/design.md` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
 
 ## Key Design Decisions
 Decisions.

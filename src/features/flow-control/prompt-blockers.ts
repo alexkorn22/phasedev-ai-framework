@@ -55,6 +55,18 @@ export function invalidPrdBlocker(prdPath: string, issues: string[]): FlowPrompt
     "================================================================================"
   ].join("\n"), true, "Invalid prd.md");
 }
+
+export function invalidRulesBlocker(rulesPath: string, issues: string[]): FlowPrompt {
+  return prompt("next", "setup", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid rules.md",
+    "rules.md must follow the Rules artifact contract before this change can continue.",
+    ...issues.map(issue => `- ${issue}`),
+    `- Link: ${toFileUrl(rulesPath)}`,
+    "Fix rules.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid rules.md");
+}
 export function invalidResearchBlocker(researchPath: string, issues: string[]): FlowPrompt {
   return prompt("next", "research", [
     "================================================================================",

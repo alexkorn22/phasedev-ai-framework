@@ -70,7 +70,19 @@ ${rows}`;
 }
 
 function withImplementationPlanContract(planContent: string): string {
-  const withBundle = planContent.includes("## Generation Bundle") ? planContent : `
+  const normalizedPlanContent = planContent.trim().replace(/^#\s+.*\n+/, "").trim();
+  const withBundle = normalizedPlanContent.includes("## Generation Bundle") ? normalizedPlanContent : `
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the flow controller fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
 ## Generation Bundle
 
 | Area | Required | Plan |
@@ -83,13 +95,19 @@ function withImplementationPlanContract(planContent: string): string {
 | Observability | not_applicable | No observability changes are part of this fixture. |
 | Rollback path | not_applicable | Revert the fixture change if needed. |
 
-${planContent}`;
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
+
+${normalizedPlanContent}`;
 
   return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
     let nextSection = section;
-    const isCompletedPhase = /## Phase \d+:.*\[x\]/i.test(section);
-    const resultStatus = isCompletedPhase ? "passed" : "pending";
-    const evidenceStr = isCompletedPhase ? "passed unit tests" : "";
+    const hasIncompleteTask = /^-\s*\[\s*(?: |~|\/)\s*\]/im.test(section);
+    const resultStatus = hasIncompleteTask ? "pending" : "passed";
+    const evidenceStr = hasIncompleteTask ? "" : "passed unit tests";
 
     if (!/^###\s+Goal\s*$/im.test(nextSection)) {
       nextSection += "\n\n### Goal\n\nComplete the fixture phase. Satisfies R1 and SC1.";
@@ -117,7 +135,11 @@ function validResearchBody(): string {
 Trace details here.
 
 ## Requirements & Success Criteria Trace
-Trace details here.
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | Fixture research traces routing requirement. | none |
+| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
 
 ## Source Facts
 - \`src/index.ts:42\` -- verified fact.
@@ -137,9 +159,9 @@ Summary details.
 Trace details.
 
 ## Architecture Package Map
-| Component | Target Files | Responsibility |
-|---|---|---|
-| auth | src/auth | handle authentication |
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
 
 ## Key Design Decisions
 Decisions.
@@ -305,6 +327,70 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("phase_validation");
     expect(result.prompt).toContain("Этап 5A. Phase Validation.");
     expect(result.prompt).toContain("Check Evidence");
+  });
+
+  test("completed tasks with pending check evidence stay in implementation", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | pending |  |  |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("implementation");
+    expect(result.prompt).toContain("Этап 4. Implementation.");
+    expect(result.prompt).not.toContain("Этап 5A. Phase Validation.");
+  });
+
+  test("completed tasks with failed check evidence stay in implementation", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | failed | unit test failed | rerun after fix |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("implementation");
+    expect(result.prompt).toContain("Этап 4. Implementation.");
+    expect(result.prompt).not.toContain("Этап 5A. Phase Validation.");
   });
 
   test("validated single-phase route reports final validation stage", () => {

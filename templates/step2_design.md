@@ -55,6 +55,9 @@ date: {{date}}
 | `architecture/design.md` | Entry point and approval summary | review table, package map, top-level diagram | high |
 | `architecture/example.md` | Detailed concern, if needed | Mermaid/table/tree diagram | medium |
 
+`Architecture Package Map` является индексом файлов утверждаемого design package, а не component implementation map.
+Если implementation component mapping нужен для review, держите его в `## Key Design Decisions` или linked architecture subdocument.
+
 Все referenced files внутри `architecture/` считаются частью утвержденного дизайна, если они явно перечислены в approved `architecture/design.md`.
 
 Controller проверяет approval только у `architecture/design.md`; отдельный approval для architecture subdocuments не требуется.

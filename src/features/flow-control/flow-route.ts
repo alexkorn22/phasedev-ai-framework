@@ -5,8 +5,10 @@ import { findPendingArchiveState, FlowArchiveState } from "../../entities/flow-c
 import { buildChangePaths, ChangePaths } from "../../entities/flow-change/paths";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
-import { validatePlanStructure } from "../../entities/implementation-plan/validate-plan";
+import { hasPendingOrFailedEvidence, isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
+import { validatePlanArtifact } from "../../entities/implementation-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
+import { validateRulesArtifact } from "../../entities/rules/validate-rules";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
@@ -15,6 +17,7 @@ export type FlowRoute =
   | { kind: "pending_archive"; stage: "archive"; archiveState: FlowArchiveState; activeChangePath: string }
   | { kind: "setup"; stage: "setup"; activeChangePath: string | null }
   | { kind: "invalid_prd"; stage: "setup"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "invalid_rules"; stage: "setup"; paths: ChangePaths; issues: string[]; activeChangePath: string }
   | { kind: "setup_approval"; stage: "setup"; paths: ChangePaths; activeChangePath: string }
   | { kind: "research"; stage: "research"; paths: ChangePaths; activeChangePath: string }
   | { kind: "invalid_research"; stage: "research"; paths: ChangePaths; issues: string[]; activeChangePath: string }
@@ -31,21 +34,8 @@ export type FlowRoute =
   | { kind: "phase"; stage: "implementation" | "phase_validation"; paths: ChangePaths; activePhase: Phase; activeChangePath: string }
   | { kind: "final_validation"; stage: "final_validation"; paths: ChangePaths; activeChangePath: string };
 
-function allTopLevelTasksCompleted(phase: Phase): boolean {
-  return phase.tasks.length > 0 && phase.tasks.every(task => task.status === "completed");
-}
-
-function hasPendingOrFailedEvidence(phase: Phase): boolean {
-  if (!phase.checkEvidence) return false;
-  return phase.checkEvidence.some(row => row.result === "pending" || row.result === "failed");
-}
-
 function phaseStage(activePhase: Phase): "implementation" | "phase_validation" {
-  if (!allTopLevelTasksCompleted(activePhase) || hasPendingOrFailedEvidence(activePhase)) {
-    return "implementation";
-  }
-
-  return "phase_validation";
+  return isPhaseReadyForValidation(activePhase) ? "phase_validation" : "implementation";
 }
 
 function isVerdictOnlyOpenBlockingIssue(issue: string): boolean {
@@ -80,6 +70,11 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
     return { kind: "invalid_prd", stage: "setup", paths, issues: prdIssues, activeChangePath: changeDir };
   }
 
+  const rulesIssues = validateRulesArtifact(paths.rulesPath);
+  if (rulesIssues.length > 0) {
+    return { kind: "invalid_rules", stage: "setup", paths, issues: rulesIssues, activeChangePath: changeDir };
+  }
+
   if (!isSetupApproved(changeDir).approved) {
     return { kind: "setup_approval", stage: "setup", paths, activeChangePath: changeDir };
   }
@@ -88,7 +83,7 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
     return { kind: "research", stage: "research", paths, activeChangePath: changeDir };
   }
 
-  const researchIssues = validateResearchFacts(paths.researchPath);
+  const researchIssues = validateResearchFacts(paths.researchPath, paths.prdPath);
   if (researchIssues.length > 0) {
     return { kind: "invalid_research", stage: "research", paths, issues: researchIssues, activeChangePath: changeDir };
   }
@@ -110,14 +105,14 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
     return { kind: "plan", stage: "plan", paths, activeChangePath: changeDir };
   }
 
-  if (!isPlanApproved(changeDir)) {
-    return { kind: "plan_approval", stage: "plan", paths, activeChangePath: changeDir };
-  }
-
   const planPhases = parsePlan(paths.planPath);
-  const planIssues = validatePlanStructure(planPhases, paths.prdPath);
+  const planIssues = validatePlanArtifact(paths.planPath, paths.prdPath);
   if (planIssues.length > 0) {
     return { kind: "invalid_plan", stage: "plan", paths, issues: planIssues, activeChangePath: changeDir };
+  }
+
+  if (!isPlanApproved(changeDir)) {
+    return { kind: "plan_approval", stage: "plan", paths, activeChangePath: changeDir };
   }
 
   const findings = parseValidationFindingsArtifact(paths.findingsPath);

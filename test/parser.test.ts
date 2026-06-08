@@ -3,9 +3,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
+import { validatePlanArtifact } from "../src/entities/implementation-plan/validate-plan-artifact";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
 import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
 import { validateResearchFacts } from "../src/entities/research-facts/validate-research";
+import { validateRulesArtifact } from "../src/entities/rules/validate-rules";
 import { validateDesign } from "../src/entities/design/validate-design";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
 import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
@@ -219,6 +221,97 @@ Update prompts.
     expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 has an empty Command Or Method.");
     expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 with Result `passed` must have non-empty Evidence.");
     expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 2 has invalid Result `unknown`; expected pending, passed, failed, blocked, or not_applicable.");
+  });
+
+  test("validatePlanArtifact enforces top-level plan artifact contract", () => {
+    const validPlanFile = path.join(testTmpDir, "valid_plan_artifact.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(validPlanFile, `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update prompt templates. |
+| Out of scope | Runtime product changes. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update prompt templates. |
+| Tests | yes | Add parser regression. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert prompt changes. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Update prompts. | 1.1 | unit |
+
+## Phase 1: Prompt Updates [~]
+
+### Goal
+
+Update prompts.
+
+### Tasks
+
+- [x] 1.1 Update setup prompt
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | parser tests passed | none |
+`, "utf-8");
+
+    expect(validatePlanArtifact(validPlanFile)).toEqual([]);
+
+    const invalidPlanFile = path.join(testTmpDir, "invalid_plan_artifact.md");
+    fs.writeFileSync(invalidPlanFile, `---
+approved: true
+date: 2026-06-02
+---
+<!-- leftover -->
+# Plan
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | maybe | TODO |
+
+## Notes
+Unexpected section.
+
+## Phase 1: Prompt Updates [~]
+- [x] 1.1 Update setup prompt
+`, "utf-8");
+
+    const issues = validatePlanArtifact(invalidPlanFile);
+    expect(issues).toContain("implementation_plan.md must not contain HTML template comments.");
+    expect(issues).toContain("implementation_plan.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("implementation_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
+    expect(issues).toContain("implementation_plan.md contains unexpected section `## Notes`.");
+    expect(issues).toContain("implementation_plan.md non-phase `##` sections must exactly match this order: `## Approval Summary`, `## Generation Bundle`, `## Phase Overview`.");
+    expect(issues).toContain("Section `## Approval Summary` must contain a markdown table.");
+    expect(issues).toContain("Section `## Phase Overview` must contain a markdown table.");
   });
 
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
@@ -680,7 +773,11 @@ None.
 Trace details here.
 
 ## Requirements & Success Criteria Trace
-Trace details here.
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | Requirement traced. | none |
+| SC1 | confirmed | Success criterion traced. | none |
 
 ## Source Facts
 - \`src/index.ts:42\` -- verified fact.
@@ -697,6 +794,9 @@ No blockers.
 ## PRD Intent Trace
 Trace details here.
 
+## Requirements & Success Criteria Trace
+Trace details here.
+
 ## Source Facts
 No line numbers here.
 
@@ -705,15 +805,59 @@ TODO: find blockers.
 `, "utf-8");
 
     const issues = validateResearchFacts(invalidResearchFile);
-    expect(issues).toContain("research_facts.md must contain section `## Requirements & Success Criteria Trace`.");
     expect(issues).toContain("Section `## Source Facts` must contain at least one file path with a line number in the format `file:line` (e.g., `src/index.ts:42`).");
     expect(issues).toContain("research_facts.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("Section `## Requirements & Success Criteria Trace` must contain a markdown table.");
+  });
+
+  test("validateResearchFacts requires complete PRD trace IDs exactly once", () => {
+    const prdFile = path.join(testTmpDir, "research_trace_prd.md");
+    const researchFile = path.join(testTmpDir, "research_trace.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(prdFile, `# PRD
+
+## Requirements
+- R1: First requirement.
+- R2: Second requirement.
+
+## Success Criteria
+- SC1: First criterion.
+- SC2: Second criterion.
+`, "utf-8");
+    fs.writeFileSync(researchFile, `# Research Facts
+
+## PRD Intent Trace
+Trace details here.
+
+## Requirements & Success Criteria Trace
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | First requirement traced. | none |
+| R1 | confirmed | Duplicate requirement traced. | none |
+| SC1 | confirmed | First criterion traced. | none |
+| SC3 | confirmed | Extra criterion traced. | none |
+
+## Source Facts
+- \`src/index.ts:42\` -- verified fact.
+
+## Research Gaps & Blockers
+No blockers.
+`, "utf-8");
+
+    const issues = validateResearchFacts(researchFile, prdFile);
+    expect(issues).toContain("Requirements & Success Criteria Trace contains duplicate ID `R1`.");
+    expect(issues).toContain("Requirements & Success Criteria Trace must include PRD ID `R2`.");
+    expect(issues).toContain("Requirements & Success Criteria Trace must include PRD ID `SC2`.");
+    expect(issues).toContain("Requirements & Success Criteria Trace contains unexpected ID `SC3`.");
   });
 
   test("validateDesign accepts valid design and rejects invalid ones", () => {
-    const designFile = path.join(testTmpDir, "valid_design.md");
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
     cleanupTestDir();
     setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
     fs.writeFileSync(designFile, `---
 approved: true
 approved_by: tester
@@ -728,9 +872,9 @@ Summary details.
 Trace details.
 
 ## Architecture Package Map
-| Component | Target Files | Responsibility |
-|---|---|---|
-| auth | src/auth | handle authentication |
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
 
 ## Key Design Decisions
 Decisions.
@@ -770,6 +914,170 @@ None.
     expect(issues).toContain("design.md must start with YAML frontmatter.");
     expect(issues).toContain("Section `## Architecture Package Map` must contain a markdown table.");
     expect(issues).toContain("design.md must not contain placeholder text: TBD.");
+  });
+
+  test("validateDesign rejects non-canonical package map headers", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| Component | Target Files | Responsibility |
+|---|---|---|
+| auth | src/auth | handle authentication |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    expect(validateDesign(designFile)).toContain("Architecture Package Map columns must be exactly: File, Purpose, Visual content, Review priority.");
+  });
+
+  test("validateDesign enforces package map file paths, priority, and file coverage", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(path.join(testTmpDir, "architecture", "unlisted-detail.md"), "# Detail\n", "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point. | package map | high |
+| architecture/Bad_Name.md | Detail. | table | urgent |
+| docs/outside.md | Outside. | table | low |
+| architecture/missing-detail.md | Missing. | table | medium |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    const issues = validateDesign(designFile);
+    expect(issues).toContain("Architecture Package Map file `architecture/Bad_Name.md` must use kebab-case for architecture subdocuments.");
+    expect(issues).toContain("Architecture Package Map file `docs/outside.md` must start with `architecture/`.");
+    expect(issues).toContain("Architecture Package Map file `architecture/missing-detail.md` must exist.");
+    expect(issues).toContain("Architecture Package Map row 4 has invalid Review priority `urgent`; expected high, medium, or low.");
+    expect(issues).toContain("Architecture file `architecture/unlisted-detail.md` must be listed in Architecture Package Map.");
+  });
+
+  test("validateDesign requires a visual review surface for multi-file design packages", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const detailFile = path.join(testTmpDir, "architecture", "runtime-layout.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(detailFile, "# Runtime Layout\n", "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point. | package map | high |
+| \`architecture/runtime-layout.md\` | Runtime details. | diagram | medium |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    expect(validateDesign(designFile)).toContain("Multi-file design packages must include a Mermaid block or markdown table outside `## Architecture Package Map`.");
+  });
+
+  test("validateDesign accepts multi-file design packages with a Mermaid review surface", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const detailFile = path.join(testTmpDir, "architecture", "runtime-layout.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(detailFile, "# Runtime Layout\n", "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+Summary details.
+
+\`\`\`mermaid
+flowchart TD
+  A[Design entrypoint] --> B[Runtime layout]
+\`\`\`
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point. | package map and Mermaid diagram | high |
+| \`architecture/runtime-layout.md\` | Runtime details. | diagram | medium |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    expect(validateDesign(designFile)).toEqual([]);
   });
 
   test("parseValidationVerdict extracts correct validation statuses", () => {
@@ -1152,6 +1460,68 @@ date: 2026-05-30
     expect(commands.commands.phase).toBeUndefined();
     expect(commands.commands.full).toBeUndefined();
     expect(commands.missing).toEqual(["phase", "full"]);
+  });
+
+  test("validateRulesArtifact enforces strict rules contract", () => {
+    const validRulesFile = path.join(testTmpDir, "valid_rules.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(validRulesFile, `---
+approved: true
+date: 2026-06-02
+---
+# Rules
+
+## Test Commands
+
+- unit: \`bun test test/parser.test.ts\`
+- phase: \`bun test test/flow-controller.test.ts\`
+- full: \`bun test\`
+`, "utf-8");
+
+    expect(validateRulesArtifact(validRulesFile)).toEqual([]);
+
+    const invalidRulesFile = path.join(testTmpDir, "invalid_rules.md");
+    fs.writeFileSync(invalidRulesFile, `# Rules
+
+<!-- leftover -->
+
+## Test Commands
+
+- unit: \`bun test\`
+- full: TODO
+- phase:
+- extra: nope
+
+## Notes
+Not allowed.
+`, "utf-8");
+
+    const issues = validateRulesArtifact(invalidRulesFile);
+    expect(issues).toContain("rules.md must start with YAML frontmatter.");
+    expect(issues).toContain("rules.md must not contain HTML template comments.");
+    expect(issues).toContain("rules.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("rules.md contains unexpected section `## Notes`.");
+    expect(issues).toContain("Test Commands must contain exactly these command rows in order: `unit`, `phase`, `full`.");
+    expect(issues).toContain("Test Commands row `- phase:` must use `- unit|phase|full: command` format.");
+    expect(issues).toContain("Test Commands row `- extra: nope` must use `- unit|phase|full: command` format.");
+
+    const extraTextRulesFile = path.join(testTmpDir, "extra_text_rules.md");
+    fs.writeFileSync(extraTextRulesFile, `---
+approved: true
+date: 2026-06-02
+---
+# Rules
+
+## Test Commands
+
+Use the local Bun commands below.
+- unit: \`bun test test/parser.test.ts\`
+- phase: \`bun test test/flow-controller.test.ts\`
+- full: \`bun test\`
+`, "utf-8");
+
+    expect(validateRulesArtifact(extraTextRulesFile)).toContain("Test Commands row `Use the local Bun commands below.` is not allowed; only `- unit|phase|full: command` rows are permitted.");
   });
 
   test("findActiveChangeDir ignores archive directory when selecting active change", () => {

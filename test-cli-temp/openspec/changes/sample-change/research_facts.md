@@ -4,7 +4,11 @@
 Trace details here.
 
 ## Requirements & Success Criteria Trace
-Trace details here.
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | Fixture research traces routing requirement. | none |
+| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
 
 ## Source Facts
 - `src/index.ts:42` -- verified fact.

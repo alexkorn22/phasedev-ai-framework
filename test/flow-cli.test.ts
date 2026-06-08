@@ -89,7 +89,19 @@ ${rows}`;
 }
 
 function withImplementationPlanContract(planContent: string): string {
-  const withBundle = planContent.includes("## Generation Bundle") ? planContent : `
+  const normalizedPlanContent = planContent.trim().replace(/^#\s+.*\n+/, "").trim();
+  const withBundle = normalizedPlanContent.includes("## Generation Bundle") ? normalizedPlanContent : `
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the flow CLI fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
 ## Generation Bundle
 
 | Area | Required | Plan |
@@ -102,13 +114,19 @@ function withImplementationPlanContract(planContent: string): string {
 | Observability | not_applicable | No observability changes are part of this fixture. |
 | Rollback path | not_applicable | Revert the fixture change if needed. |
 
-${planContent}`;
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
+
+${normalizedPlanContent}`;
 
   return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
     let nextSection = section;
-    const isCompletedPhase = /## Phase \d+:.*\[x\]/i.test(section);
-    const resultStatus = isCompletedPhase ? "passed" : "pending";
-    const evidenceStr = isCompletedPhase ? "passed unit tests" : "";
+    const hasIncompleteTask = /^-\s*\[\s*(?: |~|\/)\s*\]/im.test(section);
+    const resultStatus = hasIncompleteTask ? "pending" : "passed";
+    const evidenceStr = hasIncompleteTask ? "" : "passed unit tests";
 
     if (!/^###\s+Goal\s*$/im.test(nextSection)) {
       nextSection += "\n\n### Goal\n\nComplete the fixture phase. Satisfies R1 and SC1.";
@@ -136,7 +154,11 @@ function validResearchBody(): string {
 Trace details here.
 
 ## Requirements & Success Criteria Trace
-Trace details here.
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | Fixture research traces routing requirement. | none |
+| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
 
 ## Source Facts
 - \`src/index.ts:42\` -- verified fact.
@@ -156,9 +178,9 @@ Summary details.
 Trace details.
 
 ## Architecture Package Map
-| Component | Target Files | Responsibility |
-|---|---|---|
-| auth | src/auth | handle authentication |
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
 
 ## Key Design Decisions
 Decisions.
@@ -715,7 +737,7 @@ No markdown finding table here.
     expect(output).not.toContain("Этап 6. Archive.");
   });
 
-  test("missing test command blocks before rendering implementation prompts", () => {
+  test("invalid rules with missing unit command blocks before rendering implementation prompts", () => {
     setupChange(`
 # Plan
 
@@ -733,13 +755,13 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Missing test command");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
     expect(output).toContain("unit");
-    expect(output).toContain("## Test Commands");
+    expect(output).toContain("Test Commands must contain exactly these command rows in order");
     expect(output).not.toContain("run unit tests");
   });
 
-  test("missing phase command does not block phase validation prompt", () => {
+  test("invalid rules with missing phase command blocks before phase validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -760,12 +782,12 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5A. Phase Validation.");
-    expect(output).not.toContain("[FLOW CONTROLLER] BLOCKED: Missing test command");
-    expect(output).not.toContain("bun test phase");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
+    expect(output).toContain("phase");
+    expect(output).not.toContain("Этап 5A. Phase Validation.");
   });
 
-  test("missing full command does not block final validation prompt", () => {
+  test("invalid rules with missing full command blocks before final validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -783,9 +805,27 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5B. Final Validation.");
-    expect(output).not.toContain("[FLOW CONTROLLER] BLOCKED: Missing test command");
-    expect(output).not.toContain("bun test full");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
+    expect(output).toContain("full");
+    expect(output).not.toContain("Этап 5B. Final Validation.");
+  });
+
+  test("invalid plan blocks before plan approval prompt", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Phase 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      planApproved: false
+    });
+    fs.appendFileSync(path.join(changeDir, "implementation_plan.md"), "\n\n## Notes\nNot allowed before approval.\n", "utf-8");
+
+    const output = runNext();
+
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("implementation_plan.md contains unexpected section `## Notes`.");
+    expect(output).not.toContain("[FLOW CONTROLLER] BLOCKED: Plan requires review");
   });
 
   test("approval gates block after repair resets an approved artifact", () => {

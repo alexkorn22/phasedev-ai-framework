@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { FlowRalphConfig } from "../../entities/flow-config/config";
+import { isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
 import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
 import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
@@ -29,6 +30,7 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
     ...variables,
     prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
+    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     skill_policy: renderSkillPolicy(stage, config)
   });
@@ -40,8 +42,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
     activePhase.status = "in_progress";
   }
 
-  const allTasksCompleted = activePhase.tasks.length > 0 && activePhase.tasks.every(task => task.status === "completed");
-  if (allTasksCompleted) {
+  if (isPhaseReadyForValidation(activePhase)) {
     return prompt("next", "phase_validation", renderStageTemplate("phase_validation", "step5a_val", {
       phase_id: `Phase ${activePhase.id}: ${activePhase.name}`,
       prd_path: urls.prd_path,

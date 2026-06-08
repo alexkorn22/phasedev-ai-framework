@@ -2,6 +2,17 @@
 approved: true
 ---
 
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the flow CLI fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
 ## Generation Bundle
 
 | Area | Required | Plan |
@@ -14,12 +25,14 @@ approved: true
 | Observability | not_applicable | No observability changes are part of this fixture. |
 | Rollback path | not_applicable | Revert the fixture change if needed. |
 
+## Phase Overview
 
-# Plan
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
 
 ## Phase 1: API [x]
 - [x] 1.1 Implement endpoint
-
 
 ### Goal
 

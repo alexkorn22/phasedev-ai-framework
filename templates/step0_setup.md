@@ -22,7 +22,7 @@ Stage contract: подготовить начальные артефакты cha
 9. Для `fix`, `refactor` и `infra` changes обязательно выясните desired behavior или target state, preserved behavior, non-goals, regression boundaries, validation evidence и risk boundaries; `Resolution signal` и `Decision deadline` могут быть `not_applicable` только после такого intake.
 10. Не заменяйте неизвестные ADLC/PRD поля догадками. Если пользователь не может ответить, зафиксируйте только явно accepted assumption; если assumption влияет на approval scope или risk, остановитесь и попросите approval этого assumption до записи PRD.
 11. Создайте папку изменений: `openspec/changes/<название-доработки>/`.
-12. Прочитайте artifact template для PRD: [prd.md template]({{prd_template_path}}).
+12. Прочитайте artifact templates для PRD и Rules: [prd.md template]({{prd_template_path}}), [rules.md template]({{rules_template_path}}).
 13. Создайте `prd.md` в папке изменений, instantiating этот template под текущий change.
 14. Используйте HTML comments из template как authoring guidance; в них задан strict PRD contract, field/section contract, допустимые значения `Change type`, правила `not_applicable`, ADLC-style intake expectations и blocker-question rule.
 15. Удалите все HTML comments из финального `prd.md`.
@@ -49,13 +49,16 @@ date: {{date}}
 25. `## Accepted Assumptions` и `## Deferred Decisions` могут быть `None`, если их нет.
 26. Если информации не хватает для `R#`, `SC#`, `In scope:` / `Out of scope:` или `Intent Card`, задайте вопрос и не пишите `prd.md`.
 27. Не оставляйте в `prd.md` пустые ячейки Intent Card, copied field descriptions, placeholder-like prose, `TBD`, `TODO`, `unknown`, `clarify later` или `to be decided`.
-28. Создайте `rules.md` в папке изменений. В начале файла должен быть YAML frontmatter:
+28. Создайте `rules.md` в папке изменений, instantiating [rules.md template]({{rules_template_path}}) под текущий change.
+29. Используйте HTML comments из template как authoring guidance, но удалите все comments из финального `rules.md`.
+30. В начале `rules.md` должен быть YAML frontmatter:
 ---
 approved: false
 approved_by: ""
 date: {{date}}
 ---
-29. В `rules.md` обязательно добавьте раздел `## Test Commands`:
+31. `rules.md` должен иметь строго такую видимую структуру и только ее: `# Rules`, затем `## Test Commands`.
+32. В `rules.md` обязательно заполните раздел `## Test Commands`:
 ```md
 ## Test Commands
 - unit: `...`
@@ -66,7 +69,7 @@ date: {{date}}
 Требования к артефактам:
 - `prd.md` фиксирует intent, `R#` requirements, границы change и `SC#` criteria в строгой структуре без дополнительных sections.
 - `prd.md` должен быть instantiated from [prd.md template]({{prd_template_path}}).
-- `rules.md` фиксирует project constraints и gate commands, нужные следующим этапам.
+- `rules.md` фиксирует gate commands, нужные следующим этапам, и должен быть instantiated from [rules.md template]({{rules_template_path}}).
 - ИИ-агент не имеет права менять `approved: false` на `approved: true`; approval делает пользователь.
 
 ## Human Review Formatting Policy
