@@ -25,7 +25,7 @@ export function formatPhaseExcerpt(phase: Phase): string {
 
 export function formatAdditionalChecks(phase: Phase | null): string {
   if (!phase || phase.additionalChecks.length === 0) {
-    return "  * Нет дополнительных проверок для текущей фазы.";
+    return "  * No additional checks for the current phase.";
   }
 
   return phase.additionalChecks.map(check => `  * ${check}`).join("\n");

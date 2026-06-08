@@ -1,83 +1,83 @@
-Этап 2. Design.
+Stage 2. Design.
 
-Stage contract: подготовить утверждаемый visual-first architecture package на основе требований и research facts.
+Stage contract: prepare an approvable visual-first architecture package based on requirements and research facts.
 
 {{skill_policy}}
 
-Входные артефакты:
-- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Правила разработки: [rules.md]({{rules_path}})
-- Результаты исследования: [research_facts.md]({{research_path}})
+Input artifacts:
+- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- Development rules: [rules.md]({{rules_path}})
+- Research results: [research_facts.md]({{research_path}})
 
-Обязательный выходной артефакт:
+Required output artifact:
 - [architecture/design.md]({{design_path}})
 
-`architecture/design.md` является обязательной точкой входа для design stage, единственным design approval gate и architecture package entrypoint / index.
+`architecture/design.md` is the required design-stage entry point, the only design approval gate, and the architecture package entrypoint/index.
 
-Дополнительные architecture files внутри `architecture/` разрешены и ожидаются для любого нетривиального дизайна. Примеры: `data-flow.md`, `api-contracts.md`, `ui-architecture.md`, `migration-plan.md`, `persistence.md`, `runtime-layout.md`, `validation.md`.
+Additional architecture files inside `architecture/` are allowed and expected for any non-trivial design. Examples: `data-flow.md`, `api-contracts.md`, `ui-architecture.md`, `migration-plan.md`, `persistence.md`, `runtime-layout.md`, `validation.md`.
 
 Small/single-file design:
-- Если change маленький, затрагивает 1-3 tightly related areas и весь дизайн читается компактно, можно оставить только `architecture/design.md`.
-- Даже small/single-file design должен иметь compact visual review surface near the top.
-- Для small/single-file design в `Architecture Package Map` укажите только `architecture/design.md`.
+- If the change is small, touches 1-3 tightly related areas, and the whole design reads compactly, it may stay entirely in `architecture/design.md`.
+- Even a small/single-file design must have a compact visual review surface near the top.
+- For small/single-file design, list only `architecture/design.md` in `Architecture Package Map`.
 
 Decomposition rules:
-- `architecture/design.md` target size: до 120 строк; hard guidance: не раздувайте выше 180 строк.
-- Если дизайн покрывает 4+ material areas, создайте linked subdocument для каждой крупной области.
-- Если отдельный раздел становится длиннее 40 строк, вынесите детали в linked subdocument.
-- Если есть отдельные contracts, data flow, API surface, UI flow, persistence, migration, security boundary, validation или runtime ownership, предпочитайте отдельный `architecture/*.md`.
-- Имена linked subdocuments должны быть короткими, kebab-case и отражать область: `command-surface.md`, `runtime-layout.md`, `parser-config.md`, `persistence.md`, `backend-boundaries.md`, `frontend-boundaries.md`, `validation.md`.
-- Не дробите искусственно: subdocument нужен только если он реально улучшает human review.
-- Не дублируйте большие фрагменты prose между `design.md` и subdocuments; `design.md` summarises and links, subdocuments hold details.
+- `architecture/design.md` target size: up to 120 lines; hard guidance: do not bloat it beyond 180 lines.
+- If the design covers 4+ material areas, create a linked subdocument for each major area.
+- If an individual section becomes longer than 40 lines, move the details into a linked subdocument.
+- If there are separate contracts, data flow, API surface, UI flow, persistence, migration, security boundary, validation, or runtime ownership concerns, prefer a separate `architecture/*.md`.
+- Linked subdocument names must be short, kebab-case, and reflect the area: `command-surface.md`, `runtime-layout.md`, `parser-config.md`, `persistence.md`, `backend-boundaries.md`, `frontend-boundaries.md`, `validation.md`.
+- Do not split artificially: a subdocument is needed only when it genuinely improves human review.
+- Do not duplicate large prose fragments between `design.md` and subdocuments; `design.md` summarizes and links, subdocuments hold details.
 
-Требования к `architecture/design.md`:
-- `architecture/design.md` должен быть создан строго на основе шаблона [design.md template]({{design_template_path}}). Все HTML-комментарии должны быть удалены.
-- YAML frontmatter остается первым в файле:
+Requirements for `architecture/design.md`:
+- `architecture/design.md` must be created strictly from [design.md template]({{design_template_path}}). All HTML comments must be removed.
+- YAML frontmatter remains first in the file:
 ---
 approved: false
 approved_by: ""
 date: {{date}}
 ---
-- краткое summary решения и что именно пользователь approve-ит в разделе `## Executive Summary`;
-- явная связь design direction с ADLC-style `Intent Card` из [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline и risk envelope в разделе `## Executive Summary` или `## Key Design Decisions`;
-- явная traceability table или список, показывающий какие design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion из PRD в разделе `## Traceability Mapping`;
-- явное отражение `Accepted Assumptions` и `Deferred Decisions` из PRD: assumptions становятся design constraints, deferred decisions должны быть либо решены в design, либо явно оставлены как approved planning/implementation boundary;
-- compact visual review surface near the top;
-- обязательная таблица `Architecture Package Map` в разделе `## Architecture Package Map`;
-- список key design decisions, сгруппированный по смыслу в разделе `## Key Design Decisions`;
-- открытые риски и вопросы в разделе `## Risks & Open Questions`;
-- ссылки на все дополнительные architecture files, если они созданы.
+- include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
+- explicitly connect the design direction to the ADLC-style `Intent Card` from [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline, and risk envelope in `## Executive Summary` or `## Key Design Decisions`;
+- include an explicit traceability table or list showing which design decisions cover each `R#` requirement and each `SC#` success criterion from the PRD in `## Traceability Mapping`;
+- explicitly reflect `Accepted Assumptions` and `Deferred Decisions` from the PRD: assumptions become design constraints; deferred decisions must either be resolved in design or explicitly left as an approved planning/implementation boundary;
+- include a compact visual review surface near the top;
+- include the required `Architecture Package Map` table in `## Architecture Package Map`;
+- include a list of key design decisions grouped by meaning in `## Key Design Decisions`;
+- include open risks and questions in `## Risks & Open Questions`;
+- link every additional architecture file if any are created.
 
-Формат `Architecture Package Map`:
+`Architecture Package Map` format:
 
 | File | Purpose | Visual content | Review priority |
 | --- | --- | --- | --- |
 | `architecture/design.md` | Entry point and approval summary | review table, package map, top-level diagram | high |
 | `architecture/example.md` | Detailed concern, if needed | Mermaid/table/tree diagram | medium |
 
-`Architecture Package Map` является индексом файлов утверждаемого design package, а не component implementation map.
-Если implementation component mapping нужен для review, держите его в `## Key Design Decisions` или linked architecture subdocument.
+`Architecture Package Map` is an index of files in the approvable design package, not a component implementation map.
+If implementation component mapping is needed for review, keep it in `## Key Design Decisions` or a linked architecture subdocument.
 
-Все referenced files внутри `architecture/` считаются частью утвержденного дизайна, если они явно перечислены в approved `architecture/design.md`.
+All referenced files inside `architecture/` are considered part of the approved design if they are explicitly listed in the approved `architecture/design.md`.
 
-Controller проверяет approval только у `architecture/design.md`; отдельный approval для architecture subdocuments не требуется.
+The controller checks approval only on `architecture/design.md`; separate approval for architecture subdocuments is not required.
 
 ## Visual-first policy
 
-Human review должен быстро понимать, что будет изменено и как это планируется. Пишите design как reviewable architecture map, а не как длинное текстовое эссе.
+Human reviewers must quickly understand what will change and how it is planned. Write the design as a reviewable architecture map, not as a long prose essay.
 
-Правила visual-first оформления:
-- Для нетривиального design package используйте минимум одну Mermaid-диаграмму.
-- Максимально используйте схемы, диаграммы, tables, matrix views и directory trees для удобного human review.
-- Mermaid подходит для `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, `stateDiagram` и component/data-flow diagrams.
-- Таблицы используйте для contracts, public interfaces, risks, ownership, decisions, alternatives и validation mapping.
-- Directory trees используйте для planned file/module layout.
-- Диаграмма должна объяснять реальные изменения или planned architecture; не добавляйте декоративные диаграммы без review value.
-- Если design влияет на runtime flow, dependency direction, persistence, API contract, UI states или validation path, покажите это схемой.
-- Любой linked subdocument должен начинаться с purpose, затем diagram/table/tree review surface, затем decisions/contracts/details.
-- Не прячьте важные risks, changed contracts или ownership boundaries глубоко в prose; покажите их near the top в table/callout.
+Visual-first formatting rules:
+- For a non-trivial design package, use at least one Mermaid diagram.
+- Use schemas, diagrams, tables, matrix views, and directory trees wherever they make human review easier.
+- Mermaid is suitable for `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, `stateDiagram`, and component/data-flow diagrams.
+- Use tables for contracts, public interfaces, risks, ownership, decisions, alternatives, and validation mapping.
+- Use directory trees for planned file/module layout.
+- A diagram must explain real changes or planned architecture; do not add decorative diagrams without review value.
+- If the design affects runtime flow, dependency direction, persistence, API contract, UI states, or validation path, show that with a diagram.
+- Every linked subdocument must start with purpose, then a diagram/table/tree review surface, then decisions/contracts/details.
+- Do not bury important risks, changed contracts, or ownership boundaries deep in prose; show them near the top in a table/callout.
 
-Пример Mermaid syntax, если подходит содержанию:
+Example Mermaid syntax when it fits the content:
 
 ```mermaid
 flowchart TD
@@ -85,7 +85,7 @@ flowchart TD
   B --> C[Implementation boundary]
 ```
 
-Для других типов схем используйте Mermaid blocks с `sequenceDiagram`, `classDiagram`, `erDiagram` или `stateDiagram`, когда это лучше объясняет change.
+For other diagram types, use Mermaid blocks with `sequenceDiagram`, `classDiagram`, `erDiagram`, or `stateDiagram` when they explain the change better.
 
 ## Artifact allowlist
 
@@ -93,50 +93,50 @@ Allowed persistent artifacts for this stage:
 - `architecture/design.md`
 - linked files inside `architecture/`, only when they are referenced from `architecture/design.md`
 
-Ограничения:
-- не изменяйте production code на этом этапе;
-- ИИ-агент не имеет права менять `approved: false` на `approved: true`; approval делает пользователь.
+Constraints:
+- do not change production code at this stage;
+- the AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 ## Human Review Formatting Policy
 
-`architecture/design.md` является approval artifact и index для всего architecture package, поэтому оформляйте его для быстрого human review.
+`architecture/design.md` is the approval artifact and index for the whole architecture package, so format it for quick human review.
 
-Правила оформления:
-- YAML frontmatter остается первым в файле.
-- Структуру выбирайте по содержанию конкретного change.
-- Первая видимая часть документа должна быстро объяснять, какое technical direction пользователь approve-ит.
-- Сразу после title/intro добавьте compact visual review surface; это не фиксированная секция, а 2-5 callouts, bullets или table rows с самым важным для approval.
-- В compact visual review surface используйте semantic emoji markers там, где они добавляют сигнал: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
-- Не оставляйте approval artifact как обычную простыню markdown, если semantic visual markers, diagrams, tables, callouts или grouping явно ускоряют review.
-- Используйте один основной human language для prose artifact; code identifiers, file paths, commands и source terms оставляйте в оригинале.
-- Если вопрос влияет на approval artifact, задайте его пользователю и остановитесь до ответа.
-- Не записывайте pending open questions в `architecture/design.md` как замену вопросу пользователю.
-- Отделяйте accepted assumptions и deferred design-stage decisions от вопросов, которые требуют ответа до approval.
-- Не принимайте technical direction, который меняет `Generation target`, `Resolution signal`, `R#` requirements, scope boundaries, `SC#` success criteria, accepted assumptions или `Risk envelope` из PRD; если design требует такого изменения, остановитесь и попросите пользователя пересогласовать PRD.
-- Не создавайте пустые, декоративные или искусственные разделы вроде risks/alternatives/security, если там нет material content.
-- Используйте headings, короткие абзацы, bullets, tables, blockquotes и bold там, где это помогает чтению.
-- Если список становится длиннее 7 пунктов, сгруппируйте его по смысловым категориям вместо одного long flat list.
-- Используйте callouts для approval scope, reviewer attention, changed contracts, risks, accepted assumptions и deferred decisions, если они есть.
-- Если есть material risks, tradeoffs, accepted assumptions, changed contracts или reviewer attention points, сделайте их визуально заметными near the top.
-- Если `Intent Card` содержит `Resolution signal`, `Decision deadline` или `Risk envelope`, отразите их влияние на design decisions, validation mapping и rollout/rollback considerations where relevant.
-- Если PRD содержит `Accepted Assumptions` или `Deferred Decisions`, покажите near the top, какие design decisions зависят от них и какие проверки должны подтвердить или защитить эти условия.
-- Можно использовать эмоджи как смысловые visual markers, если они помогают сканировать документ.
-- не используйте эмоджи в YAML frontmatter.
-- не используйте эмоджи в командах, file paths, code blocks и обязательных machine-readable labels.
-- В `architecture/design.md` сохраните все machine-readable элементы approval frontmatter и явно перечислите linked architecture files, если они входят в approved design.
+Formatting rules:
+- YAML frontmatter remains first in the file.
+- Choose structure based on the concrete change content.
+- The first visible part of the document must quickly explain the technical direction the user is approving.
+- Immediately after the title/intro, add a compact visual review surface. This is not a fixed section; it is 2-5 callouts, bullets, or table rows with the most important approval information.
+- In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
+- Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, diagrams, tables, callouts, or grouping clearly speed up review.
+- Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
+- If a question affects the approval artifact, ask the user and stop until the answer.
+- Do not write pending open questions into `architecture/design.md` as a substitute for asking the user.
+- Separate accepted assumptions and deferred design-stage decisions from questions that require an answer before approval.
+- Do not accept a technical direction that changes `Generation target`, `Resolution signal`, `R#` requirements, scope boundaries, `SC#` success criteria, accepted assumptions, or `Risk envelope` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
+- Do not create empty, decorative, or artificial sections such as risks/alternatives/security when they have no material content.
+- Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
+- If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
+- Use callouts for approval scope, reviewer attention, changed contracts, risks, accepted assumptions, and deferred decisions when they exist.
+- If there are material risks, tradeoffs, accepted assumptions, changed contracts, or reviewer attention points, make them visually noticeable near the top.
+- If the `Intent Card` contains `Resolution signal`, `Decision deadline`, or `Risk envelope`, reflect their effect on design decisions, validation mapping, and rollout/rollback considerations where relevant.
+- If the PRD contains `Accepted Assumptions` or `Deferred Decisions`, show near the top which design decisions depend on them and which checks must confirm or protect those conditions.
+- Emoji may be used as semantic visual markers when they help scan the document.
+- Do not use emoji in YAML frontmatter.
+- Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
+- In `architecture/design.md`, preserve all machine-readable approval frontmatter elements and explicitly list linked architecture files if they are part of the approved design.
 
 ## Completion self-check
 
-Перед завершением stage проверьте:
-- `architecture/design.md` не является огромным design dump: target size соблюден или есть явная причина остаться single-file.
-- Если `architecture/design.md` приблизился к 180 строкам, детали вынесены в linked subdocuments.
-- Все linked subdocuments перечислены в `Architecture Package Map` и явно linked from `architecture/design.md`.
-- Для нетривиального design package есть минимум одна Mermaid-диаграмма.
-- Diagrams/tables показывают, что будет изменено и как это планируется, а не просто украшают документ.
-- Long prose не дублирует linked subdocuments.
-- Каждый linked subdocument начинается с purpose и visual review surface.
-- Design не расходится с PRD intent, generation target, resolution signal, `R#`, `SC#`, accepted assumptions, deferred decisions и risk envelope.
+Before completing the stage, verify:
+- `architecture/design.md` is not a huge design dump: the target size is respected or there is a clear reason to remain single-file.
+- If `architecture/design.md` approaches 180 lines, details have been moved to linked subdocuments.
+- All linked subdocuments are listed in `Architecture Package Map` and explicitly linked from `architecture/design.md`.
+- A non-trivial design package has at least one Mermaid diagram.
+- Diagrams/tables show what will change and how it is planned; they do not merely decorate the document.
+- Long prose does not duplicate linked subdocuments.
+- Every linked subdocument starts with purpose and a visual review surface.
+- Design does not diverge from PRD intent, generation target, resolution signal, `R#`, `SC#`, accepted assumptions, deferred decisions, or risk envelope.
 
-Завершение шага:
-- После записи architecture package остановите работу.
-- Сообщите пользователю, что нужно проверить `architecture/design.md`, установить `approved: true` и затем запустить `flow next`.
+Stage completion:
+- After writing the architecture package, stop.
+- Tell the user they need to review `architecture/design.md`, set `approved: true`, and then run `flow next`.

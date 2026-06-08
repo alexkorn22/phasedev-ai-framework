@@ -246,7 +246,7 @@ describe("flow-cli state machine", () => {
   test("init output contains base prompt without stage skill router", () => {
     const output = runInit();
 
-    expect(output).toContain("Запомни схему Agentic Engineering Flow для этой сессии.");
+    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
     expect(output).toContain("## Current Flow State");
     expect(output).toContain("- Stage: `setup`");
     expect(output).toContain("- Active change: none");
@@ -267,7 +267,7 @@ codex:
 
     const output = runInit();
 
-    expect(output).toContain("Запомни схему Agentic Engineering Flow для этой сессии.");
+    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
     expect(output).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.");
     expect(output).not.toContain("## Configured Skill Policy");
     expect(output).not.toContain("project-only-skill");
@@ -398,8 +398,8 @@ codex:
 
     const output = runNext();
 
-    expect(output).toContain("Этап 3. Plan.");
-    expect(output).toContain("Требования PRD и ADLC-style Intent Card");
+    expect(output).toContain("Stage 3. Plan.");
+    expect(output).toContain("PRD requirements and ADLC-style Intent Card");
     expect(output).toContain("prd.md");
     expect(output).toContain("Generation target");
     expect(output).toContain("Resolution signal");
@@ -419,11 +419,11 @@ codex:
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5A. Phase Validation.");
-    expect(output).toContain("Текущая фаза:\nPhase 1: API");
+    expect(output).toContain("Stage 5A. Phase Validation.");
+    expect(output).toContain("Current phase:\nPhase 1: API");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("Check Evidence");
-    expect(output).toContain("не запускайте тесты и дополнительные проверки повторно");
+    expect(output).toContain("do not rerun tests or additional checks");
     expect(output).not.toContain("run project test suite");
   });
 
@@ -444,8 +444,8 @@ codex:
     expect(output).toContain("Only one phase may have [~] status at a time; active phases: Phase 1: API, Phase 2: UI.");
     expect(output).toContain("Phase 1: API");
     expect(output).toContain("Phase 2: UI");
-    expect(output).not.toContain("Этап 4. Implementation.");
-    expect(output).not.toContain("Этап 5A. Phase Validation.");
+    expect(output).not.toContain("Stage 4. Implementation.");
+    expect(output).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("blocks approved plan with no recognized phases before final validation", () => {
@@ -459,7 +459,7 @@ No phase headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
     expect(output).toContain("implementation_plan.md must contain at least one phase heading.");
-    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).not.toContain("Stage 5B. Final Validation.");
   });
 
   test("blocks phase without tasks before implementation", () => {
@@ -473,7 +473,7 @@ No phase headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
     expect(output).toContain("Phase 1: Empty Phase must contain at least one task checkbox.");
-    expect(output).not.toContain("Этап 4. Implementation.");
+    expect(output).not.toContain("Stage 4. Implementation.");
   });
 
   test("blocks duplicate and non-sequential phase numbers", () => {
@@ -495,7 +495,7 @@ No phase headings yet.
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
     expect(output).toContain("Phase numbers must be unique; duplicate phase id(s): 1.");
     expect(output).toContain("Phase numbers must be sequential starting at 1.");
-    expect(output).not.toContain("Этап 4. Implementation.");
+    expect(output).not.toContain("Stage 4. Implementation.");
   });
 
   test("blocks completed phase that still contains incomplete tasks", () => {
@@ -511,7 +511,7 @@ No phase headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
     expect(output).toContain("Phase 1: API is [x] but contains incomplete tasks.");
-    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).not.toContain("Stage 5B. Final Validation.");
   });
 
   test("single-phase plan sends completed in-progress phase to phase validation", () => {
@@ -524,11 +524,11 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5A. Phase Validation.");
-    expect(output).toContain("Текущая фаза:\nPhase 1: Complete Change");
-    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).toContain("Stage 5A. Phase Validation.");
+    expect(output).toContain("Current phase:\nPhase 1: Complete Change");
+    expect(output).not.toContain("Stage 5B. Final Validation.");
     expect(output).not.toContain("bun test phase");
-    expect(output).toContain("не запускайте тесты и дополнительные проверки повторно");
+    expect(output).toContain("do not rerun tests or additional checks");
   });
 
   test("single-phase plan sends validated phase to final validation", () => {
@@ -543,10 +543,10 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5B. Final Validation.");
-    expect(output).not.toContain("Этап 5A. Phase Validation.");
+    expect(output).toContain("Stage 5B. Final Validation.");
+    expect(output).not.toContain("Stage 5A. Phase Validation.");
     expect(output).not.toContain("bun test full");
-    expect(output).toContain("не запускайте `unit`, `phase`, `full` или дополнительные проверки повторно");
+    expect(output).toContain("do not rerun `unit`, `phase`, `full`, or additional checks");
     expect(output).toContain("Intent Card");
     expect(output).toContain("Requirements");
     expect(output).toContain("Success Criteria");
@@ -567,8 +567,8 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5A. Phase Validation.");
-    expect(output).toContain("Текущая фаза:\nPhase 1: API");
+    expect(output).toContain("Stage 5A. Phase Validation.");
+    expect(output).toContain("Current phase:\nPhase 1: API");
   });
 
   test("repaired final validation repeats final validation", () => {
@@ -586,8 +586,8 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5B. Final Validation.");
-    expect(output).not.toContain("Этап 5A. Phase Validation.");
+    expect(output).toContain("Stage 5B. Final Validation.");
+    expect(output).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("repair prompt includes compact queue instead of full findings registry", () => {
@@ -605,7 +605,7 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5R. Repair Loop.");
+    expect(output).toContain("Stage 5R. Repair Loop.");
     expect(output).toContain("## Current Repair Queue");
     expect(output).toContain("| F2 | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |");
     expect(output).toContain("Full findings registry:");
@@ -633,7 +633,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md");
     expect(output).toContain("validation_findings.md must contain exactly one markdown table");
-    expect(output).not.toContain("Этап 5R. Repair Loop.");
+    expect(output).not.toContain("Stage 5R. Repair Loop.");
   });
 
   test("successful final validation routes to archive stage", () => {
@@ -653,7 +653,7 @@ No markdown finding table here.
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
 
-    expect(output).toContain("Этап 6. Archive.");
+    expect(output).toContain("Stage 6. Archive.");
     expect(output).toContain(`${archivedDir}/specs/<capability>/spec.md`);
     expect(output).toContain(".flow-archive.json");
     expect(output).toContain(`archive path: \`${archivedDir}\``);
@@ -661,7 +661,7 @@ No markdown finding table here.
     expect(fs.existsSync(path.join(testTmpDir, "openspec", "changes", "sample-change"))).toBe(false);
     expect(output).not.toContain("src/archive-change.ts");
     expect(output).not.toContain("[FLOW CONTROLLER] SUCCESS!");
-    expect(output).not.toContain("Этап 6. System Evolution.");
+    expect(output).not.toContain("Stage 6. System Evolution.");
   });
 
   test("pending archive state repeats archive prompt without active change", () => {
@@ -677,10 +677,10 @@ No markdown finding table here.
     const first = runNext();
     const second = runNext();
 
-    expect(first).toContain("Этап 6. Archive.");
-    expect(second).toContain("Этап 6. Archive.");
+    expect(first).toContain("Stage 6. Archive.");
+    expect(second).toContain("Stage 6. Archive.");
     expect(second).toContain(".flow-archive.json");
-    expect(second).not.toContain("Этап 0. AI Layer Setup.");
+    expect(second).not.toContain("Stage 0. AI Layer Setup.");
   });
 
   test("final ready_with_risks without blocking findings routes to archive stage", () => {
@@ -697,8 +697,8 @@ No markdown finding table here.
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
 
-    expect(output).toContain("Этап 6. Archive.");
-    expect(output).toContain("Не используйте `validation_findings.md` как источник требований");
+    expect(output).toContain("Stage 6. Archive.");
+    expect(output).toContain("Do not use `validation_findings.md` as a source of requirements");
     expect(fs.existsSync(path.join(archivedDir, ".flow-archive.json"))).toBe(true);
   });
 
@@ -716,8 +716,8 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
     expect(output).toContain("implementation_plan.md");
-    expect(output).not.toContain("Этап 6. Archive.");
-    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).not.toContain("Stage 6. Archive.");
+    expect(output).not.toContain("Stage 5B. Final Validation.");
   });
 
   test("final ready_with_risks with open blocking findings routes to repair instead of archive", () => {
@@ -732,9 +732,9 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5R. Repair Loop.");
+    expect(output).toContain("Stage 5R. Repair Loop.");
     expect(output).toContain("| F1 | MUST-FIX | implementation | Final | Broken final check. | Repair the final check. |");
-    expect(output).not.toContain("Этап 6. Archive.");
+    expect(output).not.toContain("Stage 6. Archive.");
   });
 
   test("invalid rules with missing unit command blocks before rendering implementation prompts", () => {
@@ -784,7 +784,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
     expect(output).toContain("phase");
-    expect(output).not.toContain("Этап 5A. Phase Validation.");
+    expect(output).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("invalid rules with missing full command blocks before final validation prompt", () => {
@@ -807,7 +807,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
     expect(output).toContain("full");
-    expect(output).not.toContain("Этап 5B. Final Validation.");
+    expect(output).not.toContain("Stage 5B. Final Validation.");
   });
 
   test("invalid plan blocks before plan approval prompt", () => {
@@ -843,7 +843,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Design requires review");
     expect(output).toContain("architecture/design.md");
-    expect(output).not.toContain("Этап 5A. Phase Validation.");
+    expect(output).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("implementation prompt does not instruct agent to mark phase header completed", () => {
@@ -856,10 +856,10 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Этап 4. Implementation.");
+    expect(output).toContain("Stage 4. Implementation.");
     expect(output).toContain("bun test unit");
-    expect(output).toContain("не завершайте Implementation с failed tests/checks");
-    expect(output).not.toContain("измените статус фазы в заголовке плана с `[~]`");
+    expect(output).toContain("do not finish Implementation with failed tests/checks");
+    expect(output).not.toContain("change the phase status in the plan heading from `[~]`");
     expect(output).not.toContain("run unit tests");
   });
 
@@ -880,8 +880,8 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Этап 4. Implementation.");
-    expect(output).toContain("Дополнительные проверки текущей фазы из плана:");
+    expect(output).toContain("Stage 4. Implementation.");
+    expect(output).toContain("Additional checks for the current phase from the plan:");
     expect(output).toContain("bun test:e2e auth");
     expect(output).toContain("Browser smoke for login flow");
   });
@@ -908,7 +908,7 @@ Implementation note:
 
     const output = runNext();
 
-    expect(output).toContain("Контекст текущей фазы из плана:");
+    expect(output).toContain("Current phase context from the plan:");
     expect(output).toContain("Checks:");
     expect(output).toContain("Endpoint handles not found responses.");
     expect(output).toContain("Implementation note:");
@@ -932,10 +932,10 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5A. Phase Validation.");
-    expect(output).not.toContain("Дополнительные проверки текущей фазы из плана:");
+    expect(output).toContain("Stage 5A. Phase Validation.");
+    expect(output).not.toContain("Additional checks for the current phase from the plan:");
     expect(output).not.toContain("bun test:e2e auth");
-    expect(output).not.toContain("additional checks выполнены");
+    expect(output).not.toContain("additional checks are executed");
   });
 
   test("final validation does not include additional checks from implementation plan", () => {
@@ -951,8 +951,8 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Этап 5B. Final Validation.");
-    expect(output).not.toContain("Дополнительные проверки текущей single-phase фазы");
+    expect(output).toContain("Stage 5B. Final Validation.");
+    expect(output).not.toContain("Additional checks for the current single-phase phase");
     expect(output).not.toContain("bun test:e2e checkout");
     expect(output).not.toContain("applicable additional checks");
   });
@@ -980,9 +980,9 @@ describe("flow templates", () => {
       const template = readTemplate(templateName);
 
       expect(template).toContain("{{skill_policy}}");
-      expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Вход"));
-      expect(template).not.toContain("Агент может использовать любые доступные релевантные skills");
-      expect(template).not.toContain("session routers и tools для выполнения текущего этапа");
+      expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Input"));
+      expect(template).not.toContain("The agent may use any available relevant skills");
+      expect(template).not.toContain("session routers and tools for the current stage");
     }
   });
 
@@ -1010,7 +1010,7 @@ codex:
     expect(output).toContain("do not run that workflow");
     expect(output).toContain("do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`");
     expect(output).toContain("put non-registry explanation only in the final response");
-    expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Входные артефакты"));
+    expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Input artifacts"));
   });
 
   test("stage templates preserve explicit artifact allowlists", () => {
@@ -1038,10 +1038,10 @@ codex:
     const expectations: Array<[string, string[]]> = [
       ["step1_research.md", ["ADLC-style Intent Card", "Resolution signal", "Risk envelope", "PRD Intent Trace", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
       ["step2_design.md", ["ADLC-style Intent Card", "user/business intent", "generation target", "resolution signal", "risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step3_plan.md", ["Требования PRD и ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step4_impl.md", ["Требования PRD и ADLC-style Intent Card", "Resolution signal", "Generation target", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`", "`In scope:`"]],
-      ["step5a_val.md", ["Требования PRD и ADLC-style Intent Card", "Risk envelope", "Resolution signal", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`"]],
-      ["step5b_val.md", ["ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "каждый `R#`", "каждый `SC#`"]],
+      ["step3_plan.md", ["PRD requirements and ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
+      ["step4_impl.md", ["PRD requirements and ADLC-style Intent Card", "Resolution signal", "Generation target", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`", "`In scope:`"]],
+      ["step5a_val.md", ["PRD requirements and ADLC-style Intent Card", "Risk envelope", "Resolution signal", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`"]],
+      ["step5b_val.md", ["ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "every `R#`", "every `SC#`"]],
       ["step5r_repair.md", ["ADLC-style Intent Card", "Risk envelope", "Generation target", "Resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
       ["step6_archive.md", ["ADLC-style Intent Card", "business intent", "resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#` requirements"]]
     ];
@@ -1086,22 +1086,22 @@ codex:
   test("setup prompt forbids extra PRD sections and placeholders", () => {
     const setupTemplate = readTemplate("step0_setup.md");
 
-    expect(setupTemplate).toContain("строго такую видимую структуру");
-    expect(setupTemplate).toContain("Не добавляйте в `prd.md` другие `##` sections");
-    expect(setupTemplate).toContain("Не добавляйте в `prd.md` заголовки `###` или глубже");
-    expect(setupTemplate).toContain("Если информации не хватает для `R#`, `SC#`, `In scope:` / `Out of scope:` или `Intent Card`, задайте вопрос и не пишите `prd.md`.");
-    expect(setupTemplate).toContain("`TBD`, `TODO`, `unknown`, `clarify later` или `to be decided`");
+    expect(setupTemplate).toContain("exactly this visible structure");
+    expect(setupTemplate).toContain("Do not add other `##` sections to `prd.md`");
+    expect(setupTemplate).toContain("Do not add `###` or deeper headings to `prd.md`");
+    expect(setupTemplate).toContain("If information is missing for `R#`, `SC#`, `In scope:` / `Out of scope:`, or `Intent Card`, ask a question and do not write `prd.md`.");
+    expect(setupTemplate).toContain("`TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`");
   });
 
   test("downstream prompts require trace by PRD requirement and success criterion ids", () => {
     const expectations: Array<[string, string[]]> = [
-      ["step1_research.md", ["trace по каждому `R#` и `SC#`"]],
-      ["step2_design.md", ["design decisions покрывают каждый `R#` requirement и каждый `SC#` success criterion"]],
-      ["step3_plan.md", ["фазы, tasks, checks и `Check Evidence` с конкретными `R#` и `SC#`"]],
-      ["step4_impl.md", ["только связанные с текущей фазой `R#` и `SC#`"]],
-      ["step5a_val.md", ["против конкретных `R#` и `SC#`"]],
-      ["step5r_repair.md", ["ссылаться на конкретный `R#` или `SC#`"]],
-      ["step6_archive.md", ["`R#` requirements из `prd.md` как основной источник requirement-level содержания"]]
+      ["step1_research.md", ["trace for each `R#` and `SC#`"]],
+      ["step2_design.md", ["design decisions cover each `R#` requirement and each `SC#` success criterion"]],
+      ["step3_plan.md", ["connect phases, tasks, checks, and `Check Evidence` to concrete `R#` and `SC#`"]],
+      ["step4_impl.md", ["only the `R#` and `SC#` tied to the current phase"]],
+      ["step5a_val.md", ["against the concrete `R#` and `SC#`"]],
+      ["step5r_repair.md", ["reference the concrete `R#` or `SC#`"]],
+      ["step6_archive.md", ["Use `R#` requirements from `prd.md` as the primary source of requirement-level content"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
@@ -1115,9 +1115,9 @@ codex:
   test("final validation prompt checks every PRD requirement and success criterion", () => {
     const finalTemplate = readTemplate("step5b_val.md");
 
-    expect(finalTemplate).toContain("каждый `R#` реализован фактическим change set или имеет finding");
-    expect(finalTemplate).toContain("каждый `SC#` доказуемо выполнен или имеет finding");
-    expect(finalTemplate).toContain("`In scope:` покрыт, `Out of scope:` не реализован самовольно");
+    expect(finalTemplate).toContain("every `R#` is implemented by the actual change set or has a finding");
+    expect(finalTemplate).toContain("every `SC#` is demonstrably met or has a finding");
+    expect(finalTemplate).toContain("`In scope:` is covered and `Out of scope:` was not implemented without approval");
   });
 
   test("downstream prompts treat PRD gaps as blockers instead of silent assumptions", () => {
@@ -1127,13 +1127,13 @@ codex:
     const implementationTemplate = readTemplate("step4_impl.md");
     const validationTemplate = readTemplate("step5b_val.md");
 
-    expect(researchTemplate).toContain("не превращайте это в design assumption");
-    expect(researchTemplate).toContain("остановитесь, сообщите PRD blocker");
-    expect(designTemplate).toContain("если design требует такого изменения, остановитесь");
-    expect(planTemplate).toContain("не планируйте работу на silent assumptions");
-    expect(planTemplate).toContain("остановитесь и попросите пользователя пересогласовать PRD/design");
-    expect(implementationTemplate).toContain("не разрешайте deferred decisions из PRD самостоятельно");
-    expect(validationTemplate).toContain("если implementation решил deferred decision самовольно");
+    expect(researchTemplate).toContain("do not turn that into a design assumption");
+    expect(researchTemplate).toContain("Stop, report a PRD blocker");
+    expect(designTemplate).toContain("If design requires that kind of change, stop");
+    expect(planTemplate).toContain("do not plan work based on silent assumptions");
+    expect(planTemplate).toContain("stop and ask the user to realign the PRD/design");
+    expect(implementationTemplate).toContain("do not resolve deferred decisions from the PRD yourself");
+    expect(validationTemplate).toContain("if implementation resolved a deferred decision without approval");
   });
 
   test("stage templates avoid method-prescriptive implementation and validation wording", () => {
@@ -1141,17 +1141,17 @@ codex:
       "grep_search",
       "list_dir",
       "view_file",
-      "CQ-чеклист",
-      "E2E-тесты",
-      "проверку в браузере",
-      "ручное тестирование",
-      "Реализуйте минимальное",
-      "Прочитайте существующий код",
-      "Добавьте новые автоматические тесты",
+      "CQ checklist",
+      "E2E tests",
+      "browser check",
+      "manual testing",
+      "Implement the minimum",
+      "Read existing code",
+      "Add new automated tests",
       "hardcoded",
-      "Сделайте решение максимально расширяемым",
-      "стратегия тестирования",
-      "самостоятельно исследуйте"
+      "Make the solution maximally extensible",
+      "testing strategy",
+      "research independently"
     ];
 
     for (const templateName of templateNames) {
@@ -1166,21 +1166,21 @@ codex:
   test("design prompt treats architecture design as an entrypoint for linked subdocuments", () => {
     const template = readTemplate("step2_design.md");
 
-    expect(template).toContain("`architecture/design.md` является обязательной точкой входа");
-    expect(template).toContain("Дополнительные architecture files внутри `architecture/` разрешены");
-    expect(template).toContain("считаются частью утвержденного дизайна");
-    expect(template).toContain("Controller проверяет approval только у `architecture/design.md`");
+    expect(template).toContain("`architecture/design.md` is the required design-stage entry point");
+    expect(template).toContain("Additional architecture files inside `architecture/` are allowed");
+    expect(template).toContain("considered part of the approved design");
+    expect(template).toContain("The controller checks approval only on `architecture/design.md`");
   });
 
   test("design prompt requires visual-first architecture package decomposition", () => {
     const template = readTemplate("step2_design.md");
 
-    expect(template).toContain("architecture package entrypoint / index");
+    expect(template).toContain("architecture package entrypoint/index");
     expect(template).toContain("Architecture Package Map");
-    expect(template).toContain("target size: до 120 строк");
-    expect(template).toContain("не раздувайте выше 180 строк");
+    expect(template).toContain("target size: up to 120 lines");
+    expect(template).toContain("do not bloat it beyond 180 lines");
     expect(template).toContain("4+ material areas");
-    expect(template).toContain("отдельный раздел становится длиннее 40 строк");
+    expect(template).toContain("individual section becomes longer than 40 lines");
     expect(template).toContain("linked subdocument");
   });
 
@@ -1188,7 +1188,7 @@ codex:
     const template = readTemplate("step2_design.md");
 
     expect(template).toContain("Visual-first policy");
-    expect(template).toContain("минимум одну Mermaid-диаграмму");
+    expect(template).toContain("at least one Mermaid diagram");
     expect(template).toContain("```mermaid");
     expect(template).toContain("flowchart");
     expect(template).toContain("sequenceDiagram");
@@ -1201,31 +1201,31 @@ codex:
     const template = readTemplate("step2_design.md");
 
     expect(template).toContain("Small/single-file design");
-    expect(template).toContain("Если change маленький");
-    expect(template).toContain("можно оставить только `architecture/design.md`");
+    expect(template).toContain("If the change is small");
+    expect(template).toContain("it may stay entirely in `architecture/design.md`");
   });
 
   test("setup prompt requires task description and task-specific rules before artifacts", () => {
     const template = readTemplate("step0_setup.md");
 
-    expect(template).toContain("Сначала запросите у пользователя описание задачи/доработки");
-    expect(template).toContain("Затем отдельным запросом запросите правила и ограничения для этой задачи");
-    expect(template).toContain("Не создавайте `prd.md` и `rules.md`, пока оба пункта не получены");
-    expect(template).toContain("Проведите PRD intake перед созданием файлов");
-    expect(template).toContain("Используйте question tool для intake-вопросов");
-    expect(template).toContain("продолжайте intake столько раундов, сколько нужно");
-    expect(template).toContain("Не заменяйте неизвестные ADLC/PRD поля догадками");
-    expect(template).toContain("Для `feature` и `experiment` changes обязательно выясните");
-    expect(template).toContain("Для `fix`, `refactor` и `infra` changes обязательно выясните");
+    expect(template).toContain("First, ask the user for the task/change description");
+    expect(template).toContain("Then, in a separate request, ask for task-specific rules and constraints");
+    expect(template).toContain("Do not create `prd.md` or `rules.md` until both items are available");
+    expect(template).toContain("Run PRD intake before creating files");
+    expect(template).toContain("Use the question tool for intake questions");
+    expect(template).toContain("continue intake for as many rounds as needed");
+    expect(template).toContain("Do not replace unknown ADLC/PRD fields with guesses");
+    expect(template).toContain("For `feature` and `experiment` changes");
+    expect(template).toContain("For `fix`, `refactor`, and `infra` changes");
   });
 
   test("repair prompt requires approval reset for changed approved artifacts", () => {
     const template = readTemplate("step5r_repair.md");
 
-    expect(template).toContain("Повторный human approval");
+    expect(template).toContain("Human reapproval");
     expect(template).toContain("approved: true");
     expect(template).toContain("approved: false");
-    expect(template).toContain("Для чистого `implementation` repair не меняйте approval-статусы");
+    expect(template).toContain("for a pure `implementation` repair, do not change approval statuses");
   });
 
   test("validation prompts define ready_with_risks and blocking findings consistently", () => {
@@ -1242,24 +1242,24 @@ codex:
 
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("Validation mode: review-only stage");
-      expect(template).toContain("не является test execution gate");
+      expect(template).toContain("is not a test execution gate");
       expect(template).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
-      expect(template).toContain("итоговый файл должен строго соответствовать artifact template");
-      expect(template).toContain("`validation_findings.md` содержит только YAML frontmatter и ровно одну markdown-таблицу findings");
-      expect(template).toContain("не добавляйте в `validation_findings.md` prose, headings, evidence blocks, summaries, visual markers или дополнительные таблицы");
+      expect(template).toContain("the final file must strictly follow the artifact template");
+      expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
+      expect(template).toContain("do not add prose, headings, evidence blocks, summaries, visual markers, or extra tables to `validation_findings.md`");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
-      expect(template).toContain("новое замечание добавляйте новой строкой в начало таблицы");
-      expect(template).toContain("обновите существующую строку с тем же `ID`");
-      expect(template).toContain("без нового конкретного evidence из рабочего кода вне `openspec/**`");
-      expect(template).toContain("полностью игнорируйте `openspec/**`");
-      expect(template).toContain("не diff, не review и не report любые файлы под `openspec/**`");
+      expect(template).toContain("add a new finding as a new row at the top of the table");
+      expect(template).toContain("update the existing row with the same `ID`");
+      expect(template).toContain("without new concrete evidence from working code outside `openspec/**`");
+      expect(template).toContain("completely ignore `openspec/**`");
+      expect(template).toContain("do not diff, review, or report any files under `openspec/**`");
     }
 
     expect(repairTemplate).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
-    expect(repairTemplate).toContain("сохраняйте `type` в YAML frontmatter как scope последней validation");
-    expect(repairTemplate).toContain("исправление finding фиксируйте изменением `Status` существующей строки на `resolved`");
-    expect(repairTemplate).toContain("не удаляйте строки замечаний");
+    expect(repairTemplate).toContain("preserve `type` in YAML frontmatter as the scope of the latest validation");
+    expect(repairTemplate).toContain("record a fixed finding by changing the existing row `Status` to `resolved`");
+    expect(repairTemplate).toContain("do not delete finding rows");
   });
 
   test("approval prompts require flexible human-review formatting without rigid placeholder sections", () => {
@@ -1273,15 +1273,15 @@ codex:
     expect(initTemplate).not.toContain("Human Review Formatting Policy");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
     expect(setupTemplate).toContain("Human Review Formatting Policy");
-    expect(setupTemplate).toContain("Для `prd.md` не выбирайте структуру по содержанию");
-    expect(setupTemplate).toContain("используйте только строгий PRD contract");
+    expect(setupTemplate).toContain("For `prd.md`, do not choose structure based on content");
+    expect(setupTemplate).toContain("Use only the strict PRD contract");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("Human Review Formatting Policy");
-      expect(template).toContain("YAML frontmatter остается первым");
-      expect(template).toContain("Не создавайте пустые, декоративные или искусственные разделы");
-      expect(template).toContain("Структуру выбирайте по содержанию конкретного change");
-      expect(template).toContain("сохраните все machine-readable элементы");
+      expect(template).toContain("YAML frontmatter remains first");
+      expect(template).toContain("Do not create empty, decorative, or artificial sections");
+      expect(template).toContain("Choose structure based on the concrete change content");
+      expect(template).toContain("preserve all machine-readable");
     }
   });
 
@@ -1295,10 +1295,10 @@ codex:
 
     expect(initTemplate).not.toContain("compact visual review surface");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
-    expect(setupTemplate).toContain("Compact visual review surface для `prd.md` разрешен только");
+    expect(setupTemplate).toContain("A compact visual review surface for `prd.md` is allowed only");
     expect(setupTemplate).toContain("semantic emoji markers");
-    expect(setupTemplate).toContain("Не оставляйте approval artifact как обычную простыню");
-    expect(setupTemplate).toContain("Используйте один основной human language");
+    expect(setupTemplate).toContain("Do not leave an approval artifact as an ordinary wall");
+    expect(setupTemplate).toContain("Use one primary human language");
 
     for (const template of approvalTemplates) {
       expect(template).toContain("compact visual review surface");
@@ -1308,8 +1308,8 @@ codex:
       expect(template).toContain("🚫");
       expect(template).toContain("✅");
       expect(template).toContain("⚠️");
-      expect(template).toContain("Не оставляйте approval artifact как обычную простыню");
-      expect(template).toContain("Используйте один основной human language");
+      expect(template).toContain("Do not leave an approval artifact as an ordinary wall");
+      expect(template).toContain("Use one primary human language");
     }
   });
 
@@ -1321,22 +1321,22 @@ codex:
       readTemplate("step3_plan.md")
     ];
 
-    expect(initTemplate).not.toContain("Если вопрос влияет на approval artifact");
-    expect(initTemplate).toContain("Используй субагентов только когда");
-    expect(setupTemplate).toContain("Если вопрос влияет на approval artifact");
-    expect(setupTemplate).toContain("задайте его пользователю и остановитесь до ответа");
-    expect(setupTemplate).toContain("Не записывайте pending open questions");
-    expect(setupTemplate).toContain("Отделяйте accepted assumptions и deferred design-stage decisions");
-    expect(setupTemplate).toContain("Если список становится длиннее 7 пунктов");
-    expect(setupTemplate).toContain("Для `prd.md` используйте только разрешенные sections");
+    expect(initTemplate).not.toContain("If a question affects the approval artifact");
+    expect(initTemplate).toContain("Use subagents only when");
+    expect(setupTemplate).toContain("If a question affects the approval artifact");
+    expect(setupTemplate).toContain("ask the user and stop until the answer");
+    expect(setupTemplate).toContain("Do not write pending open questions");
+    expect(setupTemplate).toContain("Separate accepted assumptions and deferred design-stage decisions");
+    expect(setupTemplate).toContain("If a list grows beyond 7 items");
+    expect(setupTemplate).toContain("For `prd.md`, use only the allowed sections");
 
     for (const template of approvalTemplates) {
-      expect(template).toContain("Если вопрос влияет на approval artifact");
-      expect(template).toContain("задайте его пользователю и остановитесь до ответа");
-      expect(template).toContain("Не записывайте pending open questions");
-      expect(template).toContain("Отделяйте accepted assumptions и deferred design-stage decisions");
-      expect(template).toContain("Если список становится длиннее 7 пунктов");
-      expect(template).toContain("Используйте callouts");
+      expect(template).toContain("If a question affects the approval artifact");
+      expect(template).toContain("ask the user and stop until the answer");
+      expect(template).toContain("Do not write pending open questions");
+      expect(template).toContain("Separate accepted assumptions and deferred design-stage decisions");
+      expect(template).toContain("If a list grows beyond 7 items");
+      expect(template).toContain("Use callouts");
     }
   });
 
@@ -1349,14 +1349,14 @@ codex:
     ];
 
     for (const template of visualTemplates) {
-      expect(template).toContain("эмоджи");
-      expect(template).toContain("смысловые visual markers");
-      expect(template).toContain("не используйте эмоджи в YAML frontmatter");
-      expect(template).toContain("не используйте эмоджи в командах, file paths, code blocks");
+      expect(template).toContain("emoji");
+      expect(template).toContain("semantic visual markers");
+      expect(template).toContain("Do not use emoji in YAML frontmatter");
+      expect(template).toContain("Do not use emoji in commands, file paths, code blocks");
     }
 
     const planTemplate = readTemplate("step3_plan.md");
-    expect(planTemplate).toContain("не используйте эмоджи в machine-parsed заголовках фаз `## Phase N: <Название фазы> [<статус>]`");
+    expect(planTemplate).toContain("Do not use emoji in machine-parsed phase headings `## Phase N: <Phase name> [<status>]`");
   });
 
   test("validation prompts forbid visual markers in the machine-readable findings registry", () => {
@@ -1371,9 +1371,9 @@ codex:
       expect(template).not.toContain("Validation Visual Markers");
       expect(template).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
     }
-    expect(phaseTemplate).toContain("должен иметь `type: phase`");
-    expect(finalTemplate).toContain("должен иметь `type: final`");
-    expect(finalTemplate).toContain("не оставляйте template default `type: phase`");
+    expect(phaseTemplate).toContain("must have `type: phase`");
+    expect(finalTemplate).toContain("must have `type: final`");
+    expect(finalTemplate).toContain("do not leave the template default `type: phase`");
   });
 
   test("artifact templates define plan and findings contracts", () => {
@@ -1423,11 +1423,11 @@ codex:
   test("archive prompt keeps OpenSpec requirement text strict and non-decorative", () => {
     const archiveTemplate = readTemplate("step6_archive.md");
 
-    expect(archiveTemplate).toContain("валидным строгим реестром");
-    expect(archiveTemplate).toContain("не содержит open/reopened blocking findings");
-    expect(archiveTemplate).toContain("В финальном отчете можно использовать visual formatting");
-    expect(archiveTemplate).toContain("В OpenSpec requirement text не используйте эмоджи");
-    expect(archiveTemplate).toContain("OpenSpec specs остаются нормативными");
+    expect(archiveTemplate).toContain("valid strict registry");
+    expect(archiveTemplate).toContain("contains no open/reopened blocking findings");
+    expect(archiveTemplate).toContain("In the final report, visual formatting");
+    expect(archiveTemplate).toContain("Do not use emoji, decorative callouts, or rich formatting in OpenSpec requirement text");
+    expect(archiveTemplate).toContain("OpenSpec specs remain normative");
   });
 
   test("template renderer rejects unresolved placeholders", () => {
@@ -1439,10 +1439,10 @@ codex:
     const planTemplate = readTemplate("step3_plan.md");
     const planContract = readTemplate("artifacts/implementation_plan.md");
 
-    expect(initTemplate).toContain("После успешной Phase Validation всех фаз flow идет в `Final Validation`");
-    expect(initTemplate).not.toContain("Phase Validation не запускается отдельно");
-    expect(planTemplate).toContain("каждая фаза, включая единственную, проходит `Implementation -> Phase Validation`");
-    expect(planTemplate).not.toContain("Implementation -> Final Validation` без отдельной Phase Validation");
+    expect(initTemplate).toContain("After successful Phase Validation for all phases, the flow proceeds to `Final Validation`");
+    expect(initTemplate).not.toContain("Phase Validation does not run separately");
+    expect(planTemplate).toContain("every phase, including the only phase, goes through `Implementation -> Phase Validation`");
+    expect(planTemplate).not.toContain("Implementation -> Final Validation` without separate Phase Validation");
     expect(planContract).toContain("Additional checks:");
   });
 
@@ -1451,16 +1451,16 @@ codex:
     const archiveTemplate = readTemplate("step6_archive.md");
 
     expect(initTemplate).toContain("6. Archive");
-    expect(initTemplate).toContain("После успешной Final Validation следующий `flow next` запускает Archive");
+    expect(initTemplate).toContain("After successful Final Validation, the next `flow next` starts Archive");
     expect(archiveTemplate).toContain("[prd.md]({{prd_path}})");
     expect(archiveTemplate).toContain("[rules.md]({{rules_path}})");
     expect(archiveTemplate).toContain("[research_facts.md]({{research_path}})");
     expect(archiveTemplate).toContain("[design.md]({{design_path}})");
     expect(archiveTemplate).toContain("[implementation_plan.md]({{plan_path}})");
-    expect(archiveTemplate).toContain("Не используйте `validation_findings.md` как источник требований");
+    expect(archiveTemplate).toContain("Do not use `validation_findings.md` as a source of requirements");
     expect(archiveTemplate).toContain("{{archive_path}}/specs/<capability>/spec.md");
     expect(archiveTemplate).toContain("One spec file = one functional area.");
-    expect(archiveTemplate).toContain("Не создавайте один большой catch-all spec");
+    expect(archiveTemplate).toContain("Do not create one large catch-all spec");
     expect(archiveTemplate).toContain("## ADDED Requirements");
     expect(archiveTemplate).toContain("{{archive_state_path}}");
     expect(archiveTemplate).toContain("status: \"completed\"");

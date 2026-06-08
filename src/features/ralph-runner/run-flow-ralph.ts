@@ -35,14 +35,14 @@ export interface FlowRalphResult {
 
 function wrapNextPrompt(nextPrompt: FlowPrompt): string {
   return [
-    "Ниже приведен точный результат ручной команды `flow next`.",
+    "Below is the exact output of the manual `flow next` command.",
     "",
-    "Правила запуска:",
-    "- Выполните только напечатанный контракт этапа.",
-    "- Не запускайте `flow next`, `flow init` или контроллер flow самостоятельно.",
-    "- Не переходите к следующему этапу.",
-    "- Не проставляйте подтверждение человеком автоматически.",
-    "- Остановитесь, когда контракт этапа требует остановиться.",
+    "Run rules:",
+    "- Execute only the printed stage contract.",
+    "- Do not run `flow next`, `flow init`, or the flow controller yourself.",
+    "- Do not move to the next stage.",
+    "- Do not set human approval automatically.",
+    "- Stop when the stage contract requires stopping.",
     "",
     "=== FLOW NEXT PROMPT START ===",
     nextPrompt.prompt,

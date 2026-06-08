@@ -35,7 +35,7 @@ describe("flow-ralph config", () => {
     const config = parseFlowRalphConfig(`
 codex:
   default:
-    model: gpt-5.4-mini # варианты описаны в config.yaml
+    model: gpt-5.4-mini # variants are documented in config.yaml
     reasoningEffort: medium
   stages:
     archive:

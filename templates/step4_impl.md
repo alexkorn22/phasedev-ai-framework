@@ -1,48 +1,48 @@
-Этап 4. Implementation.
+Stage 4. Implementation.
 
-Stage contract: выполнить только текущую фазу approved implementation plan.
+Stage contract: complete only the current phase of the approved implementation plan.
 
 {{skill_policy}}
 
-Входные артефакты:
-- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Правила разработки: [rules.md]({{rules_path}})
-- Утвержденный дизайн: [design.md]({{design_path}})
-- План реализации: [implementation_plan.md]({{plan_path}})
+Input artifacts:
+- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- Development rules: [rules.md]({{rules_path}})
+- Approved design: [design.md]({{design_path}})
+- Implementation plan: [implementation_plan.md]({{plan_path}})
 
-Текущая фаза:
+Current phase:
 {{phase_id}}
 
-Задачи текущей фазы:
+Current phase tasks:
 {{phase_tasks}}
 
-Контекст текущей фазы из плана:
+Current phase context from the plan:
 {{phase_excerpt}}
 
-Дополнительные проверки текущей фазы из плана:
+Additional checks for the current phase from the plan:
 {{phase_checks}}
 
-Обязательные результаты:
-- задачи текущей фазы выполнены в рамках approved `prd.md`, approved design и approved plan;
-- change set текущей фазы выполняет только связанные с текущей фазой `R#` и `SC#` из approved plan и не расширяет scope за пределы `In scope:`;
-- change set текущей фазы не нарушает `Out of scope:`, `Risk envelope`, scope boundaries, accepted assumptions, deferred decisions и success criteria из [prd.md]({{prd_path}});
-- если во время implementation обнаружено, что approved plan/design не покрывает `Resolution signal`, `Generation target`, accepted assumptions, deferred decisions или risk boundary из PRD, остановитесь и сообщите blocker вместо расширения scope самостоятельно;
-- не разрешайте deferred decisions из PRD самостоятельно на Implementation этапе, если они не были resolved by approved design/plan;
-- task checkboxes текущей фазы в [implementation_plan.md]({{plan_path}}) обновлены на `[x]` для выполненных задач;
-- заголовок текущей фазы остается `[~]` до успешной validation;
-- gate command выполнена или причина невозможности зафиксирована: `{{test_command}}`;
-- additional checks выполнены или причина невозможности зафиксирована;
-- `### Check Evidence` текущей фазы в [implementation_plan.md]({{plan_path}}) обновлен после выполнения gate command и additional checks;
-- в `Check Evidence` используйте только `Result`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
-- не завершайте Implementation, если relevant `Check Evidence` текущей фазы остается `pending` или `failed`;
-- если check невозможно выполнить из-за внешнего blocker, зафиксируйте `Result = blocked`, краткую причину в `Evidence`/`Notes`, и объясните blocker в итоговом ответе;
-- если gate command или additional checks завершились с ошибкой, исправьте причину failure и повторяйте проверки до successful pass;
-- не завершайте Implementation с failed tests/checks, кроме внешнего blocker, который невозможно устранить в рамках текущего этапа;
-- итоговый ответ содержит краткое описание change set, gate evidence и оставшиеся риски.
+Required results:
+- current phase tasks are completed within the approved `prd.md`, approved design, and approved plan;
+- the current phase change set implements only the `R#` and `SC#` tied to the current phase in the approved plan and does not expand scope beyond `In scope:`;
+- the current phase change set does not violate `Out of scope:`, `Risk envelope`, scope boundaries, accepted assumptions, deferred decisions, or success criteria from [prd.md]({{prd_path}});
+- if implementation reveals that the approved plan/design does not cover `Resolution signal`, `Generation target`, accepted assumptions, deferred decisions, or risk boundary from the PRD, stop and report a blocker instead of expanding scope yourself;
+- do not resolve deferred decisions from the PRD yourself during Implementation if they were not resolved by the approved design/plan;
+- task checkboxes for the current phase in [implementation_plan.md]({{plan_path}}) are updated to `[x]` for completed tasks;
+- the current phase heading remains `[~]` until successful validation;
+- the gate command is executed or the reason it cannot be executed is recorded: `{{test_command}}`;
+- additional checks are executed or the reason they cannot be executed is recorded;
+- `### Check Evidence` for the current phase in [implementation_plan.md]({{plan_path}}) is updated after running the gate command and additional checks;
+- in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
+- do not finish Implementation if relevant `Check Evidence` for the current phase remains `pending` or `failed`;
+- if a check cannot be run because of an external blocker, record `Result = blocked`, a short reason in `Evidence`/`Notes`, and explain the blocker in the final response;
+- if the gate command or additional checks fail, fix the failure cause and repeat checks until they pass;
+- do not finish Implementation with failed tests/checks, except for an external blocker that cannot be resolved within the current stage;
+- the final response contains a brief description of the change set, gate evidence, and remaining risks.
 
-Ограничения:
-- не расширяйте scope за пределы текущей фазы, связанных `R#`/`SC#` и `In scope:` без явного решения пользователя;
-- не переводите фазу в `[x]` на этом этапе.
+Constraints:
+- do not expand scope beyond the current phase, related `R#`/`SC#`, and `In scope:` without an explicit user decision;
+- do not mark the phase as `[x]` at this stage.
 
 ## Artifact allowlist
 
@@ -50,6 +50,6 @@ Allowed persistent artifacts for this stage:
 - production/test code needed for current phase
 - task checkboxes and `Check Evidence` rows in `implementation_plan.md`
 
-Завершение шага:
-- После обновления change set и `implementation_plan.md` остановите работу.
-- Сообщите пользователю, что текущая фаза готова к validation и следующий переход выполняется через `flow next`.
+Stage completion:
+- After updating the change set and `implementation_plan.md`, stop.
+- Tell the user that the current phase is ready for validation and the next transition is run through `flow next`.

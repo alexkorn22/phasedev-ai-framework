@@ -275,7 +275,7 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("setup");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Этап 0. AI Layer Setup.");
+    expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
     expect(result.prompt).toContain("prd.md template");
     expect(result.prompt).toContain("## Intent Card");
   });
@@ -292,7 +292,7 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("implementation");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Этап 4. Implementation.");
+    expect(result.prompt).toContain("Stage 4. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -310,7 +310,7 @@ describe("flow controller typed stages", () => {
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("phase_validation");
-    expect(result.prompt).toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Stage 5A. Phase Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -325,7 +325,7 @@ describe("flow controller typed stages", () => {
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("phase_validation");
-    expect(result.prompt).toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Stage 5A. Phase Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -357,8 +357,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Этап 4. Implementation.");
-    expect(result.prompt).not.toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Stage 4. Implementation.");
+    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("completed tasks with failed check evidence stay in implementation", () => {
@@ -389,8 +389,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Этап 4. Implementation.");
-    expect(result.prompt).not.toContain("Этап 5A. Phase Validation.");
+    expect(result.prompt).toContain("Stage 4. Implementation.");
+    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
   });
 
   test("validated single-phase route reports final validation stage", () => {
@@ -406,7 +406,7 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("final_validation");
-    expect(result.prompt).toContain("Этап 5B. Final Validation.");
+    expect(result.prompt).toContain("Stage 5B. Final Validation.");
     expect(result.prompt).toContain("Generation Bundle");
     expect(result.prompt).toContain("Intent Card");
   });
@@ -424,7 +424,7 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("repair");
-    expect(result.prompt).toContain("Этап 5R. Repair Loop.");
+    expect(result.prompt).toContain("Stage 5R. Repair Loop.");
   });
 
   test("archive route reports archive stage and moves active change to pending archive", () => {
@@ -443,7 +443,7 @@ Complete API work.
     const statePath = path.join(archiveDir, ".flow-archive.json");
 
     expect(result.stage).toBe("archive");
-    expect(result.prompt).toContain("Этап 6. Archive.");
+    expect(result.prompt).toContain("Stage 6. Archive.");
     expect(fs.existsSync(changeDir)).toBe(false);
     expect(fs.existsSync(statePath)).toBe(true);
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({

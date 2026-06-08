@@ -1,57 +1,57 @@
-Этап 5B. Final Validation.
+Stage 5B. Final Validation.
 
-Stage contract: проверить реализованный рабочий код перед Archive.
+Stage contract: validate the implemented working code before Archive.
 
-Validation mode: review-only stage. Этот этап проверяет completeness/correctness review-методами и не является test execution gate.
+Validation mode: review-only stage. This stage checks completeness/correctness through review methods and is not a test execution gate.
 
 {{skill_policy}}
 
-Входные артефакты:
-- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Правила разработки: [rules.md]({{rules_path}})
-- Утвержденный дизайн: [design.md]({{design_path}})
-- План реализации: [implementation_plan.md]({{plan_path}})
+Input artifacts:
+- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- Development rules: [rules.md]({{rules_path}})
+- Approved design: [design.md]({{design_path}})
+- Implementation plan: [implementation_plan.md]({{plan_path}})
 
-Обязательные проверки stage contract:
-- все фазы в [implementation_plan.md]({{plan_path}}) имеют статус `[x]`; Final Validation не переводит фазы в `[x]`;
-- PRD-first проверка: фактический change set должен удовлетворять утвержденному [prd.md]({{prd_path}}), а не только implementation plan;
-- `Intent Card`: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline` и `Risk envelope` согласованы с фактической реализацией и validation evidence;
-- `Requirements`: каждый `R#` реализован фактическим change set или имеет finding;
-- `Scope Boundaries`: `In scope:` покрыт, `Out of scope:` не реализован самовольно;
-- `Success Criteria`: каждый `SC#` доказуемо выполнен или имеет finding;
-- `Accepted Assumptions`: assumptions не опровергнуты фактическим change set; если assumption больше не верен, добавьте `requirements` или `design` finding по причине;
-- `Deferred Decisions`: resolved only через approved design/plan или остались outside implementation scope; если implementation решил deferred decision самовольно, добавьте finding;
-- `Generation target` из `Intent Card` покрыт approved plan/design и фактическим change set;
-- `Resolution signal` из `Intent Card` покрыт checks/evidence, если он не `not_applicable`;
-- `Risk envelope` из `Intent Card` не нарушен; если risk acceptance требуется, finding должен быть `RECOMMENDED` или `MUST-FIX` по severity;
-- полнота production/test/source/config changes approved plan-а проверена review-методами без запуска тестов;
-- `Generation Bundle` в [implementation_plan.md]({{plan_path}}) проверен против фактического change set: заявленные required areas должны быть выполнены или иметь finding;
-- `Check Evidence` для relevant phase scope в [implementation_plan.md]({{plan_path}}) проверен как evidence выполнения Implementation checks;
-- если relevant `Check Evidence` отсутствует, остается `pending`, содержит `failed`, или не объясняет `blocked`, добавьте finding с `Class = validation` или более точным class, если есть конкретная implementation/design/plan причина;
-- если finding относится к требованию или критерию успеха PRD, в `Finding` или `Required Fix` обязательно укажите конкретный `R#` или `SC#`;
-- полностью игнорируйте `openspec/**` при поиске implementation findings: не diff, не review и не report любые файлы под `openspec/**` как change set, product code, PR scope или источник замечаний;
-- используйте `openspec/changes/<active>` только как read-only входной контракт flow: requirements, rules, approved design, plan и previous validation history;
-- тесты и дополнительные проверки из Implementation stage считаются уже успешно пройденными, потому что Implementation не может завершиться с failed tests/checks;
-- не запускайте `unit`, `phase`, `full` или дополнительные проверки повторно на этом этапе;
-- результат validation записан в [validation_findings.md]({{findings_path}});
-- перед записью результата прочитайте artifact template: [validation_findings.md template]({{validation_findings_template_path}});
-- YAML frontmatter в [validation_findings.md]({{findings_path}}) должен иметь `type: final` для Final Validation; не оставляйте template default `type: phase`;
-- перед поиском новых ошибок прочитайте существующий `validation_findings.md`, если он есть;
-- итоговый файл должен строго соответствовать artifact template и strict registry rules из template comments;
-- `validation_findings.md` содержит только YAML frontmatter и ровно одну markdown-таблицу findings;
-- не добавляйте в `validation_findings.md` prose, headings, evidence blocks, summaries, visual markers или дополнительные таблицы;
-- не удаляйте строки замечаний;
-- новое замечание добавляйте новой строкой в начало таблицы;
-- если finding семантически совпадает с прежним, обновите существующую строку с тем же `ID` и не создавайте дубликат;
-- если прежний finding был `resolved`, не меняйте его на `reopened` без нового конкретного evidence из рабочего кода вне `openspec/**`;
-- если finding действительно вернулся после repair, отметьте его как reopened по artifact template rules;
-- если открытых замечаний нет, все равно сохраните пустую таблицу с header и separator row из artifact template.
+Required stage-contract checks:
+- all phases in [implementation_plan.md]({{plan_path}}) have status `[x]`; Final Validation does not mark phases as `[x]`;
+- PRD-first check: the actual change set must satisfy the approved [prd.md]({{prd_path}}), not only the implementation plan;
+- `Intent Card`: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline`, and `Risk envelope` align with actual implementation and validation evidence;
+- `Requirements`: every `R#` is implemented by the actual change set or has a finding;
+- `Scope Boundaries`: `In scope:` is covered and `Out of scope:` was not implemented without approval;
+- `Success Criteria`: every `SC#` is demonstrably met or has a finding;
+- `Accepted Assumptions`: assumptions are not disproven by the actual change set; if an assumption is no longer true, add a `requirements` or `design` finding for that reason;
+- `Deferred Decisions`: resolved only through approved design/plan or remained outside implementation scope; if implementation resolved a deferred decision without approval, add a finding;
+- `Generation target` from `Intent Card` is covered by approved plan/design and the actual change set;
+- `Resolution signal` from `Intent Card` is covered by checks/evidence when it is not `not_applicable`;
+- `Risk envelope` from `Intent Card` is not violated; if risk acceptance is required, the finding must be `RECOMMENDED` or `MUST-FIX` by severity;
+- completeness of production/test/source/config changes from the approved plan is checked through review methods without running tests;
+- `Generation Bundle` in [implementation_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
+- `Check Evidence` for relevant phase scope in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
+- if relevant `Check Evidence` is missing, remains `pending`, contains `failed`, or does not explain `blocked`, add a finding with `Class = validation` or a more precise class if there is a concrete implementation/design/plan cause;
+- if a finding relates to a PRD requirement or success criterion, `Finding` or `Required Fix` must include the concrete `R#` or `SC#`;
+- completely ignore `openspec/**` when looking for implementation findings: do not diff, review, or report any files under `openspec/**` as change set, product code, PR scope, or finding source;
+- use `openspec/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history;
+- tests and additional checks from the Implementation stage are considered already successful because Implementation cannot finish with failed tests/checks;
+- do not rerun `unit`, `phase`, `full`, or additional checks at this stage;
+- validation result is written to [validation_findings.md]({{findings_path}});
+- before writing the result, read the artifact template: [validation_findings.md template]({{validation_findings_template_path}});
+- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation; do not leave the template default `type: phase`;
+- before searching for new issues, read existing `validation_findings.md` if it exists;
+- the final file must strictly follow the artifact template and strict registry rules from the template comments;
+- `validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table;
+- do not add prose, headings, evidence blocks, summaries, visual markers, or extra tables to `validation_findings.md`;
+- do not delete finding rows;
+- add a new finding as a new row at the top of the table;
+- if a finding semantically matches a previous finding, update the existing row with the same `ID` and do not create a duplicate;
+- if a previous finding was `resolved`, do not change it to `reopened` without new concrete evidence from working code outside `openspec/**`;
+- if a finding really returned after repair, mark it as reopened according to the artifact template rules;
+- if there are no open findings, still save an empty table with the header and separator row from the artifact template.
 
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
 - `validation_findings.md`
 
-Завершение шага:
-- После записи `validation_findings.md` остановите работу.
-- Сообщите пользователю verdict и следующий переход через `flow next`.
+Stage completion:
+- After writing `validation_findings.md`, stop.
+- Tell the user the verdict and the next transition through `flow next`.

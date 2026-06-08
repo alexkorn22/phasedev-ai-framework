@@ -1,49 +1,49 @@
-Запомни схему Agentic Engineering Flow для этой сессии.
+Remember the Agentic Engineering Flow model for this session.
 
-Этот prompt инициализирует контекст работы:
-- не начинай выполнять этапы после него;
-- не считай, что нужно автоматически стартовать с Этапа 0;
-- нужный этап и его задачу я передам следующим prompt (через команду flow next);
-- этапы до текущего могли быть уже пройдены в другой сессии.
+This prompt initializes the working context:
+- do not start executing stages after this prompt;
+- do not assume that work should automatically start from Stage 0;
+- I will provide the needed stage and task in the next prompt through `flow next`;
+- stages before the current one may already have been completed in another session.
 
 ## Current Flow State
 
 - Stage: `{{current_stage}}`
 - Active change: {{active_change_path}}
 
-Базовый каталог для артефактов изменений: `openspec/changes/<название-доработки>/` в корне проекта.
+Base directory for change artifacts: `openspec/changes/<change-name>/` at the project root.
 
-Используй этот каталог для сохранения и чтения артефактов:
-- `prd.md` - утвержденные продуктовые требования по artifact template, включая обязательный `Intent Card`;
-- `rules.md` - глобальные правила и ограничения;
-- `research_facts.md` - факты исследования кодовой базы;
-- `architecture/design.md` - главный утвержденный технический дизайн;
-- `implementation_plan.md` - план реализации по фазам;
-- `validation_findings.md` - замечания validation и статус их исправления.
+Use this directory to save and read artifacts:
+- `prd.md` - approved product requirements from the artifact template, including the required `Intent Card`;
+- `rules.md` - global rules and constraints;
+- `research_facts.md` - codebase research facts;
+- `architecture/design.md` - main approved technical design;
+- `implementation_plan.md` - phased implementation plan;
+- `validation_findings.md` - validation findings and their repair status.
 
-Схема работы:
-0. AI Layer Setup: уточнить требования у пользователя, изучить проект и подготовить `prd.md` и `rules.md`.
-1. Research: собрать `research_facts.md` только из подтвержденных фактов.
-2. Design: подготовить дизайн-документы для Human Review.
-3. Plan: разложить утвержденный дизайн в `implementation_plan.md` для Human Review.
-4. Implementation: выполнить одну фазу плана в чистом контексте.
-5A. Phase Validation: проверить готовый код текущей фазы по implementation plan.
-5B. Final Validation: проверить весь change set перед PR после всех фаз.
-5R. Repair Loop: обработать замечания validation и исправить код/тесты/план/дизайн.
-6. Archive: синхронизировать OpenSpec delta specs из archived change в `openspec/specs` и завершить `.flow-archive.json`.
+Workflow model:
+0. AI Layer Setup: clarify requirements with the user, inspect the project, and prepare `prd.md` and `rules.md`.
+1. Research: collect `research_facts.md` from verified facts only.
+2. Design: prepare design documents for Human Review.
+3. Plan: decompose the approved design into `implementation_plan.md` for Human Review.
+4. Implementation: complete one plan phase in a clean context.
+5A. Phase Validation: validate the completed code for the current phase against the implementation plan.
+5B. Final Validation: validate the whole change set before PR after all phases.
+5R. Repair Loop: process validation findings and repair code/tests/plan/design.
+6. Archive: sync OpenSpec delta specs from the archived change into `openspec/specs` and complete `.flow-archive.json`.
 
-Маршрутизация validation:
-- Каждая фаза, включая единственную фазу single-phase плана, проходит `Implementation -> Phase Validation`.
-- После успешной Phase Validation всех фаз flow идет в `Final Validation`.
-- В нормальном состоянии одновременно может быть только одна фаза со статусом `[~]`.
-- После успешной Final Validation следующий `flow next` запускает Archive.
+Validation routing:
+- Every phase, including the only phase in a single-phase plan, goes through `Implementation -> Phase Validation`.
+- After successful Phase Validation for all phases, the flow proceeds to `Final Validation`.
+- In the normal state, only one phase may have status `[~]` at a time.
+- After successful Final Validation, the next `flow next` starts Archive.
 
-Правила flow:
-- Каждый этап использует только нужные входные артефакты.
-- Выполнив задачи текущего этапа, запиши результаты в файлы изменений, после чего останови работу и сообщи пользователю о готовности.
-- НЕ переходи к следующему этапу самостоятельно. Переход на следующий этап осуществляется только после того, как пользователь запустит команду `flow next` и передаст тебе следующую инструкцию.
-- Если в ходе выполнения этапа тебе требуется сделать продуктовый или архитектурный выбор, не пиши код наобум — спроси пользователя через question tool или обычное сообщение и дождись ответа.
-- Используй субагентов только когда это явно снижает риск, объем ручного анализа или вероятность пропустить важный evidence.
+Flow rules:
+- Each stage uses only the input artifacts it needs.
+- After completing the current stage tasks, write results into the change files, then stop and tell the user the stage is ready.
+- DO NOT move to the next stage yourself. The next-stage transition happens only after the user runs `flow next` and gives you the next instruction.
+- If you need to make a product or architecture choice during the stage, do not write speculative code. Ask the user through the question tool or a normal message and wait for the answer.
+- Use subagents only when they clearly reduce risk, manual analysis volume, or the chance of missing important evidence.
 
 Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.
 Do not infer allowed skills from this init prompt.

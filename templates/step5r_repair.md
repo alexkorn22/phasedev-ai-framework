@@ -1,49 +1,49 @@
-Этап 5R. Repair Loop.
+Stage 5R. Repair Loop.
 
-Stage contract: обработать open findings из validation и подготовить change к повторной validation.
+Stage contract: process open validation findings and prepare the change for validation again.
 
 {{skill_policy}}
 
-Входные артефакты:
-- Отчет валидации: [validation_findings.md]({{findings_path}})
-- План реализации: [implementation_plan.md]({{plan_path}})
-- Технический дизайн: [design.md]({{design_path}})
-- Требования PRD и ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Результаты исследования: [research_facts.md]({{research_path}})
-- Правила разработки: [rules.md]({{rules_path}})
+Input artifacts:
+- Validation report: [validation_findings.md]({{findings_path}})
+- Implementation plan: [implementation_plan.md]({{plan_path}})
+- Technical design: [design.md]({{design_path}})
+- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- Research results: [research_facts.md]({{research_path}})
+- Development rules: [rules.md]({{rules_path}})
 
 {{repair_queue}}
 
-Правила обработки findings:
-- перед изменением реестра прочитайте artifact template: [validation_findings.md template]({{validation_findings_template_path}});
-- [validation_findings.md]({{findings_path}}) должен строго соответствовать artifact template и strict registry rules из template comments;
-- рабочая очередь выше содержит только актуальные blocking findings;
-- repair должен сохранять соответствие `Intent Card`, `R#` requirements, scope boundaries, `SC#` success criteria, `Accepted Assumptions`, `Deferred Decisions` и `Risk envelope` из [prd.md]({{prd_path}});
-- если finding относится к requirement или success criterion, repair path и обновленная строка finding должны ссылаться на конкретный `R#` или `SC#`;
-- если fixing path требует изменить `Generation target`, `Resolution signal`, конкретный `R#`, scope boundaries, конкретный `SC#`, accepted assumptions, deferred decisions или risk envelope из PRD, это `requirements` finding path: обсудите с пользователем и сбросьте approval измененного `prd.md`;
-- не удаляйте строки замечаний;
-- исправление finding фиксируйте изменением `Status` существующей строки на `resolved`;
-- не меняйте стабильные поля существующей строки, если это не нужно для исправления явной ошибки в строке;
-- если repair повторно запускает checks или меняет evidence по затронутой фазе, обновите `Check Evidence` в [implementation_plan.md]({{plan_path}});
-- в `Check Evidence` используйте только `Result`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
-- не оставляйте relevant repair evidence в состоянии `pending` или `failed`, кроме внешнего blocker, который зафиксирован как `blocked` с причиной;
-- `implementation`: обновите change set в рамках текущего approved design и plan;
-- `plan`: обновите [implementation_plan.md]({{plan_path}}), затем обновите affected change set;
-- `design`: обновите [design.md]({{design_path}}) и связанные architecture files, затем обновите affected plan/change set;
-- `requirements`: после обсуждения с пользователем обновите [prd.md]({{prd_path}}), затем affected design/plan/change set;
-- если в table cell нужен символ `|`, он должен быть экранирован как `\|`.
+Finding handling rules:
+- before changing the registry, read the artifact template: [validation_findings.md template]({{validation_findings_template_path}});
+- [validation_findings.md]({{findings_path}}) must strictly follow the artifact template and strict registry rules from the template comments;
+- the work queue above contains only current blocking findings;
+- repair must preserve alignment with the `Intent Card`, `R#` requirements, scope boundaries, `SC#` success criteria, `Accepted Assumptions`, `Deferred Decisions`, and `Risk envelope` from [prd.md]({{prd_path}});
+- if a finding relates to a requirement or success criterion, the repair path and updated finding row must reference the concrete `R#` or `SC#`;
+- if the fixing path requires changing `Generation target`, `Resolution signal`, a concrete `R#`, scope boundaries, a concrete `SC#`, accepted assumptions, deferred decisions, or risk envelope from the PRD, this is a `requirements` finding path: discuss it with the user and reset approval on the changed `prd.md`;
+- do not delete finding rows;
+- record a fixed finding by changing the existing row `Status` to `resolved`;
+- do not change stable fields in an existing row unless needed to fix an explicit error in the row;
+- if repair reruns checks or changes evidence for the affected phase, update `Check Evidence` in [implementation_plan.md]({{plan_path}});
+- in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
+- do not leave relevant repair evidence as `pending` or `failed`, except for an external blocker recorded as `blocked` with a reason;
+- `implementation`: update the change set within the current approved design and plan;
+- `plan`: update [implementation_plan.md]({{plan_path}}), then update the affected change set;
+- `design`: update [design.md]({{design_path}}) and related architecture files, then update the affected plan/change set;
+- `requirements`: after discussing with the user, update [prd.md]({{prd_path}}), then the affected design/plan/change set;
+- if a table cell needs a literal `|`, escape it as `\|`.
 
-Правило verdict:
-- сохраняйте `type` в YAML frontmatter как scope последней validation: `phase` для Phase Validation repair, `final` для Final Validation repair; не сбрасывайте final repair на template default `phase`;
-- не меняйте `verdict: repair_required`, пока все актуальные blocking findings не имеют последний статус `resolved`;
-- когда все актуальные blocking findings имеют последний статус `resolved`, установите `verdict: repaired` и обновите дату;
-- не устанавливайте `ready` или `ready_with_risks` на Repair Loop этапе.
+Verdict rule:
+- preserve `type` in YAML frontmatter as the scope of the latest validation: `phase` for Phase Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `phase`;
+- do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`;
+- when all current blocking findings have latest status `resolved`, set `verdict: repaired` and update the date;
+- do not set `ready` or `ready_with_risks` during the Repair Loop stage.
 
-Повторный human approval:
-- если во время repair изменили уже утвержденный `prd.md`, `architecture/design.md` или `implementation_plan.md`, измените YAML frontmatter этого артефакта с `approved: true` на `approved: false` и очистите `approved_by`, если поле есть;
-- это разрешено только для артефактов, которые действительно изменены в этом repair;
-- обновление только task checkboxes, phase status или `Check Evidence` в `implementation_plan.md` не считается изменением approved plan content и не требует сброса approval;
-- Для чистого `implementation` repair не меняйте approval-статусы требований, дизайна или плана.
+Human reapproval:
+- if repair changes an already approved `prd.md`, `architecture/design.md`, or `implementation_plan.md`, change that artifact's YAML frontmatter from `approved: true` to `approved: false` and clear `approved_by` if the field exists;
+- this is allowed only for artifacts that are actually changed in this repair;
+- updating only task checkboxes, phase status, or `Check Evidence` in `implementation_plan.md` does not count as changing approved plan content and does not require resetting approval;
+- for a pure `implementation` repair, do not change approval statuses for requirements, design, or plan.
 
 ## Artifact allowlist
 
@@ -52,6 +52,6 @@ Allowed persistent artifacts for this stage:
 - affected approved flow artifacts required by finding class
 - `validation_findings.md`
 
-Завершение шага:
-- После перевода всех актуальных blocking findings в `resolved` и установки `verdict: repaired` остановите работу.
-- Сообщите пользователю, что repair готов к повторной validation через `flow next`.
+Stage completion:
+- After moving all current blocking findings to `resolved` and setting `verdict: repaired`, stop.
+- Tell the user that repair is ready for validation again through `flow next`.
