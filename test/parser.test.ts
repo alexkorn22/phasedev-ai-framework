@@ -1279,6 +1279,26 @@ date: 2026-05-30
     expect(artifact.openBlockingRows[0]?.className).toBe("validation");
   });
 
+  test("parseValidationFindingsArtifact accepts security and code review classes", () => {
+    const findingsFile = path.join(testTmpDir, "review_classes.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: repair_required
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | security | Final | State-changing endpoint lacks an authorization check. | Add authorization before mutation. |
+| F2 | open | MUST-FIX | code_review | Final | Error path can throw before returning the expected blocker prompt. | Handle the error path before returning. |
+`, "utf-8");
+
+    const artifact = parseValidationFindingsArtifact(findingsFile);
+
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.openBlockingRows.map(row => row.className)).toEqual(["security", "code_review"]);
+  });
+
   test("parseValidationFindingsArtifact validates verdict consistency from severity", () => {
     const readyRisksBlockingFile = path.join(testTmpDir, "ready_risks_blocking.md");
     fs.writeFileSync(readyRisksBlockingFile, `---

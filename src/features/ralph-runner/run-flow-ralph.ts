@@ -6,7 +6,7 @@ import { readArchiveState } from "../../entities/flow-change/archive-state";
 import { archiveRootPath } from "../../entities/flow-change/paths";
 import { FlowPrompt } from "../../entities/flow-stage/types";
 import { getInitPrompt, getNextPrompt } from "../flow-control";
-import { createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
+import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { FlowRalphConfig, getStageModelConfig, resolveProjectLogDir } from "./config";
 import { createRalphOutput, RalphOutput } from "./ralph-output";
 import { FetchLike } from "./telegram-notifier";
@@ -31,6 +31,12 @@ export interface FlowRalphResult {
   iterations: number;
   logPath: string;
   reason: string;
+}
+
+interface ChangedFiles {
+  added: string[];
+  modified: string[];
+  deleted: string[];
 }
 
 function wrapNextPrompt(nextPrompt: FlowPrompt): string {
@@ -81,37 +87,44 @@ function hasCompletedArchivedChange(projectPath: string, previousActiveChange: s
   });
 }
 
-function isIgnoredSnapshotPath(itemPath: string, projectPath: string, logDir: string): boolean {
-  const relativePath = path.relative(projectPath, itemPath);
-  if (relativePath === "") return false;
-
-  const firstSegment = relativePath.split(path.sep)[0];
-  return firstSegment === ".git" ||
-         firstSegment === "node_modules" ||
-         firstSegment === ".cache" ||
-         firstSegment === "dist" ||
-         firstSegment === "build" ||
-         itemPath === logDir ||
-         itemPath.startsWith(`${logDir}${path.sep}`);
+function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
+  return itemPath === logDir || itemPath.startsWith(`${logDir}${path.sep}`);
 }
 
-function snapshotProjectState(projectPath: string, logDir: string): Map<string, string> {
+function snapshotFlowState(projectPath: string, logDir: string): Map<string, string> {
   const root = path.resolve(projectPath);
+  const openspecRoot = path.join(root, "openspec");
   const snapshot = new Map<string, string>();
 
   function visit(itemPath: string): void {
-    if (isIgnoredSnapshotPath(itemPath, root, logDir)) {
+    if (isIgnoredFlowSnapshotPath(itemPath, logDir)) {
       return;
     }
 
-    const stat = fs.statSync(itemPath);
-    const relativePath = path.relative(root, itemPath);
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(itemPath);
+    } catch {
+      return;
+    }
+
+    if (stat.isSymbolicLink()) {
+      return;
+    }
 
     if (stat.isDirectory()) {
+      const relativePath = path.relative(root, itemPath);
       const dirHash = createHash("sha256").update(relativePath).update("dir").digest("hex");
       snapshot.set(relativePath, dirHash);
 
-      for (const item of fs.readdirSync(itemPath).sort()) {
+      let items: string[];
+      try {
+        items = fs.readdirSync(itemPath).sort();
+      } catch {
+        return;
+      }
+
+      for (const item of items) {
         visit(path.join(itemPath, item));
       }
       return;
@@ -120,6 +133,7 @@ function snapshotProjectState(projectPath: string, logDir: string): Map<string, 
     if (stat.isFile()) {
       try {
         const content = fs.readFileSync(itemPath);
+        const relativePath = path.relative(root, itemPath);
         const fileHash = createHash("sha256").update(content).digest("hex");
         snapshot.set(relativePath, fileHash);
       } catch {
@@ -128,7 +142,9 @@ function snapshotProjectState(projectPath: string, logDir: string): Map<string, 
     }
   }
 
-  visit(root);
+  if (fs.existsSync(openspecRoot)) {
+    visit(openspecRoot);
+  }
   return snapshot;
 }
 
@@ -143,7 +159,7 @@ function computeCombinedHash(snapshot: Map<string, string>): string {
   return hash.digest("hex");
 }
 
-function getChangedFiles(before: Map<string, string>, after: Map<string, string>): { added: string[]; modified: string[]; deleted: string[] } {
+function getChangedFiles(before: Map<string, string>, after: Map<string, string>): ChangedFiles {
   const added: string[] = [];
   const modified: string[] = [];
   const deleted: string[] = [];
@@ -165,11 +181,74 @@ function getChangedFiles(before: Map<string, string>, after: Map<string, string>
   return { added, modified, deleted };
 }
 
+function normalizeReportedFileChangePath(projectPath: string, reportedPath: string): string | null {
+  if (reportedPath.trim() === "") {
+    return null;
+  }
+
+  const absolutePath = path.isAbsolute(reportedPath) ? reportedPath : path.join(projectPath, reportedPath);
+  const relativePath = path.relative(projectPath, absolutePath);
+  if (relativePath === "" || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return reportedPath.replace(/\\/g, "/");
+  }
+
+  return relativePath.replace(/\\/g, "/");
+}
+
+function changedFilesFromReportedFileChanges(projectPath: string, fileChanges: CodexFileChange[]): ChangedFiles {
+  const changed: ChangedFiles = { added: [], modified: [], deleted: [] };
+
+  for (const fileChange of fileChanges) {
+    const normalizedPath = normalizeReportedFileChangePath(projectPath, fileChange.path);
+    if (normalizedPath === null) {
+      continue;
+    }
+
+    const kind = fileChange.kind.toLowerCase();
+    if (kind === "delete" || kind === "deleted" || kind === "remove" || kind === "removed") {
+      changed.deleted.push(normalizedPath);
+    } else if (kind === "create" || kind === "created" || kind === "add" || kind === "added") {
+      changed.added.push(normalizedPath);
+    } else {
+      changed.modified.push(normalizedPath);
+    }
+  }
+
+  return changed;
+}
+
+function mergeChangedFiles(...changes: ChangedFiles[]): ChangedFiles {
+  const added = new Set<string>();
+  const modified = new Set<string>();
+  const deleted = new Set<string>();
+
+  for (const change of changes) {
+    for (const file of change.added) added.add(file);
+    for (const file of change.modified) modified.add(file);
+    for (const file of change.deleted) deleted.add(file);
+  }
+
+  return {
+    added: Array.from(added).sort(),
+    modified: Array.from(modified).sort(),
+    deleted: Array.from(deleted).sort()
+  };
+}
+
+function hasReportedCodeChange(changed: ChangedFiles): boolean {
+  return [...changed.added, ...changed.modified, ...changed.deleted]
+    .some(filePath => !filePath.replace(/\\/g, "/").startsWith("openspec/"));
+}
+
+function isOutsideProjectPath(normalizedPath: string): boolean {
+  return path.isAbsolute(normalizedPath) || normalizedPath === ".." || normalizedPath.startsWith("../");
+}
+
 function validateStageAllowlist(
   stage: string,
   projectPath: string,
   activeChangeDir: string | null,
-  changed: { added: string[]; modified: string[]; deleted: string[] }
+  changed: ChangedFiles
 ): string[] {
   const violations: string[] = [];
   const allChanged = [...changed.added, ...changed.modified, ...changed.deleted];
@@ -181,6 +260,11 @@ function validateStageAllowlist(
 
   for (const relPath of allChanged) {
     const normalized = relPath.replace(/\\/g, "/");
+
+    if (isOutsideProjectPath(normalized)) {
+      violations.push(`File '${normalized}' modified outside project path.`);
+      continue;
+    }
 
     if (normalized.startsWith("openspec/flow-ralph/") || normalized === "openspec/flow-ralph") {
       continue;
@@ -306,15 +390,17 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       reporter.log("[FLOW RALPH] running flow init...");
       await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
       reporter.log("[FLOW RALPH] flow init completed");
-      const beforeStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
+      const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
       reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
       const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
-      const afterStageSnapshot = snapshotProjectState(resolvedProjectPath, logDir);
+      const afterStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
 
       const beforeHash = computeCombinedHash(beforeStageSnapshot);
       const afterHash = computeCombinedHash(afterStageSnapshot);
 
-      const changedFiles = getChangedFiles(beforeStageSnapshot, afterStageSnapshot);
+      const flowChangedFiles = getChangedFiles(beforeStageSnapshot, afterStageSnapshot);
+      const reportedChangedFiles = changedFilesFromReportedFileChanges(resolvedProjectPath, turn.fileChanges);
+      const changedFiles = mergeChangedFiles(flowChangedFiles, reportedChangedFiles);
       const activeChangeDir = findActive(resolvedProjectPath);
       const allowlistViolations = validateStageAllowlist(
         nextPrompt.stage,
@@ -360,7 +446,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
       }
 
-      if (beforeHash === afterHash) {
+      if (beforeHash === afterHash && !hasReportedCodeChange(reportedChangedFiles)) {
         reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
         reporter.log(`[FLOW RALPH] log: ${logPath}`);
         return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };

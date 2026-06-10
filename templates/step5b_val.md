@@ -25,6 +25,10 @@ Required stage-contract checks:
 - `Resolution signal` from `Intent Card` is covered by checks/evidence when it is not `not_applicable`;
 - `Risk envelope` from `Intent Card` is not violated; if risk acceptance is required, the finding must be `RECOMMENDED` or `MUST-FIX` by severity;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods without running tests;
+- mandatory final code review pass: perform a read-only code review over the actual change set outside `openspec/**` using the configured skill policy; if no authorized configured method can support this pass or the review evidence is insufficient, add a `MUST-FIX` finding with `Class = validation`;
+- mandatory final security review pass: perform a read-only security review over the actual change set outside `openspec/**` using the configured skill policy; if no authorized configured method can support this pass or the review evidence is insufficient, add a `MUST-FIX` finding with `Class = validation`;
+- findings from the code review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = code_review` unless a more precise existing class is required by the finding;
+- findings from the security review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = security` unless a more precise existing class is required by the finding;
 - `Generation Bundle` in [implementation_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
 - `Check Evidence` for relevant phase scope in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
 - if relevant `Check Evidence` is missing, remains `pending`, contains `failed`, or does not explain `blocked`, add a finding with `Class = validation` or a more precise class if there is a concrete implementation/design/plan cause;

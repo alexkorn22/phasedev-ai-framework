@@ -256,9 +256,139 @@ describe("flow-ralph runner", () => {
     expect(threads).toHaveLength(1);
   });
 
+  test("ignores broken symlinks outside OpenSpec when checking progress", async () => {
+    const projectPath = setupProject();
+    const socketDir = path.join(projectPath, "ops", "environments", "development", "backend", "cache", "mysql", "data");
+    fs.mkdirSync(socketDir, { recursive: true });
+    fs.symlinkSync("/var/run/mysqld/definitely-missing.sock", path.join(socketDir, "mysql.sock"));
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-broken-symlink",
+          async run() {
+            return { finalResponse: "no changes" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+  });
+
+  test("treats streamed implementation file changes outside OpenSpec as progress", async () => {
+    const projectPath = setupProject();
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-code-progress",
+          async runStreamed(prompt: string) {
+            const events = prompt.includes("FLOW NEXT PROMPT")
+              ? [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "file-code", type: "file_change", changes: [{ path: "src/app.ts", kind: "update" }], status: "completed" } },
+                  { type: "item.completed", item: { id: "msg-code", type: "agent_message", text: "updated code" } },
+                  { type: "turn.completed" }
+                ]
+              : [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "msg-init", type: "agent_message", text: "init" } },
+                  { type: "turn.completed" }
+                ];
+            return { events: streamEvents(events) };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "implementation prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+  });
+
+  test("blocks streamed code changes during non-code stages", async () => {
+    const projectPath = setupProject();
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-design-code-change",
+          async runStreamed(prompt: string) {
+            const events = prompt.includes("FLOW NEXT PROMPT")
+              ? [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "file-code", type: "file_change", changes: [{ path: "src/app.ts", kind: "update" }], status: "completed" } },
+                  { type: "item.completed", item: { id: "msg-code", type: "agent_message", text: "updated code" } },
+                  { type: "turn.completed" }
+                ]
+              : [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "msg-init", type: "agent_message", text: "init" } },
+                  { type: "turn.completed" }
+                ];
+            return { events: streamEvents(events) };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("src/app.ts");
+  });
+
+  test("blocks streamed file changes outside the project path", async () => {
+    const projectPath = setupProject();
+    const outsidePath = path.resolve(projectPath, "..", "outside.ts");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-outside-project-change",
+          async runStreamed(prompt: string) {
+            const events = prompt.includes("FLOW NEXT PROMPT")
+              ? [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "file-outside", type: "file_change", changes: [{ path: outsidePath, kind: "update" }], status: "completed" } },
+                  { type: "item.completed", item: { id: "msg-outside", type: "agent_message", text: "updated outside project" } },
+                  { type: "turn.completed" }
+                ]
+              : [
+                  { type: "turn.started" },
+                  { type: "item.completed", item: { id: "msg-init", type: "agent_message", text: "init" } },
+                  { type: "turn.completed" }
+                ];
+            return { events: streamEvents(events) };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "implementation prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("outside project path");
+  });
+
   test("stops at maxIterations", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "progress.md");
+    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
     let promptCounter = 0;
     const threads: unknown[] = [];
 
@@ -333,7 +463,7 @@ describe("flow-ralph runner", () => {
                 { type: "turn.started" },
                 { type: "item.completed", item: { id: "reasoning-1", type: "reasoning", text: "checking flow state" } },
                 { type: "item.completed", item: { id: "cmd-1", type: "command_execution", command: "bun test", aggregated_output: "tests passed", exit_code: 0, status: "completed" } },
-                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: "openspec/changes/sample-change/validation_findings.md", kind: "update" }], status: "completed" } },
+                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: "openspec/changes/sample-change/implementation_plan.md", kind: "update" }], status: "completed" } },
                 { type: "item.completed", item: { id: "tool-1", type: "mcp_tool_call", server: "server", tool: "tool", arguments: { ok: true }, result: { content: [], structured_content: { done: true } }, status: "completed" } },
                 { type: "item.completed", item: { id: "search-1", type: "web_search", query: "query" } },
                 { type: "item.completed", item: { id: "todo-1", type: "todo_list", items: [{ text: "Validate", completed: true }] } },
@@ -356,7 +486,7 @@ describe("flow-ralph runner", () => {
     expect(messages).toContain("[CODEX flow init] reasoning: checking flow state");
     expect(messages).toContain("[CODEX flow init] command: bun test");
     expect(messages).toContain("[CODEX flow init] command output:\ntests passed");
-    expect(messages).toContain("[CODEX flow init] file_change: completed update openspec/changes/sample-change/validation_findings.md");
+    expect(messages).toContain("[CODEX flow init] file_change: completed update openspec/changes/sample-change/implementation_plan.md");
     expect(messages).toContain("[CODEX flow init] mcp_tool_call: server/tool completed");
     expect(messages).toContain("[CODEX flow init] web_search: query");
     expect(messages).toContain("[CODEX flow init] todo_list:\n- [x] Validate");
@@ -773,7 +903,7 @@ describe("flow-ralph runner", () => {
 
   test("writes formatted agent response logs and supports prepending when enableLogs is true", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "progress.md");
+    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
     let stageCounter = 0;
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {

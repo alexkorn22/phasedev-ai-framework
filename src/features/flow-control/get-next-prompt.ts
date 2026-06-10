@@ -1,8 +1,10 @@
 import * as fs from "fs";
+import * as path from "path";
 import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
 import { buildChangePaths } from "../../entities/flow-change/paths";
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
+import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { archivePrompt, startArchiveStage } from "./archive-stage";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
@@ -20,6 +22,11 @@ function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
     plan_path: toFileUrl(paths.planPath),
     findings_path: toFileUrl(paths.findingsPath)
   };
+}
+
+function flowCheckCommand(projectPath: string, expectedRoute: string): string {
+  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  return `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)} --expect-route ${expectedRoute}`;
 }
 
 function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
@@ -48,7 +55,10 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         const content = fs.readFileSync(taskFile, "utf-8");
         taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
       }
-      const basePrompt = renderStageTemplate("setup", "step0_setup", { date: new Date().toISOString().split("T")[0] }, config);
+      const basePrompt = renderStageTemplate("setup", "step0_setup", {
+        date: new Date().toISOString().split("T")[0],
+        self_check_command: flowCheckCommand(projectPath, "setup_approval")
+      }, config);
       return prompt("next", "setup", basePrompt + taskContext);
     }
     case "invalid_prd":
@@ -59,13 +69,25 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
       return approvalBlocker("setup", "Setup incomplete", route.paths.prdPath, "prd.md & rules.md");
     case "research": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "research", renderStageTemplate("research", "step1_research", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path }, config));
+      return prompt("next", "research", renderStageTemplate("research", "step1_research", {
+        prd_path: urls.prd_path,
+        rules_path: urls.rules_path,
+        research_path: urls.research_path,
+        self_check_command: flowCheckCommand(projectPath, "design")
+      }, config));
     }
     case "invalid_research":
       return invalidResearchBlocker(route.paths.researchPath, route.issues);
     case "design": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "design", renderStageTemplate("design", "step2_design", { prd_path: urls.prd_path, rules_path: urls.rules_path, research_path: urls.research_path, design_path: urls.design_path, date: new Date().toISOString().split("T")[0] }, config));
+      return prompt("next", "design", renderStageTemplate("design", "step2_design", {
+        prd_path: urls.prd_path,
+        rules_path: urls.rules_path,
+        research_path: urls.research_path,
+        design_path: urls.design_path,
+        date: new Date().toISOString().split("T")[0],
+        self_check_command: flowCheckCommand(projectPath, "design_approval")
+      }, config));
     }
     case "invalid_design":
       return invalidDesignBlocker(route.paths.designPath, route.issues);
@@ -73,7 +95,14 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
       return approvalBlocker("design", "Design requires review", route.paths.designPath, "architecture/design.md");
     case "plan": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "plan", renderStageTemplate("plan", "step3_plan", { prd_path: urls.prd_path, design_path: urls.design_path, rules_path: urls.rules_path, plan_path: urls.plan_path, date: new Date().toISOString().split("T")[0] }, config));
+      return prompt("next", "plan", renderStageTemplate("plan", "step3_plan", {
+        prd_path: urls.prd_path,
+        design_path: urls.design_path,
+        rules_path: urls.rules_path,
+        plan_path: urls.plan_path,
+        date: new Date().toISOString().split("T")[0],
+        self_check_command: flowCheckCommand(projectPath, "plan_approval")
+      }, config));
     }
     case "plan_approval":
       return approvalBlocker("plan", "Plan requires review", route.paths.planPath, "implementation_plan.md");

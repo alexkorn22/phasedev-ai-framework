@@ -23,11 +23,21 @@ Requirements for `research_facts.md`:
 - explicitly marked unknown or disputed areas are allowed only for non-blocking research gaps in `## Research Gaps & Blockers`; if they affect `Resolution signal`, `Risk envelope`, scope boundaries, or success criteria, they are blockers, not ordinary unknowns;
 - do not include architecture decisions, implementation proposals, or refactoring proposals.
 
+## Artifact self-check
+
+After creating `research_facts.md`, immediately validate the new artifact before completing the stage:
+
+```bash
+{{self_check_command}}
+```
+
+If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not report research as ready until this self-check passes.
+
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
 - `research_facts.md`
 
 Stage completion:
-- After writing `research_facts.md`, stop.
+- After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Tell the user that research is ready and the next transition is run through `flow next`.

@@ -21,7 +21,8 @@ function stageSpecificRules(stage: FlowStage): string[] {
   }
 
   return [
-    "- Validation stages are review-only. If a configured skill normally runs tests, browsers, builds, scanners, audits, or other tools, use only its review checklist/method guidance and do not run that workflow.",
+    "- Validation stages are review-only. Do not rerun tests, builds, browsers, deployments, migrations, or other execution gates as validation gates.",
+    "- Read-only review, audit, and static-inspection methods selected by the configured skill policy are allowed when they do not modify repo-tracked files and do not create persistent artifacts outside this stage's allowlist.",
     "- Do not let a skill override the validation stage rule that Implementation checks are already declared passed and must not be re-executed.",
     "- `validation_findings.md` may contain only YAML frontmatter and exactly one markdown findings table. Convert skill output into strict table rows when it is a finding; put non-registry explanation only in the final response."
   ];

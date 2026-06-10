@@ -28,7 +28,7 @@ export interface ValidationFindingState {
 
 export type ValidationFindingStatus = "open" | "reopened" | "resolved";
 export type ValidationFindingSeverity = "MUST-FIX" | "RECOMMENDED" | "NIT";
-export type ValidationFindingClass = "implementation" | "test" | "plan" | "design" | "requirements" | "validation";
+export type ValidationFindingClass = "implementation" | "test" | "plan" | "design" | "requirements" | "validation" | "security" | "code_review";
 export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required";
 export type ValidationFindingsType = "phase" | "final";
 
@@ -58,7 +58,7 @@ export interface ValidationFindingsArtifact {
 const STRICT_HEADERS = ["id", "status", "severity", "class", "phase", "finding", "requiredfix"];
 const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
 const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
-const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation"]);
+const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
 
 export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "unknown" {
   const verdict = readFrontmatterValue(filePath, "verdict")?.toLowerCase();

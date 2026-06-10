@@ -137,6 +137,14 @@ Before completing the stage, verify:
 - Every linked subdocument starts with purpose and a visual review surface.
 - Design does not diverge from PRD intent, generation target, resolution signal, `R#`, `SC#`, accepted assumptions, deferred decisions, or risk envelope.
 
+Then immediately validate the new design artifact before completing the stage:
+
+```bash
+{{self_check_command}}
+```
+
+If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `architecture/design.md` until this self-check passes.
+
 Stage completion:
-- After writing the architecture package, stop.
+- After writing the architecture package, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Tell the user they need to review `architecture/design.md`, set `approved: true`, and then run `flow next`.

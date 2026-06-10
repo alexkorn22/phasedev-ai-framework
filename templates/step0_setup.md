@@ -72,6 +72,16 @@ Artifact requirements:
 - `rules.md` records gate commands needed by later stages and must be instantiated from [rules.md template]({{rules_template_path}}).
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
+## Artifact self-check
+
+After creating `prd.md` and `rules.md`, immediately validate the new artifacts before completing the stage:
+
+```bash
+{{self_check_command}}
+```
+
+If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `prd.md` or `rules.md` until this self-check passes.
+
 ## Human Review Formatting Policy
 
 `prd.md` and `rules.md` are approval artifacts, so format them for quick human review.
@@ -104,5 +114,5 @@ Allowed persistent artifacts for this stage:
 - `rules.md`
 
 Stage completion:
-- After creating `prd.md` and `rules.md`, stop.
+- After creating `prd.md` and `rules.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Tell the user that they must review the files, set `approved: true`, and then run `flow next`.

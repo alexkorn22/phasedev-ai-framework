@@ -239,6 +239,19 @@ function runInit(args: string[] = []): string {
   return result.stdout.toString();
 }
 
+function runCheck(args: string[] = []): { exitCode: number; output: string } {
+  const result = Bun.spawnSync({
+    cmd: ["bun", "run", cliPath, "check", "--project-path", testTmpDir, ...args],
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`
+  };
+}
+
 describe("flow-cli state machine", () => {
   beforeEach(() => cleanupTestDir());
   afterEach(() => cleanupTestDir());
@@ -404,6 +417,182 @@ codex:
     expect(output).toContain("Generation target");
     expect(output).toContain("Resolution signal");
     expect(output).toContain("Risk envelope");
+  });
+
+  test("artifact stage prompts include immediate self-check routes", () => {
+    let output = runNext();
+    expect(output).toContain("Artifact self-check");
+    expect(output).toContain("flow-cli.ts\" check --project-path");
+    expect(output).toContain("--expect-route setup_approval");
+
+    cleanupTestDir();
+    let changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+
+    output = runNext();
+    expect(output).toContain("Stage 1. Research.");
+    expect(output).toContain("Artifact self-check");
+    expect(output).toContain("--expect-route design");
+
+    cleanupTestDir();
+    changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+
+    output = runNext();
+    expect(output).toContain("Stage 2. Design.");
+    expect(output).toContain("immediately validate the new design artifact");
+    expect(output).toContain("--expect-route design_approval");
+
+    writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), true);
+
+    output = runNext();
+    expect(output).toContain("Stage 3. Plan.");
+    expect(output).toContain("Artifact self-check");
+    expect(output).toContain("--expect-route plan_approval");
+  });
+
+  test("check reports invalid fresh PRD without rendering the next prompt", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent Card\n", false);
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`, false);
+
+    const result = runCheck(["--expect-route", "setup_approval"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[FLOW CHECK] FAILED: invalid_prd");
+    expect(result.output).toContain("Intent Card field `Change type` must be present and non-empty.");
+    expect(result.output).not.toContain("[FLOW CONTROLLER] BLOCKED");
+  });
+
+  test("check passes valid setup artifacts only at setup approval route", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`, false);
+
+    const pass = runCheck(["--expect-route", "setup_approval"]);
+    const fail = runCheck(["--expect-route", "research"]);
+
+    expect(pass.exitCode).toBe(0);
+    expect(pass.output).toContain("[FLOW CHECK] OK: current route is setup_approval");
+    expect(fail.exitCode).toBe(1);
+    expect(fail.output).toContain("expected route research, got setup_approval");
+  });
+
+  test("check does not load stage config", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`, false);
+    const configPath = writeConfig("codex: [");
+
+    const result = runCheck(["--expect-route", "setup_approval", "--config", configPath]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW CHECK] OK: current route is setup_approval");
+  });
+
+  test("check reports invalid design before approval", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+    writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n\n## Executive Summary\n", false);
+
+    const result = runCheck(["--expect-route", "design_approval"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[FLOW CHECK] FAILED: invalid_design");
+  });
+
+  test("check passes valid design at design approval route", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+    writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
+
+    const result = runCheck(["--expect-route", "design_approval"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW CHECK] OK: current route is design_approval");
+  });
+
+  test("check reports archive readiness without moving the active change", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const archivedDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
+
+    const result = runCheck(["--expect-route", "archive_ready"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Archive is ready; no files were moved by check.");
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.existsSync(archivedDir)).toBe(false);
   });
 
   test("multi-phase plan sends completed in-progress phase to phase validation", () => {
@@ -986,7 +1175,7 @@ describe("flow templates", () => {
     }
   });
 
-  test("validation skill policy forbids running execution-oriented skill workflows", () => {
+  test("validation skill policy forbids execution gates but allows read-only review methods", () => {
     setupChange(`
 # Plan
 
@@ -1007,7 +1196,8 @@ codex:
 
     expect(output).toContain("- `playwright`");
     expect(output).toContain("Validation stages are review-only");
-    expect(output).toContain("do not run that workflow");
+    expect(output).toContain("Do not rerun tests, builds, browsers, deployments, migrations, or other execution gates as validation gates.");
+    expect(output).toContain("Read-only review, audit, and static-inspection methods selected by the configured skill policy are allowed");
     expect(output).toContain("do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`");
     expect(output).toContain("put non-registry explanation only in the final response");
     expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Input artifacts"));
@@ -1118,6 +1308,12 @@ codex:
     expect(finalTemplate).toContain("every `R#` is implemented by the actual change set or has a finding");
     expect(finalTemplate).toContain("every `SC#` is demonstrably met or has a finding");
     expect(finalTemplate).toContain("`In scope:` is covered and `Out of scope:` was not implemented without approval");
+    expect(finalTemplate).toContain("mandatory final code review pass");
+    expect(finalTemplate).toContain("mandatory final security review pass");
+    expect(finalTemplate).toContain("using the configured skill policy");
+    expect(finalTemplate).toContain("Class = code_review");
+    expect(finalTemplate).toContain("Class = security");
+    expect(finalTemplate).not.toContain("using-ecc");
   });
 
   test("downstream prompts treat PRD gaps as blockers instead of silent assumptions", () => {
@@ -1233,6 +1429,7 @@ codex:
 
     expect(findingsContract).toContain("repair_required: use when at least one open/reopened MUST-FIX finding exists.");
     expect(findingsContract).toContain("ready_with_risks: use only when open/reopened findings are limited to RECOMMENDED or NIT.");
+    expect(findingsContract).toContain("implementation, test, plan, design, requirements, validation, security, code_review");
   });
 
   test("validation and repair prompts require a strict single findings registry", () => {
@@ -1468,18 +1665,16 @@ codex:
     expect(archiveTemplate).not.toContain("Blocks PR?");
   });
 
-  test("default config defines stage skills instead of a separate skill router template", () => {
+  test("default config defines stage skill routers instead of a separate skill router template", () => {
     const config = fs.readFileSync(path.resolve(__dirname, "..", "config.yaml"), "utf-8");
 
     expect(fs.existsSync(path.resolve(__dirname, "..", "templates", "skill_router.md"))).toBe(false);
     expect(config).toContain("implementation:");
     expect(config).toContain("skills:");
+    expect(config).toContain("- using-ecc");
     expect(config).toContain("- dev-core");
-    expect(config).toContain("- incremental-implementation");
-    expect(config).toContain("- test-driven-development");
     expect(config).toContain("phase_validation:");
-    expect(config).toContain("- code-review-and-quality");
+    expect(config).toContain("final_validation:");
     expect(config).toContain("archive:");
-    expect(config).toContain("- spec-driven-development");
   });
 });

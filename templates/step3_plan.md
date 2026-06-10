@@ -61,8 +61,18 @@ Formatting rules:
 - Do not use emoji in machine-parsed phase headings `## Phase N: <Phase name> [<status>]`.
 - In `implementation_plan.md`, preserve all machine-readable elements from the artifact template.
 
+## Artifact self-check
+
+After creating `implementation_plan.md`, immediately validate the new artifact before completing the stage:
+
+```bash
+{{self_check_command}}
+```
+
+If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `implementation_plan.md` until this self-check passes.
+
 Stage completion:
-- After writing `implementation_plan.md`, stop.
+- After writing `implementation_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Tell the user that the plan is ready. Explain that the user must personally review [implementation_plan.md]({{plan_path}}), change `approved: false` to `approved: true` (and enter their name in `approved_by: "..."`) in its header, and then run `flow next`.
 
 ## Artifact allowlist
