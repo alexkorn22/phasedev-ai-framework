@@ -359,6 +359,33 @@ Unexpected section.
     expect(issues).toContain("Phase 1: API is not started [ ] but contains non-pending evidence results.");
   });
 
+  test("validatePlanStructure enforces monotonic phase status order", () => {
+    const validIssues = validatePlanStructure([
+      { id: 1, name: "Done", status: "completed", tasks: [{ id: "1.1", name: "Task 1", status: "completed", children: [] }], additionalChecks: [] },
+      { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] },
+      { id: 3, name: "Queued", status: "not_started", tasks: [{ id: "3.1", name: "Task 3", status: "not_started", children: [] }], additionalChecks: [] }
+    ]);
+    expect(validIssues).not.toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Active [~] cannot appear after Phase 1: Done [x].");
+
+    const queuedBeforeActiveIssues = validatePlanStructure([
+      { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
+      { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] }
+    ]);
+    expect(queuedBeforeActiveIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Active [~] cannot appear after Phase 1: Queued [ ].");
+
+    const activeBeforeCompletedIssues = validatePlanStructure([
+      { id: 1, name: "Active", status: "in_progress", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
+      { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
+    ]);
+    expect(activeBeforeCompletedIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Done [x] cannot appear after Phase 1: Active [~].");
+
+    const queuedBeforeCompletedIssues = validatePlanStructure([
+      { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
+      { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
+    ]);
+    expect(queuedBeforeCompletedIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Done [x] cannot appear after Phase 1: Queued [ ].");
+  });
+
   test("validatePlanStructure validates traceability of requirements and criteria from PRD", () => {
     const prdFile = path.join(testTmpDir, "traceability_prd.md");
     cleanupTestDir();

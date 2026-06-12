@@ -77,6 +77,169 @@ function telegramFetchRecorder(messages: string[]): typeof fetch {
   };
 }
 
+function writeApprovedArtifact(filePath: string, body: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `---\napproved: true\n---\n${body}`, "utf-8");
+}
+
+function validPrdBody(): string {
+  return `# PRD
+
+## Intent Card
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| User or business intent | Keep flow routing grounded in approved requirements. |
+| Generation target | Exercise the flow controller stage prompt. |
+| Resolution signal | not_applicable |
+| Decision deadline | not_applicable |
+| Risk envelope | Test fixture only; no production risk. |
+
+## Approval Summary
+
+Approve this test fixture change.
+
+## Requirements
+
+- R1: Route the flow according to approved artifacts.
+
+## Scope Boundaries
+
+- In scope: test fixture flow state.
+- Out of scope: unrelated behavior.
+
+## Success Criteria
+
+- SC1: The expected stage prompt is rendered.
+
+## Accepted Assumptions
+
+None.
+
+## Deferred Decisions
+
+None.
+`;
+}
+
+function validResearchBody(): string {
+  return `# Research Facts
+
+## PRD Intent Trace
+Trace details here.
+
+## Requirements & Success Criteria Trace
+
+| ID | Status | Evidence | Gaps/Blockers |
+|---|---|---|---|
+| R1 | confirmed | Fixture research traces routing requirement. | none |
+| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
+
+## Source Facts
+- \`src/index.ts:42\` -- verified fact.
+
+## Research Gaps & Blockers
+No blockers.
+`;
+}
+
+function validDesignBody(): string {
+  return `# Design
+
+## Executive Summary
+Summary details.
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
+
+## Key Design Decisions
+Decisions.
+
+## Database Schemas & API Contracts
+Schemas.
+
+## Risks & Open Questions
+None.
+`;
+}
+
+function implementationPlanReadyForArchive(): string {
+  return `---\napproved: true\n---\n# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the Ralph fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Exercise the test fixture production path. |
+| Tests | yes | Use fixture commands from rules.md. |
+| Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
+| Migrations | not_applicable | No persistence changes are part of this fixture. |
+| Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
+| Observability | not_applicable | No observability changes are part of this fixture. |
+| Rollback path | not_applicable | Revert the fixture change if needed. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+
+### Goal
+
+Complete the fixture phase. Satisfies R1 and SC1.
+
+### Tasks
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | passed | passed unit tests |  |
+`;
+}
+
+function setupArchiveReadyProject(): string {
+  const projectPath = setupProject();
+  const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+  fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+  writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+  writeApprovedArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`bun test full\`
+`);
+  fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+  writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
+  fs.writeFileSync(path.join(changeDir, "implementation_plan.md"), implementationPlanReadyForArchive(), "utf-8");
+  writeValidationFindings(path.join(changeDir, "validation_findings.md"), "ready", "", "final");
+  return projectPath;
+}
+
 const telegramEnv = {
   TEST_TELEGRAM_BOT_TOKEN: "123:test-token",
   TEST_TELEGRAM_CHAT_ID: "456"
@@ -181,6 +344,71 @@ describe("flow-ralph runner", () => {
     expect(result.iterations).toBe(0);
     expect(createdCodex).toBe(false);
     expect(messages).toContain("[FLOW RALPH] blocked at stage: design");
+  });
+
+  test("stops before archive_ready when archive execution is disabled", async () => {
+    const projectPath = setupArchiveReadyProject();
+    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const messages: string[] = [];
+    let createdCodex = false;
+    let requestedNextPrompt = false;
+
+    const result = await runFlowRalph(projectPath, makeConfig({ runArchiveStage: false }), {
+      createCodex: () => {
+        createdCodex = true;
+        return { startThread: () => { throw new Error("should not start"); } };
+      },
+      getNextPrompt: () => {
+        requestedNextPrompt = true;
+        throw new Error("should not request archive prompt");
+      },
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(0);
+    expect(result.reason).toContain("loop.runArchiveStage=false");
+    expect(createdCodex).toBe(false);
+    expect(requestedNextPrompt).toBe(false);
+    expect(messages).toContain("[FLOW RALPH] blocked at stage: archive");
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.existsSync(path.join(projectPath, "openspec", "changes", "archive"))).toBe(false);
+  });
+
+  test("does not resume pending archive when archive execution is disabled", async () => {
+    const projectPath = setupProject();
+    const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const messages: string[] = [];
+    let createdCodex = false;
+    let requestedNextPrompt = false;
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+      status: "in_progress",
+      changeName: "sample-change",
+      archivePath: archiveDir,
+      startedAt: "2026-05-29T10:00:00.000Z"
+    }), "utf-8");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ runArchiveStage: false }), {
+      createCodex: () => {
+        createdCodex = true;
+        return { startThread: () => { throw new Error("should not start"); } };
+      },
+      getNextPrompt: () => {
+        requestedNextPrompt = true;
+        throw new Error("should not resume archive prompt");
+      },
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(0);
+    expect(result.reason).toContain("loop.runArchiveStage=false");
+    expect(createdCodex).toBe(false);
+    expect(requestedNextPrompt).toBe(false);
+    expect(messages).toContain("[FLOW RALPH] blocked at stage: archive");
   });
 
   test("passes loaded config into init and next prompt builders", async () => {
@@ -384,6 +612,69 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("blocked");
     expect(result.reason).toContain("outside project path");
+  });
+
+  test("runs real repair route when archive execution is disabled", async () => {
+    const projectPath = setupArchiveReadyProject();
+    const findingsPath = path.join(projectPath, "openspec", "changes", "sample-change", "validation_findings.md");
+    writeValidationFindings(
+      findingsPath,
+      "repair_required",
+      "| F1 | open | MUST-FIX | implementation | Phase 1 | Broken layout. | Fix layout. |"
+    );
+    let ranRepair = false;
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-repair",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              ranRepair = true;
+              fs.writeFileSync(findingsPath, "repaired\n", "utf-8");
+            }
+            return { finalResponse: "repair completed" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    expect(ranRepair).toBe(true);
+    expect(result.reason).not.toContain("Artifact allowlist violation");
+  });
+
+  test("blocks repair stage from updating project flow config", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(projectPath, "openspec", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n", "utf-8");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-repair-config",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n  runArchiveStage: false\n", "utf-8");
+            }
+            return { finalResponse: "incorrectly updated project flow config" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("openspec/config.yaml");
+    expect(result.reason).toContain("outside allowlist");
   });
 
   test("stops at maxIterations", async () => {

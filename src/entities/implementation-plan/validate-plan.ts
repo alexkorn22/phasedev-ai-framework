@@ -92,6 +92,40 @@ function validateCheckEvidenceRows(phase: Phase, rows: CheckEvidenceRow[], issue
   }
 }
 
+function phaseStatusOrder(status: Phase["status"]): number {
+  switch (status) {
+    case "completed":
+      return 0;
+    case "in_progress":
+      return 1;
+    case "not_started":
+      return 2;
+  }
+}
+
+function phaseStatusMarker(status: Phase["status"]): "[x]" | "[~]" | "[ ]" {
+  switch (status) {
+    case "completed":
+      return "[x]";
+    case "in_progress":
+      return "[~]";
+    case "not_started":
+      return "[ ]";
+  }
+}
+
+function validatePhaseStatusOrder(phases: Phase[], issues: string[]): void {
+  for (let index = 1; index < phases.length; index++) {
+    const previous = phases[index - 1];
+    const current = phases[index];
+    if (phaseStatusOrder(current.status) < phaseStatusOrder(previous.status)) {
+      issues.push(
+        `Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase ${current.id}: ${current.name} ${phaseStatusMarker(current.status)} cannot appear after Phase ${previous.id}: ${previous.name} ${phaseStatusMarker(previous.status)}.`
+      );
+    }
+  }
+}
+
 export function validatePlanStructure(phases: Phase[], prdPath?: string): string[] {
   const issues: string[] = [];
   const taskIds = new Map<string, string>();
@@ -129,6 +163,8 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string): string
     const activeList = activePhases.map(phase => `Phase ${phase.id}: ${phase.name}`).join(", ");
     issues.push(`Only one phase may have [~] status at a time; active phases: ${activeList}.`);
   }
+
+  validatePhaseStatusOrder(phases, issues);
 
   for (const phase of phases) {
     if (phase.name.trim().length === 0) {

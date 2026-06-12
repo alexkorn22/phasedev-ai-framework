@@ -42,5 +42,5 @@ Format:
 ## Research Gaps & Blockers
 
 <!--
-Explicitly declare any remaining unknowns or gaps. If they affect PRD intent or success criteria, report them as blockers.
+Explicitly declare any remaining unresolved gaps or disputed facts. If they affect PRD intent or success criteria, report them as blockers.
 -->

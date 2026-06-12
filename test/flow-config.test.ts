@@ -53,6 +53,7 @@ loop:
     expect(config.loop.maxIterations).toBe(3);
     expect(config.loop.logDir).toBe("openspec/flow-ralph");
     expect(config.loop.enableLogs).toBe(true);
+    expect(config.loop.runArchiveStage).toBe(true);
     expect(config.loop.notifications.telegram).toEqual({
       enabled: false,
       botTokenEnv: "FLOW_RALPH_TELEGRAM_BOT_TOKEN",
@@ -195,11 +196,27 @@ loop:
     expect(config.loop.enableLogs).toBe(false);
   });
 
+  test("parses runArchiveStage override", () => {
+    const config = parseFlowRalphConfig(`
+loop:
+  runArchiveStage: false
+`);
+
+    expect(config.loop.runArchiveStage).toBe(false);
+  });
+
   test("rejects invalid enableLogs type", () => {
     expect(() => parseFlowRalphConfig(`
 loop:
   enableLogs: 123
 `)).toThrow("loop.enableLogs");
+  });
+
+  test("rejects invalid runArchiveStage type", () => {
+    expect(() => parseFlowRalphConfig(`
+loop:
+  runArchiveStage: 123
+`)).toThrow("loop.runArchiveStage");
   });
 
   test("parses telegram notification override", () => {

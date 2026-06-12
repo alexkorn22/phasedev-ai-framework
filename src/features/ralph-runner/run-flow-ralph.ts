@@ -6,6 +6,7 @@ import { readArchiveState } from "../../entities/flow-change/archive-state";
 import { archiveRootPath } from "../../entities/flow-change/paths";
 import { FlowPrompt } from "../../entities/flow-stage/types";
 import { getInitPrompt, getNextPrompt } from "../flow-control";
+import { resolveFlowRoute } from "../flow-control/flow-route";
 import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { FlowRalphConfig, getStageModelConfig, resolveProjectLogDir } from "./config";
 import { createRalphOutput, RalphOutput } from "./ralph-output";
@@ -85,6 +86,15 @@ function hasCompletedArchivedChange(projectPath: string, previousActiveChange: s
 
     return readArchiveState(itemPath)?.status === "completed";
   });
+}
+
+function isArchiveExecutionRoute(projectPath: string): boolean {
+  const route = resolveFlowRoute(projectPath);
+  return route.kind === "archive_ready" || route.kind === "pending_archive";
+}
+
+function archiveStageDisabledReason(): string {
+  return "Archive stage execution is disabled by loop.runArchiveStage=false. Run 'flow next' manually to archive or enable loop.runArchiveStage.";
 }
 
 function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
@@ -360,6 +370,14 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
 
     for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
       const beforeActiveChange = findActive(resolvedProjectPath);
+      if (!config.loop.runArchiveStage && isArchiveExecutionRoute(resolvedProjectPath)) {
+        const reason = archiveStageDisabledReason();
+        reporter.log("[FLOW RALPH] blocked at stage: archive");
+        reporter.log(`[FLOW RALPH] reason: ${reason}`);
+        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        return { status: "blocked", iterations: iteration - 1, logPath, reason };
+      }
+
       const nextPrompt = getNext(resolvedProjectPath, config);
 
       if (nextPrompt.blocked) {

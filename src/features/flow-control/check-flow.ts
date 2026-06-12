@@ -11,6 +11,7 @@ export interface FlowCheckResult {
 }
 
 const ROUTE_KINDS = new Set<FlowRouteKind>([
+  "invalid_archive_state",
   "pending_archive",
   "setup",
   "invalid_prd",

@@ -595,6 +595,18 @@ codex:
     expect(fs.existsSync(archivedDir)).toBe(false);
   });
 
+  test("check fails when archive state is malformed", () => {
+    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), "{ malformed json", "utf-8");
+
+    const result = runCheck();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[FLOW CHECK] FAILED: invalid_archive_state (stage: archive)");
+    expect(result.output).toContain(".flow-archive.json is not valid JSON");
+  });
+
   test("multi-phase plan sends completed in-progress phase to phase validation", () => {
     setupChange(`
 # Plan
@@ -1070,7 +1082,8 @@ Additional checks:
     const output = runNext();
 
     expect(output).toContain("Stage 4. Implementation.");
-    expect(output).toContain("Additional checks for the current phase from the plan:");
+    expect(output).toContain("Current phase from approved plan:");
+    expect(output).toContain("Additional checks:");
     expect(output).toContain("bun test:e2e auth");
     expect(output).toContain("Browser smoke for login flow");
   });
@@ -1097,12 +1110,30 @@ Implementation note:
 
     const output = runNext();
 
-    expect(output).toContain("Current phase context from the plan:");
+    expect(output).toContain("Current phase from approved plan:");
     expect(output).toContain("Checks:");
     expect(output).toContain("Endpoint handles not found responses.");
     expect(output).toContain("Implementation note:");
     expect(output).toContain("Keep API contract unchanged.");
     expect(output).not.toContain("## Phase 2: UI");
+  });
+
+  test("implementation prompt uses refreshed phase excerpt after marking phase in progress", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [ ]
+- [ ] 1.1 Implement endpoint
+
+Checks:
+- Endpoint handles not found responses.
+`);
+
+    const output = runNext();
+
+    expect(output).toContain("Stage 4. Implementation.");
+    expect(output).toContain("## Phase 1: API [~]");
+    expect(output).not.toContain("## Phase 1: API [ ]");
   });
 
   test("phase validation prompt does not include additional checks from implementation plan", () => {
@@ -1276,10 +1307,10 @@ codex:
   test("setup prompt forbids extra PRD sections and placeholders", () => {
     const setupTemplate = readTemplate("step0_setup.md");
 
-    expect(setupTemplate).toContain("exactly this visible structure");
-    expect(setupTemplate).toContain("Do not add other `##` sections to `prd.md`");
-    expect(setupTemplate).toContain("Do not add `###` or deeper headings to `prd.md`");
-    expect(setupTemplate).toContain("If information is missing for `R#`, `SC#`, `In scope:` / `Out of scope:`, or `Intent Card`, ask a question and do not write `prd.md`.");
+    expect(setupTemplate).toContain("must follow the template contract exactly");
+    expect(setupTemplate).toContain("fixed visible sections");
+    expect(setupTemplate).toContain("no extra headings");
+    expect(setupTemplate).toContain("no empty required fields");
     expect(setupTemplate).toContain("`TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`");
   });
 
@@ -1302,14 +1333,40 @@ codex:
     }
   });
 
+  test("research prompts allow unresolved gaps without allowing unknown placeholders", () => {
+    const researchTemplate = readTemplate("step1_research.md");
+    const researchArtifactTemplate = readTemplate("artifacts/research_facts.md");
+
+    expect(researchTemplate).toContain("unresolved gaps or disputed facts");
+    expect(researchTemplate).not.toContain("marked unknown");
+    expect(researchTemplate).not.toContain("ordinary unknowns");
+    expect(researchArtifactTemplate).toContain("remaining unresolved gaps or disputed facts");
+    expect(researchArtifactTemplate).not.toContain("remaining unknowns");
+  });
+
   test("final validation prompt checks every PRD requirement and success criterion", () => {
     const finalTemplate = readTemplate("step5b_val.md");
 
     expect(finalTemplate).toContain("every `R#` is implemented by the actual change set or has a finding");
     expect(finalTemplate).toContain("every `SC#` is demonstrably met or has a finding");
     expect(finalTemplate).toContain("`In scope:` is covered and `Out of scope:` was not implemented without approval");
-    expect(finalTemplate).toContain("mandatory final code review pass");
-    expect(finalTemplate).toContain("mandatory final security review pass");
+    expect(finalTemplate).toContain("change-set inventory gate");
+    expect(finalTemplate).toContain("inspect every changed production/source/config/test file outside `openspec/**`");
+    expect(finalTemplate).toContain("final requirements conformance pass");
+    expect(finalTemplate).toContain("initial change requirements from PRD, approved design, and implementation plan artifacts");
+    expect(finalTemplate).toContain("final code review pass");
+    expect(finalTemplate).toContain("perform a full read-only code review");
+    expect(finalTemplate).toContain("final security review pass");
+    expect(finalTemplate).toContain("perform a read-only security review");
+    expect(finalTemplate).toContain("UI layout/responsive overflow and interaction states");
+    expect(finalTemplate).toContain("data mapping/normalization behavior");
+    expect(finalTemplate).toContain("architecture/layer boundaries");
+    expect(finalTemplate).toContain("public API/export surface");
+    expect(finalTemplate).toContain("output encoding/XSS");
+    expect(finalTemplate).toContain("authorization/data isolation");
+    expect(finalTemplate).toContain("Readiness decision rule");
+    expect(finalTemplate).toContain("confirmed correctly solved");
+    expect(finalTemplate).toContain("do not treat passing or declared Implementation checks as a substitute for changed-file review coverage");
     expect(finalTemplate).toContain("using the configured skill policy");
     expect(finalTemplate).toContain("Class = code_review");
     expect(finalTemplate).toContain("Class = security");
@@ -1407,10 +1464,14 @@ codex:
     expect(template).toContain("First, ask the user for the task/change description");
     expect(template).toContain("Then, in a separate request, ask for task-specific rules and constraints");
     expect(template).toContain("Do not create `prd.md` or `rules.md` until both items are available");
-    expect(template).toContain("Run PRD intake before creating files");
-    expect(template).toContain("Use the question tool for intake questions");
-    expect(template).toContain("continue intake for as many rounds as needed");
-    expect(template).toContain("Do not replace unknown ADLC/PRD fields with guesses");
+    expect(template).toContain("Run a material-question gate before creating files");
+    expect(template).toContain("inspect the repository, artifact templates, config, tests, and project instructions before asking");
+    expect(template).toContain("ask only questions whose answer can change");
+    expect(template).toContain("ask in batches of 1-3 short questions");
+    expect(template).toContain("name the artifact field or section each question can change");
+    expect(template).toContain("do not ask obvious questions or questions answerable from repository evidence");
+    expect(template).toContain("Before creating artifacts, summarize your final interpretation");
+    expect(template).toContain("Do not guess missing ADLC/PRD fields");
     expect(template).toContain("For `feature` and `experiment` changes");
     expect(template).toContain("For `fix`, `refactor`, and `infra` changes");
   });
@@ -1451,8 +1512,29 @@ codex:
       expect(template).toContain("without new concrete evidence from working code outside `openspec/**`");
       expect(template).toContain("completely ignore `openspec/**`");
       expect(template).toContain("do not diff, review, or report any files under `openspec/**`");
+      expect(template).toContain("changed-file review coverage");
+      expect(template).toContain("requirements conformance pass");
+      expect(template).toContain("security review pass");
+      expect(template).toContain("Readiness decision rule");
+      expect(template).toContain("Validation coverage:");
+      expect(template).toContain("Files inspected:");
+      expect(template).toContain("Code review pass: completed / incomplete");
+      expect(template).toContain("Security review pass: completed / incomplete");
+      expect(template).toContain("Check Evidence review: sufficient / insufficient");
+      expect(template).toContain("Evidence gaps: none / <short reason>");
+      expect(template).toContain("ordinary final response to the user");
+      expect(template).toContain("not a flow artifact");
+      expect(template).toContain("do not write it to `validation_findings.md`");
+      expect(template).toContain("do not create a new file for it");
+      expect(template).toContain("do not expand `implementation_plan.md` with it");
+      expect(template).toContain("Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence");
+      expect(template).toContain("Declarative Check Evidence such as `passed` without these details is insufficient");
+      expect(template).toContain("If the coverage block would report an incomplete code review pass, incomplete security review pass, insufficient Check Evidence review, or non-empty evidence gaps");
     }
 
+    expect(phaseTemplate).toContain("PRD/design are used as approved constraints and traceability context, not as full PRD completeness validation");
+    expect(phaseTemplate).not.toContain("every `R#` is implemented by the actual change set or has a finding");
+    expect(phaseTemplate).not.toContain("every `SC#` is demonstrably met or has a finding");
     expect(repairTemplate).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
     expect(repairTemplate).toContain("preserve `type` in YAML frontmatter as the scope of the latest validation");
     expect(repairTemplate).toContain("record a fixed finding by changing the existing row `Status` to `resolved`");

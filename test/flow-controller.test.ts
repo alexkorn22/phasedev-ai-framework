@@ -472,6 +472,23 @@ Complete API work.
     expect(second.prompt).toContain("openspec/changes/archive");
   });
 
+  test("malformed archive state blocks archive routing instead of falling through", () => {
+    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const statePath = path.join(archiveDir, ".flow-archive.json");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(statePath, "{ malformed json", "utf-8");
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("archive");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
+    expect(result.prompt).toContain("Invalid archive state.");
+    expect(result.prompt).toContain(statePath);
+    expect(result.prompt).toContain(".flow-archive.json is not valid JSON");
+    expect(result.prompt).not.toContain("Stage 0. AI Layer Setup.");
+  });
+
   test("approval blocker reports blocked gate stage", () => {
     setupChange(`
 # Plan

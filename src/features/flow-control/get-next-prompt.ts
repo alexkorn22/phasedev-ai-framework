@@ -46,6 +46,12 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
   const route = resolveFlowRoute(projectPath);
 
   switch (route.kind) {
+    case "invalid_archive_state":
+      return archiveReadinessBlocker(
+        "Invalid archive state.",
+        route.invalidArchiveState.statePath,
+        route.invalidArchiveState.reason
+      );
     case "pending_archive":
       return archivePrompt(projectPath, route.archiveState, config);
     case "setup": {

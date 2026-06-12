@@ -45,6 +45,7 @@ export interface FlowRalphConfig {
     maxIterations: number;
     logDir: string;
     enableLogs: boolean;
+    runArchiveStage: boolean;
     notifications: NotificationConfig;
   };
 }
@@ -71,6 +72,7 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
     maxIterations: 10,
     logDir: "openspec/flow-ralph",
     enableLogs: true,
+    runArchiveStage: true,
     notifications: {
       telegram: {
         enabled: false,
@@ -259,6 +261,7 @@ export function parseFlowRalphConfig(content: string): FlowRalphConfig {
       maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_FLOW_RALPH_CONFIG.loop.maxIterations, "loop.maxIterations"),
       logDir: readString(loop.logDir, DEFAULT_FLOW_RALPH_CONFIG.loop.logDir, "loop.logDir"),
       enableLogs: readBoolean(loop.enableLogs, DEFAULT_FLOW_RALPH_CONFIG.loop.enableLogs, "loop.enableLogs"),
+      runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_FLOW_RALPH_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
       notifications: parseNotificationConfig(loop.notifications, DEFAULT_FLOW_RALPH_CONFIG.loop.notifications, "loop.notifications")
     }
   };

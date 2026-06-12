@@ -14,51 +14,38 @@ Required actions:
 1. First, ask the user for the task/change description if it is not already in context, then stop until they answer.
 2. Then, in a separate request, ask for task-specific rules and constraints if they are not already in context, then stop until they answer.
 3. Do not create `prd.md` or `rules.md` until both items are available: the task description and task rules/constraints.
-4. Run PRD intake before creating files: clarify as much as possible about intent, expected outcome, generation target, success/resolution signal, scope boundaries, non-goals, risk envelope, constraints, validation expectations, accepted assumptions, and deferred decisions.
-5. Use the question tool for intake questions when available. If the question tool is unavailable, ask through a normal message and stop until the answer.
-6. Ask questions in batches of 1-3 short questions at a time to avoid overloading the user, but continue intake for as many rounds as needed to close material ambiguity.
-7. Do not write `prd.md` or `rules.md` until all questions that affect the `Intent Card`, `R#` requirements, `SC#` success criteria, `In scope:` / `Out of scope:`, risk envelope, assumptions, or test commands are closed.
-8. For `feature` and `experiment` changes, clarify the hypothesis/decision need, resolution signal, expected user/business/system impact, decision deadline, or reason for `not_applicable`.
-9. For `fix`, `refactor`, and `infra` changes, clarify desired behavior or target state, preserved behavior, non-goals, regression boundaries, validation evidence, and risk boundaries. `Resolution signal` and `Decision deadline` may be `not_applicable` only after that intake.
-10. Do not replace unknown ADLC/PRD fields with guesses. If the user cannot answer, record only an explicitly accepted assumption. If the assumption affects approval scope or risk, stop and ask for approval of that assumption before writing the PRD.
-11. Create the change folder: `openspec/changes/<change-name>/`.
-12. Read the artifact templates for PRD and Rules: [prd.md template]({{prd_template_path}}), [rules.md template]({{rules_template_path}}).
-13. Create `prd.md` in the change folder by instantiating this template for the current change.
-14. Use the HTML comments in the template as authoring guidance. They define the strict PRD contract, field/section contract, allowed `Change type` values, `not_applicable` rules, ADLC-style intake expectations, and blocker-question rule.
-15. Remove all HTML comments from the final `prd.md`.
-16. `prd.md` must start with YAML frontmatter:
+4. Run a material-question gate before creating files:
+   - inspect the repository, artifact templates, config, tests, and project instructions before asking;
+   - ask only questions whose answer can change `Intent Card` values, `R#`, `SC#`, scope boundaries, risk envelope, accepted assumptions, deferred decisions, or test commands;
+   - ask in batches of 1-3 short questions, using the question tool when available;
+   - name the artifact field or section each question can change;
+   - do not ask obvious questions or questions answerable from repository evidence.
+5. Close material ambiguity around intent, expected outcome, generation target, success/resolution signal, scope, non-goals, risk, constraints, validation expectations, assumptions, and deferred decisions.
+6. For `feature` and `experiment` changes, clarify the hypothesis/decision need, resolution signal, expected impact, decision deadline, or reason for `not_applicable`.
+7. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, non-goals, regression boundaries, validation evidence, and risk boundaries.
+8. Do not guess missing ADLC/PRD fields. If the user cannot answer, record only an explicitly accepted assumption; if that assumption affects approval scope or risk, stop and ask for approval before writing artifacts.
+9. Before creating artifacts, summarize your final interpretation, material user answers, and accepted assumptions. If the user disagrees or adds material scope, continue intake instead of writing files.
+10. Create the change folder: `openspec/changes/<change-name>/`.
+11. Read the artifact templates for PRD and Rules: [prd.md template]({{prd_template_path}}), [rules.md template]({{rules_template_path}}).
+12. Create `prd.md` in the change folder by instantiating [prd.md template]({{prd_template_path}}) for the current change.
+13. Use the HTML comments in the template as authoring guidance, but remove all comments from the final `prd.md`.
+14. `prd.md` must start with YAML frontmatter:
 ---
 approved: false
 approved_by: ""
 date: {{date}}
 ---
-17. In `prd.md`, fill `## Intent Card` with real values for the current change:
-   - `Change type`;
-   - `User or business intent`;
-   - `Generation target`;
-   - `Resolution signal`;
-   - `Decision deadline`;
-   - `Risk envelope`.
-18. For ordinary fix/refactor/infra changes, `Resolution signal` and `Decision deadline` may be `not_applicable`, but the rows must not be removed.
-19. `prd.md` must have exactly this visible structure and no other visible structure: `# PRD`, then `## Intent Card`, `## Approval Summary`, `## Requirements`, `## Scope Boundaries`, `## Success Criteria`, `## Accepted Assumptions`, `## Deferred Decisions`.
-20. Do not add other `##` sections to `prd.md`, such as `Risks`, `Notes`, `Open Questions`, `Validation`, `Non-goals`, or `Security`. If that meaning is needed, place it in one of the allowed sections.
-21. Do not add `###` or deeper headings to `prd.md`. Put additional information only inside the allowed sections using lists, tables, or short paragraphs.
-22. In `## Intent Card`, the table must contain only the specified rows in the fixed order. Use `Resolution signal` only for hypotheses/experiments/future decisions and do not repeat `Success Criteria`. For ordinary tasks, use `not_applicable` when verification is fully covered by `SC#`.
-23. In `## Requirements`, use machine-readable items `R1: ...`, `R2: ...`. In `## Success Criteria`, use `SC1: ...`, `SC2: ...`.
-24. In `## Scope Boundaries`, include explicit lines starting with `In scope:` and `Out of scope:`.
-25. `## Accepted Assumptions` and `## Deferred Decisions` may be `None` when there are none.
-26. If information is missing for `R#`, `SC#`, `In scope:` / `Out of scope:`, or `Intent Card`, ask a question and do not write `prd.md`.
-27. Do not leave empty Intent Card cells, copied field descriptions, placeholder-like prose, `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided` in `prd.md`.
-28. Create `rules.md` in the change folder by instantiating [rules.md template]({{rules_template_path}}) for the current change.
-29. Use the HTML comments in the template as authoring guidance, but remove all comments from the final `rules.md`.
-30. `rules.md` must start with YAML frontmatter:
+15. `prd.md` must follow the template contract exactly: fixed visible sections, fixed Intent Card rows, machine-readable `R#` and `SC#` items, explicit `In scope:` / `Out of scope:` lines, no extra headings, no empty required fields, and no placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`.
+16. Create `rules.md` in the change folder by instantiating [rules.md template]({{rules_template_path}}) for the current change.
+17. Use the HTML comments in the template as authoring guidance, but remove all comments from the final `rules.md`.
+18. `rules.md` must start with YAML frontmatter:
 ---
 approved: false
 approved_by: ""
 date: {{date}}
 ---
-31. `rules.md` must have exactly this visible structure and no other visible structure: `# Rules`, then `## Test Commands`.
-32. In `rules.md`, fill the required `## Test Commands` section:
+19. `rules.md` must have exactly this visible structure and no other visible structure: `# Rules`, then `## Test Commands`.
+20. In `rules.md`, fill the required `## Test Commands` section:
 ```md
 ## Test Commands
 - unit: `...`

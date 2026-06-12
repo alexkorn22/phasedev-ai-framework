@@ -20,7 +20,7 @@ Requirements for `research_facts.md`:
 - include affected modules, public interfaces, dependencies, existing contracts, and constraints;
 - include similar existing solutions if found;
 - if research facts show that the approved PRD intent, generation target, a specific `R#`, a specific `SC#`, accepted assumptions, or risk envelope is incomplete, contradictory, or infeasible, do not turn that into a design assumption. Stop, report a PRD blocker to the user, and identify which PRD fields/IDs must be realigned;
-- explicitly marked unknown or disputed areas are allowed only for non-blocking research gaps in `## Research Gaps & Blockers`; if they affect `Resolution signal`, `Risk envelope`, scope boundaries, or success criteria, they are blockers, not ordinary unknowns;
+- explicitly marked unresolved gaps or disputed facts are allowed only for non-blocking research gaps in `## Research Gaps & Blockers`; if they affect `Resolution signal`, `Risk envelope`, scope boundaries, or success criteria, they are blockers, not ordinary gaps;
 - do not include architecture decisions, implementation proposals, or refactoring proposals.
 
 ## Artifact self-check

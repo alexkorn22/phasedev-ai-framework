@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { FlowRalphConfig } from "../../entities/flow-config/config";
 import { isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
+import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
 import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
@@ -8,7 +9,7 @@ import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
-import { formatAdditionalChecks, formatPhaseExcerpt, formatTaskList, toFileUrl } from "./prompt-formatters";
+import { formatPhaseExcerpt, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
 
 export interface Urls {
@@ -37,14 +38,16 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
 }
 
 export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: FlowRalphConfig): FlowPrompt {
+  let currentPhase = activePhase;
+
   if (activePhase.status === "not_started") {
     updatePhaseStatus(planPath, activePhase.id, "in_progress");
-    activePhase.status = "in_progress";
+    currentPhase = parsePlan(planPath).find(phase => phase.id === activePhase.id) ?? { ...activePhase, status: "in_progress" };
   }
 
-  if (isPhaseReadyForValidation(activePhase)) {
+  if (isPhaseReadyForValidation(currentPhase)) {
     return prompt("next", "phase_validation", renderStageTemplate("phase_validation", "step5a_val", {
-      phase_id: `Phase ${activePhase.id}: ${activePhase.name}`,
+      phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
       prd_path: urls.prd_path,
       rules_path: urls.rules_path,
       design_path: urls.design_path,
@@ -63,11 +66,9 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
   if (typeof testCommand !== "string") return testCommand;
 
   return prompt("next", "implementation", renderStageTemplate("implementation", "step4_impl", {
-    phase_id: `Phase ${activePhase.id}: ${activePhase.name}`,
-    phase_tasks: formatTaskList(activePhase),
-    phase_excerpt: formatPhaseExcerpt(activePhase),
+    phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
+    phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
-    phase_checks: formatAdditionalChecks(activePhase),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,

@@ -13,14 +13,8 @@ Input artifacts:
 Current phase:
 {{phase_id}}
 
-Current phase tasks:
-{{phase_tasks}}
-
-Current phase context from the plan:
+Current phase from approved plan:
 {{phase_excerpt}}
-
-Additional checks for the current phase from the plan:
-{{phase_checks}}
 
 Required results:
 - current phase tasks are completed within the approved `prd.md`, approved design, and approved plan;
