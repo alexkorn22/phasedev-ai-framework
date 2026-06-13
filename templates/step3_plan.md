@@ -23,14 +23,19 @@ Planning instructions:
 7. Fill `## Generation Bundle` in [implementation_plan.md]({{plan_path}}); for each area, use only `yes`, `no`, or `not_applicable` and briefly explain the decision.
 8. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - `Generation Bundle` must align with `Target state` and `Risk boundaries`;
-   - phase sequencing must cover every `R#`, every `SC#`, and the approved design;
+   - phase sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
    - checks/evidence must cover each `SC#` according to its PRD `Evidence` type;
    - if `Risk boundaries` require rollout, observability, or rollback path, the corresponding `Generation Bundle` rows must not be `not_applicable`.
-9. The plan must explicitly connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, and PRD `Evidence` types; do not use generic references such as "all requirements" without IDs.
+9. The plan must explicitly connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, `D#`, and PRD `Evidence` types; do not use generic references such as "all requirements" or "the design" without IDs.
 10. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
-11. If the approved design or plan decomposition does not cover `Target state`, a specific `R#`, a specific `SC#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
-12. For each phase, add `### Check Evidence` immediately after `### Checks`; all evidence rows must initially have `Result = pending`, except clearly irrelevant checks with `not_applicable`.
-13. Do not use task checkboxes inside `Check Evidence`; evidence rows must be ordinary markdown table rows so they do not mix with executable tasks.
+11. If the approved design or plan decomposition does not cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
+12. For each phase, add `### Expected Change Surface` between `### Goal` and `### Tasks`.
+13. Keep `Expected Change Surface` as a markdown table with max 7-10 rows per phase.
+14. Use exact files only for critical entrypoints, public contracts, migrations, config, generated artifacts, or known risky files.
+15. Use path patterns, globs, or subsystem ownership rows for broad implementation areas; large phases must group by subsystem/glob instead of enumerating every file.
+16. `Expected Change Surface` must use columns exactly: `Area / Path Pattern`, `Change Type`, `Ownership`, `Trace`; `Trace` must reference concrete `R#`, `SC#`, and relevant `D#`.
+17. For each phase, add `### Check Evidence` immediately after `### Checks`; all evidence rows must initially have `Result = pending`, except clearly irrelevant checks with `not_applicable`.
+18. Do not use task checkboxes inside `Check Evidence`; evidence rows must be ordinary markdown table rows so they do not mix with executable tasks.
 
 {{implementation_plan_artifact_contract}}
 
@@ -44,6 +49,8 @@ Formatting rules:
 - The first visible part of the document must quickly explain phase order and exactly what the user is approving.
 - Immediately after the title/intro, add a compact visual review surface. This is not a fixed section; it is 2-5 callouts, bullets, or table rows with the most important approval information.
 - In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
+- Visual markers, callouts, bullets, and review-only formatting must live inside existing allowed sections: `Approval Summary`, `Phase Overview`, or phase-local `###` sections.
+- Do not add new `##` sections to `implementation_plan.md` beyond the artifact template's allowed `##` sections and phase headings.
 - Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, callouts, or grouping clearly speed up review.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a question affects the approval artifact, ask the user and stop until the answer.
@@ -57,6 +64,7 @@ Formatting rules:
 - Emoji may be used as semantic visual markers when they help scan the document.
 - Do not use emoji in YAML frontmatter.
 - Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
+- Use emoji only in human-facing prose or table cells.
 - Do not use emoji in machine-parsed phase headings `## Phase N: <Phase name> [<status>]`.
 - In `implementation_plan.md`, preserve all machine-readable elements from the artifact template.
 

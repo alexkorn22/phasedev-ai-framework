@@ -100,6 +100,9 @@ ${normalizedPlanContent}`;
       // If Goal exists, append requirement mapping to it
       nextSection = nextSection.replace(/(###\s+Goal\s*)/i, "$1\nSatisfies R1 and SC1.\n");
     }
+    if (!/^###\s+Expected Change Surface\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Expected Change Surface\n\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | Fixture implementation area | R1, SC1, D1 |";
+    }
     if (!/^###\s+Tasks\s*$/im.test(nextSection)) {
       nextSection += "\n\n### Tasks\n";
     }
@@ -149,21 +152,37 @@ function validDesignBody(): string {
   return `# Design
 
 ## Executive Summary
-Summary details.
+
+| Area | Decision |
+|---|---|
+| Approval scope | Approve the fixture flow routing design. |
+| Out of scope | Unrelated product behavior. |
+| Key decision | D1 keeps routing grounded in approved artifacts. |
+| Validation | Review evidence covers R1 and SC1. |
 
 ## Traceability Mapping
-Trace details.
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase implements routing behavior. |
+| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks verify prompt rendering. |
 
 ## Architecture Package Map
 | File | Purpose | Visual content | Review priority |
 |---|---|---|---|
-| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |
 
 ## Key Design Decisions
-Decisions.
 
-## Database Schemas & API Contracts
-Schemas.
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| Flow routing | The controller advances only when approved artifacts pass validation. | D1 |
 
 ## Risks & Open Questions
 None.

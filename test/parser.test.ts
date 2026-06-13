@@ -138,6 +138,12 @@ Checks:
 
 Update prompts.
 
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`templates/step3_plan.md\` | update | Plan prompt contract | R1, SC1, D1 |
+
 ### Tasks
 
 - [x] 1.1 Update setup prompt
@@ -196,6 +202,12 @@ Additional checks:
 ### Goal
 
 Update prompts.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`templates/step3_plan.md\` | update | Plan prompt contract | R1, SC1, D1 |
 
 ### Tasks
 
@@ -266,6 +278,12 @@ date: 2026-06-02
 
 Update prompts.
 
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`templates/step3_plan.md\` | update | Plan prompt contract | R1, SC1, D1 |
+
 ### Tasks
 
 - [x] 1.1 Update setup prompt
@@ -314,6 +332,106 @@ Unexpected section.
     expect(issues).toContain("Section `## Phase Overview` must contain a markdown table.");
   });
 
+  test("validatePlanArtifact accepts Expected Change Surface with globs and enforces design decision traceability", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const prdFile = path.join(testTmpDir, "prd.md");
+    const validPlanFile = path.join(testTmpDir, "valid_surface_plan.md");
+    const missingDecisionPlanFile = path.join(testTmpDir, "missing_decision_plan.md");
+    const vagueTracePlanFile = path.join(testTmpDir, "vague_surface_trace_plan.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(prdFile, `# PRD
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | Update plan artifact scope control. |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Plan validation accepts bounded expected change surfaces. | test |
+`, "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+date: 2026-06-02
+---
+${validDesignBody()}
+`, "utf-8");
+
+    const planBody = `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
+| Out of scope | Runtime product behavior. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update prompt and validator code for R1, SC1, D1. |
+| Tests | yes | Add parser regression for R1, SC1, D1. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert plan validator changes. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+
+## Phase 1: Plan Surface [~]
+
+### Goal
+
+Add bounded expected change surfaces for R1, SC1, and D1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/entities/implementation-plan/*.ts\` | update | Plan artifact validation | R1, SC1, D1 |
+| \`templates/**/*.md\` | update | Prompt contracts | R1, SC1, D1 |
+
+### Tasks
+
+- [x] 1.1 Implement validator.
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | parser tests passed | none |
+`;
+    fs.writeFileSync(validPlanFile, planBody, "utf-8");
+    fs.writeFileSync(missingDecisionPlanFile, planBody.replace(/, D1/g, "").replace(/D1/g, ""), "utf-8");
+    fs.writeFileSync(vagueTracePlanFile, planBody.replace(/R1, SC1, D1/g, "all requirements"), "utf-8");
+
+    expect(validatePlanArtifact(validPlanFile, prdFile, designFile)).toEqual([]);
+    expect(validatePlanArtifact(missingDecisionPlanFile, prdFile, designFile)).toContain("Design decision `D1` is not mapped in the implementation plan.");
+    expect(validatePlanArtifact(vagueTracePlanFile, prdFile, designFile)).toContain("Phase 1: Plan Surface Expected Change Surface row 1 Trace must reference at least one `R#`, one `SC#`, and one `D#`.");
+    expect(validatePlanArtifact(validPlanFile, prdFile)).toEqual([]);
+  });
+
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
     expect(validatePlanStructure([])).toContain("implementation_plan.md must contain at least one phase heading.");
 
@@ -348,7 +466,7 @@ Unexpected section.
           { id: "1.1", name: "Task 1", status: "completed", children: [] }
         ],
         additionalChecks: [],
-        rawContent: "### Goal\nGoal\n### Tasks\n- [x] 1.1 Task 1\n### Checks\nchecks\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | passed | ok | none |\n",
+        rawContent: "### Goal\nGoal\n### Expected Change Surface\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | API | R1, SC1, D1 |\n### Tasks\n- [x] 1.1 Task 1\n### Checks\nchecks\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | passed | ok | none |\n",
         checkEvidence: [
           { check: "unit", commandOrMethod: "cmd", result: "passed", evidence: "ok", notes: "none" }
         ]
@@ -414,7 +532,7 @@ date: 2026-06-02
         status: "in_progress",
         tasks: [{ id: "1.1", name: "Implement auth", status: "not_started", children: [] }],
         additionalChecks: [],
-        rawContent: "### Goal\nGoal\n### Tasks\n- [ ] 1.1 Implement auth (implements R1)\n### Checks\nunit\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | pending | | | /* verifies SC1 */\n"
+        rawContent: "### Goal\nGoal\n### Expected Change Surface\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | API | R1, SC1, D1 |\n### Tasks\n- [ ] 1.1 Implement auth (implements R1)\n### Checks\nunit\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | pending | | | /* verifies SC1 */\n"
       }
     ];
 
@@ -944,6 +1062,48 @@ TODO: find blockers.
     expect(validateResearchFacts(invalidSupportFile)).toContain("Source Facts row 3 Supports must reference only `R#` or `SC#` IDs.");
   });
 
+  function validDesignBody(): string {
+    return `# Design
+
+## Executive Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Approve the flow routing design contract. |
+| Out of scope | Unrelated product behavior. |
+| Key decision | D1 keeps flow routing grounded in approved artifacts. |
+| Validation | Review evidence covers R1 and SC1. |
+
+## Traceability Mapping
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1, S1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase must implement routing updates. |
+| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks must verify prompt rendering. |
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |
+
+## Key Design Decisions
+
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| Flow routing | The controller advances only when approved artifacts pass validation. | D1 |
+
+## Risks & Open Questions
+
+None.
+`;
+  }
+
   test("validateDesign accepts valid design and rejects invalid ones", () => {
     const designFile = path.join(testTmpDir, "architecture", "design.md");
     cleanupTestDir();
@@ -954,27 +1114,7 @@ approved: true
 approved_by: tester
 date: 2026-06-02
 ---
-# Design
-
-## Executive Summary
-Summary details.
-
-## Traceability Mapping
-Trace details.
-
-## Architecture Package Map
-| File | Purpose | Visual content | Review priority |
-|---|---|---|---|
-| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
-
-## Key Design Decisions
-Decisions.
-
-## Database Schemas & API Contracts
-Schemas.
-
-## Risks & Open Questions
-None.
+${validDesignBody()}
 `, "utf-8");
 
     expect(validateDesign(designFile)).toEqual([]);
@@ -994,7 +1134,7 @@ No table here.
 ## Key Design Decisions
 TBD.
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 Contracts.
 
 ## Risks & Open Questions
@@ -1033,7 +1173,7 @@ Trace details.
 ## Key Design Decisions
 Decisions.
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 Schemas.
 
 ## Risks & Open Questions
@@ -1073,7 +1213,7 @@ Trace details.
 ## Key Design Decisions
 Decisions.
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 Schemas.
 
 ## Risks & Open Questions
@@ -1117,7 +1257,7 @@ Trace details.
 ## Key Design Decisions
 Decisions.
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 Schemas.
 
 ## Risks & Open Questions
@@ -1161,7 +1301,7 @@ Trace details.
 ## Key Design Decisions
 Decisions.
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 Schemas.
 
 ## Risks & Open Questions
@@ -1169,6 +1309,86 @@ None.
 `, "utf-8");
 
     expect(validateDesign(designFile)).toEqual([]);
+  });
+
+  test("validateDesign enforces semantic traceability when PRD and research are provided", () => {
+    const prdFile = path.join(testTmpDir, "design_trace_prd.md");
+    const researchFile = path.join(testTmpDir, "design_trace_research.md");
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(prdFile, `# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep routing decisions grounded. |
+| Target state | Research traces concrete flow behavior. |
+| Risk boundaries | No unrelated flow changes. |
+
+## Requirements
+| ID | Requirement |
+|---|---|
+| R1 | First requirement. |
+
+## Success Criteria
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | First criterion. | review |
+`, "utf-8");
+    writeResearchFixture(researchFile);
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody()}
+`, "utf-8");
+
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toEqual([]);
+
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody().replace("| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks must verify prompt rendering. |\n", "")}
+`, "utf-8");
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toContain("Traceability Mapping must include PRD ID `SC1`.");
+
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody().replace("| SC1 | F2 | D1 |", "| SC1 | F2 | D9 |")}
+`, "utf-8");
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toContain("Traceability Mapping row 5 references unknown design decision `D9`.");
+
+    const decisionRow = "| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |";
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody().replace(decisionRow, `${decisionRow}\n${decisionRow}`)}
+`, "utf-8");
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toContain("Key Design Decisions contains duplicate Decision ID `D1`.");
+
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody().replace("| R1 | F1, S1 | D1 |", "| R1 | F99 | D1 |")}
+`, "utf-8");
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toContain("Traceability Mapping row 4 Research Evidence references unknown fact `F99`.");
+
+    fs.writeFileSync(designFile, `---
+approved: false
+date: 2026-06-02
+---
+${validDesignBody().replace("| R1 | F1, S1 | D1 |", "| R1 | not_applicable | D1 |")}
+`, "utf-8");
+    expect(validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile })).toContain("Traceability Mapping row 4 Research Evidence `not_applicable` must include a short reason in the same cell.");
   });
 
   test("parseValidationVerdict extracts correct validation statuses", () => {

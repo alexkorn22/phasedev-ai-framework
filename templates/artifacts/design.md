@@ -14,19 +14,24 @@ Authoring instructions for the design agent:
 - Do not write TBD, TODO, unknown, clarify later, or to be decided.
 - The final design.md may contain only the # Design title and the six ## sections shown below, in this exact order.
 - Do not add other ## sections.
+- Every design decision that affects implementation must have a stable D# ID.
+- Keep this file compact: use tables for approval, traceability, and decisions.
 -->
 
 ## Executive Summary
 
-<!--
-Compact summary of the proposed technical architecture and design.
--->
+| Area | Decision |
+|---|---|
+| Approval scope |  |
+| Out of scope |  |
+| Key decision |  |
+| Validation |  |
 
 ## Traceability Mapping
 
-<!--
-Explicit mapping showing how requirements (R#) and success criteria (SC#) from prd.md map to new/changed design components.
--->
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 |  |  |
 
 ## Architecture Package Map
 
@@ -36,15 +41,15 @@ Explicit mapping showing how requirements (R#) and success criteria (SC#) from p
 
 ## Key Design Decisions
 
-<!--
-Detailed rationale for major technical choices and design patterns. Keep implementation component mapping here or in a linked architecture subdocument only when it adds review value.
--->
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 |  |  | R1 |  |
 
-## Database Schemas & API Contracts
+## Contracts, Interfaces & Boundaries
 
-<!--
-New database models, schemas, and API endpoint contracts.
--->
+| Boundary | Contract | Applies To |
+|---|---|---|
+|  |  | D1 |
 
 ## Risks & Open Questions
 

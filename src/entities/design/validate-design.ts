@@ -2,13 +2,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
+import { extractPrdTraceability } from "../prd/traceability";
 
 const REQUIRED_SECTIONS = [
   "Executive Summary",
   "Traceability Mapping",
   "Architecture Package Map",
   "Key Design Decisions",
-  "Database Schemas & API Contracts",
+  "Contracts, Interfaces & Boundaries",
   "Risks & Open Questions"
 ];
 
@@ -21,8 +22,15 @@ const BLOCKED_PLACEHOLDERS = [
 ];
 
 const PACKAGE_MAP_HEADERS = ["File", "Purpose", "Visual content", "Review priority"];
+const TRACEABILITY_HEADERS = ["PRD ID", "Research Evidence", "Design Decisions", "Design Coverage", "Plan Impact"];
+const DECISION_HEADERS = ["Decision ID", "Decision", "Rationale", "Applies To", "Impacts"];
 const REVIEW_PRIORITIES = new Set(["high", "medium", "low"]);
 const DESIGN_ENTRYPOINT = "architecture/design.md";
+
+export interface ValidateDesignOptions {
+  prdPath?: string;
+  researchPath?: string;
+}
 
 interface MarkdownTableBlock {
   start: number;
@@ -35,6 +43,11 @@ interface PackageMapRow {
   purpose: string;
   visualContent: string;
   reviewPriority: string;
+}
+
+interface TableRow {
+  rowNumber: number;
+  cells: string[];
 }
 
 function headingName(line: string): string | null {
@@ -124,6 +137,53 @@ function parseTableBlocks(lines: string[]): MarkdownTableBlock[] {
   }
 
   return blocks;
+}
+
+function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): TableRow[] {
+  const tableLines = sectionLines(lines, sectionName);
+  const tableBlocks = parseTableBlocks(tableLines);
+  if (tableBlocks.length === 0) {
+    issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
+    return [];
+  }
+  if (tableBlocks.length !== 1) {
+    issues.push(`Section \`## ${sectionName}\` must contain exactly one markdown table, found ${tableBlocks.length}.`);
+  }
+
+  const tableBlock = tableBlocks[0];
+  if (!tableBlock) {
+    return [];
+  }
+
+  const headerCells = splitMarkdownTableRow(tableLines[tableBlock.start]);
+  if (headerCells.length !== expectedHeaders.length || headerCells.some((header, index) => header !== expectedHeaders[index])) {
+    issues.push(`${sectionName} columns must be exactly: ${expectedHeaders.join(", ")}.`);
+  }
+
+  const separatorIndex = tableBlock.start + 1;
+  if (separatorIndex > tableBlock.end || !isSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
+    issues.push(`${sectionName} must include a separator row immediately after the header.`);
+  }
+
+  const rows: TableRow[] = [];
+  for (let rowIndex = separatorIndex + 1; rowIndex <= tableBlock.end; rowIndex++) {
+    const cells = splitMarkdownTableRow(tableLines[rowIndex]);
+    const rowNumber = rowIndex + 1;
+    if (isSeparatorRow(cells)) {
+      issues.push(`${sectionName} row ${rowNumber} contains an unexpected separator.`);
+      continue;
+    }
+    if (cells.length !== expectedHeaders.length) {
+      issues.push(`${sectionName} row ${rowNumber} must have exactly ${expectedHeaders.length} cells.`);
+      continue;
+    }
+    if (cells.some(cell => cell.trim().length === 0)) {
+      issues.push(`${sectionName} row ${rowNumber} must not contain empty cells.`);
+    }
+    rows.push({ rowNumber, cells });
+  }
+
+  return rows;
 }
 
 function stripCodeSpan(value: string): string {
@@ -286,7 +346,120 @@ function validateArchitecturePackageMap(lines: string[], filePath: string, issue
   }
 }
 
-export function validateDesign(filePath: string): string[] {
+function splitReferences(value: string): string[] {
+  return value
+    .split(/[\s,]+/)
+    .map(reference => reference.trim())
+    .filter(reference => reference.length > 0);
+}
+
+function collectResearchFactIds(researchPath: string | undefined): Set<string> {
+  if (!researchPath || !fs.existsSync(researchPath)) {
+    return new Set();
+  }
+
+  const content = normalizeLineEndings(fs.readFileSync(researchPath, "utf-8"));
+  const factIds = new Set<string>();
+  for (const line of content.split("\n")) {
+    const match = line.match(/^\|\s*([FS]\d+)\s*\|/);
+    if (match) {
+      factIds.add(match[1]);
+    }
+  }
+  return factIds;
+}
+
+function collectDecisionRows(lines: string[], issues: string[]): Map<string, TableRow> {
+  const rows = tableRowsForSection(lines, "Key Design Decisions", DECISION_HEADERS, issues);
+  const decisionRows = new Map<string, TableRow>();
+
+  for (const row of rows) {
+    const decisionId = row.cells[0] ?? "";
+    if (!/^D\d+$/.test(decisionId)) {
+      issues.push(`Key Design Decisions row ${row.rowNumber} Decision ID must use \`D#\` format.`);
+      continue;
+    }
+
+    if (decisionRows.has(decisionId)) {
+      issues.push(`Key Design Decisions contains duplicate Decision ID \`${decisionId}\`.`);
+    }
+    decisionRows.set(decisionId, row);
+  }
+
+  return decisionRows;
+}
+
+function validateTraceabilityMapping(lines: string[], options: ValidateDesignOptions, issues: string[]): void {
+  const traceRows = tableRowsForSection(lines, "Traceability Mapping", TRACEABILITY_HEADERS, issues);
+  const decisionRows = collectDecisionRows(lines, issues);
+  const referencedDecisionIds = new Set<string>();
+  const actualPrdIds = traceRows.map(row => row.cells[0] ?? "");
+  const researchFactIds = collectResearchFactIds(options.researchPath);
+
+  for (const row of traceRows) {
+    const [prdId, researchEvidence, designDecisions] = row.cells;
+    if (!/^R\d+$/.test(prdId) && !/^SC\d+$/.test(prdId)) {
+      issues.push(`Traceability Mapping row ${row.rowNumber} PRD ID must use \`R#\` or \`SC#\` format.`);
+    }
+
+    for (const reference of splitReferences(designDecisions)) {
+      if (!/^D\d+$/.test(reference)) {
+        issues.push(`Traceability Mapping row ${row.rowNumber} Design Decisions must reference only \`D#\` IDs.`);
+        continue;
+      }
+      if (!decisionRows.has(reference)) {
+        issues.push(`Traceability Mapping row ${row.rowNumber} references unknown design decision \`${reference}\`.`);
+      }
+      referencedDecisionIds.add(reference);
+    }
+
+    const trimmedResearchEvidence = researchEvidence.trim();
+    if (/^not_applicable\b/.test(trimmedResearchEvidence)) {
+      if (!/^not_applicable\s*[:(]\s*\S/.test(trimmedResearchEvidence)) {
+        issues.push(`Traceability Mapping row ${row.rowNumber} Research Evidence \`not_applicable\` must include a short reason in the same cell.`);
+      }
+      continue;
+    }
+
+    for (const reference of splitReferences(trimmedResearchEvidence)) {
+      if (!/^[FS]\d+$/.test(reference)) {
+        issues.push(`Traceability Mapping row ${row.rowNumber} Research Evidence must reference only \`F#\`, \`S#\`, or \`not_applicable\`.`);
+        continue;
+      }
+      if (options.researchPath && !researchFactIds.has(reference)) {
+        issues.push(`Traceability Mapping row ${row.rowNumber} Research Evidence references unknown fact \`${reference}\`.`);
+      }
+    }
+  }
+
+  if (options.prdPath && fs.existsSync(options.prdPath)) {
+    const { requirements, criteria } = extractPrdTraceability(options.prdPath);
+    const expectedIds = [...requirements, ...criteria];
+    for (const id of expectedIds) {
+      if (!actualPrdIds.includes(id)) {
+        issues.push(`Traceability Mapping must include PRD ID \`${id}\`.`);
+      }
+    }
+    for (const id of actualPrdIds) {
+      if (!expectedIds.includes(id)) {
+        issues.push(`Traceability Mapping contains unexpected PRD ID \`${id}\`.`);
+      }
+    }
+  }
+
+  const duplicatePrdIds = actualPrdIds.filter((id, index) => actualPrdIds.indexOf(id) !== index);
+  for (const id of Array.from(new Set(duplicatePrdIds))) {
+    issues.push(`Traceability Mapping contains duplicate PRD ID \`${id}\`.`);
+  }
+
+  for (const decisionId of decisionRows.keys()) {
+    if (!referencedDecisionIds.has(decisionId)) {
+      issues.push(`Key Design Decisions ID \`${decisionId}\` must be referenced by Traceability Mapping.`);
+    }
+  }
+}
+
+export function validateDesign(filePath: string, options: ValidateDesignOptions = {}): string[] {
   if (!fs.existsSync(filePath)) {
     return ["design.md does not exist."];
   }
@@ -351,6 +524,9 @@ export function validateDesign(filePath: string): string[] {
   }
 
   validateArchitecturePackageMap(lines, filePath, issues);
+  if (options.prdPath || options.researchPath) {
+    validateTraceabilityMapping(lines, options, issues);
+  }
 
   return issues;
 }

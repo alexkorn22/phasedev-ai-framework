@@ -19,6 +19,7 @@ Current phase from approved plan:
 Required results:
 - current phase tasks are completed within the approved `prd.md`, approved design, and approved plan;
 - the current phase change set implements only the `R#` and `SC#` tied to the current phase in the approved plan and does not expand beyond the positive PRD contract;
+- `Expected Change Surface` in the current phase constrains the allowed implementation areas for this stage; do not edit outside that surface unless the approved phase text explicitly requires it or you stop for user approval;
 - the current phase change set stays grounded in `Target state`, the current phase `R#`/`SC#`, and `Risk boundaries` from [prd.md]({{prd_path}});
 - if implementation reveals that the approved plan/design does not cover `Target state`, an `R#`, an `SC#`, an `Evidence` type, or a risk boundary from the PRD, stop and report a blocker instead of expanding scope yourself;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
@@ -35,7 +36,7 @@ Required results:
 - the final response contains a brief description of the change set, gate evidence, and remaining risks.
 
 Constraints:
-- do not expand scope beyond the current phase and related `R#`/`SC#` without an explicit user decision;
+- do not expand scope beyond the current phase, its `Expected Change Surface`, and related `R#`/`SC#` without an explicit user decision;
 - do not mark the phase as `[x]` at this stage.
 
 ## Artifact allowlist

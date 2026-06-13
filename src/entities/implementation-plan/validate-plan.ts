@@ -14,7 +14,9 @@ const REQUIRED_GENERATION_BUNDLE_AREAS = [
 
 const ALLOWED_BUNDLE_VALUES = new Set(["yes", "no", "not_applicable"]);
 const ALLOWED_EVIDENCE_RESULTS = new Set(["pending", "passed", "failed", "blocked", "not_applicable"]);
-const REQUIRED_PHASE_SECTIONS = ["Goal", "Tasks", "Checks", "Check Evidence"];
+const REQUIRED_PHASE_SECTIONS = ["Goal", "Expected Change Surface", "Tasks", "Checks", "Check Evidence"];
+const EXPECTED_CHANGE_SURFACE_HEADERS = ["Area / Path Pattern", "Change Type", "Ownership", "Trace"];
+const EXPECTED_CHANGE_SURFACE_MAX_ROWS = 10;
 
 function flattenTasks(tasks: Task[]): Task[] {
   return tasks.flatMap(task => [task, ...flattenTasks(task.children)]);
@@ -34,6 +36,99 @@ function hasParsedPlanContent(phases: Phase[]): boolean {
 
 function phaseHasSection(phase: Phase, sectionName: string): boolean {
   return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(phase.rawContent ?? "");
+}
+
+function headingLevel(line: string): number | null {
+  const match = line.match(/^(#{1,6})\s+/);
+  return match?.[1]?.length ?? null;
+}
+
+function splitMarkdownTableRow(line: string): string[] {
+  const trimmed = line.trim();
+  const cells: string[] = [];
+  let currentCell = "";
+
+  for (let index = 0; index < trimmed.length; index++) {
+    const char = trimmed[index];
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      currentCell += "|";
+      index++;
+      continue;
+    }
+
+    if (char === "|") {
+      cells.push(currentCell.trim());
+      currentCell = "";
+      continue;
+    }
+
+    currentCell += char;
+  }
+
+  cells.push(currentCell.trim());
+  if (cells[0] === "") cells.shift();
+  if (cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+}
+
+function phaseSectionLines(phase: Phase, sectionName: string): string[] {
+  const lines = (phase.rawContent ?? "").split("\n");
+  const headingIndex = lines.findIndex(line => new RegExp(`^###\\s+${sectionName}\\s*$`, "i").test(line.trim()));
+  if (headingIndex === -1) return [];
+
+  const boundaryIndex = lines.findIndex((line, index) => {
+    const level = headingLevel(line.trim());
+    return index > headingIndex && level !== null && level <= 3;
+  });
+  return lines.slice(headingIndex + 1, boundaryIndex === -1 ? lines.length : boundaryIndex);
+}
+
+function validateExpectedChangeSurface(phase: Phase, issues: string[]): void {
+  const rows = phaseSectionLines(phase, "Expected Change Surface").filter(line => line.trim().startsWith("|"));
+  if (rows.length === 0) {
+    issues.push(`Phase ${phase.id}: ${phase.name} must contain a non-empty Expected Change Surface table.`);
+    return;
+  }
+
+  const headerCells = splitMarkdownTableRow(rows[0]);
+  if (
+    headerCells.length !== EXPECTED_CHANGE_SURFACE_HEADERS.length ||
+    headerCells.some((header, index) => header !== EXPECTED_CHANGE_SURFACE_HEADERS[index])
+  ) {
+    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface columns must be exactly: ${EXPECTED_CHANGE_SURFACE_HEADERS.join(", ")}.`);
+  }
+
+  if (!rows[1] || !isSeparatorRow(splitMarkdownTableRow(rows[1]))) {
+    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface must include a separator row immediately after the header.`);
+  }
+
+  const dataRows = rows.slice(2).filter(row => !isSeparatorRow(splitMarkdownTableRow(row)));
+  if (dataRows.length === 0) {
+    issues.push(`Phase ${phase.id}: ${phase.name} must contain at least one Expected Change Surface row.`);
+  }
+  if (dataRows.length > EXPECTED_CHANGE_SURFACE_MAX_ROWS) {
+    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface must contain at most ${EXPECTED_CHANGE_SURFACE_MAX_ROWS} rows.`);
+  }
+
+  for (const [index, row] of dataRows.entries()) {
+    const cells = splitMarkdownTableRow(row);
+    const rowLabel = `Phase ${phase.id}: ${phase.name} Expected Change Surface row ${index + 1}`;
+    if (cells.length !== EXPECTED_CHANGE_SURFACE_HEADERS.length) {
+      issues.push(`${rowLabel} must have exactly ${EXPECTED_CHANGE_SURFACE_HEADERS.length} cells.`);
+      continue;
+    }
+    if (cells.some(cell => cell.trim().length === 0)) {
+      issues.push(`${rowLabel} must not contain empty cells.`);
+    }
+    const trace = cells[3] ?? "";
+    if (!/\bR\d+\b/.test(trace) || !/\bSC\d+\b/.test(trace) || !/\bD\d+\b/.test(trace)) {
+      issues.push(`${rowLabel} Trace must reference at least one \`R#\`, one \`SC#\`, and one \`D#\`.`);
+    }
+  }
 }
 
 function validateGenerationBundle(rows: GenerationBundleRow[], issues: string[]): void {
@@ -176,6 +271,9 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string): string
         if (!phaseHasSection(phase, section)) {
           issues.push(`Phase ${phase.id}: ${phase.name} must contain section \`### ${section}\`.`);
         }
+      }
+      if (phaseHasSection(phase, "Expected Change Surface")) {
+        validateExpectedChangeSurface(phase, issues);
       }
       validateCheckEvidenceRows(phase, phase.checkEvidence ?? [], issues);
     }

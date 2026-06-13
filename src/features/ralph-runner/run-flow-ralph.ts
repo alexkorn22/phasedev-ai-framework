@@ -331,7 +331,14 @@ function validateStageAllowlist(
       const isOutsideOpenSpec = !normalized.startsWith("openspec/");
       const isFindings = relativeChangeDir && normalized === `${relativeChangeDir}/validation_findings.md`;
       const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
-      const isDesign = relativeChangeDir && normalized === `${relativeChangeDir}/architecture/design.md`;
+      const isDesign = relativeChangeDir && (
+        normalized === `${relativeChangeDir}/architecture` ||
+        normalized === `${relativeChangeDir}/architecture/design.md` ||
+        (
+          path.posix.dirname(normalized) === `${relativeChangeDir}/architecture` &&
+          path.posix.extname(normalized) === ".md"
+        )
+      );
       const isPrd = relativeChangeDir && normalized === `${relativeChangeDir}/prd.md`;
 
       if (!isOutsideOpenSpec && !isFindings && !isPlan && !isDesign && !isPrd) {

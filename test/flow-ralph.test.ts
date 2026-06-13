@@ -144,21 +144,37 @@ function validDesignBody(): string {
   return `# Design
 
 ## Executive Summary
-Summary details.
+
+| Area | Decision |
+|---|---|
+| Approval scope | Approve the fixture flow routing design. |
+| Out of scope | Unrelated product behavior. |
+| Key decision | D1 keeps routing grounded in approved artifacts. |
+| Validation | Review evidence covers R1 and SC1. |
 
 ## Traceability Mapping
-Trace details.
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase implements routing behavior. |
+| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks verify prompt rendering. |
 
 ## Architecture Package Map
 | File | Purpose | Visual content | Review priority |
 |---|---|---|---|
-| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |
 
 ## Key Design Decisions
-Decisions.
 
-## Database Schemas & API Contracts
-Schemas.
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| Flow routing | The controller advances only when approved artifacts pass validation. | D1 |
 
 ## Risks & Open Questions
 None.
@@ -201,6 +217,12 @@ function implementationPlanReadyForArchive(): string {
 ### Goal
 
 Complete the fixture phase. Satisfies R1 and SC1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/**\` | update | Fixture implementation area | R1, SC1, D1 |
 
 ### Tasks
 
@@ -701,6 +723,35 @@ describe("flow-ralph runner", () => {
     expect(result.status).toBe("max_iterations");
     expect(ranRepair).toBe(true);
     expect(result.reason).not.toContain("Artifact allowlist violation");
+  });
+
+  test("allows repair stage to update linked architecture markdown files", async () => {
+    const projectPath = setupProject();
+    const linkedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "runtime-layout.md");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-repair-linked-design",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.mkdirSync(path.dirname(linkedDesignPath), { recursive: true });
+              fs.writeFileSync(linkedDesignPath, "# Runtime Layout\n\nUpdated repair detail.\n", "utf-8");
+            }
+            return { finalResponse: "updated linked design doc" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    expect(result.reason).not.toContain("Artifact allowlist violation");
+    expect(fs.existsSync(linkedDesignPath)).toBe(true);
   });
 
   test("blocks repair stage from updating project flow config", async () => {

@@ -10,7 +10,7 @@ function formatTask(task: Task, depth: number): string[] {
   const prefix = "  ".repeat(depth + 1);
   const label = task.id ? `${task.id} ${task.name}` : task.name;
   return [
-    `${prefix}* [${marker}] ${label}`,
+    `${prefix}- [${marker}] ${label}`,
     ...task.children.flatMap(child => formatTask(child, depth + 1))
   ];
 }

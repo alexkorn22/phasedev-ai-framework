@@ -132,6 +132,9 @@ ${normalizedPlanContent}`;
       // If Goal exists, append requirement mapping to it
       nextSection = nextSection.replace(/(###\s+Goal\s*)/i, "$1\nSatisfies R1 and SC1.\n");
     }
+    if (!/^###\s+Expected Change Surface\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Expected Change Surface\n\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | Fixture implementation area | R1, SC1, D1 |";
+    }
     if (!/^###\s+Tasks\s*$/im.test(nextSection)) {
       nextSection += "\n\n### Tasks\n";
     }
@@ -181,21 +184,37 @@ function validDesignBody(): string {
   return `# Design
 
 ## Executive Summary
-Summary details.
+
+| Area | Decision |
+|---|---|
+| Approval scope | Approve the fixture flow routing design. |
+| Out of scope | Unrelated product behavior. |
+| Key decision | D1 keeps routing grounded in approved artifacts. |
+| Validation | Review evidence covers R1 and SC1. |
 
 ## Traceability Mapping
-Trace details.
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase implements routing behavior. |
+| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks verify prompt rendering. |
 
 ## Architecture Package Map
 | File | Purpose | Visual content | Review priority |
 |---|---|---|---|
-| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map, top-level diagram/table | high |
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |
 
 ## Key Design Decisions
-Decisions.
 
-## Database Schemas & API Contracts
-Schemas.
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| Flow routing | The controller advances only when approved artifacts pass validation. | D1 |
 
 ## Risks & Open Questions
 None.
@@ -1273,12 +1292,12 @@ codex:
   test("downstream prompts require trace by PRD requirement and success criterion ids", () => {
     const expectations: Array<[string, string[]]> = [
       ["step1_research.md", ["trace for each `R#` and `SC#`"]],
-      ["step2_design.md", ["design decisions cover each `R#` requirement and each `SC#` success criterion"]],
-      ["step3_plan.md", ["connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, and PRD `Evidence` types"]],
-      ["step4_impl.md", ["only the `R#` and `SC#` tied to the current phase"]],
-      ["step5a_val.md", ["against the concrete `R#` and `SC#`"]],
+      ["step2_design.md", ["one row for every `R#` requirement and every `SC#` success criterion", "at least one concrete design decision ID (`D#`)"]],
+      ["step3_plan.md", ["connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, `D#`, and PRD `Evidence` types", "`Expected Change Surface` must use columns exactly"]],
+      ["step4_impl.md", ["only the `R#` and `SC#` tied to the current phase", "`Expected Change Surface` in the current phase constrains"]],
+      ["step5a_val.md", ["against the concrete `R#` and `SC#`", "use the current phase `Expected Change Surface` as a review aid"]],
       ["step5r_repair.md", ["reference the concrete `R#` or `SC#`"]],
-      ["step6_archive.md", ["Use `R#` requirements from `prd.md` as the primary source of requirement-level content"]]
+      ["step6_archive.md", ["Use `R#` requirements from `prd.md` as the primary source of requirement-level content", "`Expected Change Surface`"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
@@ -1287,6 +1306,30 @@ codex:
         expect(template).toContain(fragment);
       }
     }
+  });
+
+  test("plan prompt defines Expected Change Surface without allowing new top-level sections", () => {
+    const planTemplate = readTemplate("step3_plan.md");
+    const planContract = readTemplate("artifacts/implementation_plan.md");
+    const implementationTemplate = readTemplate("step4_impl.md");
+    const phaseValidationTemplate = readTemplate("step5a_val.md");
+    const finalValidationTemplate = readTemplate("step5b_val.md");
+    const archiveTemplate = readTemplate("step6_archive.md");
+
+    expect(planTemplate).toContain("### Expected Change Surface");
+    expect(planTemplate).toContain("max 7-10 rows per phase");
+    expect(planTemplate).toContain("Use exact files only for critical entrypoints");
+    expect(planTemplate).toContain("Use path patterns, globs, or subsystem ownership rows");
+    expect(planTemplate).toContain("Do not add new `##` sections");
+    expect(planTemplate).toContain("Visual markers, callouts, bullets, and review-only formatting must live inside existing allowed sections");
+    expect(planTemplate).not.toContain("Expected Change Set");
+    expect(planContract).toContain("| Area / Path Pattern | Change Type | Ownership | Trace |");
+    expect(planContract).toContain("Large phases must group by subsystem/glob");
+    expect(implementationTemplate).toContain("`Expected Change Surface` in the current phase constrains");
+    expect(phaseValidationTemplate).toContain("as a review aid for changed-file inventory");
+    expect(finalValidationTemplate).toContain("delivery scope context");
+    expect(finalValidationTemplate).toContain("not a new requirements source");
+    expect(archiveTemplate).toContain("Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements");
   });
 
   test("research prompts allow unresolved gaps without allowing unknown placeholders", () => {
@@ -1676,6 +1719,8 @@ codex:
     expect(planContract).toContain("Use [ ] for not started.");
     expect(planContract).toContain("Generation Bundle contract:");
     expect(planContract).toContain("Required values must be exactly one of: yes, no, not_applicable.");
+    expect(planContract).toContain("Expected Change Surface describes the allowed implementation area for the phase.");
+    expect(planContract).toContain("Trace must reference concrete R#, SC#, and relevant D# IDs.");
     expect(planContract).toContain("Check Evidence contract:");
     expect(planContract).toContain("Result values must be exactly one of: pending, passed, failed, blocked, not_applicable.");
     expect(planContract).toContain("Task IDs are phase-scoped: 1.1, 1.2, 2.1");

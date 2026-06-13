@@ -104,7 +104,10 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
     return { kind: "design", stage: "design", paths, activeChangePath: changeDir };
   }
 
-  const designIssues = validateDesign(paths.designPath);
+  const designIssues = validateDesign(paths.designPath, {
+    prdPath: paths.prdPath,
+    researchPath: paths.researchPath
+  });
   if (designIssues.length > 0) {
     return { kind: "invalid_design", stage: "design", paths, issues: designIssues, activeChangePath: changeDir };
   }
@@ -118,7 +121,7 @@ export function resolveFlowRoute(projectPath: string): FlowRoute {
   }
 
   const planPhases = parsePlan(paths.planPath);
-  const planIssues = validatePlanArtifact(paths.planPath, paths.prdPath);
+  const planIssues = validatePlanArtifact(paths.planPath, paths.prdPath, paths.designPath);
   if (planIssues.length > 0) {
     return { kind: "invalid_plan", stage: "plan", paths, issues: planIssues, activeChangePath: changeDir };
   }

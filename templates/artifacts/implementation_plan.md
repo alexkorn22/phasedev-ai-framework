@@ -52,13 +52,19 @@ Phase Overview contract:
 
 Phase section contract:
 - Add one machine-readable phase heading per phase.
-- Each phase must include Goal, Tasks, Checks, and Check Evidence.
+- Each phase must include Goal, Expected Change Surface, Tasks, Checks, and Check Evidence.
 - Goal states the observable outcome of the phase.
+- Expected Change Surface describes the allowed implementation area for the phase. Keep it as a markdown table with at most 7-10 rows.
+- Use exact files only for critical entrypoints/contracts, migrations, config, generated artifacts, or known risky files.
+- For broad implementation areas, use path patterns, globs, or subsystem ownership rows instead of enumerating every file.
+- Large phases must group by subsystem/glob, not enumerate every file.
+- Expected Change Surface rows must use columns exactly: Area / Path Pattern, Change Type, Ownership, Trace.
+- Trace must reference concrete R#, SC#, and relevant D# IDs.
 - Tasks contains only executable numbered task checkboxes for that phase.
 - Checks contains the unit gate and any additional phase-specific checks.
 - Additional checks may be omitted when none exist.
-- Phase goals, tasks, checks, and evidence rows must trace back to concrete approved PRD R# requirements, SC# success criteria, SC# Evidence types, risk boundaries, and approved design.
-- Do not use vague trace labels such as "all requirements"; reference concrete R# and SC# IDs.
+- Phase goals, expected change surface, tasks, checks, and evidence rows must trace back to concrete approved PRD R# requirements, SC# success criteria, SC# Evidence types, risk boundaries, and approved design D# decisions.
+- Do not use vague trace labels such as "all requirements"; reference concrete R#, SC#, and relevant D# IDs.
 
 Check Evidence contract:
 - Keep Check Evidence as a plain markdown table. Do not use task checkboxes inside evidence rows.
@@ -99,6 +105,12 @@ Check Evidence contract:
 ## Phase 1:  [ ]
 
 ### Goal
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+|  |  |  |  |
 
 ### Tasks
 

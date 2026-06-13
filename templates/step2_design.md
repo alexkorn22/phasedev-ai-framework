@@ -36,12 +36,16 @@ Decomposition rules:
 
 Requirements for `architecture/design.md`:
 - include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
+- keep `## Executive Summary` as a compact approval snapshot table, not a prose essay;
 - explicitly connect the design direction to `Intent` from [prd.md]({{prd_path}}): why the change is needed, target state, and risk boundaries in `## Executive Summary` or `## Key Design Decisions`;
-- include an explicit traceability table or list showing which design decisions cover each `R#` requirement and each `SC#` success criterion from the PRD in `## Traceability Mapping`;
+- include a `## Traceability Mapping` table with one row for every `R#` requirement and every `SC#` success criterion from the PRD;
+- every traceability row must reference concrete research facts (`F#` or `S#`) from [research_facts.md]({{research_path}}) and at least one concrete design decision ID (`D#`);
+- define each `D#` exactly once in `## Key Design Decisions`;
 - do not introduce design work that is not grounded in `Target state`, `R#`, `SC#`, or `Risk boundaries` from the PRD;
 - include a compact visual review surface near the top;
 - include the required `Architecture Package Map` table in `## Architecture Package Map`;
-- include a list of key design decisions grouped by meaning in `## Key Design Decisions`;
+- include key design decisions as a table in `## Key Design Decisions`;
+- use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable` only when there is no material contract surface;
 - include open risks and questions in `## Risks & Open Questions`;
 - link every additional architecture file if any are created.
 
@@ -132,6 +136,9 @@ Before completing the stage, verify:
 - Diagrams/tables show what will change and how it is planned; they do not merely decorate the document.
 - Long prose does not duplicate linked subdocuments.
 - Every linked subdocument starts with purpose and a visual review surface.
+- Every `R#` and `SC#` from the PRD appears in `Traceability Mapping`.
+- Every traceability row references valid research evidence and valid `D#` design decisions.
+- Every `D#` is defined exactly once and referenced by at least one traceability row.
 - Design does not diverge from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
 
 Then immediately validate the new design artifact before completing the stage:

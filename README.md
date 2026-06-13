@@ -299,6 +299,8 @@ Validation — это review-only этап, а не повторный test exec
 
 `rules.md` содержит только конкретные команды проверок в таблице `Test Commands`. Смысл требований и критериев не дублируется в rules.
 
+`architecture/design.md` ведется как компактный approval entrypoint и machine-readable design contract. `Executive Summary` содержит approval snapshot, `Traceability Mapping` содержит по одной строке на каждый `R#` и `SC#`, а `Key Design Decisions` задает стабильные `D#` design decision IDs. Downstream Plan должен ссылаться на конкретные `D#` вместе с `R#`/`SC#`, вместо того чтобы изобретать недостающую архитектуру из prose. Linked files внутри `architecture/` остаются частью утвержденного architecture package только когда перечислены в `Architecture Package Map`.
+
 `implementation_plan.md` ведется по artifact template: phase headings остаются machine-readable, а все executable task/subtask checkboxes имеют атомарные phase-scoped IDs (`1.1`, `1.1.1`, `2.1`). В начале плана есть `Generation Bundle`, где явно отмечены production code, tests, docs/specs, migrations, rollout, observability и rollback path. Generic `Definition of Done` не используется; готовность фазы определяется выполненными numbered tasks/subtasks и required checks.
 
 Каждая фаза содержит `Check Evidence` как обычную markdown-таблицу рядом с `Checks`. Implementation обновляет evidence после gate command и additional checks, используя результаты `pending`, `passed`, `failed`, `blocked` или `not_applicable`. Validation остается review-only: она не запускает checks повторно, а проверяет inline evidence как часть review surface.

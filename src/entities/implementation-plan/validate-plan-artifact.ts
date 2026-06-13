@@ -173,7 +173,47 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
   }
 }
 
-export function validatePlanArtifact(filePath: string, prdPath?: string): string[] {
+function extractDesignDecisionIds(designPath?: string): Set<string> {
+  if (!designPath || !fs.existsSync(designPath)) {
+    return new Set();
+  }
+
+  const content = normalizeLineEndings(fs.readFileSync(designPath, "utf-8"));
+  const { body } = bodyAfterFrontmatter(content);
+  const lines = body.split("\n");
+  const designSectionLines = sectionLines(lines, "Key Design Decisions");
+  const blocks = parseTableBlocks(designSectionLines);
+  const block = blocks[0];
+  if (!block) {
+    return new Set();
+  }
+
+  const decisionIds = new Set<string>();
+  for (let rowIndex = block.start + 2; rowIndex <= block.end; rowIndex++) {
+    const cells = splitMarkdownTableRow(designSectionLines[rowIndex]);
+    const decisionId = cells[0] ?? "";
+    if (/^D\d+$/.test(decisionId)) {
+      decisionIds.add(decisionId);
+    }
+  }
+  return decisionIds;
+}
+
+function validateDesignDecisionTraceability(body: string, designPath: string | undefined, issues: string[]): void {
+  const decisionIds = extractDesignDecisionIds(designPath);
+  if (decisionIds.size === 0) {
+    return;
+  }
+
+  for (const decisionId of decisionIds) {
+    const regex = new RegExp(`\\b${decisionId}\\b`);
+    if (!regex.test(body)) {
+      issues.push(`Design decision \`${decisionId}\` is not mapped in the implementation plan.`);
+    }
+  }
+}
+
+export function validatePlanArtifact(filePath: string, prdPath?: string, designPath?: string): string[] {
   if (!fs.existsSync(filePath)) {
     return ["implementation_plan.md does not exist."];
   }
@@ -200,6 +240,7 @@ export function validatePlanArtifact(filePath: string, prdPath?: string): string
   validateTableShape("Generation Bundle", lines, GENERATION_BUNDLE_HEADERS, issues);
   validateTableShape("Phase Overview", lines, PHASE_OVERVIEW_HEADERS, issues);
   issues.push(...validatePlanStructure(parsePlan(filePath), prdPath));
+  validateDesignDecisionTraceability(body, designPath, issues);
 
   return issues;
 }

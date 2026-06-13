@@ -32,6 +32,7 @@ Required stage-contract checks:
 - findings from the code review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = code_review` unless a more precise existing class is required by the finding;
 - findings from the security review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = security` unless a more precise existing class is required by the finding;
 - `Generation Bundle` in [implementation_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
+- `Expected Change Surface` in [implementation_plan.md]({{plan_path}}) is delivery scope context for comparing expected and actual changed areas; it is not a new requirements source and does not replace PRD-first validation or actual repo evidence;
 - `Check Evidence` for relevant phase scope in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
 - Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence, and a clear connection to the full validation scope;
 - Declarative Check Evidence such as `passed` without these details is insufficient; add a `MUST-FIX` finding with `Class = validation`;

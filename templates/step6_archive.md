@@ -22,7 +22,7 @@ Gate-status file:
 - Validation status: [validation_findings.md]({{findings_path}})
 
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
-Do not use `Generation Bundle` or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the archive report.
+Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the archive report.
 Use `R#` requirements from `prd.md` as the primary source of requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the archive report and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent or risk notes unless they are expressed as requirement-level behavior in a concrete `R#`.
 
 ## Visual Formatting Scope
