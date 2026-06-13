@@ -1,9 +1,10 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { renderTemplate } from "../src/shared/templates/render-template";
 
-const testTmpDir = path.resolve(__dirname, "..", "test-cli-temp");
+const testTmpDir = path.join(os.tmpdir(), "ag-dev-flow-test-cli-temp");
 const cliPath = path.resolve(__dirname, "..", "src", "flow-cli.ts");
 
 function cleanupTestDir() {
@@ -148,20 +149,31 @@ function validResearchBody(): string {
   return `# Research Facts
 
 ## PRD Intent Trace
-Trace details here.
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
+| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
-| R1 | confirmed | Fixture research traces routing requirement. | none |
-| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | none | none |
+| SC1 | confirmed | F2 | none | none |
 
 ## Source Facts
-- \`src/index.ts:42\` -- verified fact.
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | \`src/features/flow-control/flow-route.ts:94\` | Missing research routes to the research stage. | R1 |
+| F2 | code | \`test/flow-cli.test.ts:422\` | CLI fixture asserts the research prompt renders. | SC1 |
 
 ## Research Gaps & Blockers
-No blockers.
+
+No non-blocking gaps.
 `;
 }
 
@@ -422,6 +434,8 @@ codex:
     expect(output).toContain("Stage 1. Research.");
     expect(output).toContain("Artifact Build Contract: research_facts.md");
     expect(output).toContain("# Research Facts");
+    expect(output).toContain(`Existing project specs: [openspec/specs](file://${path.join(testTmpDir, "openspec", "specs")})`);
+    expect(output).toContain("Code evidence determines the final research status");
     expect(output).toContain("Artifact self-check");
     expect(output).toContain("--expect-route design");
 
@@ -1400,11 +1414,12 @@ codex:
     expect(template).toContain("it may stay entirely in `architecture/design.md`");
   });
 
-  test("setup prompt requires task description and task-specific rules before artifacts", () => {
+  test("setup prompt allows batched intake only for missing material context", () => {
     const template = readTemplate("step0_setup.md");
 
-    expect(template).toContain("First, ask the user for the task/change description");
-    expect(template).toContain("Then, in a separate request, ask for task-specific rules and constraints");
+    expect(template).toContain("If both the task/change description and task-specific rules or constraints are missing, ask for both in one short intake batch");
+    expect(template).toContain("If only one of those inputs is missing, ask only for the missing input");
+    expect(template).toContain("If the current context already contains enough data, do not ask intake questions just to follow process");
     expect(template).toContain("Do not create `prd.md` or `rules.md` until both items are available");
     expect(template).toContain("Run a material-question gate before creating files");
     expect(template).toContain("inspect the repository, artifact templates, config, tests, and project instructions before asking");
@@ -1416,6 +1431,47 @@ codex:
     expect(template).toContain("Do not guess missing PRD fields");
     expect(template).toContain("For `feature` and `experiment` changes");
     expect(template).toContain("For `fix`, `refactor`, and `infra` changes");
+    expect(template).not.toContain("Then, in a separate request");
+  });
+
+  test("setup prompt keeps prd and rules machine-stable without emoji recommendations", () => {
+    const template = readTemplate("step0_setup.md");
+
+    expect(template).toContain("`Intent` records the change type, why it is needed, target state, and risk boundaries");
+    expect(template).toContain("`Requirements` contains only required project behavior or project results");
+    expect(template).toContain("`Success Criteria` contains verifiable criteria and evidence type");
+    expect(template).toContain("`rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`");
+    expect(template).not.toContain("semantic emoji markers");
+    expect(template).not.toContain("Do not use emoji in YAML frontmatter");
+  });
+
+  test("research prompt uses existing project specs as secondary context", () => {
+    const template = readTemplate("step1_research.md");
+
+    expect(template).toContain("Existing project specs: [openspec/specs]({{project_specs_path}})");
+    expect(template).toContain("Source priority:");
+    expect(template).toContain("actual implementation in code, config, tests, and runtime wiring");
+    expect(template).toContain("existing specifications in `openspec/specs`");
+    expect(template).toContain("Code evidence determines the final research status");
+    expect(template).toContain("Do not copy large spec excerpts");
+    expect(template).toContain("Do not conclude that the project actually supports a capability only because it appears in specs");
+  });
+
+  test("research artifact template keeps exactly four sections and new evidence tables", () => {
+    const template = readTemplate("artifacts/research_facts.md");
+    const sections = Array.from(template.matchAll(/^##\s+(.+)$/gm)).map(match => match[1]);
+
+    expect(sections).toEqual([
+      "PRD Intent Trace",
+      "Requirements & Success Criteria Trace",
+      "Source Facts",
+      "Research Gaps & Blockers"
+    ]);
+    expect(template).toContain("| Field | PRD Value | Status | Evidence | Notes |");
+    expect(template).toContain("| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |");
+    expect(template).toContain("| Fact ID | Type | Source | Fact | Supports |");
+    expect(template).toContain("`F#` is only for code, config, tests, or runtime wiring facts");
+    expect(template).toContain("`S#` is only for facts from `openspec/specs`");
   });
 
   test("repair prompt requires approval reset for changed approved artifacts", () => {
@@ -1516,9 +1572,9 @@ codex:
 
     expect(initTemplate).not.toContain("compact visual review surface");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
-    expect(setupTemplate).toContain("A compact visual review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves");
-    expect(setupTemplate).toContain("semantic emoji markers");
-    expect(setupTemplate).toContain("Do not leave an approval artifact as an ordinary wall");
+    expect(setupTemplate).toContain("Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves");
+    expect(setupTemplate).toContain("Use concise tables and short wording instead of decorative formatting");
+    expect(setupTemplate).not.toContain("semantic emoji markers");
     expect(setupTemplate).toContain("Use one primary human language");
 
     for (const template of approvalTemplates) {
@@ -1563,11 +1619,11 @@ codex:
 
   test("visual formatting policy allows semantic emojis while protecting machine-readable flow grammar", () => {
     const visualTemplates = [
-      readTemplate("step0_setup.md"),
       readTemplate("step2_design.md"),
       readTemplate("step3_plan.md"),
       readTemplate("step6_archive.md")
     ];
+    const setupTemplate = readTemplate("step0_setup.md");
 
     for (const template of visualTemplates) {
       expect(template).toContain("emoji");
@@ -1575,6 +1631,9 @@ codex:
       expect(template).toContain("Do not use emoji in YAML frontmatter");
       expect(template).toContain("Do not use emoji in commands, file paths, code blocks");
     }
+
+    expect(setupTemplate).not.toContain("semantic emoji markers");
+    expect(setupTemplate).not.toContain("Do not use emoji in YAML frontmatter");
 
     const planTemplate = readTemplate("step3_plan.md");
     expect(planTemplate).toContain("Do not use emoji in machine-parsed phase headings `## Phase N: <Phase name> [<status>]`");

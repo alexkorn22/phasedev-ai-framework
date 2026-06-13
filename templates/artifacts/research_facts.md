@@ -5,42 +5,42 @@ Authoring instructions for the research agent:
 - Instantiate this template into the change directory as research_facts.md.
 - Remove every HTML comment from the final research_facts.md.
 - Keep exactly one visible top-level title: # Research Facts.
-- Document verified facts about the codebase using exact file paths and line numbers.
-- Do not write TBD, TODO, unknown, clarify later, or to be decided.
 - The final research_facts.md may contain only the # Research Facts title and the four ## sections shown below, in this exact order.
 - Do not add other ## sections.
+- Do not add ### or deeper headings.
+- Do not write TBD, TODO, unknown, clarify later, or to be decided.
+- Code evidence is primary. Specs are context and cannot confirm actual implementation behavior by themselves.
+- `F#` is only for code, config, tests, or runtime wiring facts.
+- `S#` is only for facts from `openspec/specs`.
+- `prd-only` is allowed only in PRD Intent Trace Evidence for intent fields that are not repository facts.
+- If `openspec/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
+- In Research Gaps & Blockers, explicitly declare any remaining unresolved gaps or disputed facts.
 -->
 
 ## PRD Intent Trace
 
-<!--
-Compactly trace how research confirms or constrains PRD Intent fields (Change type, Why, Target state, Risk boundaries).
--->
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type |  | not_applicable | prd-only |  |
+| Why |  | not_applicable | prd-only |  |
+| Target state |  | confirmed | F1 |  |
+| Risk boundaries |  | confirmed | F2 |  |
 
 ## Requirements & Success Criteria Trace
 
-<!--
-Provide a trace for each R# and SC# requirement defined in prd.md. Show which facts confirm, limit, or block each requirement/criterion.
-Format:
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
-| R1 | confirmed | [evidence] | none |
-| SC1 | confirmed | [evidence] | none |
--->
-
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | S1 | none |
+| SC1 | limited | F2 | none | none |
 
 ## Source Facts
 
-<!--
-List absolute or relative paths with line numbers for codebase observations.
-Format:
-- `path/to/file.ts:12-34` -- [verified fact]
--->
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | `src/file.ts:42` | Current implementation does X. | R1 |
+| F2 | code | `test/file.test.ts:12` | Tests verify behavior X. | SC1 |
+| S1 | spec | `openspec/specs/foo/spec.md:12` | Existing spec describes capability Y. | R1 |
 
 ## Research Gaps & Blockers
 
-<!--
-Explicitly declare any remaining unresolved gaps or disputed facts. If they affect PRD intent or success criteria, report them as blockers.
--->
+No non-blocking gaps.

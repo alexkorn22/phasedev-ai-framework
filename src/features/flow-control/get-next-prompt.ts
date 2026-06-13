@@ -95,6 +95,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
       return prompt("next", "research", renderStageTemplate("research", "step1_research", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
+        project_specs_path: toFileUrl(path.join(projectPath, "openspec", "specs")),
         research_path: urls.research_path,
         research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design")),
         self_check_command: flowCheckCommand(projectPath, "design")

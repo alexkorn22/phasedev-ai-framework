@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
-import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
+import { extractPrdTraceability } from "../prd/traceability";
 
 const REQUIRED_SECTIONS = [
   "PRD Intent Trace",
@@ -8,6 +8,14 @@ const REQUIRED_SECTIONS = [
   "Source Facts",
   "Research Gaps & Blockers"
 ];
+
+const INTENT_FIELDS = ["Change type", "Why", "Target state", "Risk boundaries"];
+const ALLOWED_STATUSES = ["confirmed", "limited", "blocked", "not_applicable"];
+const INTENT_TABLE_HEADERS = ["Field", "PRD Value", "Status", "Evidence", "Notes"];
+const TRACE_TABLE_HEADERS = ["ID", "Status", "Code Evidence", "Spec Context", "Gaps/Blockers"];
+const SOURCE_FACTS_HEADERS = ["Fact ID", "Type", "Source", "Fact", "Supports"];
+const PRD_ONLY_INTENT_FIELDS = ["Change type", "Why"];
+const CODE_EVIDENCE_REQUIRED_STATUSES = ["confirmed", "limited", "blocked"];
 
 const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bTBD\b/i, label: "TBD" },
@@ -17,7 +25,17 @@ const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bto be decided\b/i, label: "to be decided" }
 ];
 
-const TRACE_TABLE_HEADERS = ["ID", "Status", "Evidence", "Gaps/Blockers"];
+interface TableRow {
+  cells: string[];
+  rowNumber: number;
+}
+
+interface SourceFact {
+  id: string;
+  type: string;
+  rowNumber: number;
+  supports: string;
+}
 
 function splitMarkdownTableRow(line: string): string[] {
   const trimmed = line.trim();
@@ -65,7 +83,7 @@ function deepHeadingName(line: string): string | null {
 }
 
 function sectionLines(lines: string[], sectionName: string): string[] {
-  const startIndex = lines.findIndex(line => headingName(line)?.toLowerCase() === sectionName.toLowerCase());
+  const startIndex = lines.findIndex(line => headingName(line) === sectionName);
   if (startIndex === -1) {
     return [];
   }
@@ -74,35 +92,160 @@ function sectionLines(lines: string[], sectionName: string): string[] {
   return lines.slice(startIndex + 1, endIndex === -1 ? lines.length : endIndex);
 }
 
-function validateTraceTable(lines: string[], prdPath: string | undefined, issues: string[]): void {
-  const traceLines = sectionLines(lines, "Requirements & Success Criteria Trace");
-  const tableLines = traceLines.filter(line => line.trim().startsWith("|"));
+function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): TableRow[] {
+  const tableLines = sectionLines(lines, sectionName).filter(line => line.trim().startsWith("|"));
   if (tableLines.length === 0) {
-    issues.push("Section `## Requirements & Success Criteria Trace` must contain a markdown table.");
-    return;
+    issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
+    return [];
   }
 
   const headerCells = splitMarkdownTableRow(tableLines[0]);
-  if (headerCells.length !== TRACE_TABLE_HEADERS.length || headerCells.some((header, index) => header !== TRACE_TABLE_HEADERS[index])) {
-    issues.push("Requirements & Success Criteria Trace columns must be exactly: ID, Status, Evidence, Gaps/Blockers.");
+  if (headerCells.length !== expectedHeaders.length || headerCells.some((header, index) => header !== expectedHeaders[index])) {
+    issues.push(`${sectionName} columns must be exactly: ${expectedHeaders.join(", ")}.`);
   }
 
   if (tableLines.length < 2 || !isSeparatorRow(splitMarkdownTableRow(tableLines[1]))) {
-    issues.push("Requirements & Success Criteria Trace must include a separator row immediately after the header.");
+    issues.push(`${sectionName} must include a separator row immediately after the header.`);
   }
 
-  const actualIds: string[] = [];
-  for (const [index, line] of tableLines.slice(2).entries()) {
-    const cells = splitMarkdownTableRow(line);
-    const rowNumber = index + 3;
-    if (cells.length !== TRACE_TABLE_HEADERS.length) {
-      issues.push(`Requirements & Success Criteria Trace row ${rowNumber} must have exactly ${TRACE_TABLE_HEADERS.length} cells.`);
-      continue;
+  return tableLines.slice(2).map((line, index) => ({
+    cells: splitMarkdownTableRow(line),
+    rowNumber: index + 3
+  }));
+}
+
+function validateCellCountAndNonEmpty(sectionName: string, rows: TableRow[], expectedCellCount: number, issues: string[]): TableRow[] {
+  return rows.filter(row => {
+    if (row.cells.length !== expectedCellCount) {
+      issues.push(`${sectionName} row ${row.rowNumber} must have exactly ${expectedCellCount} cells.`);
+      return false;
     }
-    if (cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`Requirements & Success Criteria Trace row ${rowNumber} must not contain empty cells.`);
+
+    if (row.cells.some(cell => cell.trim().length === 0)) {
+      issues.push(`${sectionName} row ${row.rowNumber} must not contain empty cells.`);
     }
-    actualIds.push(cells[0]);
+
+    return true;
+  });
+}
+
+function validateStatus(sectionName: string, rowNumber: number, status: string, issues: string[]): void {
+  if (!ALLOWED_STATUSES.includes(status)) {
+    const allowedList = `${ALLOWED_STATUSES.slice(0, -1).join(", ")}, or ${ALLOWED_STATUSES[ALLOWED_STATUSES.length - 1]}`;
+    issues.push(`${sectionName} row ${rowNumber} has invalid Status \`${status}\`; expected ${allowedList}.`);
+  }
+}
+
+function splitReferences(value: string): string[] {
+  return value
+    .split(/[\s,]+/)
+    .map(reference => reference.trim())
+    .filter(reference => reference.length > 0);
+}
+
+function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdIntent: Map<string, string>, issues: string[]): void {
+  const validRows = validateCellCountAndNonEmpty(
+    "PRD Intent Trace",
+    tableRowsForSection(lines, "PRD Intent Trace", INTENT_TABLE_HEADERS, issues),
+    INTENT_TABLE_HEADERS.length,
+    issues
+  );
+  const fields = validRows.map(row => row.cells[0]);
+
+  for (const field of INTENT_FIELDS) {
+    if (!fields.includes(field)) {
+      issues.push(`PRD Intent Trace must include field \`${field}\`.`);
+    }
+  }
+
+  for (const field of fields) {
+    if (!INTENT_FIELDS.includes(field)) {
+      issues.push(`PRD Intent Trace contains unexpected field \`${field}\`.`);
+    }
+  }
+
+  if (fields.length !== INTENT_FIELDS.length || fields.some((field, index) => field !== INTENT_FIELDS[index])) {
+    issues.push(`PRD Intent Trace fields must exactly match this order: ${INTENT_FIELDS.map(field => `\`${field}\``).join(", ")}.`);
+  }
+
+  for (const row of validRows) {
+    const [field, prdValue, status, evidence] = row.cells;
+    validateStatus("PRD Intent Trace", row.rowNumber, status, issues);
+
+    const expectedPrdValue = prdIntent.get(field);
+    if (expectedPrdValue !== undefined && prdValue !== expectedPrdValue) {
+      issues.push(`PRD Intent Trace row ${row.rowNumber} PRD Value for \`${field}\` must match prd.md value \`${expectedPrdValue}\`.`);
+    }
+
+    for (const reference of splitReferences(evidence)) {
+      if (reference === "prd-only") {
+        if (!PRD_ONLY_INTENT_FIELDS.includes(field)) {
+          issues.push(`PRD Intent Trace row ${row.rowNumber} Evidence may use \`prd-only\` only for \`Change type\` and \`Why\`.`);
+        }
+        continue;
+      }
+      if (!/^[FS]\d+$/.test(reference)) {
+        issues.push(`PRD Intent Trace row ${row.rowNumber} Evidence must reference only existing \`F#\`, \`S#\`, or \`prd-only\`.`);
+        continue;
+      }
+      if (!sourceFactIds.has(reference)) {
+        issues.push(`PRD Intent Trace row ${row.rowNumber} Evidence references unknown fact \`${reference}\`.`);
+      }
+    }
+  }
+}
+
+function validateTraceTable(lines: string[], sourceFacts: SourceFact[], prdPath: string | undefined, issues: string[]): Set<string> {
+  const validRows = validateCellCountAndNonEmpty(
+    "Requirements & Success Criteria Trace",
+    tableRowsForSection(lines, "Requirements & Success Criteria Trace", TRACE_TABLE_HEADERS, issues),
+    TRACE_TABLE_HEADERS.length,
+    issues
+  );
+  const actualIds = validRows.map(row => row.cells[0]);
+  const codeFactIds = new Set(sourceFacts.filter(fact => /^F\d+$/.test(fact.id) && fact.type === "code").map(fact => fact.id));
+  const specFactIds = new Set(sourceFacts.filter(fact => /^S\d+$/.test(fact.id) && fact.type === "spec").map(fact => fact.id));
+
+  for (const row of validRows) {
+    const [id, status, codeEvidence, specContext] = row.cells;
+    if (!/^R\d+$/.test(id) && !/^SC\d+$/.test(id)) {
+      issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} ID must use \`R#\` or \`SC#\` format.`);
+    }
+
+    validateStatus("Requirements & Success Criteria Trace", row.rowNumber, status, issues);
+
+    let hasCodeFactEvidence = false;
+    for (const reference of splitReferences(codeEvidence)) {
+      if (reference === "not_applicable") {
+        continue;
+      }
+      if (!/^F\d+$/.test(reference)) {
+        issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} Code Evidence must reference only \`F#\` facts or be \`not_applicable\`.`);
+        continue;
+      }
+      if (!codeFactIds.has(reference)) {
+        issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} Code Evidence references unknown code fact \`${reference}\`.`);
+      } else {
+        hasCodeFactEvidence = true;
+      }
+    }
+
+    if (CODE_EVIDENCE_REQUIRED_STATUSES.includes(status) && !hasCodeFactEvidence) {
+      issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} with Status \`${status}\` must reference at least one \`F#\` code fact in Code Evidence.`);
+    }
+
+    for (const reference of splitReferences(specContext)) {
+      if (reference === "none" || reference === "not_applicable") {
+        continue;
+      }
+      if (!/^S\d+$/.test(reference)) {
+        issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} Spec Context must reference only \`S#\`, \`none\`, or \`not_applicable\`.`);
+        continue;
+      }
+      if (!specFactIds.has(reference)) {
+        issues.push(`Requirements & Success Criteria Trace row ${row.rowNumber} Spec Context references unknown spec fact \`${reference}\`.`);
+      }
+    }
   }
 
   const duplicateIds = actualIds.filter((id, index) => actualIds.indexOf(id) !== index);
@@ -111,10 +254,10 @@ function validateTraceTable(lines: string[], prdPath: string | undefined, issues
   }
 
   if (!prdPath) {
-    return;
+    return new Set(actualIds);
   }
 
-  const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
+  const { requirements, criteria } = extractPrdTraceability(prdPath);
   const expectedIds = [...requirements, ...criteria];
   for (const id of expectedIds) {
     if (!actualIds.includes(id)) {
@@ -124,6 +267,63 @@ function validateTraceTable(lines: string[], prdPath: string | undefined, issues
   for (const id of actualIds) {
     if (!expectedIds.includes(id)) {
       issues.push(`Requirements & Success Criteria Trace contains unexpected ID \`${id}\`.`);
+    }
+  }
+
+  return new Set(actualIds);
+}
+
+function validateSourceFacts(lines: string[], issues: string[]): SourceFact[] {
+  const validRows = validateCellCountAndNonEmpty(
+    "Source Facts",
+    tableRowsForSection(lines, "Source Facts", SOURCE_FACTS_HEADERS, issues),
+    SOURCE_FACTS_HEADERS.length,
+    issues
+  );
+  const facts: SourceFact[] = [];
+  const factIds: string[] = [];
+
+  for (const row of validRows) {
+    const [id, type, source, , supports] = row.cells;
+    factIds.push(id);
+    facts.push({ id, type, rowNumber: row.rowNumber, supports });
+
+    if (/^F\d+$/.test(id) && type !== "code") {
+      issues.push(`Source Facts row ${row.rowNumber} with Fact ID \`${id}\` must have Type \`code\`.`);
+    } else if (/^S\d+$/.test(id) && type !== "spec") {
+      issues.push(`Source Facts row ${row.rowNumber} with Fact ID \`${id}\` must have Type \`spec\`.`);
+    } else if (!/^[FS]\d+$/.test(id)) {
+      issues.push(`Source Facts row ${row.rowNumber} Fact ID must use \`F#\` or \`S#\` format.`);
+    }
+
+    if (!/\b[a-zA-Z0-9_\-\./]+:\d+\b/.test(source)) {
+      issues.push(`Source Facts row ${row.rowNumber} Source must contain a path with a line number.`);
+    }
+  }
+
+  const duplicateFactIds = factIds.filter((id, index) => factIds.indexOf(id) !== index);
+  for (const id of Array.from(new Set(duplicateFactIds))) {
+    issues.push(`Source Facts contains duplicate Fact ID \`${id}\`.`);
+  }
+
+  if (!facts.some(fact => /^F\d+$/.test(fact.id) && fact.type === "code")) {
+    issues.push("Source Facts must include at least one `F#` code fact.");
+  }
+
+  return facts;
+}
+
+function validateSourceFactSupports(sourceFacts: SourceFact[], traceIds: Set<string>, issues: string[]): void {
+  for (const fact of sourceFacts) {
+    for (const reference of splitReferences(fact.supports)) {
+      if (!/^R\d+$/.test(reference) && !/^SC\d+$/.test(reference)) {
+        issues.push(`Source Facts row ${fact.rowNumber} Supports must reference only \`R#\` or \`SC#\` IDs.`);
+        continue;
+      }
+
+      if (!traceIds.has(reference)) {
+        issues.push(`Source Facts row ${fact.rowNumber} Supports references unknown trace ID \`${reference}\`.`);
+      }
     }
   }
 }
@@ -161,34 +361,29 @@ export function validateResearchFacts(filePath: string, prdPath?: string): strin
 
   const actualSections = lines.map(headingName).filter((section): section is string => section !== null);
   for (const section of REQUIRED_SECTIONS) {
-    if (!actualSections.some(actual => actual.toLowerCase() === section.toLowerCase())) {
+    if (!actualSections.includes(section)) {
       issues.push(`research_facts.md must contain section \`## ${section}\`.`);
     }
   }
 
   for (const section of actualSections) {
-    if (!REQUIRED_SECTIONS.some(allowed => allowed.toLowerCase() === section.toLowerCase())) {
+    if (!REQUIRED_SECTIONS.includes(section)) {
       issues.push(`research_facts.md contains unexpected section \`## ${section}\`.`);
     }
   }
 
-  const normalizedActualSections = actualSections.map(section => section.toLowerCase());
-  const normalizedRequiredSections = REQUIRED_SECTIONS.map(section => section.toLowerCase());
   if (
-    normalizedActualSections.length !== normalizedRequiredSections.length ||
-    normalizedActualSections.some((section, index) => section !== normalizedRequiredSections[index])
+    actualSections.length !== REQUIRED_SECTIONS.length ||
+    actualSections.some((section, index) => section !== REQUIRED_SECTIONS[index])
   ) {
     issues.push(`research_facts.md \`##\` sections must exactly match this order: ${REQUIRED_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
-  // Verify that Source Facts section contains at least one file:line trace reference
-  const sourceFactsText = sectionLines(lines, "Source Facts").join("\n");
-  const tracePattern = /\b[a-zA-Z0-9_\-\./]+:\d+\b/;
-  if (!tracePattern.test(sourceFactsText)) {
-    issues.push("Section `## Source Facts` must contain at least one file path with a line number in the format `file:line` (e.g., `src/index.ts:42`).");
-  }
-
-  validateTraceTable(lines, prdPath, issues);
+  const prdTraceability = prdPath ? extractPrdTraceability(prdPath) : { intent: new Map<string, string>(), requirements: [], criteria: [] };
+  const sourceFacts = validateSourceFacts(lines, issues);
+  validateIntentTable(lines, new Set(sourceFacts.map(fact => fact.id)), prdTraceability.intent, issues);
+  const traceIds = validateTraceTable(lines, sourceFacts, prdPath, issues);
+  validateSourceFactSupports(sourceFacts, traceIds, issues);
 
   return issues;
 }

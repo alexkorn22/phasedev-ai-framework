@@ -112,20 +112,31 @@ function validResearchBody(): string {
   return `# Research Facts
 
 ## PRD Intent Trace
-Trace details here.
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
+| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
-| R1 | confirmed | Fixture research traces routing requirement. | none |
-| SC1 | confirmed | Fixture research traces expected stage prompt criterion. | none |
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | none | none |
+| SC1 | confirmed | F2 | none | none |
 
 ## Source Facts
-- \`src/index.ts:42\` -- verified fact.
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | \`src/features/ralph-runner/run-flow-ralph.ts:296\` | Ralph recognizes the research stage. | R1 |
+| F2 | code | \`test/flow-ralph.test.ts:112\` | Ralph fixture uses validated research facts. | SC1 |
 
 ## Research Gaps & Blockers
-No blockers.
+
+No non-blocking gaps.
 `;
 }
 

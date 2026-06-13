@@ -703,31 +703,83 @@ date: 2026-06-02
     expect(validatePrdArtifact(prdFile)).toContain("prd.md must not contain placeholder text: TODO.");
   });
 
-  test("validateResearchFacts accepts valid research facts and rejects invalid ones", () => {
-    const researchFile = path.join(testTmpDir, "valid_research.md");
-    cleanupTestDir();
-    setupTestDir();
-    fs.writeFileSync(researchFile, `# Research Facts
+  function validResearchFactsBody(overrides = ""): string {
+    if (overrides) {
+      return overrides;
+    }
+
+    return `# Research Facts
 
 ## PRD Intent Trace
-Trace details here.
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
+| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |
+| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |
 
 ## Requirements & Success Criteria Trace
 
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
-| R1 | confirmed | Requirement traced. | none |
-| SC1 | confirmed | Success criterion traced. | none |
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | S1 | none |
+| SC1 | limited | F2 | none | Fixture criterion is partially evidenced. |
 
 ## Source Facts
-- \`src/index.ts:42\` -- verified fact.
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | \`src/index.ts:42\` | Current implementation routes approved changes. | R1 |
+| F2 | code | \`test/parser.test.ts:12\` | Tests exercise parser behavior. | SC1 |
+| S1 | spec | \`openspec/specs/flow/spec.md:8\` | Existing spec describes flow routing. | R1 |
 
 ## Research Gaps & Blockers
-No blockers.
+
+No non-blocking gaps.
+`;
+  }
+
+  function writeResearchFixture(filePath: string, body = validResearchFactsBody()): void {
+    fs.writeFileSync(filePath, body, "utf-8");
+  }
+
+  function writeResearchPrdFixture(filePath: string): void {
+    fs.writeFileSync(filePath, `# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep routing decisions grounded. |
+| Target state | Research traces concrete flow behavior. |
+| Risk boundaries | No unrelated flow changes. |
+
+## Requirements
+| ID | Requirement |
+|---|---|
+| R1 | First requirement. |
+| R2 | Second requirement. |
+
+## Success Criteria
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | First criterion. | unit |
+| SC2 | R2 | Second criterion. | review |
 `, "utf-8");
+  }
+
+  test("validateResearchFacts accepts valid research with code and spec facts", () => {
+    const researchFile = path.join(testTmpDir, "valid_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile);
 
     expect(validateResearchFacts(researchFile)).toEqual([]);
+  });
 
+  test("validateResearchFacts rejects missing tables, placeholders, and missing code facts", () => {
     const invalidResearchFile = path.join(testTmpDir, "invalid_research.md");
     fs.writeFileSync(invalidResearchFile, `# Research Facts
 
@@ -745,9 +797,11 @@ TODO: find blockers.
 `, "utf-8");
 
     const issues = validateResearchFacts(invalidResearchFile);
-    expect(issues).toContain("Section `## Source Facts` must contain at least one file path with a line number in the format `file:line` (e.g., `src/index.ts:42`).");
     expect(issues).toContain("research_facts.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("Section `## PRD Intent Trace` must contain a markdown table.");
     expect(issues).toContain("Section `## Requirements & Success Criteria Trace` must contain a markdown table.");
+    expect(issues).toContain("Section `## Source Facts` must contain a markdown table.");
+    expect(issues).toContain("Source Facts must include at least one `F#` code fact.");
   });
 
   test("validateResearchFacts requires complete PRD trace IDs exactly once", () => {
@@ -755,46 +809,139 @@ TODO: find blockers.
     const researchFile = path.join(testTmpDir, "research_trace.md");
     cleanupTestDir();
     setupTestDir();
-    fs.writeFileSync(prdFile, `# PRD
-
-## Requirements
-| ID | Requirement |
-|---|---|
-| R1 | First requirement. |
-| R2 | Second requirement. |
-
-## Success Criteria
-| ID | Verifies | Criterion | Evidence |
-|---|---|---|---|
-| SC1 | R1 | First criterion. | unit |
-| SC2 | R2 | Second criterion. | review |
-`, "utf-8");
-    fs.writeFileSync(researchFile, `# Research Facts
-
-## PRD Intent Trace
-Trace details here.
-
-## Requirements & Success Criteria Trace
-
-| ID | Status | Evidence | Gaps/Blockers |
-|---|---|---|---|
-| R1 | confirmed | First requirement traced. | none |
-| R1 | confirmed | Duplicate requirement traced. | none |
-| SC1 | confirmed | First criterion traced. | none |
-| SC3 | confirmed | Extra criterion traced. | none |
-
-## Source Facts
-- \`src/index.ts:42\` -- verified fact.
-
-## Research Gaps & Blockers
-No blockers.
-`, "utf-8");
+    writeResearchPrdFixture(prdFile);
+    writeResearchFixture(researchFile, validResearchFactsBody().replace(
+      "| R1 | confirmed | F1 | S1 | none |\n| SC1 | limited | F2 | none | Fixture criterion is partially evidenced. |",
+      [
+        "| R1 | confirmed | F1 | S1 | none |",
+        "| R1 | confirmed | F2 | none | Duplicate requirement traced. |",
+        "| SC1 | confirmed | F2 | none | none |",
+        "| SC3 | confirmed | F1 | none | Extra criterion traced. |"
+      ].join("\n")
+    ));
 
     const issues = validateResearchFacts(researchFile, prdFile);
     expect(issues).toContain("Requirements & Success Criteria Trace contains duplicate ID `R1`.");
     expect(issues).toContain("Requirements & Success Criteria Trace must include PRD ID `R2`.");
     expect(issues).toContain("Requirements & Success Criteria Trace must include PRD ID `SC2`.");
     expect(issues).toContain("Requirements & Success Criteria Trace contains unexpected ID `SC3`.");
+  });
+
+  test("validateResearchFacts rejects missing PRD Intent Trace rows", () => {
+    const researchFile = path.join(testTmpDir, "missing_intent_row_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile, validResearchFactsBody().replace("| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |\n", ""));
+
+    expect(validateResearchFacts(researchFile)).toContain("PRD Intent Trace must include field `Why`.");
+  });
+
+  test("validateResearchFacts requires PRD Intent Trace values to match prd.md", () => {
+    const prdFile = path.join(testTmpDir, "research_intent_prd.md");
+    const researchFile = path.join(testTmpDir, "mismatched_intent_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchPrdFixture(prdFile);
+    writeResearchFixture(researchFile, validResearchFactsBody().replace(
+      "| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |",
+      "| Target state | Research invents a different target state. | confirmed | F1, S1 | Code is primary; spec is context. |"
+    ));
+
+    expect(validateResearchFacts(researchFile, prdFile)).toContain("PRD Intent Trace row 5 PRD Value for `Target state` must match prd.md value `Research traces concrete flow behavior.`.");
+  });
+
+  test("validateResearchFacts rejects invalid statuses", () => {
+    const researchFile = path.join(testTmpDir, "invalid_research_status.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | investigating | F1 | S1 | none |"));
+
+    expect(validateResearchFacts(researchFile)).toContain("Requirements & Success Criteria Trace row 3 has invalid Status `investigating`; expected confirmed, limited, blocked, or not_applicable.");
+  });
+
+  test("validateResearchFacts requires code evidence for concrete requirement statuses", () => {
+    const confirmedWithoutCodeFile = path.join(testTmpDir, "confirmed_without_code_research.md");
+    const limitedWithoutCodeFile = path.join(testTmpDir, "limited_without_code_research.md");
+    const blockedWithoutCodeFile = path.join(testTmpDir, "blocked_without_code_research.md");
+    cleanupTestDir();
+    setupTestDir();
+
+    writeResearchFixture(confirmedWithoutCodeFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | confirmed | not_applicable | S1 | none |"));
+    writeResearchFixture(limitedWithoutCodeFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | limited | not_applicable | S1 | partial code evidence missing |"));
+    writeResearchFixture(blockedWithoutCodeFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | blocked | not_applicable | S1 | code evidence missing |"));
+
+    expect(validateResearchFacts(confirmedWithoutCodeFile)).toContain("Requirements & Success Criteria Trace row 3 with Status `confirmed` must reference at least one `F#` code fact in Code Evidence.");
+    expect(validateResearchFacts(limitedWithoutCodeFile)).toContain("Requirements & Success Criteria Trace row 3 with Status `limited` must reference at least one `F#` code fact in Code Evidence.");
+    expect(validateResearchFacts(blockedWithoutCodeFile)).toContain("Requirements & Success Criteria Trace row 3 with Status `blocked` must reference at least one `F#` code fact in Code Evidence.");
+  });
+
+  test("validateResearchFacts restricts prd-only evidence to non-repository intent fields", () => {
+    const targetPrdOnlyFile = path.join(testTmpDir, "target_prd_only_research.md");
+    const riskPrdOnlyFile = path.join(testTmpDir, "risk_prd_only_research.md");
+    cleanupTestDir();
+    setupTestDir();
+
+    writeResearchFixture(targetPrdOnlyFile, validResearchFactsBody().replace("| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |", "| Target state | Research traces concrete flow behavior. | confirmed | prd-only | Code evidence missing. |"));
+    writeResearchFixture(riskPrdOnlyFile, validResearchFactsBody().replace("| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |", "| Risk boundaries | No unrelated flow changes. | confirmed | prd-only | Code evidence missing. |"));
+
+    expect(validateResearchFacts(targetPrdOnlyFile)).toContain("PRD Intent Trace row 5 Evidence may use `prd-only` only for `Change type` and `Why`.");
+    expect(validateResearchFacts(riskPrdOnlyFile)).toContain("PRD Intent Trace row 6 Evidence may use `prd-only` only for `Change type` and `Why`.");
+  });
+
+  test("validateResearchFacts requires exact section heading case", () => {
+    const researchFile = path.join(testTmpDir, "wrong_case_section_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile, validResearchFactsBody().replace("## PRD Intent Trace", "## prd intent trace"));
+
+    expect(validateResearchFacts(researchFile)).toContain("research_facts.md must contain section `## PRD Intent Trace`.");
+    expect(validateResearchFacts(researchFile)).toContain("research_facts.md contains unexpected section `## prd intent trace`.");
+  });
+
+  test("validateResearchFacts rejects references to missing code and spec facts", () => {
+    const missingCodeFactFile = path.join(testTmpDir, "missing_code_fact_research.md");
+    const missingSpecFactFile = path.join(testTmpDir, "missing_spec_fact_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(missingCodeFactFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | confirmed | F99 | S1 | none |"));
+    writeResearchFixture(missingSpecFactFile, validResearchFactsBody().replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | confirmed | F1 | S99 | none |"));
+
+    expect(validateResearchFacts(missingCodeFactFile)).toContain("Requirements & Success Criteria Trace row 3 Code Evidence references unknown code fact `F99`.");
+    expect(validateResearchFacts(missingSpecFactFile)).toContain("Requirements & Success Criteria Trace row 3 Spec Context references unknown spec fact `S99`.");
+  });
+
+  test("validateResearchFacts enforces Source Facts fact IDs, types, and source line numbers", () => {
+    const wrongCodeTypeFile = path.join(testTmpDir, "wrong_code_type_research.md");
+    const wrongSpecTypeFile = path.join(testTmpDir, "wrong_spec_type_research.md");
+    const missingLineFile = path.join(testTmpDir, "missing_line_research.md");
+    const specOnlyFile = path.join(testTmpDir, "spec_only_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(wrongCodeTypeFile, validResearchFactsBody().replace("| F1 | code |", "| F1 | spec |"));
+    writeResearchFixture(wrongSpecTypeFile, validResearchFactsBody().replace("| S1 | spec |", "| S1 | code |"));
+    writeResearchFixture(missingLineFile, validResearchFactsBody().replace("`src/index.ts:42`", "`src/index.ts`"));
+    writeResearchFixture(specOnlyFile, validResearchFactsBody()
+      .replace("| R1 | confirmed | F1 | S1 | none |", "| R1 | not_applicable | not_applicable | S1 | none |")
+      .replace("| SC1 | limited | F2 | none | Fixture criterion is partially evidenced. |\n", "")
+      .replace("| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R1 |\n", "")
+      .replace("| F2 | code | `test/parser.test.ts:12` | Tests exercise parser behavior. | SC1 |\n", ""));
+
+    expect(validateResearchFacts(wrongCodeTypeFile)).toContain("Source Facts row 3 with Fact ID `F1` must have Type `code`.");
+    expect(validateResearchFacts(wrongSpecTypeFile)).toContain("Source Facts row 5 with Fact ID `S1` must have Type `spec`.");
+    expect(validateResearchFacts(missingLineFile)).toContain("Source Facts row 3 Source must contain a path with a line number.");
+    expect(validateResearchFacts(specOnlyFile)).toContain("Source Facts must include at least one `F#` code fact.");
+  });
+
+  test("validateResearchFacts requires Source Facts Supports to reference trace IDs", () => {
+    const unknownSupportFile = path.join(testTmpDir, "unknown_support_research.md");
+    const invalidSupportFile = path.join(testTmpDir, "invalid_support_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(unknownSupportFile, validResearchFactsBody().replace("| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R1 |", "| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R99 |"));
+    writeResearchFixture(invalidSupportFile, validResearchFactsBody().replace("| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R1 |", "| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | Target state |"));
+
+    expect(validateResearchFacts(unknownSupportFile)).toContain("Source Facts row 3 Supports references unknown trace ID `R99`.");
+    expect(validateResearchFacts(invalidSupportFile)).toContain("Source Facts row 3 Supports must reference only `R#` or `SC#` IDs.");
   });
 
   test("validateDesign accepts valid design and rejects invalid ones", () => {

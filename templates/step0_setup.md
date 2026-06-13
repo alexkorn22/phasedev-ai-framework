@@ -11,27 +11,32 @@ Input:
 - clarifications available from the user if the task description is not enough for requirements.
 
 Required actions:
-1. First, ask the user for the task/change description if it is not already in context, then stop until they answer.
-2. Then, in a separate request, ask for task-specific rules and constraints if they are not already in context, then stop until they answer.
-3. Do not create `prd.md` or `rules.md` until both items are available: the task description and task rules/constraints.
-4. Run a material-question gate before creating files:
+1. If both the task/change description and task-specific rules or constraints are missing, ask for both in one short intake batch, then stop until the user answers.
+2. If only one of those inputs is missing, ask only for the missing input, then stop until the user answers.
+3. If the current context already contains enough data, do not ask intake questions just to follow process.
+4. Do not create `prd.md` or `rules.md` until both items are available: the task description and task rules/constraints.
+5. Run a material-question gate before creating files:
    - inspect the repository, artifact templates, config, tests, and project instructions before asking;
    - ask only questions whose answer can change `Intent` values, `R#`, `SC#`, success evidence type, risk boundaries, or test commands;
    - ask in batches of 1-3 short questions, using the question tool when available;
    - name the artifact field or section each question can change;
    - do not ask obvious questions or questions answerable from repository evidence.
-5. Close material ambiguity around why the change is needed, target state, required behavior, success criteria, evidence type, and risk boundaries.
-6. For `feature` and `experiment` changes, clarify the user/system outcome, expected impact, success evidence, and risk boundaries.
-7. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
-8. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
-9. Before creating artifacts, summarize your final interpretation, material user answers, and accepted assumptions. If the user disagrees or adds material scope, continue intake instead of writing files.
-10. Create the change folder: `openspec/changes/<change-name>/`.
-11. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
-12. Create `prd.md` first, then `rules.md`.
+6. Close material ambiguity around why the change is needed, target state, required behavior, success criteria, evidence type, and risk boundaries.
+7. For `feature` and `experiment` changes, clarify the user/system outcome, expected impact, success evidence, and risk boundaries.
+8. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
+9. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
+10. Before creating artifacts, summarize your final interpretation, material user answers, and accepted assumptions. If the user disagrees or adds material scope, continue intake instead of writing files.
+11. Create the change folder: `openspec/changes/<change-name>/`.
+12. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
+13. Create `prd.md` first, then `rules.md`.
 
 Artifact requirements:
-- `prd.md` records intent, target state, risk boundaries, `R#` requirements, and `SC#` criteria with evidence type.
-- `rules.md` records only concrete gate commands needed by later stages.
+- `prd.md` remains the main task contract.
+- `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
+- `prd.md` `Requirements` contains only required project behavior or project results.
+- `prd.md` `Success Criteria` contains verifiable criteria and evidence type.
+- `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
+- `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 {{prd_artifact_contract}}
@@ -50,15 +55,14 @@ If the check fails, fix the reported artifact issues in this same stage, then re
 
 ## Human Review Formatting Policy
 
-`prd.md` and `rules.md` are approval artifacts, so format them for quick human review.
+`prd.md` and `rules.md` are approval artifacts, but they are also machine-read by later AI agents. Keep them compact, stable, and predictable.
 
 Formatting rules:
 - YAML frontmatter remains first in each file.
 - For `prd.md`, do not choose structure based on content. Use only the strict PRD contract from the template.
 - The first visible part of `prd.md` after `# PRD` must be `## Intent`; write approval context inside the allowed tables.
-- A compact visual review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves; do not add a separate approval summary.
-- In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key success/decision, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
-- Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, callouts, or grouping clearly speed up review.
+- Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves; do not add a separate approval summary.
+- Use concise tables and short wording instead of decorative formatting.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a question affects the approval artifact, ask the user and stop until the answer.
 - Do not write pending open questions into `prd.md` or `rules.md` as a substitute for asking the user.
@@ -67,9 +71,6 @@ Formatting rules:
 - In `prd.md`, do not use headings other than the strictly allowed headings. Short paragraphs, bullets, tables, blockquotes, and bold may be used only inside the allowed sections.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
 - For `prd.md`, use only the allowed sections: put intent and risk boundaries in `## Intent`, required behavior in `## Requirements`, and proof targets plus evidence type in `## Success Criteria`.
-- Emoji may be used as semantic visual markers when they help scan the document.
-- Do not use emoji in YAML frontmatter.
-- Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
 - In `rules.md`, preserve all machine-readable elements of the `## Test Commands` table without decorative formatting inside commands.
 
 ## Artifact allowlist
