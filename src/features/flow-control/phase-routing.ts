@@ -89,6 +89,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
     phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
+    self_check_command: flowCheckCommand(projectPath, "phase_validation"),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,

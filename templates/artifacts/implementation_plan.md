@@ -72,6 +72,7 @@ Check Evidence contract:
 - Planning stage initializes relevant checks as pending and irrelevant checks as not_applicable.
 - Implementation stage updates pending rows after executing checks.
 - Command Or Method must match the check command or named review/manual method from Checks.
+- Rows with Result `passed`, `failed`, or `blocked` must have non-empty concrete Evidence.
 -->
 
 # Implementation Plan

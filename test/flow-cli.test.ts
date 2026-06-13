@@ -1040,8 +1040,11 @@ No markdown finding table here.
 
     expect(output).toContain("Stage 4. Implementation.");
     expect(output).toContain("bun test unit");
-    expect(output).toContain("do not finish Implementation with failed tests/checks");
+    expect(output).toContain(`bun run "${cliPath}" check --project-path "${testTmpDir}" --expect-route phase_validation`);
+    expect(output).toContain("finish only when the controller self-check passes or the current phase is honestly recorded as `blocked`");
+    expect(output).toContain("do not mark the phase heading `[x]` at this stage");
     expect(output).not.toContain("change the phase status in the plan heading from `[~]`");
+    expect(output).not.toContain("mark the phase heading as `[x]`");
     expect(output).not.toContain("run unit tests");
   });
 
@@ -1723,6 +1726,7 @@ codex:
     expect(planContract).toContain("Trace must reference concrete R#, SC#, and relevant D# IDs.");
     expect(planContract).toContain("Check Evidence contract:");
     expect(planContract).toContain("Result values must be exactly one of: pending, passed, failed, blocked, not_applicable.");
+    expect(planContract).toContain("Rows with Result `passed`, `failed`, or `blocked` must have non-empty concrete Evidence.");
     expect(planContract).toContain("Task IDs are phase-scoped: 1.1, 1.2, 2.1");
     expect(planContract).toContain("Do not add a generic Definition of Done section");
     expect(planContract).toContain("Additional checks:");

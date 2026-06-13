@@ -344,14 +344,28 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 4. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
+    expect(result.prompt).toContain(`bun run "${path.resolve(__dirname, "..", "src", "flow-cli.ts")}" check --project-path "${testTmpDir}" --expect-route phase_validation`);
   });
 
-  test("completed multi-phase phase routes to phase validation stage", () => {
+  test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {
     setupChange(`
 # Plan
 
 ## Phase 1: API [~]
+
+### Tasks
+
 - [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | passed | unit tests passed for API endpoint | none |
 
 ## Phase 2: UI [ ]
 - [ ] 2.1 Build page
