@@ -6,6 +6,7 @@ import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
+import { renderArtifactContract } from "./artifact-contract";
 import { archivePrompt, startArchiveStage } from "./archive-stage";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
@@ -24,9 +25,10 @@ function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
   };
 }
 
-function flowCheckCommand(projectPath: string, expectedRoute: string): string {
+function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
   const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
-  return `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)} --expect-route ${expectedRoute}`;
+  const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
+  return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
 function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
@@ -39,6 +41,16 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     skill_policy: renderSkillPolicy(stage, config)
+  });
+}
+
+function artifactContract(artifactId: string, resolvedOutputPath: string, templateName: string, selfCheckCommand: string, date = new Date().toISOString().split("T")[0]): string {
+  return renderArtifactContract({
+    artifactId,
+    resolvedOutputPath,
+    templateName,
+    selfCheckCommand,
+    date
   });
 }
 
@@ -57,13 +69,18 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
     case "setup": {
       let taskContext = "";
       const taskFile = process.env.FLOW_TASK_FILE;
+      const date = new Date().toISOString().split("T")[0];
+      const changeRoot = route.activeChangePath ?? path.join(projectPath, "openspec", "changes", "<change-name>");
+      const selfCheckCommand = flowCheckCommand(projectPath, "setup_approval");
       if (taskFile && fs.existsSync(taskFile)) {
         const content = fs.readFileSync(taskFile, "utf-8");
         taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
       }
       const basePrompt = renderStageTemplate("setup", "step0_setup", {
-        date: new Date().toISOString().split("T")[0],
-        self_check_command: flowCheckCommand(projectPath, "setup_approval")
+        date,
+        prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date),
+        rules_artifact_contract: artifactContract("rules.md", path.join(changeRoot, "rules.md"), "artifacts/rules", selfCheckCommand, date),
+        self_check_command: selfCheckCommand
       }, config);
       return prompt("next", "setup", basePrompt + taskContext);
     }
@@ -79,6 +96,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         research_path: urls.research_path,
+        research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design")),
         self_check_command: flowCheckCommand(projectPath, "design")
       }, config));
     }
@@ -92,6 +110,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         research_path: urls.research_path,
         design_path: urls.design_path,
         date: new Date().toISOString().split("T")[0],
+        design_artifact_contract: artifactContract("architecture/design.md", route.paths.designPath, "artifacts/design", flowCheckCommand(projectPath, "design_approval")),
         self_check_command: flowCheckCommand(projectPath, "design_approval")
       }, config));
     }
@@ -107,6 +126,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         rules_path: urls.rules_path,
         plan_path: urls.plan_path,
         date: new Date().toISOString().split("T")[0],
+        implementation_plan_artifact_contract: artifactContract("implementation_plan.md", route.paths.planPath, "artifacts/implementation_plan", flowCheckCommand(projectPath, "plan_approval")),
         self_check_command: flowCheckCommand(projectPath, "plan_approval")
       }, config));
     }
@@ -117,7 +137,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
     case "invalid_findings":
       return validationFindingsBlocker(route.paths.findingsPath, route.issues);
     case "repair":
-      return repairPrompt(urlsFor(route.paths), route.paths.findingsPath, config);
+      return repairPrompt(urlsFor(route.paths), route.paths.findingsPath, config, projectPath);
     case "archive_readiness_blocked":
       return archiveReadinessBlocker(
         "All implementation phases must be marked [x] before archive.",
@@ -129,7 +149,7 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
     case "phase": {
       const urls = urlsFor(route.paths);
       const testCommands = parseTestCommands(route.paths.rulesPath).commands;
-      return handlePhase(route.paths.planPath, route.activePhase, urls, testCommands, route.paths.rulesPath, config);
+      return handlePhase(route.paths.planPath, route.activePhase, urls, testCommands, route.paths.rulesPath, config, projectPath);
     }
     case "final_validation": {
       const urls = urlsFor(route.paths);
@@ -139,7 +159,8 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         design_path: urls.design_path,
         plan_path: urls.plan_path,
         findings_path: urls.findings_path,
-        date: new Date().toISOString().split("T")[0]
+        date: new Date().toISOString().split("T")[0],
+        validation_findings_artifact_contract: artifactContract("validation_findings.md", route.paths.findingsPath, "artifacts/validation_findings", flowCheckCommand(projectPath))
       }, config));
     }
   }

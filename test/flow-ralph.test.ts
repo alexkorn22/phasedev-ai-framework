@@ -85,41 +85,26 @@ function writeApprovedArtifact(filePath: string, body: string): void {
 function validPrdBody(): string {
   return `# PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep flow routing grounded in approved requirements. |
-| Generation target | Exercise the flow controller stage prompt. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | Test fixture only; no production risk. |
-
-## Approval Summary
-
-Approve this test fixture change.
+| Why | Keep flow routing grounded in approved requirements. |
+| Target state | Exercise the flow controller stage prompt. |
+| Risk boundaries | Test fixture only; no production risk. |
 
 ## Requirements
 
-- R1: Route the flow according to approved artifacts.
-
-## Scope Boundaries
-
-- In scope: test fixture flow state.
-- Out of scope: unrelated behavior.
+| ID | Requirement |
+|---|---|
+| R1 | Route the flow according to approved artifacts. |
 
 ## Success Criteria
 
-- SC1: The expected stage prompt is rendered.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | The expected stage prompt is rendered. | review |
 `;
 }
 
@@ -229,9 +214,11 @@ function setupArchiveReadyProject(): string {
 # Rules
 
 ## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
@@ -576,6 +563,64 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("blocked");
     expect(result.reason).toContain("src/app.ts");
+  });
+
+  test("allows design stage to create linked architecture markdown files", async () => {
+    const projectPath = setupProject();
+    const linkedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "data-flow.md");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-design-linked-doc",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.mkdirSync(path.dirname(linkedDesignPath), { recursive: true });
+              fs.writeFileSync(linkedDesignPath, "# Data Flow\n", "utf-8");
+            }
+            return { finalResponse: "created linked design doc" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    expect(result.reason).not.toContain("Artifact allowlist violation");
+    expect(fs.existsSync(linkedDesignPath)).toBe(true);
+  });
+
+  test("blocks nested architecture files during design stage", async () => {
+    const projectPath = setupProject();
+    const nestedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "nested", "data-flow.md");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-design-nested-doc",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.mkdirSync(path.dirname(nestedDesignPath), { recursive: true });
+              fs.writeFileSync(nestedDesignPath, "# Nested Data Flow\n", "utf-8");
+            }
+            return { finalResponse: "created nested design doc" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("architecture/nested");
+    expect(result.reason).toContain("outside allowlist");
   });
 
   test("blocks streamed file changes outside the project path", async () => {

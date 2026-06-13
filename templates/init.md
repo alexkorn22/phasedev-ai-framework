@@ -14,8 +14,8 @@ This prompt initializes the working context:
 Base directory for change artifacts: `openspec/changes/<change-name>/` at the project root.
 
 Use this directory to save and read artifacts:
-- `prd.md` - approved product requirements from the artifact template, including the required `Intent Card`;
-- `rules.md` - global rules and constraints;
+- `prd.md` - approved product requirements from the artifact template: Intent, Requirements, and Success Criteria;
+- `rules.md` - concrete test commands for the current change;
 - `research_facts.md` - codebase research facts;
 - `architecture/design.md` - main approved technical design;
 - `implementation_plan.md` - phased implementation plan;

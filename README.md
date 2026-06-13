@@ -291,11 +291,13 @@ npm run flow:ralph -- --project-path /absolute/project
 
 Validation полностью игнорирует `openspec/**` при поиске implementation findings. OpenSpec используется как системный контракт flow: validation читает требования, дизайн, план и историю `validation_findings.md`, но не создает замечания по файлам внутри `openspec/**`.
 
-Каждая фаза, включая единственную фазу single-phase плана, проходит Phase Validation перед Final Validation. Phase Validation — plan-first проверка текущей фазы по `implementation_plan.md`; PRD и design используются как approved constraints и traceability context. Final Validation — PRD-first проверка всего change set по `Intent Card`, requirements, scope boundaries, success criteria, risk envelope, accepted assumptions и deferred decisions.
+Каждая фаза, включая единственную фазу single-phase плана, проходит Phase Validation перед Final Validation. Phase Validation — plan-first проверка текущей фазы по `implementation_plan.md`; PRD и design используются как approved constraints и traceability context. Final Validation — PRD-first проверка всего change set по `Intent`, requirements, success criteria, evidence types и risk boundaries.
 
 Validation — это review-only этап, а не повторный test execution gate. Он намеренно не запускает `unit`, `phase`, `full` или дополнительные проверки повторно: успешное выполнение проверок является ответственностью Implementation stage, который не должен завершаться с failed checks.
 
-`prd.md` ведется по artifact template и содержит обязательный `Intent Card`: тип change, intent, generation target, resolution signal, decision deadline и risk envelope. Для обычных fix/refactor/infra changes signal/deadline могут быть `not_applicable`, но строки сохраняются для стабильного human review. Downstream stages используют `Intent Card`: research trace-ит intent к фактам, design отражает signal/risk в decisions, plan связывает generation bundle/checks с PRD, implementation и validation проверяют scope, success criteria и risk envelope.
+`prd.md` ведется по artifact template и содержит только три обязательные секции: `Intent`, `Requirements`, `Success Criteria`. `Intent` фиксирует тип изменения, зачем оно нужно, целевое состояние и risk boundaries. `Requirements` содержит machine-readable `R#` строки в таблице. `Success Criteria` содержит `SC#`, ссылки на проверяемые `R#`, критерий и тип evidence (`unit`, `phase`, `full`, `review`, `manual`, `smoke`). Downstream stages используют PRD как положительный контракт: агент делает только то, что следует из target state, `R#`, `SC#` или risk boundaries.
+
+`rules.md` содержит только конкретные команды проверок в таблице `Test Commands`. Смысл требований и критериев не дублируется в rules.
 
 `implementation_plan.md` ведется по artifact template: phase headings остаются machine-readable, а все executable task/subtask checkboxes имеют атомарные phase-scoped IDs (`1.1`, `1.1.1`, `2.1`). В начале плана есть `Generation Bundle`, где явно отмечены production code, tests, docs/specs, migrations, rollout, observability и rollback path. Generic `Definition of Done` не используется; готовность фазы определяется выполненными numbered tasks/subtasks и required checks.
 
@@ -346,9 +348,12 @@ npm run typecheck
 
 ```markdown
 ## Test Commands
-- unit: `...`
-- phase: `...`
-- full: `...`
+
+| Gate | Command |
+|---|---|
+| unit | `...` |
+| phase | `...` |
+| full | `...` |
 ```
 
 Если план невалиден:

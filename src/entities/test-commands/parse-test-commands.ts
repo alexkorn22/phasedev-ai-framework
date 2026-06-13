@@ -12,6 +12,38 @@ export interface TestCommandsParseResult {
   missing: Array<keyof TestCommands>;
 }
 
+function splitMarkdownTableRow(line: string): string[] {
+  const trimmed = line.trim();
+  const cells: string[] = [];
+  let currentCell = "";
+
+  for (let index = 0; index < trimmed.length; index++) {
+    const char = trimmed[index];
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      currentCell += "|";
+      index++;
+      continue;
+    }
+
+    if (char === "|") {
+      cells.push(currentCell.trim());
+      currentCell = "";
+      continue;
+    }
+
+    currentCell += char;
+  }
+
+  cells.push(currentCell.trim());
+  if (cells[0] === "") cells.shift();
+  if (cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+}
+
 export function parseTestCommands(filePath: string): TestCommandsParseResult {
   const required: Array<keyof TestCommands> = ["unit", "phase", "full"];
   const commands: TestCommands = {};
@@ -23,7 +55,6 @@ export function parseTestCommands(filePath: string): TestCommandsParseResult {
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
   const lines = content.split("\n");
   let inSection = false;
-  const commandRegex = /^-\s*(unit|phase|full)\s*:\s*(.+)$/i;
 
   for (const line of lines) {
     if (/^##\s+Test Commands\s*$/i.test(line.trim())) {
@@ -39,13 +70,21 @@ export function parseTestCommands(filePath: string): TestCommandsParseResult {
       continue;
     }
 
-    const match = line.trim().match(commandRegex);
-    if (!match || match[1] === undefined || match[2] === undefined) {
+    if (!line.trim().startsWith("|")) {
       continue;
     }
 
-    const key = match[1].toLowerCase() as keyof TestCommands;
-    const value = match[2].trim().replace(/^`(.+)`$/, "$1").trim();
+    const cells = splitMarkdownTableRow(line);
+    if (cells.length !== 2 || cells[0] === "Gate" || isSeparatorRow(cells)) {
+      continue;
+    }
+
+    const key = cells[0].toLowerCase() as keyof TestCommands;
+    if (!required.includes(key)) {
+      continue;
+    }
+
+    const value = cells[1].trim().replace(/^`(.+)`$/, "$1").trim();
     if (value.length > 0) {
       commands[key] = value;
     }

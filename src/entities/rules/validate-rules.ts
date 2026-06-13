@@ -3,6 +3,7 @@ import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endin
 
 const REQUIRED_SECTIONS = ["Test Commands"];
 const REQUIRED_COMMAND_KEYS = ["unit", "phase", "full"];
+const TABLE_HEADERS = ["Gate", "Command"];
 const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bTBD\b/i, label: "TBD" },
   { pattern: /\bTODO\b/i, label: "TODO" },
@@ -17,6 +18,36 @@ function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: 
     return { body: content, hasFrontmatter: false };
   }
   return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
+}
+
+function splitMarkdownTableRow(line: string): string[] {
+  const trimmed = line.trim();
+  const cells: string[] = [];
+  let currentCell = "";
+
+  for (let index = 0; index < trimmed.length; index++) {
+    const char = trimmed[index];
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      currentCell += "|";
+      index++;
+      continue;
+    }
+    if (char === "|") {
+      cells.push(currentCell.trim());
+      currentCell = "";
+      continue;
+    }
+    currentCell += char;
+  }
+
+  cells.push(currentCell.trim());
+  if (cells[0] === "") cells.shift();
+  if (cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
 }
 
 function headingName(line: string): string | null {
@@ -42,39 +73,51 @@ function sectionLines(lines: string[], sectionName: string): string[] {
 }
 
 function validateTestCommands(lines: string[], issues: string[]): void {
-  const rows = sectionLines(lines, "Test Commands")
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+  const tableLines = sectionLines(lines, "Test Commands").filter(line => line.trim().startsWith("|"));
+  if (tableLines.length === 0) {
+    issues.push("Section `## Test Commands` must contain a markdown table.");
+    return;
+  }
+
+  const headerCells = splitMarkdownTableRow(tableLines[0]);
+  if (headerCells.length !== TABLE_HEADERS.length || headerCells.some((header, index) => header !== TABLE_HEADERS[index])) {
+    issues.push("Test Commands columns must be exactly: Gate, Command.");
+  }
+
+  if (tableLines.length < 2 || !isSeparatorRow(splitMarkdownTableRow(tableLines[1]))) {
+    issues.push("Test Commands must include a separator row immediately after the header.");
+  }
+
   const parsedRows: Array<{ key: string; value: string }> = [];
-
-  for (const row of rows) {
-    if (!row.startsWith("-")) {
-      issues.push(`Test Commands row \`${row}\` is not allowed; only \`- unit|phase|full: command\` rows are permitted.`);
+  for (const [index, line] of tableLines.slice(2).entries()) {
+    const rowNumber = index + 3;
+    const cells = splitMarkdownTableRow(line);
+    if (cells.length !== TABLE_HEADERS.length) {
+      issues.push(`Test Commands row ${rowNumber} must have exactly ${TABLE_HEADERS.length} cells.`);
       continue;
     }
-
-    const match = row.match(/^-\s*(unit|phase|full)\s*:\s*(.+)$/i);
-    if (!match) {
-      issues.push(`Test Commands row \`${row}\` must use \`- unit|phase|full: command\` format.`);
-      continue;
+    const key = cells[0].toLowerCase();
+    const value = cells[1].replace(/^`(.+)`$/, "$1").trim();
+    parsedRows.push({ key, value });
+    if (!REQUIRED_COMMAND_KEYS.includes(key)) {
+      issues.push(`Test Commands gate \`${cells[0]}\` is not allowed; expected unit, phase, or full.`);
     }
-    parsedRows.push({ key: match[1].toLowerCase(), value: match[2].replace(/^`(.+)`$/, "$1").trim() });
+    if (value.length === 0) {
+      issues.push(`Test Commands command \`${cells[0]}\` must be non-empty.`);
+    }
   }
 
   const actualKeys = parsedRows.map(row => row.key);
   if (actualKeys.length !== REQUIRED_COMMAND_KEYS.length || actualKeys.some((key, index) => key !== REQUIRED_COMMAND_KEYS[index])) {
-    issues.push(`Test Commands must contain exactly these command rows in order: ${REQUIRED_COMMAND_KEYS.map(key => `\`${key}\``).join(", ")}.`);
+    issues.push(`Test Commands must contain exactly these gates in order: ${REQUIRED_COMMAND_KEYS.map(key => `\`${key}\``).join(", ")}.`);
   }
 
   const seen = new Set<string>();
   for (const row of parsedRows) {
     if (seen.has(row.key)) {
-      issues.push(`Test Commands contains duplicate command \`${row.key}\`.`);
+      issues.push(`Test Commands contains duplicate gate \`${row.key}\`.`);
     }
     seen.add(row.key);
-    if (row.value.length === 0) {
-      issues.push(`Test Commands command \`${row.key}\` must be non-empty.`);
-    }
   }
 }
 

@@ -12,12 +12,15 @@ Authoring instructions for the setup agent:
 - Do not add other headings or sections.
 - Fill all three command rows with concrete commands or manual command methods.
 - Do not leave placeholder-like prose such as TBD, TODO, unknown, clarify later, or to be decided.
+- rules.md contains concrete commands only. Do not duplicate PRD requirements, scope, risks, or validation criteria here.
 -->
 
 # Rules
 
 ## Test Commands
 
-- unit: ``
-- phase: ``
-- full: ``
+| Gate | Command |
+|---|---|
+| unit | `` |
+| phase | `` |
+| full | `` |

@@ -299,7 +299,14 @@ function validateStageAllowlist(
         violations.push(`File '${normalized}' modified during 'research' stage is outside allowlist.`);
       }
     } else if (stage === "design") {
-      const isAllowed = relativeChangeDir && normalized === `${relativeChangeDir}/architecture/design.md`;
+      const isAllowed = relativeChangeDir &&
+        (
+          normalized === `${relativeChangeDir}/architecture` ||
+          (
+            path.posix.dirname(normalized) === `${relativeChangeDir}/architecture` &&
+            path.posix.extname(normalized) === ".md"
+          )
+        );
       if (!isAllowed) {
         violations.push(`File '${normalized}' modified during 'design' stage is outside allowlist.`);
       }

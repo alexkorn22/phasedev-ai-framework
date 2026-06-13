@@ -12,8 +12,8 @@ The controller has already checked the readiness gate:
 - the pending-state file has been created: [{{archive_state_path}}]({{archive_state_path}}).
 
 Input requirement and design artifacts (you must read them):
-- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Development rules: [rules.md]({{rules_path}})
+- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
+- Test command rules: [rules.md]({{rules_path}})
 - Research facts: [research_facts.md]({{research_path}})
 - Approved design: [design.md]({{design_path}})
 - Implementation plan, including `Generation Bundle` and `Check Evidence`: [implementation_plan.md]({{plan_path}})
@@ -23,7 +23,7 @@ Gate-status file:
 
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
 Do not use `Generation Bundle` or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the archive report.
-Use `R#` requirements from `prd.md` as the primary source of requirement-level content for OpenSpec. Use `Intent Card`, `Accepted Assumptions`, and `Deferred Decisions` only as context for the archive report and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent/risk/signal/assumption notes unless they are expressed as requirement-level behavior in a concrete `R#`.
+Use `R#` requirements from `prd.md` as the primary source of requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the archive report and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent or risk notes unless they are expressed as requirement-level behavior in a concrete `R#`.
 
 ## Visual Formatting Scope
 
@@ -39,7 +39,7 @@ Constraints:
 
 Work only with requirement-level changes derived from the archived change artifacts for `{{change_name}}`.
 
-1. Read the input artifacts and extract only user/system capability changes from concrete `R#` items that should land in long-lived OpenSpec specs. Cross-check the extraction with `Intent Card`, `Accepted Assumptions`, and `Deferred Decisions`, but do not turn business intent, resolution signal, risk notes, or assumption notes into specs without requirement-level behavior in `R#`.
+1. Read the input artifacts and extract only user/system capability changes from concrete `R#` items that should land in long-lived OpenSpec specs. Cross-check the extraction with `Intent`, `Risk boundaries`, and `SC#`, but do not turn intent, risk notes, or evidence notes into specs without requirement-level behavior in `R#`.
 2. Analyze existing specifications: [openspec/specs]({{main_specs_path}}).
 3. If there are no spec-level changes, explicitly record this in the final report: `Spec sync skipped: no requirement-level changes`.
 4. If there are changes, create delta specs in the archived change directory: [{{archive_path}}/specs]({{change_specs_path}}).

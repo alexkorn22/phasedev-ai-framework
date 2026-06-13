@@ -26,9 +26,11 @@ export function testCommandBlocker(stage: FlowStage, rulesPath: string, missing:
     `- Link: ${toFileUrl(rulesPath)}`,
     "Expected section:",
     "## Test Commands",
-    "- unit: `...`",
-    "- phase: `...`",
-    "- full: `...`",
+    "| Gate | Command |",
+    "|---|---|",
+    "| unit | `...` |",
+    "| phase | `...` |",
+    "| full | `...` |",
     "================================================================================"
   ].join("\n"), true, "Missing test command");
 }

@@ -3,38 +3,23 @@ approved: true
 ---
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep flow routing grounded in approved requirements. |
-| Generation target | Exercise the flow controller stage prompt. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | Test fixture only; no production risk. |
-
-## Approval Summary
-
-Approve this test fixture change.
+| Why | Keep flow routing grounded in approved requirements. |
+| Target state | Exercise the flow controller stage prompt. |
+| Risk boundaries | Test fixture only; no production risk. |
 
 ## Requirements
 
-- R1: Route the flow according to approved artifacts.
-
-## Scope Boundaries
-
-- In scope: test fixture flow state.
-- Out of scope: unrelated behavior.
+| ID | Requirement |
+|---|---|
+| R1 | Route the flow according to approved artifacts. |
 
 ## Success Criteria
 
-- SC1: The expected stage prompt is rendered.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | The expected stage prompt is rendered. | review |

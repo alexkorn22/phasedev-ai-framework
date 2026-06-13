@@ -5,12 +5,16 @@ Stage contract: prepare an approvable visual-first architecture package based on
 {{skill_policy}}
 
 Input artifacts:
-- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Development rules: [rules.md]({{rules_path}})
+- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
+- Test command rules: [rules.md]({{rules_path}})
 - Research results: [research_facts.md]({{research_path}})
 
 Required output artifact:
 - [architecture/design.md]({{design_path}})
+
+Use the Artifact Build Contract below as the only source of structure for `architecture/design.md`.
+
+{{design_artifact_contract}}
 
 `architecture/design.md` is the required design-stage entry point, the only design approval gate, and the architecture package entrypoint/index.
 
@@ -31,17 +35,10 @@ Decomposition rules:
 - Do not duplicate large prose fragments between `design.md` and subdocuments; `design.md` summarizes and links, subdocuments hold details.
 
 Requirements for `architecture/design.md`:
-- `architecture/design.md` must be created strictly from [design.md template]({{design_template_path}}). All HTML comments must be removed.
-- YAML frontmatter remains first in the file:
----
-approved: false
-approved_by: ""
-date: {{date}}
----
 - include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
-- explicitly connect the design direction to the ADLC-style `Intent Card` from [prd.md]({{prd_path}}): user/business intent, generation target, resolution signal, decision deadline, and risk envelope in `## Executive Summary` or `## Key Design Decisions`;
+- explicitly connect the design direction to `Intent` from [prd.md]({{prd_path}}): why the change is needed, target state, and risk boundaries in `## Executive Summary` or `## Key Design Decisions`;
 - include an explicit traceability table or list showing which design decisions cover each `R#` requirement and each `SC#` success criterion from the PRD in `## Traceability Mapping`;
-- explicitly reflect `Accepted Assumptions` and `Deferred Decisions` from the PRD: assumptions become design constraints; deferred decisions must either be resolved in design or explicitly left as an approved planning/implementation boundary;
+- do not introduce design work that is not grounded in `Target state`, `R#`, `SC#`, or `Risk boundaries` from the PRD;
 - include a compact visual review surface near the top;
 - include the required `Architecture Package Map` table in `## Architecture Package Map`;
 - include a list of key design decisions grouped by meaning in `## Key Design Decisions`;
@@ -111,15 +108,15 @@ Formatting rules:
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a question affects the approval artifact, ask the user and stop until the answer.
 - Do not write pending open questions into `architecture/design.md` as a substitute for asking the user.
-- Separate accepted assumptions and deferred design-stage decisions from questions that require an answer before approval.
-- Do not accept a technical direction that changes `Generation target`, `Resolution signal`, `R#` requirements, scope boundaries, `SC#` success criteria, accepted assumptions, or `Risk envelope` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
+- Do not encode assumptions or deferred decisions as separate design concepts unless they are grounded in approved PRD rows.
+- Do not accept a technical direction that changes `Target state`, `R#` requirements, `SC#` success criteria, `Evidence` types, or `Risk boundaries` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
 - Do not create empty, decorative, or artificial sections such as risks/alternatives/security when they have no material content.
 - Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
 - Use callouts for approval scope, reviewer attention, changed contracts, risks, accepted assumptions, and deferred decisions when they exist.
 - If there are material risks, tradeoffs, accepted assumptions, changed contracts, or reviewer attention points, make them visually noticeable near the top.
-- If the `Intent Card` contains `Resolution signal`, `Decision deadline`, or `Risk envelope`, reflect their effect on design decisions, validation mapping, and rollout/rollback considerations where relevant.
-- If the PRD contains `Accepted Assumptions` or `Deferred Decisions`, show near the top which design decisions depend on them and which checks must confirm or protect those conditions.
+- Reflect `Risk boundaries` in design decisions, validation mapping, and rollout/rollback considerations where relevant.
+- If design needs an assumption or deferred decision that is not already grounded in the PRD tables, stop and realign the PRD instead of adding a new approval concept.
 - Emoji may be used as semantic visual markers when they help scan the document.
 - Do not use emoji in YAML frontmatter.
 - Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
@@ -135,7 +132,7 @@ Before completing the stage, verify:
 - Diagrams/tables show what will change and how it is planned; they do not merely decorate the document.
 - Long prose does not duplicate linked subdocuments.
 - Every linked subdocument starts with purpose and a visual review surface.
-- Design does not diverge from PRD intent, generation target, resolution signal, `R#`, `SC#`, accepted assumptions, deferred decisions, or risk envelope.
+- Design does not diverge from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
 
 Then immediately validate the new design artifact before completing the stage:
 

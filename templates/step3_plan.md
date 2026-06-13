@@ -5,13 +5,13 @@ Your task is to decompose the approved technical design into a step-by-step impl
 {{skill_policy}}
 
 Input artifacts (you must read them):
-- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Approved design: [design.md]({{design_path}})
 - Development rules: [rules.md]({{rules_path}})
 
 Planning instructions:
-1. Read the artifact template: [implementation_plan.md template]({{implementation_plan_template_path}}).
-2. Create the implementation plan file: [implementation_plan.md]({{plan_path}}), instantiating this template for the current change.
+1. Use the Artifact Build Contract below as the only source of structure for [implementation_plan.md]({{plan_path}}).
+2. Create the implementation plan file: [implementation_plan.md]({{plan_path}}), filling that template for the current change.
 3. Use the HTML comments in the template as authoring guidance, but remove all comments from the final `implementation_plan.md`.
 4. Do not change `approved: false` to `approved: true`; approval is performed only by the user.
 5. Split implementation into sequential autonomous phases:
@@ -21,19 +21,18 @@ Planning instructions:
    - the optimal phase size is a 3-10 file change; do not artificially split a small change.
 6. Do not create a generic `Definition of Done`; phase completion is determined by task/subtask checkboxes and required checks from the artifact template.
 7. Fill `## Generation Bundle` in [implementation_plan.md]({{plan_path}}); for each area, use only `yes`, `no`, or `not_applicable` and briefly explain the decision.
-8. The plan must trace the `Intent Card` from [prd.md]({{prd_path}}):
-   - `Generation Bundle` must align with `Generation target` and `Risk envelope`;
+8. The plan must trace `Intent` from [prd.md]({{prd_path}}):
+   - `Generation Bundle` must align with `Target state` and `Risk boundaries`;
    - phase sequencing must cover every `R#`, every `SC#`, and the approved design;
-   - checks/evidence must cover `Resolution signal` when it is not `not_applicable`;
-   - if `Risk envelope` requires rollout, observability, or rollback path, the corresponding `Generation Bundle` rows must not be `not_applicable`.
-9. The plan must explicitly connect phases, tasks, checks, and `Check Evidence` to concrete `R#` and `SC#`; do not use generic references such as "all requirements" without IDs.
-10. The plan must account for `Accepted Assumptions` and `Deferred Decisions` from the PRD:
-   - accepted assumptions become constraints for sequencing, task scope, and checks;
-   - deferred decisions from the PRD must be explicitly resolved by the approved design or mapped to a concrete plan boundary/task/check;
-   - do not plan work based on silent assumptions that are absent from the PRD/design.
-11. If the approved design or plan decomposition does not cover `Generation target`, `Resolution signal`, a specific `R#`, a specific `SC#`, accepted assumptions, or risk envelope from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
+   - checks/evidence must cover each `SC#` according to its PRD `Evidence` type;
+   - if `Risk boundaries` require rollout, observability, or rollback path, the corresponding `Generation Bundle` rows must not be `not_applicable`.
+9. The plan must explicitly connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, and PRD `Evidence` types; do not use generic references such as "all requirements" without IDs.
+10. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
+11. If the approved design or plan decomposition does not cover `Target state`, a specific `R#`, a specific `SC#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
 12. For each phase, add `### Check Evidence` immediately after `### Checks`; all evidence rows must initially have `Result = pending`, except clearly irrelevant checks with `not_applicable`.
 13. Do not use task checkboxes inside `Check Evidence`; evidence rows must be ordinary markdown table rows so they do not mix with executable tasks.
+
+{{implementation_plan_artifact_contract}}
 
 ## Human Review Formatting Policy
 
@@ -49,7 +48,7 @@ Formatting rules:
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a question affects the approval artifact, ask the user and stop until the answer.
 - Do not write pending open questions into `implementation_plan.md` as a substitute for asking the user.
-- Separate accepted assumptions and deferred design-stage decisions from questions that require an answer before approval.
+- Do not encode assumptions or deferred decisions as separate plan concepts unless they are grounded in approved design and a concrete PRD row.
 - Do not create empty, decorative, or artificial sections when they do not help review.
 - Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.

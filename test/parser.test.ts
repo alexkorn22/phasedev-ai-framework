@@ -396,11 +396,15 @@ date: 2026-06-02
 ---
 # PRD
 ## Requirements
-- R1: Require auth
-- R2: Require log
+| ID | Requirement |
+|---|---|
+| R1 | Require auth |
+| R2 | Require log |
 ## Success Criteria
-- SC1: Auth is tested
-- SC2: Log is tested
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Auth is tested | unit |
+| SC2 | R2 | Log is tested | review |
 `, "utf-8");
 
     const phases = [
@@ -444,7 +448,7 @@ date: 2026-06-02
     expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
   });
 
-  test("validatePrdArtifact accepts required PRD Intent Card contract", () => {
+  test("validatePrdArtifact accepts required PRD contract", () => {
     const prdFile = path.join(testTmpDir, "valid_prd.md");
     fs.writeFileSync(prdFile, `---
 approved: true
@@ -454,41 +458,26 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
-
-## Approval Summary
-
-Approve the flow contract update.
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 
 ## Requirements
 
-- R1: PRD must include Intent Card.
-
-## Scope Boundaries
-
-- In scope: flow prompts.
-- Out of scope: product code changes.
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
 
 ## Success Criteria
 
-- SC1: Downstream stages consume PRD intent.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
 `, "utf-8");
 
     expect(validatePrdArtifact(prdFile)).toEqual([]);
@@ -505,28 +494,26 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | bug |
-| User or business intent |  |
-| Generation target | not_applicable |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope |  |
+| Why |  |
+| Target state |  |
+| Risk boundaries |  |
 
 ## Requirements
 `, "utf-8");
 
     const issues = validatePrdArtifact(prdFile);
     expect(issues).toContain("prd.md must not contain HTML template comments.");
-    expect(issues).toContain("prd.md must contain section `## Scope Boundaries`.");
-    expect(issues).toContain("Intent Card field `Change type` must be one of: feature, fix, refactor, infra, experiment.");
-    expect(issues).toContain("Intent Card field `User or business intent` must be present and non-empty.");
-    expect(issues).toContain("Intent Card field `Risk envelope` must be present and non-empty.");
-    expect(issues).toContain("Intent Card field `Generation target` must not be not_applicable.");
-    expect(issues).toContain("Section `## Requirements` must not be empty.");
+    expect(issues).toContain("prd.md must contain section `## Success Criteria`.");
+    expect(issues).toContain("Intent field `Change type` must be one of: feature, fix, refactor, infra, experiment.");
+    expect(issues).toContain("Intent field `Why` must be present and non-empty.");
+    expect(issues).toContain("Intent field `Target state` must be present and non-empty.");
+    expect(issues).toContain("Intent field `Risk boundaries` must be present and non-empty.");
+    expect(issues).toContain("Section `## Requirements` must contain a markdown table.");
   });
 
   test("validatePrdArtifact rejects unexpected PRD sections", () => {
@@ -538,50 +525,35 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
-
-## Approval Summary
-
-Approve the flow contract update.
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 
 ## Requirements
 
-- R1: PRD must include Intent Card.
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
 
 ## Notes
 
 Extra notes are not allowed as a PRD section.
 
-## Scope Boundaries
-
-- In scope: flow prompts.
-- Out of scope: product code changes.
-
 ## Success Criteria
 
-- SC1: Downstream stages consume PRD intent.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
 `, "utf-8");
 
     const issues = validatePrdArtifact(prdFile);
     expect(issues).toContain("prd.md contains unexpected section `## Notes`.");
-    expect(issues).toContain("prd.md `##` sections must exactly match this order: `## Intent Card`, `## Approval Summary`, `## Requirements`, `## Scope Boundaries`, `## Success Criteria`, `## Accepted Assumptions`, `## Deferred Decisions`.");
+    expect(issues).toContain("prd.md `##` sections must exactly match this order: `## Intent`, `## Requirements`, `## Success Criteria`.");
   });
 
   test("validatePrdArtifact rejects hidden deeper PRD sections", () => {
@@ -593,51 +565,36 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
-
-## Approval Summary
-
-Approve the flow contract update.
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 
 ## Requirements
 
-- R1: PRD must include Intent Card.
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
 
 ### Risks
 
 Hidden section.
 
-## Scope Boundaries
-
-- In scope: flow prompts.
-- Out of scope: product code changes.
-
 ## Success Criteria
 
-- SC1: Downstream stages consume PRD intent.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
 `, "utf-8");
 
     expect(validatePrdArtifact(prdFile)).toContain("prd.md must not contain headings deeper than `##`: `### Risks`.");
   });
 
-  test("validatePrdArtifact rejects extra Intent Card rows", () => {
+  test("validatePrdArtifact rejects extra Intent rows", () => {
     const prdFile = path.join(testTmpDir, "extra_intent_row_prd.md");
     fs.writeFileSync(prdFile, `---
 approved: true
@@ -646,50 +603,35 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 | Extra | Not allowed. |
-
-## Approval Summary
-
-Approve the flow contract update.
 
 ## Requirements
 
-- R1: PRD must include Intent Card.
-
-## Scope Boundaries
-
-- In scope: flow prompts.
-- Out of scope: product code changes.
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
 
 ## Success Criteria
 
-- SC1: Downstream stages consume PRD intent.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
 `, "utf-8");
 
     const issues = validatePrdArtifact(prdFile);
-    expect(issues).toContain("Intent Card field `Extra` is not allowed.");
-    expect(issues).toContain("Intent Card fields must exactly match this order: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline`, `Risk envelope`.");
+    expect(issues).toContain("Intent field `Extra` is not allowed.");
+    expect(issues).toContain("Intent fields must exactly match this order: `Change type`, `Why`, `Target state`, `Risk boundaries`.");
   });
 
-  test("validatePrdArtifact rejects missing requirement ids, success ids, and scope labels", () => {
+  test("validatePrdArtifact rejects missing requirement ids, success ids, unknown verifies, and missing evidence", () => {
     const prdFile = path.join(testTmpDir, "missing_ids_prd.md");
     fs.writeFileSync(prdFile, `---
 approved: true
@@ -698,47 +640,33 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
-
-## Approval Summary
-
-Approve the flow contract update.
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 
 ## Requirements
 
-- PRD must include Intent Card.
-
-## Scope Boundaries
-
-- Flow prompts only.
+| ID | Requirement |
+|---|---|
+| Requirement | PRD must include Intent. |
 
 ## Success Criteria
 
-- Downstream stages consume PRD intent.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| Criterion | R2 | Downstream stages consume PRD intent. |  |
 `, "utf-8");
 
     const issues = validatePrdArtifact(prdFile);
-    expect(issues).toContain("Section `## Requirements` must contain at least one requirement item like `R1: ...`.");
-    expect(issues).toContain("Section `## Success Criteria` must contain at least one success criterion item like `SC1: ...`.");
-    expect(issues).toContain("Section `## Scope Boundaries` must contain `In scope:`.");
-    expect(issues).toContain("Section `## Scope Boundaries` must contain `Out of scope:`.");
+    expect(issues).toContain("Requirements row 3 ID must use `R#` format.");
+    expect(issues).toContain("Success Criteria row 3 ID must use `SC#` format.");
+    expect(issues).toContain("Success Criteria row 3 Verifies references unknown requirement `R2`.");
+    expect(issues).toContain("Success Criteria row 3 Evidence must be non-empty.");
   });
 
   test("validatePrdArtifact rejects placeholder text", () => {
@@ -750,41 +678,26 @@ date: 2026-06-02
 
 # PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep routing decisions grounded in approved requirements. |
-| Generation target | Update flow prompts and validation gates. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | No behavior outside flow prompt routing changes. |
-
-## Approval Summary
-
-Approve the flow contract update.
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
 
 ## Requirements
 
-- R1: PRD must include Intent Card.
-
-## Scope Boundaries
-
-- In scope: flow prompts.
-- Out of scope: product code changes.
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
 
 ## Success Criteria
 
-- SC1: TODO.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | TODO. | review |
 `, "utf-8");
 
     expect(validatePrdArtifact(prdFile)).toContain("prd.md must not contain placeholder text: TODO.");
@@ -845,12 +758,16 @@ TODO: find blockers.
     fs.writeFileSync(prdFile, `# PRD
 
 ## Requirements
-- R1: First requirement.
-- R2: Second requirement.
+| ID | Requirement |
+|---|---|
+| R1 | First requirement. |
+| R2 | Second requirement. |
 
 ## Success Criteria
-- SC1: First criterion.
-- SC2: Second criterion.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | First criterion. | unit |
+| SC2 | R2 | Second criterion. | review |
 `, "utf-8");
     fs.writeFileSync(researchFile, `# Research Facts
 
@@ -1476,9 +1393,11 @@ date: 2026-05-30
 # Rules
 
 ## Test Commands
-- unit: \`bun test test/parser.test.ts\`
-- phase: \`bun test\`
-- full: bun test && bun run typecheck
+| Gate | Command |
+|---|---|
+| unit | \`bun test test/parser.test.ts\` |
+| phase | \`bun test\` |
+| full | bun test && bun run typecheck |
 
 ## Other Rules
 - Keep changes scoped.
@@ -1498,7 +1417,9 @@ date: 2026-05-30
 # Rules
 
 ## Test Commands
-- unit: bun test
+| Gate | Command |
+|---|---|
+| unit | bun test |
 `, "utf-8");
 
     const commands = parseTestCommands(rulesFile);
@@ -1521,9 +1442,11 @@ date: 2026-06-02
 
 ## Test Commands
 
-- unit: \`bun test test/parser.test.ts\`
-- phase: \`bun test test/flow-controller.test.ts\`
-- full: \`bun test\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test test/parser.test.ts\` |
+| phase | \`bun test test/flow-controller.test.ts\` |
+| full | \`bun test\` |
 `, "utf-8");
 
     expect(validateRulesArtifact(validRulesFile)).toEqual([]);
@@ -1535,10 +1458,12 @@ date: 2026-06-02
 
 ## Test Commands
 
-- unit: \`bun test\`
-- full: TODO
-- phase:
-- extra: nope
+| Gate | Command |
+|---|---|
+| unit | \`bun test\` |
+| full | TODO |
+| phase |  |
+| extra | nope |
 
 ## Notes
 Not allowed.
@@ -1549,9 +1474,9 @@ Not allowed.
     expect(issues).toContain("rules.md must not contain HTML template comments.");
     expect(issues).toContain("rules.md must not contain placeholder text: TODO.");
     expect(issues).toContain("rules.md contains unexpected section `## Notes`.");
-    expect(issues).toContain("Test Commands must contain exactly these command rows in order: `unit`, `phase`, `full`.");
-    expect(issues).toContain("Test Commands row `- phase:` must use `- unit|phase|full: command` format.");
-    expect(issues).toContain("Test Commands row `- extra: nope` must use `- unit|phase|full: command` format.");
+    expect(issues).toContain("Test Commands must contain exactly these gates in order: `unit`, `phase`, `full`.");
+    expect(issues).toContain("Test Commands command `phase` must be non-empty.");
+    expect(issues).toContain("Test Commands gate `extra` is not allowed; expected unit, phase, or full.");
 
     const extraTextRulesFile = path.join(testTmpDir, "extra_text_rules.md");
     fs.writeFileSync(extraTextRulesFile, `---
@@ -1563,12 +1488,14 @@ date: 2026-06-02
 ## Test Commands
 
 Use the local Bun commands below.
-- unit: \`bun test test/parser.test.ts\`
-- phase: \`bun test test/flow-controller.test.ts\`
-- full: \`bun test\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test test/parser.test.ts\` |
+| phase | \`bun test test/flow-controller.test.ts\` |
+| full | \`bun test\` |
 `, "utf-8");
 
-    expect(validateRulesArtifact(extraTextRulesFile)).toContain("Test Commands row `Use the local Bun commands below.` is not allowed; only `- unit|phase|full: command` rows are permitted.");
+    expect(validateRulesArtifact(extraTextRulesFile)).toEqual([]);
   });
 
   test("findActiveChangeDir ignores archive directory when selecting active change", () => {

@@ -7,8 +7,8 @@ Validation mode: review-only stage. This stage checks completeness/correctness t
 {{skill_policy}}
 
 Input artifacts:
-- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
-- Development rules: [rules.md]({{rules_path}})
+- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
+- Test command rules: [rules.md]({{rules_path}})
 - Approved design: [design.md]({{design_path}})
 - Implementation plan: [implementation_plan.md]({{plan_path}})
 
@@ -22,15 +22,12 @@ Required stage-contract checks:
 - if the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`;
 - if the changed-file inventory is incomplete or any changed file cannot be inspected deeply enough to support the verdict, add a `MUST-FIX` finding with `Class = validation`;
 - PRD-first check: the actual change set must satisfy the approved [prd.md]({{prd_path}}), not only the implementation plan;
-- `Intent Card`: `Change type`, `User or business intent`, `Generation target`, `Resolution signal`, `Decision deadline`, and `Risk envelope` align with actual implementation and validation evidence;
+- `Intent`: `Change type`, `Why`, `Target state`, and `Risk boundaries` align with actual implementation and validation evidence;
 - `Requirements`: every `R#` is implemented by the actual change set or has a finding;
-- `Scope Boundaries`: `In scope:` is covered and `Out of scope:` was not implemented without approval;
-- `Success Criteria`: every `SC#` is demonstrably met or has a finding;
-- `Accepted Assumptions`: assumptions are not disproven by the actual change set; if an assumption is no longer true, add a `requirements` or `design` finding for that reason;
-- `Deferred Decisions`: resolved only through approved design/plan or remained outside implementation scope; if implementation resolved a deferred decision without approval, add a finding;
-- `Generation target` from `Intent Card` is covered by approved plan/design and the actual change set;
-- `Resolution signal` from `Intent Card` is covered by checks/evidence when it is not `not_applicable`;
-- `Risk envelope` from `Intent Card` is not violated; if risk acceptance is required, the finding must be `RECOMMENDED` or `MUST-FIX` by severity;
+- `Success Criteria`: every `SC#` is demonstrably met according to its PRD `Evidence` type or has a finding;
+- no behavior outside the positive PRD contract (`Target state`, `R#`, `SC#`, `Risk boundaries`) was implemented without approval;
+- `Target state` from `Intent` is covered by approved plan/design and the actual change set;
+- `Risk boundaries` from `Intent` are not violated; if risk acceptance is required, the finding must be `RECOMMENDED` or `MUST-FIX` by severity;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods without running tests;
 - findings from the code review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = code_review` unless a more precise existing class is required by the finding;
 - findings from the security review pass must be recorded in [validation_findings.md]({{findings_path}}) with `Class = security` unless a more precise existing class is required by the finding;
@@ -46,7 +43,7 @@ Required stage-contract checks:
 - do not treat passing or declared Implementation checks as a substitute for changed-file review coverage;
 - do not rerun `unit`, `phase`, `full`, or additional checks at this stage;
 - validation result is written to [validation_findings.md]({{findings_path}});
-- before writing the result, read the artifact template: [validation_findings.md template]({{validation_findings_template_path}});
+- use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
 - YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation; do not leave the template default `type: phase`;
 - before searching for new issues, read existing `validation_findings.md` if it exists;
 - the final file must strictly follow the artifact template and strict registry rules from the template comments: `validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table; do not add prose, headings, evidence blocks, summaries, visual markers, or extra tables to `validation_findings.md`; do not delete finding rows; add a new finding as a new row at the top of the table; if a finding semantically matches a previous finding, update the existing row with the same `ID` and do not create a duplicate; do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `openspec/**`; if no findings are open, save the empty table header and separator from the artifact template.
@@ -56,6 +53,8 @@ Readiness decision rule:
 - `verdict: ready_with_risks` means the full change is confirmed correctly solved for blocking requirements, full code and security review coverage was complete, and open findings are limited to non-blocking `RECOMMENDED` or `NIT` rows.
 - If the coverage block would report an incomplete code review pass, incomplete security review pass, insufficient Check Evidence review, or non-empty evidence gaps, do not use `verdict: ready` or `verdict: ready_with_risks`; set `verdict: repair_required` and record the blocking gap with `Class = validation`.
 - If the agent cannot truthfully provide that confirmation, set `verdict: repair_required` and record the blocking reason.
+
+{{validation_findings_artifact_contract}}
 
 ## Artifact allowlist
 

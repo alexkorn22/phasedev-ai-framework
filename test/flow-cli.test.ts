@@ -24,41 +24,38 @@ function writeApproved(filePath: string, body: string) {
 function validPrdBody(): string {
   return `# PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep flow routing grounded in approved requirements. |
-| Generation target | Exercise the flow controller stage prompt. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | Test fixture only; no production risk. |
-
-## Approval Summary
-
-Approve this test fixture change.
+| Why | Keep flow routing grounded in approved requirements. |
+| Target state | Exercise the flow controller stage prompt. |
+| Risk boundaries | Test fixture only; no production risk. |
 
 ## Requirements
 
-- R1: Route the flow according to approved artifacts.
-
-## Scope Boundaries
-
-- In scope: test fixture flow state.
-- Out of scope: unrelated behavior.
+| ID | Requirement |
+|---|---|
+| R1 | Route the flow according to approved artifacts. |
 
 ## Success Criteria
 
-- SC1: The expected stage prompt is rendered.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | The expected stage prompt is rendered. | review |
+`;
+}
 
-## Accepted Assumptions
+function validRulesBody(): string {
+  return `# Rules
 
-None.
-
-## Deferred Decisions
-
-None.
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `;
 }
 
@@ -198,14 +195,7 @@ function setupChange(planContent: string, options: { rules?: string; findings?: 
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
   writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-  writeApproved(path.join(changeDir, "rules.md"), options.rules ?? `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+  writeApproved(path.join(changeDir, "rules.md"), options.rules ?? validRulesBody());
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
   writeArtifact(path.join(changeDir, "implementation_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
@@ -398,29 +388,26 @@ codex:
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeApproved(path.join(changeDir, "architecture", "design.md"), validDesignBody());
 
     const output = runNext();
 
     expect(output).toContain("Stage 3. Plan.");
-    expect(output).toContain("PRD requirements and ADLC-style Intent Card");
+    expect(output).toContain("PRD intent, requirements, and success criteria");
     expect(output).toContain("prd.md");
-    expect(output).toContain("Generation target");
-    expect(output).toContain("Resolution signal");
-    expect(output).toContain("Risk envelope");
+    expect(output).toContain("Target state");
+    expect(output).toContain("Risk boundaries");
   });
 
   test("artifact stage prompts include immediate self-check routes", () => {
     let output = runNext();
+    expect(output).toContain("Artifact Build Contract: prd.md");
+    expect(output).toContain("Artifact Build Contract: rules.md");
+    expect(output).toContain("template is the only output structure");
+    expect(output).toContain("# PRD");
+    expect(output).toContain("# Rules");
     expect(output).toContain("Artifact self-check");
     expect(output).toContain("flow-cli.ts\" check --project-path");
     expect(output).toContain("--expect-route setup_approval");
@@ -429,17 +416,12 @@ codex:
     let changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
 
     output = runNext();
     expect(output).toContain("Stage 1. Research.");
+    expect(output).toContain("Artifact Build Contract: research_facts.md");
+    expect(output).toContain("# Research Facts");
     expect(output).toContain("Artifact self-check");
     expect(output).toContain("--expect-route design");
 
@@ -447,18 +429,14 @@ codex:
     changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
 
     output = runNext();
     expect(output).toContain("Stage 2. Design.");
+    expect(output).toContain("Artifact Build Contract: architecture/design.md");
+    expect(output).toContain("# Design");
+    expect(output).toContain("## Architecture Package Map");
     expect(output).toContain("immediately validate the new design artifact");
     expect(output).toContain("--expect-route design_approval");
 
@@ -466,6 +444,8 @@ codex:
 
     output = runNext();
     expect(output).toContain("Stage 3. Plan.");
+    expect(output).toContain("Artifact Build Contract: implementation_plan.md");
+    expect(output).toContain("# Implementation Plan");
     expect(output).toContain("Artifact self-check");
     expect(output).toContain("--expect-route plan_approval");
   });
@@ -473,21 +453,14 @@ codex:
   test("check reports invalid fresh PRD without rendering the next prompt", () => {
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
-    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent Card\n", false);
-    writeArtifact(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`, false);
+    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n", false);
+    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
 
     const result = runCheck(["--expect-route", "setup_approval"]);
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[FLOW CHECK] FAILED: invalid_prd");
-    expect(result.output).toContain("Intent Card field `Change type` must be present and non-empty.");
+    expect(result.output).toContain("Intent field `Change type` must be present and non-empty.");
     expect(result.output).not.toContain("[FLOW CONTROLLER] BLOCKED");
   });
 
@@ -495,14 +468,7 @@ codex:
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
-    writeArtifact(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`, false);
+    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
 
     const pass = runCheck(["--expect-route", "setup_approval"]);
     const fail = runCheck(["--expect-route", "research"]);
@@ -517,14 +483,7 @@ codex:
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
-    writeArtifact(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`, false);
+    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
     const configPath = writeConfig("codex: [");
 
     const result = runCheck(["--expect-route", "setup_approval", "--config", configPath]);
@@ -537,14 +496,7 @@ codex:
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n\n## Executive Summary\n", false);
 
@@ -558,14 +510,7 @@ codex:
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), `
-# Rules
-
-## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
-`);
+    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
 
@@ -748,7 +693,7 @@ No phase headings yet.
     expect(output).not.toContain("Stage 5A. Phase Validation.");
     expect(output).not.toContain("bun test full");
     expect(output).toContain("do not rerun `unit`, `phase`, `full`, or additional checks");
-    expect(output).toContain("Intent Card");
+    expect(output).toContain("Intent");
     expect(output).toContain("Requirements");
     expect(output).toContain("Success Criteria");
   });
@@ -945,12 +890,13 @@ No markdown finding table here.
 ## Phase 1: API [~]
 - [ ] 1.1 Implement endpoint
 `, {
-      rules: `
-# Rules
+      rules: `# Rules
 
 ## Test Commands
-- phase: \`bun test phase\`
-- full: \`bun test full\`
+| Gate | Command |
+|---|---|
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `
     });
 
@@ -958,7 +904,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
     expect(output).toContain("unit");
-    expect(output).toContain("Test Commands must contain exactly these command rows in order");
+    expect(output).toContain("Test Commands must contain exactly these gates in order");
     expect(output).not.toContain("run unit tests");
   });
 
@@ -972,12 +918,13 @@ No markdown finding table here.
 ## Phase 2: UI [ ]
 - [ ] 2.1 Build page
 `, {
-      rules: `
-# Rules
+      rules: `# Rules
 
 ## Test Commands
-- unit: \`bun test unit\`
-- full: \`bun test full\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| full | \`bun test full\` |
 `
     });
 
@@ -995,12 +942,13 @@ No markdown finding table here.
 ## Phase 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
-      rules: `
-# Rules
+      rules: `# Rules
 
 ## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
 `
     });
 
@@ -1255,16 +1203,16 @@ codex:
     }
   });
 
-  test("downstream stage templates consume PRD Intent Card fields", () => {
+  test("downstream stage templates consume PRD Intent fields", () => {
     const expectations: Array<[string, string[]]> = [
-      ["step1_research.md", ["ADLC-style Intent Card", "Resolution signal", "Risk envelope", "PRD Intent Trace", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step2_design.md", ["ADLC-style Intent Card", "user/business intent", "generation target", "resolution signal", "risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step3_plan.md", ["PRD requirements and ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step4_impl.md", ["PRD requirements and ADLC-style Intent Card", "Resolution signal", "Generation target", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`", "`In scope:`"]],
-      ["step5a_val.md", ["PRD requirements and ADLC-style Intent Card", "Risk envelope", "Resolution signal", "accepted assumptions", "deferred decisions", "`R#`", "`SC#`"]],
-      ["step5b_val.md", ["ADLC-style Intent Card", "Generation target", "Resolution signal", "Risk envelope", "Accepted Assumptions", "Deferred Decisions", "every `R#`", "every `SC#`"]],
-      ["step5r_repair.md", ["ADLC-style Intent Card", "Risk envelope", "Generation target", "Resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#`", "`SC#`"]],
-      ["step6_archive.md", ["ADLC-style Intent Card", "business intent", "resolution signal", "Accepted Assumptions", "Deferred Decisions", "`R#` requirements"]]
+      ["step1_research.md", ["PRD Intent Trace", "Target state", "Risk boundaries", "`R#`", "`SC#`", "`Evidence`"]],
+      ["step2_design.md", ["PRD intent, requirements, and success criteria", "Target state", "Risk boundaries", "`R#`", "`SC#`"]],
+      ["step3_plan.md", ["PRD intent, requirements, and success criteria", "Target state", "Risk boundaries", "`R#`", "`SC#`", "`Evidence`"]],
+      ["step4_impl.md", ["PRD intent, requirements, and success criteria", "Target state", "Risk boundaries", "`R#`", "`SC#`"]],
+      ["step5a_val.md", ["PRD intent, requirements, and success criteria", "Risk boundaries", "`R#`", "`SC#`"]],
+      ["step5b_val.md", ["PRD intent, requirements, and success criteria", "Target state", "Risk boundaries", "every `R#`", "every `SC#`"]],
+      ["step5r_repair.md", ["PRD intent, requirements, and success criteria", "Risk boundaries", "`R#`", "`SC#`"]],
+      ["step6_archive.md", ["PRD intent, requirements, and success criteria", "Risk boundaries", "`R#` requirements"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
@@ -1278,23 +1226,17 @@ codex:
   test("PRD template defines strict section contract", () => {
     const prdTemplate = readTemplate("artifacts/prd.md");
     const expectedOrder = [
-      "## Intent Card",
-      "## Approval Summary",
+      "## Intent",
       "## Requirements",
-      "## Scope Boundaries",
-      "## Success Criteria",
-      "## Accepted Assumptions",
-      "## Deferred Decisions"
+      "## Success Criteria"
     ];
 
-    expect(prdTemplate).toContain("The final prd.md may contain only the # PRD title and the seven ## sections shown below, in this exact order.");
-    expect(prdTemplate).toContain("Do not add other ## sections such as Risks, Notes, Open Questions, Validation, Non-goals, or Security.");
+    expect(prdTemplate).toContain("The final prd.md may contain only the # PRD title and the three ## sections shown below, in this exact order.");
+    expect(prdTemplate).toContain("Do not add any other ## sections.");
     expect(prdTemplate).toContain("Do not add ### or deeper headings.");
-    expect(prdTemplate).toContain("- R1:");
-    expect(prdTemplate).toContain("- SC1:");
-    expect(prdTemplate).toContain("- In scope:");
-    expect(prdTemplate).toContain("- Out of scope:");
-    expect(prdTemplate).toContain("The Intent Card table must contain only the rows shown below, in the same order.");
+    expect(prdTemplate).toContain("| R1 |");
+    expect(prdTemplate).toContain("| SC1 | R1 |");
+    expect(prdTemplate).toContain("Concrete commands live only in rules.md.");
 
     let previousIndex = -1;
     for (const section of expectedOrder) {
@@ -1307,18 +1249,18 @@ codex:
   test("setup prompt forbids extra PRD sections and placeholders", () => {
     const setupTemplate = readTemplate("step0_setup.md");
 
-    expect(setupTemplate).toContain("must follow the template contract exactly");
-    expect(setupTemplate).toContain("fixed visible sections");
-    expect(setupTemplate).toContain("no extra headings");
-    expect(setupTemplate).toContain("no empty required fields");
-    expect(setupTemplate).toContain("`TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`");
+    expect(setupTemplate).toContain("Artifact Build Contracts below as the only source of structure");
+    expect(setupTemplate).toContain("Use only the strict PRD contract from the template");
+    expect(setupTemplate).toContain("do not use headings other than the strictly allowed headings");
+    expect(setupTemplate).toContain("Do not create any additional sections in `prd.md`");
+    expect(setupTemplate).toContain("Do not write pending open questions into `prd.md` or `rules.md`");
   });
 
   test("downstream prompts require trace by PRD requirement and success criterion ids", () => {
     const expectations: Array<[string, string[]]> = [
       ["step1_research.md", ["trace for each `R#` and `SC#`"]],
       ["step2_design.md", ["design decisions cover each `R#` requirement and each `SC#` success criterion"]],
-      ["step3_plan.md", ["connect phases, tasks, checks, and `Check Evidence` to concrete `R#` and `SC#`"]],
+      ["step3_plan.md", ["connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, and PRD `Evidence` types"]],
       ["step4_impl.md", ["only the `R#` and `SC#` tied to the current phase"]],
       ["step5a_val.md", ["against the concrete `R#` and `SC#`"]],
       ["step5r_repair.md", ["reference the concrete `R#` or `SC#`"]],
@@ -1348,8 +1290,8 @@ codex:
     const finalTemplate = readTemplate("step5b_val.md");
 
     expect(finalTemplate).toContain("every `R#` is implemented by the actual change set or has a finding");
-    expect(finalTemplate).toContain("every `SC#` is demonstrably met or has a finding");
-    expect(finalTemplate).toContain("`In scope:` is covered and `Out of scope:` was not implemented without approval");
+    expect(finalTemplate).toContain("every `SC#` is demonstrably met according to its PRD `Evidence` type or has a finding");
+    expect(finalTemplate).toContain("no behavior outside the positive PRD contract");
     expect(finalTemplate).toContain("change-set inventory gate");
     expect(finalTemplate).toContain("inspect every changed production/source/config/test file outside `openspec/**`");
     expect(finalTemplate).toContain("final requirements conformance pass");
@@ -1383,10 +1325,10 @@ codex:
     expect(researchTemplate).toContain("do not turn that into a design assumption");
     expect(researchTemplate).toContain("Stop, report a PRD blocker");
     expect(designTemplate).toContain("If design requires that kind of change, stop");
-    expect(planTemplate).toContain("do not plan work based on silent assumptions");
+    expect(planTemplate).toContain("must not introduce work that is not grounded");
     expect(planTemplate).toContain("stop and ask the user to realign the PRD/design");
-    expect(implementationTemplate).toContain("do not resolve deferred decisions from the PRD yourself");
-    expect(validationTemplate).toContain("if implementation resolved a deferred decision without approval");
+    expect(implementationTemplate).toContain("do not implement work that is not positively required");
+    expect(validationTemplate).toContain("no behavior outside the positive PRD contract");
   });
 
   test("stage templates avoid method-prescriptive implementation and validation wording", () => {
@@ -1471,7 +1413,7 @@ codex:
     expect(template).toContain("name the artifact field or section each question can change");
     expect(template).toContain("do not ask obvious questions or questions answerable from repository evidence");
     expect(template).toContain("Before creating artifacts, summarize your final interpretation");
-    expect(template).toContain("Do not guess missing ADLC/PRD fields");
+    expect(template).toContain("Do not guess missing PRD fields");
     expect(template).toContain("For `feature` and `experiment` changes");
     expect(template).toContain("For `fix`, `refactor`, and `infra` changes");
   });
@@ -1501,7 +1443,7 @@ codex:
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("Validation mode: review-only stage");
       expect(template).toContain("is not a test execution gate");
-      expect(template).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
+      expect(template).toContain("use the Artifact Build Contract");
       expect(template).toContain("the final file must strictly follow the artifact template");
       expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
       expect(template).toContain("do not add prose, headings, evidence blocks, summaries, visual markers, or extra tables to `validation_findings.md`");
@@ -1535,7 +1477,7 @@ codex:
     expect(phaseTemplate).toContain("PRD/design are used as approved constraints and traceability context, not as full PRD completeness validation");
     expect(phaseTemplate).not.toContain("every `R#` is implemented by the actual change set or has a finding");
     expect(phaseTemplate).not.toContain("every `SC#` is demonstrably met or has a finding");
-    expect(repairTemplate).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
+    expect(repairTemplate).toContain("use the Artifact Build Contract below as the only source of structure");
     expect(repairTemplate).toContain("preserve `type` in YAML frontmatter as the scope of the latest validation");
     expect(repairTemplate).toContain("record a fixed finding by changing the existing row `Status` to `resolved`");
     expect(repairTemplate).toContain("do not delete finding rows");
@@ -1574,7 +1516,7 @@ codex:
 
     expect(initTemplate).not.toContain("compact visual review surface");
     expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
-    expect(setupTemplate).toContain("A compact visual review surface for `prd.md` is allowed only");
+    expect(setupTemplate).toContain("A compact visual review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves");
     expect(setupTemplate).toContain("semantic emoji markers");
     expect(setupTemplate).toContain("Do not leave an approval artifact as an ordinary wall");
     expect(setupTemplate).toContain("Use one primary human language");
@@ -1605,7 +1547,7 @@ codex:
     expect(setupTemplate).toContain("If a question affects the approval artifact");
     expect(setupTemplate).toContain("ask the user and stop until the answer");
     expect(setupTemplate).toContain("Do not write pending open questions");
-    expect(setupTemplate).toContain("Separate accepted assumptions and deferred design-stage decisions");
+    expect(setupTemplate).toContain("Do not encode assumptions or deferred decisions as separate sections");
     expect(setupTemplate).toContain("If a list grows beyond 7 items");
     expect(setupTemplate).toContain("For `prd.md`, use only the allowed sections");
 
@@ -1613,7 +1555,7 @@ codex:
       expect(template).toContain("If a question affects the approval artifact");
       expect(template).toContain("ask the user and stop until the answer");
       expect(template).toContain("Do not write pending open questions");
-      expect(template).toContain("Separate accepted assumptions and deferred design-stage decisions");
+      expect(template).toContain("Do not write pending open questions");
       expect(template).toContain("If a list grows beyond 7 items");
       expect(template).toContain("Use callouts");
     }
@@ -1648,7 +1590,7 @@ codex:
       expect(template).not.toContain("🟡");
       expect(template).not.toContain("🔴");
       expect(template).not.toContain("Validation Visual Markers");
-      expect(template).toContain("[validation_findings.md template]({{validation_findings_template_path}})");
+      expect(template).toContain("use the Artifact Build Contract below as the only source of structure");
     }
     expect(phaseTemplate).toContain("must have `type: phase`");
     expect(finalTemplate).toContain("must have `type: final`");
@@ -1662,15 +1604,11 @@ codex:
 
     expect(prdTemplate).toContain("Instantiate this template into the change directory as prd.md");
     expect(prdTemplate).toContain("Remove every HTML comment from the final prd.md");
-    expect(prdTemplate).toContain("Before writing prd.md, run an ADLC-style user intake through the question tool when available.");
-    expect(prdTemplate).toContain("Continue asking 1-3 focused questions per round until all material ambiguity is closed.");
-    expect(prdTemplate).toContain("ADLC-style intake coverage:");
-    expect(prdTemplate).toContain("Accepted Assumptions must be explicit user-accepted assumptions, not silent agent guesses.");
+    expect(prdTemplate).toContain("Before writing prd.md, ask only questions whose answers change Intent fields, R# requirements, SC# success criteria, risk boundaries, evidence type, or test commands.");
+    expect(prdTemplate).toContain("Positive contract rule:");
     expect(prdTemplate).toContain("Change type: use exactly one of these values: feature, fix, refactor, infra, experiment.");
-    expect(prdTemplate).toContain("Section contract:");
-    expect(prdTemplate).toContain("Blocking question rule:");
     expect(prdTemplate).toContain("| Change type |  |");
-    expect(prdTemplate).toContain("## Intent Card");
+    expect(prdTemplate).toContain("## Intent");
     expect(prdTemplate).not.toContain("<change name>");
     expect(prdTemplate).not.toContain("<why");
     expect(prdTemplate).not.toContain("<what");

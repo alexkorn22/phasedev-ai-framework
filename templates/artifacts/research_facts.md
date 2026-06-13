@@ -14,7 +14,7 @@ Authoring instructions for the research agent:
 ## PRD Intent Trace
 
 <!--
-Compactly trace how research confirms or constrains fields in the PRD Intent Card (Change type, intent, generation target, resolution signal, decision deadline, risk envelope, assumptions, deferred decisions).
+Compactly trace how research confirms or constrains PRD Intent fields (Change type, Why, Target state, Risk boundaries).
 -->
 
 ## Requirements & Success Criteria Trace

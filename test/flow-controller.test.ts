@@ -19,41 +19,26 @@ function writeArtifact(filePath: string, body: string, approved = true) {
 function validPrdBody(): string {
   return `# PRD
 
-## Intent Card
+## Intent
 
 | Field | Value |
 |---|---|
 | Change type | fix |
-| User or business intent | Keep flow routing grounded in approved requirements. |
-| Generation target | Exercise the flow controller stage prompt. |
-| Resolution signal | not_applicable |
-| Decision deadline | not_applicable |
-| Risk envelope | Test fixture only; no production risk. |
-
-## Approval Summary
-
-Approve this test fixture change.
+| Why | Keep flow routing grounded in approved requirements. |
+| Target state | Exercise the flow controller stage prompt. |
+| Risk boundaries | Test fixture only; no production risk. |
 
 ## Requirements
 
-- R1: Route the flow according to approved artifacts.
-
-## Scope Boundaries
-
-- In scope: test fixture flow state.
-- Out of scope: unrelated behavior.
+| ID | Requirement |
+|---|---|
+| R1 | Route the flow according to approved artifacts. |
 
 ## Success Criteria
 
-- SC1: The expected stage prompt is rendered.
-
-## Accepted Assumptions
-
-None.
-
-## Deferred Decisions
-
-None.
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | The expected stage prompt is rendered. | review |
 `;
 }
 
@@ -183,9 +168,11 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 # Rules
 
 ## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
@@ -213,17 +200,19 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("- Active change: none");
   });
 
-  test("next prompt blocks approved PRD that does not satisfy Intent Card contract", () => {
+  test("next prompt blocks approved PRD that does not satisfy Intent contract", () => {
     const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
-    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent Card\n");
+    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n");
     writeArtifact(path.join(changeDir, "rules.md"), `
 # Rules
 
 ## Test Commands
-- unit: \`bun test unit\`
-- phase: \`bun test phase\`
-- full: \`bun test full\`
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `);
 
     const result = getNextPrompt(testTmpDir);
@@ -231,7 +220,7 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("setup");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid prd.md");
-    expect(result.prompt).toContain("Intent Card field `Change type` must be present and non-empty.");
+    expect(result.prompt).toContain("Intent field `Change type` must be present and non-empty.");
   });
 
   test("init prompt reports active change and current flow stage without running next", () => {
@@ -276,8 +265,39 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("setup");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
-    expect(result.prompt).toContain("prd.md template");
-    expect(result.prompt).toContain("## Intent Card");
+    expect(result.prompt).toContain("Artifact Build Contract: prd.md");
+    expect(result.prompt).toContain("Artifact Build Contract: rules.md");
+    expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, "openspec", "changes", "<change-name>", "prd.md")}\``);
+    expect(result.prompt).toContain("template is the only output structure");
+    expect(result.prompt).toContain("## Intent");
+    expect(result.prompt).toContain("# Rules");
+  });
+
+  test("design prompt includes inline artifact contract for architecture design", () => {
+    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("design");
+    expect(result.prompt).toContain("Artifact Build Contract: architecture/design.md");
+    expect(result.prompt).toContain(`Output path: \`${path.join(changeDir, "architecture", "design.md")}\``);
+    expect(result.prompt).toContain("template is the only output structure");
+    expect(result.prompt).toContain("# Design");
+    expect(result.prompt).toContain("## Architecture Package Map");
+    expect(result.prompt).toContain("--expect-route design_approval");
   });
 
   test("implementation route reports implementation stage", () => {
@@ -311,6 +331,7 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("phase_validation");
     expect(result.prompt).toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -407,8 +428,10 @@ Complete API work.
 
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Stage 5B. Final Validation.");
+    expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
+    expect(result.prompt).toContain("flow-cli.ts\" check --project-path");
     expect(result.prompt).toContain("Generation Bundle");
-    expect(result.prompt).toContain("Intent Card");
+    expect(result.prompt).toContain("Intent");
   });
 
   test("repair route reports repair stage", () => {

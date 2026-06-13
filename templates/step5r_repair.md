@@ -8,19 +8,19 @@ Input artifacts:
 - Validation report: [validation_findings.md]({{findings_path}})
 - Implementation plan: [implementation_plan.md]({{plan_path}})
 - Technical design: [design.md]({{design_path}})
-- PRD requirements and ADLC-style Intent Card: [prd.md]({{prd_path}})
+- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Research results: [research_facts.md]({{research_path}})
-- Development rules: [rules.md]({{rules_path}})
+- Test command rules: [rules.md]({{rules_path}})
 
 {{repair_queue}}
 
 Finding handling rules:
-- before changing the registry, read the artifact template: [validation_findings.md template]({{validation_findings_template_path}});
+- use the Artifact Build Contract below as the only source of structure before changing the registry;
 - [validation_findings.md]({{findings_path}}) must strictly follow the artifact template and strict registry rules from the template comments;
 - the work queue above contains only current blocking findings;
-- repair must preserve alignment with the `Intent Card`, `R#` requirements, scope boundaries, `SC#` success criteria, `Accepted Assumptions`, `Deferred Decisions`, and `Risk envelope` from [prd.md]({{prd_path}});
+- repair must preserve alignment with `Intent`, `Target state`, `Risk boundaries`, `R#` requirements, `SC#` success criteria, and `Evidence` types from [prd.md]({{prd_path}});
 - if a finding relates to a requirement or success criterion, the repair path and updated finding row must reference the concrete `R#` or `SC#`;
-- if the fixing path requires changing `Generation target`, `Resolution signal`, a concrete `R#`, scope boundaries, a concrete `SC#`, accepted assumptions, deferred decisions, or risk envelope from the PRD, this is a `requirements` finding path: discuss it with the user and reset approval on the changed `prd.md`;
+- if the fixing path requires changing `Target state`, a concrete `R#`, a concrete `SC#`, an `Evidence` type, or risk boundaries from the PRD, this is a `requirements` finding path: discuss it with the user and reset approval on the changed `prd.md`;
 - do not delete finding rows;
 - record a fixed finding by changing the existing row `Status` to `resolved`;
 - do not change stable fields in an existing row unless needed to fix an explicit error in the row;
@@ -44,6 +44,8 @@ Human reapproval:
 - this is allowed only for artifacts that are actually changed in this repair;
 - updating only task checkboxes, phase status, or `Check Evidence` in `implementation_plan.md` does not count as changing approved plan content and does not require resetting approval;
 - for a pure `implementation` repair, do not change approval statuses for requirements, design, or plan.
+
+{{validation_findings_artifact_contract}}
 
 ## Artifact allowlist
 

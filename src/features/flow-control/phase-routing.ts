@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 import { FlowRalphConfig } from "../../entities/flow-config/config";
 import { isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
@@ -8,6 +9,8 @@ import { parseTestCommands, TestCommands } from "../../entities/test-commands/pa
 import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
+import { shellQuote } from "../../shared/shell/shell-quote";
+import { renderArtifactContract } from "./artifact-contract";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
 import { formatPhaseExcerpt, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
@@ -37,7 +40,23 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
   });
 }
 
-export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: FlowRalphConfig): FlowPrompt {
+function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
+  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
+  return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
+}
+
+function validationFindingsContract(findingsPath: string, projectPath: string, expectedRoute?: string): string {
+  return renderArtifactContract({
+    artifactId: "validation_findings.md",
+    resolvedOutputPath: findingsPath,
+    templateName: "artifacts/validation_findings",
+    selfCheckCommand: flowCheckCommand(projectPath, expectedRoute),
+    date: new Date().toISOString().split("T")[0]
+  });
+}
+
+export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: FlowRalphConfig, projectPath = path.resolve(path.dirname(planPath), "..", "..", "..")): FlowPrompt {
   let currentPhase = activePhase;
 
   if (activePhase.status === "not_started") {
@@ -53,7 +72,8 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
       design_path: urls.design_path,
       plan_path: urls.plan_path,
       findings_path: urls.findings_path,
-      date: new Date().toISOString().split("T")[0]
+      date: new Date().toISOString().split("T")[0],
+      validation_findings_artifact_contract: validationFindingsContract(path.join(path.dirname(planPath), "validation_findings.md"), projectPath)
     }, config));
   }
 
@@ -127,7 +147,7 @@ function formatRepairQueue(findingsPath: string): string {
   ].join("\n");
 }
 
-export function repairPrompt(urls: Urls, findingsPath: string, config: FlowRalphConfig): FlowPrompt {
+export function repairPrompt(urls: Urls, findingsPath: string, config: FlowRalphConfig, projectPath = path.resolve(path.dirname(findingsPath), "..", "..", "..")): FlowPrompt {
   return prompt("next", "repair", renderStageTemplate("repair", "step5r_repair", {
     repair_queue: formatRepairQueue(findingsPath),
     findings_path: urls.findings_path,
@@ -135,6 +155,7 @@ export function repairPrompt(urls: Urls, findingsPath: string, config: FlowRalph
     design_path: urls.design_path,
     prd_path: urls.prd_path,
     research_path: urls.research_path,
-    rules_path: urls.rules_path
+    rules_path: urls.rules_path,
+    validation_findings_artifact_contract: validationFindingsContract(findingsPath, projectPath)
   }, config));
 }
