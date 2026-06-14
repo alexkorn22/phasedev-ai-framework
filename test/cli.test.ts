@@ -330,7 +330,7 @@ describe("flow-cli state machine", () => {
   test("init output contains base prompt without stage skill router", () => {
     const output = runInit();
 
-    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
+    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
     expect(output).toContain("## Init State");
     expect(output).toContain("command: init");
     expect(output).toContain("current_stage: setup");
@@ -358,7 +358,7 @@ codex:
 
     const output = runInit();
 
-    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
+    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
     expect(output).not.toContain("Stage-specific skill policy");
     expect(output).not.toContain("Do not infer allowed skills from this init prompt.");
     expect(output).not.toContain("## Configured Skill Policy");
@@ -375,7 +375,7 @@ codex:
 
     const output = runInit();
 
-    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
+    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
     expect(output).toContain("command: init");
     expect(output).toContain("route_kind: setup");
     expect(output).not.toContain("Config key");

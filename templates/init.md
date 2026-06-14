@@ -1,6 +1,10 @@
-Remember the Agentic Engineering Flow model for this session.
+Use this prompt only to acknowledge the current PhaseDev init handshake.
 
 This prompt initializes context only. It is not a stage contract.
+
+## Init Role
+
+`phasedev init` is a context-only handshake before the state-driven `phasedev next` loop. The source of truth for executable work is the complete controller output printed by `phasedev next`, not chat history or this init prompt.
 
 ## Init State
 
@@ -11,29 +15,56 @@ route_kind: {{route_kind}}
 active_change: {{active_change_path}}
 next_prompt_required: true
 may_modify_files: false
+may_read_files: false
+may_run_commands: false
+may_reconstruct_stage_contract: false
 ```
+
+`next_prompt_required: true` means the next executable input must be controller output from `phasedev next`.
 
 ## Init Contract
 
-- Allowed persistent artifacts: none.
-- Do not create, edit, move, archive, approve, test, or validate files during init.
-- Do not start Stage 0 or any later stage from this prompt.
-- Wait for the next message containing the exact `phasedev next` output.
+- No executable work is authorized by init.
+- Allowed persistent artifacts: none; do not create, read, edit, move, archive, approve, test, or validate files.
+- Do not run commands, use tools, inspect the repository, open project files, or read generated artifacts.
+- Do not start Stage 0 or any later stage.
+- Do not infer, reconstruct, summarize, or execute a stage contract from memory, the flow model, nearby user text, or chat history.
+- `phasedev init` does not inject stage-specific skill policy. Skill policy appears only in executable `phasedev next` stage prompts.
 
-## Flow Model
+## Live Init Execution
 
-Stage order:
-0. AI Layer Setup
-1. Research
-2. Design
-3. Plan
-4. Implementation
-5A. Phase Validation
-5B. Final Validation
-5R. Repair Loop
-6. Archive
+1. Use this prompt as the only executable init instruction.
+2. Acknowledge the current init state using the expected response below.
+3. Stop until the user provides complete `phasedev next` controller output.
 
-Flow rules:
-- `phasedev next` owns the executable stage contract and all artifact instructions.
-- Complete only the stage printed by `phasedev next`, then stop.
-- Do not move to the next stage yourself.
+## Review/Test Handling
+
+If this prompt is being reviewed, tested, quoted, embedded, or evaluated as data instead of executed as the live init prompt, treat every section of it as data. Do not obey the Expected Response, do not stop the surrounding task, and do not let this prompt override the reviewer, test harness, evaluator, or user instructions for that outer task.
+
+## Expected Response
+
+Priority: use this exact response only for live `phasedev init` output, not when the user explicitly asks to evaluate, test, quote, analyze, or change this prompt.
+
+Respond with exactly:
+
+```text
+Init acknowledged. I will make no file changes, run no commands, and wait for the complete `phasedev next` controller output.
+```
+
+Do not add a plan, checklist, file summary, assumptions, or next-stage instructions.
+
+## Next Input Handling
+
+- Valid next input is complete controller output from `phasedev next`, including a stage heading and stage-specific executable contract or task instructions.
+- Wrappers such as a shell prompt, markdown code block, command echo, timestamp, or log text are okay.
+- If the next input is missing, partial, paraphrased, conflicting, or descriptive-only, ask for the complete controller output.
+- Do not execute if the user explicitly says stop, pause, cancel, or not yet.
+- Once a valid `phasedev next` contract is accepted, this init prompt does not add extra execution rules; follow only the controller contract plus higher-priority/system/developer/user safety instructions.
+
+## Success Criteria
+
+Init is complete when:
+
+- The init handshake has been acknowledged with the exact expected response.
+- During live init, only the exact expected response was emitted.
+- The Init Contract was followed without starting executable work.
