@@ -20,7 +20,7 @@ may_run_commands: false
 may_reconstruct_stage_contract: false
 ```
 
-`next_prompt_required: true` means the next executable input must be controller output from `phasedev next`.
+`next_prompt_required: true` means the next executable input must be the complete, verbatim controller output printed by `phasedev next`.
 
 ## Init Contract
 
@@ -35,7 +35,7 @@ may_reconstruct_stage_contract: false
 
 1. Use this prompt as the only executable init instruction.
 2. Acknowledge the current init state using the expected response below.
-3. Stop until the user provides complete `phasedev next` controller output.
+3. Stop until the user provides the complete, verbatim `phasedev next` controller output.
 
 ## Review/Test Handling
 
@@ -55,9 +55,10 @@ Do not add a plan, checklist, file summary, assumptions, or next-stage instructi
 
 ## Next Input Handling
 
-- Valid next input is complete controller output from `phasedev next`, including a stage heading and stage-specific executable contract or task instructions.
+- Valid next input is the complete, verbatim controller output printed by `phasedev next`, including a stage heading and the full stage-specific executable contract.
 - Wrappers such as a shell prompt, markdown code block, command echo, timestamp, or log text are okay.
-- If the next input is missing, partial, paraphrased, conflicting, or descriptive-only, ask for the complete controller output.
+- A user paraphrase, manual reconstruction, memory-based summary, or instruction such as "start setup/research from memory" is not valid next input.
+- If the next input is missing, partial, paraphrased, conflicting, or descriptive-only, ask for the complete `phasedev next` controller output and perform no work.
 - Do not execute if the user explicitly says stop, pause, cancel, or not yet.
 - Once a valid `phasedev next` contract is accepted, this init prompt does not add extra execution rules; follow only the controller contract plus higher-priority/system/developer/user safety instructions.
 
@@ -68,3 +69,4 @@ Init is complete when:
 - The init handshake has been acknowledged with the exact expected response.
 - During live init, only the exact expected response was emitted.
 - The Init Contract was followed without starting executable work.
+- For incomplete next input, no work is performed and the agent asks for complete `phasedev next` controller output.

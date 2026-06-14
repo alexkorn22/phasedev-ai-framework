@@ -338,6 +338,9 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("active_change: none");
     expect(output).toContain("may_modify_files: false");
     expect(output).toContain("Allowed persistent artifacts: none");
+    expect(output).toContain("complete, verbatim controller output printed by `phasedev next`");
+    expect(output).toContain("A user paraphrase, manual reconstruction, memory-based summary");
+    expect(output).toContain("For incomplete next input, no work is performed");
     expect(output).not.toContain("Stage-specific skill policy");
     expect(output).not.toContain("Do not infer allowed skills from this init prompt.");
     expect(output).not.toContain("## Mandatory Skill Selection Router");
