@@ -4,8 +4,8 @@
 - Use the controller-observed changed-file inventory as prompt context, then verify completeness from read-only repository evidence before deciding the verdict.
 - If the changed-file inventory is incomplete or cannot be verified, add a `MUST-FIX` finding with `Class = validation`.
 - Perform a requirements conformance pass against the approved requirements, design, implementation plan, and actual changed files.
-- Perform a full code review pass for every changed production/source/config/test file outside `openspec/**` using the configured skill policy, including correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
-- Perform a full security review pass for every changed file outside `openspec/**` using the configured skill policy, including user/input handling, output encoding/XSS, injection risks, authorization/data isolation where applicable, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
+- Perform a full code review pass for every changed production/source/config/test file outside `.phasedev/**` using the configured skill policy, including correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
+- Perform a full security review pass for every changed file outside `.phasedev/**` using the configured skill policy, including user/input handling, output encoding/XSS, injection risks, authorization/data isolation where applicable, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
 - If the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`.
 - Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence, and a clear connection to the validation scope.
 - Declarative Check Evidence such as `passed` without these details is insufficient; add a `MUST-FIX` finding with `Class = validation`.
@@ -13,8 +13,8 @@
 - Findings from the code review pass must be recorded in `validation_findings.md` with `Class = code_review` unless a more precise existing class is required by the finding.
 - Findings from the security review pass must be recorded in `validation_findings.md` with `Class = security` unless a more precise existing class is required by the finding.
 - If a finding relates to a PRD requirement or success criterion, `Finding` or `Required Fix` must include the concrete `R#` or `SC#`.
-- completely ignore `openspec/**` when looking for implementation findings: do not diff, review, or report any files under `openspec/**` as change set, product code, PR scope, or finding source.
-- Use `openspec/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history.
+- completely ignore `.phasedev/**` when looking for implementation findings: do not diff, review, or report any files under `.phasedev/**` as change set, product code, PR scope, or finding source.
+- Use `.phasedev/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history.
 - Tests and additional checks from the Implementation stage are considered already successful because Implementation cannot finish with failed tests/checks.
 - do not treat passing or declared Implementation checks as a substitute for changed-file review coverage.
 - `validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table.
@@ -25,7 +25,7 @@
 - do not delete finding rows.
 - add a new finding as a new row at the top of the table.
 - update the existing row with the same `ID` and do not create a duplicate.
-- do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `openspec/**`.
+- do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `.phasedev/**`.
 - If no findings are open, save the empty table header and separator from the artifact template.
 
 Readiness decision rule:

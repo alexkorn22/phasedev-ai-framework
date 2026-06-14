@@ -9,7 +9,7 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     stage: "implementation",
     model: "gpt-5.5",
     reasoningEffort: "medium",
-    activeChange: "openspec/changes/sample-change",
+    activeChange: ".phasedev/changes/sample-change",
     durationMs: 45000,
     usage: {
       inputTokens: 1500,

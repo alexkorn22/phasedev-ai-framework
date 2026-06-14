@@ -56,4 +56,4 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After moving all current blocking findings to `resolved` and setting `verdict: repaired`, stop.
-- Tell the user that repair is ready for validation again through `flow next`.
+- Tell the user that repair is ready for validation again through `phasedev next`.

@@ -1,12 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
-import { FlowRalphConfig } from "../../entities/flow-config/config";
+import { Config } from "../../entities/config/config";
 import { isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
 import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
-import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
+import { Prompt, Stage } from "../../entities/stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { shellQuote } from "../../shared/shell/shell-quote";
@@ -25,12 +25,12 @@ export interface Urls {
   findings_path: string;
 }
 
-function getRequiredTestCommand(stage: FlowStage, testCommands: TestCommands, key: keyof TestCommands, rulesPath: string): string | FlowPrompt {
+function getRequiredTestCommand(stage: Stage, testCommands: TestCommands, key: keyof TestCommands, rulesPath: string): string | Prompt {
   const command = testCommands[key];
   return command ?? testCommandBlocker(stage, rulesPath, [key]);
 }
 
-function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
+function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string, variables: Record<string, string>, config: Config): string {
   return renderTemplate(templateName, {
     ...variables,
     prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
@@ -43,13 +43,13 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
 }
 
 function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
   const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
   return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
 function flowValidationCheckCommand(projectPath: string, phaseId: number): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
   return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope phase --phase-id ${phaseId}`;
 }
 
@@ -66,7 +66,7 @@ function validationFindingsContract(findingsPath: string, projectPath: string, p
   });
 }
 
-export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: FlowRalphConfig, projectPath = path.resolve(path.dirname(planPath), "..", "..", "..")): FlowPrompt {
+export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: Config, projectPath = path.resolve(path.dirname(planPath), "..", "..", "..")): Prompt {
   let currentPhase = activePhase;
 
   if (activePhase.status === "not_started") {
@@ -159,7 +159,7 @@ function formatRepairQueue(findingsPath: string): string {
   ].join("\n");
 }
 
-export function repairPrompt(urls: Urls, findingsPath: string, config: FlowRalphConfig, projectPath = path.resolve(path.dirname(findingsPath), "..", "..", "..")): FlowPrompt {
+export function repairPrompt(urls: Urls, findingsPath: string, config: Config, projectPath = path.resolve(path.dirname(findingsPath), "..", "..", "..")): Prompt {
   return prompt("next", "repair", renderStageTemplate("repair", "step5r_repair", {
     repair_queue: formatRepairQueue(findingsPath),
     findings_path: urls.findings_path,

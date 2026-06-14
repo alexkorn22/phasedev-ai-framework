@@ -1,8 +1,8 @@
 import * as fs from "fs";
-import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/flow-change/approval";
-import { findActiveChangeDir } from "../../entities/flow-change/active-change";
-import { findInvalidArchiveState, findPendingArchiveState, FlowArchiveState, InvalidFlowArchiveState } from "../../entities/flow-change/archive-state";
-import { buildChangePaths, ChangePaths } from "../../entities/flow-change/paths";
+import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/change/approval";
+import { findActiveChangeDir } from "../../entities/change/active-change";
+import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, InvalidArchiveState } from "../../entities/change/archive-state";
+import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
 import { hasPendingOrFailedEvidence, isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
@@ -13,9 +13,9 @@ import { parseValidationFindingsArtifact } from "../../entities/validation-findi
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
 
-export type FlowRoute =
-  | { kind: "invalid_archive_state"; stage: "archive"; invalidArchiveState: InvalidFlowArchiveState; issues: string[]; activeChangePath: string }
-  | { kind: "pending_archive"; stage: "archive"; archiveState: FlowArchiveState; activeChangePath: string }
+export type Route =
+  | { kind: "invalid_archive_state"; stage: "archive"; invalidArchiveState: InvalidArchiveState; issues: string[]; activeChangePath: string }
+  | { kind: "pending_archive"; stage: "archive"; archiveState: ArchiveState; activeChangePath: string }
   | { kind: "setup"; stage: "setup"; activeChangePath: string | null }
   | { kind: "invalid_prd"; stage: "setup"; paths: ChangePaths; issues: string[]; activeChangePath: string }
   | { kind: "invalid_rules"; stage: "setup"; paths: ChangePaths; issues: string[]; activeChangePath: string }
@@ -45,7 +45,7 @@ function isVerdictOnlyOpenBlockingIssue(issue: string): boolean {
          issue.startsWith("`verdict: repaired`");
 }
 
-export function resolveFlowRoute(projectPath: string): FlowRoute {
+export function resolveRoute(projectPath: string): Route {
   const invalidArchiveState = findInvalidArchiveState(projectPath);
   if (invalidArchiveState) {
     return {

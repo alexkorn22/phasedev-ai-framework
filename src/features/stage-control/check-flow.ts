@@ -1,16 +1,16 @@
-import { FlowStage } from "../../entities/flow-stage/types";
-import { findActiveChangeDir } from "../../entities/flow-change/active-change";
-import { buildChangePaths, ChangePaths } from "../../entities/flow-change/paths";
+import { Stage } from "../../entities/stage/types";
+import { findActiveChangeDir } from "../../entities/change/active-change";
+import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
-import { FlowRoute, resolveFlowRoute } from "./flow-route";
+import { Route, resolveRoute } from "./flow-route";
 
-export type FlowRouteKind = FlowRoute["kind"];
+export type RouteKind = Route["kind"];
 
 export interface FlowCheckResult {
   ok: boolean;
-  route: FlowRouteKind;
-  stage: FlowStage;
+  route: RouteKind;
+  stage: Stage;
   message: string;
 }
 
@@ -20,11 +20,11 @@ export type ValidationCheckOptions =
 
 export interface ValidationCheckResult {
   ok: boolean;
-  route: FlowRouteKind;
+  route: RouteKind;
   message: string;
 }
 
-const ROUTE_KINDS = new Set<FlowRouteKind>([
+const ROUTE_KINDS = new Set<RouteKind>([
   "invalid_archive_state",
   "pending_archive",
   "setup",
@@ -47,15 +47,15 @@ const ROUTE_KINDS = new Set<FlowRouteKind>([
   "final_validation"
 ]);
 
-function hasIssues(route: FlowRoute): route is FlowRoute & { issues: string[] } {
+function hasIssues(route: Route): route is Route & { issues: string[] } {
   return "issues" in route;
 }
 
-function hasPaths(route: FlowRoute): route is FlowRoute & { paths: ChangePaths } {
+function hasPaths(route: Route): route is Route & { paths: ChangePaths } {
   return "paths" in route;
 }
 
-function pathsForValidation(projectPath: string, route: FlowRoute): ChangePaths | null {
+function pathsForValidation(projectPath: string, route: Route): ChangePaths | null {
   if (hasPaths(route)) {
     return route.paths;
   }
@@ -72,20 +72,20 @@ function readyPhaseIssue(verdict: ValidationFindingsVerdict | "unknown", phaseId
   return `\`verdict: ${verdict}\` is valid only after Phase ${phaseId} is marked [x].`;
 }
 
-function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: FlowRouteKind): string {
+function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: RouteKind): string {
   return `\`verdict: repair_required\` is valid for ${scope} validation only when the current route is repair; got ${routeKind}.`;
 }
 
-export function isFlowRouteKind(value: string): value is FlowRouteKind {
-  return ROUTE_KINDS.has(value as FlowRouteKind);
+export function isRouteKind(value: string): value is RouteKind {
+  return ROUTE_KINDS.has(value as RouteKind);
 }
 
-export function flowRouteKinds(): string[] {
+export function routeKinds(): string[] {
   return Array.from(ROUTE_KINDS);
 }
 
 export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions): ValidationCheckResult {
-  const route = resolveFlowRoute(projectPath);
+  const route = resolveRoute(projectPath);
   const paths = pathsForValidation(projectPath, route);
   const issues: string[] = [];
 
@@ -152,7 +152,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
       ok: false,
       route: route.kind,
       message: [
-        `[FLOW VALIDATION CHECK] FAILED: ${options.scope} (route: ${route.kind})`,
+        `[PHASEDEV VALIDATION CHECK] FAILED: ${options.scope} (route: ${route.kind})`,
         ...issues.map(issue => `- ${issue}`)
       ].join("\n")
     };
@@ -161,12 +161,12 @@ export function checkValidationCompletion(projectPath: string, options: Validati
   return {
     ok: true,
     route: route.kind,
-    message: `[FLOW VALIDATION CHECK] OK: ${options.scope} validation is complete.`
+    message: `[PHASEDEV VALIDATION CHECK] OK: ${options.scope} validation is complete.`
   };
 }
 
-export function checkFlow(projectPath: string, expectedRoute?: FlowRouteKind): FlowCheckResult {
-  const route = resolveFlowRoute(projectPath);
+export function checkRoute(projectPath: string, expectedRoute?: RouteKind): FlowCheckResult {
+  const route = resolveRoute(projectPath);
 
   if (hasIssues(route)) {
     return {
@@ -174,7 +174,7 @@ export function checkFlow(projectPath: string, expectedRoute?: FlowRouteKind): F
       route: route.kind,
       stage: route.stage,
       message: [
-        `[FLOW CHECK] FAILED: ${route.kind} (stage: ${route.stage})`,
+        `[PHASEDEV CHECK] FAILED: ${route.kind} (stage: ${route.stage})`,
         ...route.issues.map(issue => `- ${issue}`)
       ].join("\n")
     };
@@ -185,7 +185,7 @@ export function checkFlow(projectPath: string, expectedRoute?: FlowRouteKind): F
       ok: false,
       route: route.kind,
       stage: route.stage,
-      message: `[FLOW CHECK] FAILED: expected route ${expectedRoute}, got ${route.kind} (stage: ${route.stage}).`
+      message: `[PHASEDEV CHECK] FAILED: expected route ${expectedRoute}, got ${route.kind} (stage: ${route.stage}).`
     };
   }
 
@@ -194,7 +194,7 @@ export function checkFlow(projectPath: string, expectedRoute?: FlowRouteKind): F
       ok: true,
       route: route.kind,
       stage: route.stage,
-      message: "[FLOW CHECK] OK: archive_ready. Archive is ready; no files were moved by check."
+      message: "[PHASEDEV CHECK] OK: archive_ready. Archive is ready; no files were moved by check."
     };
   }
 
@@ -202,6 +202,6 @@ export function checkFlow(projectPath: string, expectedRoute?: FlowRouteKind): F
     ok: true,
     route: route.kind,
     stage: route.stage,
-    message: `[FLOW CHECK] OK: current route is ${route.kind} (stage: ${route.stage}).`
+    message: `[PHASEDEV CHECK] OK: current route is ${route.kind} (stage: ${route.stage}).`
   };
 }

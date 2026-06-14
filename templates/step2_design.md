@@ -151,4 +151,4 @@ If the check fails, fix the reported artifact issues in this same stage, then re
 
 Stage completion:
 - After writing the architecture package, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user they need to review `architecture/design.md`, set `approved: true`, and then run `flow next`.
+- Tell the user they need to review `architecture/design.md`, set `approved: true`, and then run `phasedev next`.

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { findActiveChangeDir } from "../src/entities/flow-change/active-change";
+import { findActiveChangeDir } from "../src/entities/change/active-change";
 import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
 import { validatePlanArtifact } from "../src/entities/implementation-plan/validate-plan-artifact";
 import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
@@ -852,7 +852,7 @@ date: 2026-06-02
 |---|---|---|---|---|
 | F1 | code | \`src/index.ts:42\` | Current implementation routes approved changes. | R1 |
 | F2 | code | \`test/parser.test.ts:12\` | Tests exercise parser behavior. | SC1 |
-| S1 | spec | \`openspec/specs/flow/spec.md:8\` | Existing spec describes flow routing. | R1 |
+| S1 | spec | \`.phasedev/specs/flow/spec.md:8\` | Existing spec describes flow routing. | R1 |
 
 ## Research Gaps & Blockers
 
@@ -1814,7 +1814,7 @@ date: 2026-06-02
 | Gate | Command |
 |---|---|
 | unit | \`bun test test/parser.test.ts\` |
-| phase | \`bun test test/flow-controller.test.ts\` |
+| phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
 `, "utf-8");
 
@@ -1860,7 +1860,7 @@ Use the local Bun commands below.
 | Gate | Command |
 |---|---|
 | unit | \`bun test test/parser.test.ts\` |
-| phase | \`bun test test/flow-controller.test.ts\` |
+| phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
 `, "utf-8");
 
@@ -1868,7 +1868,7 @@ Use the local Bun commands below.
   });
 
   test("findActiveChangeDir ignores archive directory when selecting active change", () => {
-    const changesDir = path.join(testTmpDir, "openspec", "changes");
+    const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
     setupTestDir();
     fs.mkdirSync(path.join(changesDir, "archive"), { recursive: true });
@@ -1878,13 +1878,13 @@ Use the local Bun commands below.
   });
 
   test("findActiveChangeDir throws error when multiple active changes exist", () => {
-    const changesDir = path.join(testTmpDir, "openspec", "changes");
+    const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
     setupTestDir();
     fs.mkdirSync(path.join(changesDir, "change-1"), { recursive: true });
     fs.mkdirSync(path.join(changesDir, "change-2"), { recursive: true });
 
-    expect(() => findActiveChangeDir(testTmpDir)).toThrow("Multiple active changes found in openspec/changes");
+    expect(() => findActiveChangeDir(testTmpDir)).toThrow("Multiple active changes found in .phasedev/changes");
   });
 
   afterAll(() => {

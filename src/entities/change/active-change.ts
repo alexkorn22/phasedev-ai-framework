@@ -1,8 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
+import { SYSTEM_DIR } from "./paths";
 
 export function findActiveChangeDir(projectRoot: string): string | null {
-  const changesDir = path.join(projectRoot, "openspec", "changes");
+  const changesDir = path.join(projectRoot, SYSTEM_DIR, "changes");
   if (!fs.existsSync(changesDir)) {
     return null;
   }
@@ -14,7 +15,7 @@ export function findActiveChangeDir(projectRoot: string): string | null {
     });
 
     if (directories.length > 1) {
-      throw new Error(`Multiple active changes found in openspec/changes: ${directories.join(", ")}. Only one active change is allowed.`);
+      throw new Error(`Multiple active changes found in ${SYSTEM_DIR}/changes: ${directories.join(", ")}. Only one active change is allowed.`);
     }
 
     return directories.length > 0 ? path.join(changesDir, directories[0]) : null;

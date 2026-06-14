@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
-import { buildChangePaths } from "../../entities/flow-change/paths";
-import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
+import { Config, loadConfig } from "../../entities/config/config";
+import { buildChangePaths } from "../../entities/change/paths";
+import { Prompt, Stage } from "../../entities/stage/types";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
@@ -13,7 +13,7 @@ import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPr
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./phase-routing";
 import { renderSkillPolicy } from "./skill-policy";
-import { resolveFlowRoute } from "./flow-route";
+import { resolveRoute } from "./flow-route";
 
 function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
   return {
@@ -27,12 +27,12 @@ function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
 }
 
 function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
   const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
   return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
-function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: string, variables: Record<string, string>, config: FlowRalphConfig): string {
+function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string, variables: Record<string, string>, config: Config): string {
   return renderTemplate(templateName, {
     ...variables,
     prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
@@ -57,7 +57,7 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
 }
 
 function flowFinalValidationCheckCommand(projectPath: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
   return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope final`;
 }
 
@@ -72,8 +72,8 @@ function finalValidationArtifactContract(findingsPath: string, projectPath: stri
   });
 }
 
-export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt {
-  const route = resolveFlowRoute(projectPath);
+export function getNextPrompt(projectPath: string, config: Config = loadConfig()): Prompt {
+  const route = resolveRoute(projectPath);
 
   switch (route.kind) {
     case "invalid_archive_state":

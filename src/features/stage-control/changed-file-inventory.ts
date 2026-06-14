@@ -38,13 +38,13 @@ export function renderChangedFileInventory(projectPath: string): string {
     .split(/\r?\n/)
     .map(parseGitStatusLine)
     .filter((entry): entry is { status: string; filePath: string } => entry !== null)
-    .filter(entry => !entry.filePath.startsWith("openspec/"));
+    .filter(entry => !entry.filePath.startsWith(".phasedev/"));
 
   if (rows.length === 0) {
     return [
       "## Controller Observed Changed Files",
       "",
-      "No changed files outside openspec/** were observed by the controller."
+      "No changed files outside .phasedev/** were observed by the controller."
     ].join("\n");
   }
 

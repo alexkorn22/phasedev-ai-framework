@@ -11,9 +11,9 @@ Authoring instructions for the research agent:
 - Do not write TBD, TODO, unknown, clarify later, or to be decided.
 - Code evidence is primary. Specs are context and cannot confirm actual implementation behavior by themselves.
 - `F#` is only for code, config, tests, or runtime wiring facts.
-- `S#` is only for facts from `openspec/specs`.
+- `S#` is only for facts from `.phasedev/specs`.
 - `prd-only` is allowed only in PRD Intent Trace Evidence for intent fields that are not repository facts.
-- If `openspec/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
+- If `.phasedev/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
 - In Research Gaps & Blockers, explicitly declare any remaining unresolved gaps or disputed facts.
 -->
 
@@ -39,7 +39,7 @@ Authoring instructions for the research agent:
 |---|---|---|---|---|
 | F1 | code | `src/file.ts:42` | Current implementation does X. | R1 |
 | F2 | code | `test/file.test.ts:12` | Tests verify behavior X. | SC1 |
-| S1 | spec | `openspec/specs/foo/spec.md:12` | Existing spec describes capability Y. | R1 |
+| S1 | spec | `.phasedev/specs/foo/spec.md:12` | Existing spec describes capability Y. | R1 |
 
 ## Research Gaps & Blockers
 

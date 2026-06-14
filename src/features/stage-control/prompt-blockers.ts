@@ -1,12 +1,12 @@
-import { FlowPrompt, FlowStage } from "../../entities/flow-stage/types";
+import { Prompt, Stage } from "../../entities/stage/types";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { toFileUrl } from "./prompt-formatters";
 
-export function prompt(command: "init" | "next", stage: FlowStage, content: string, blocked = false, reason?: string): FlowPrompt {
+export function prompt(command: "init" | "next", stage: Stage, content: string, blocked = false, reason?: string): Prompt {
   return { command, stage, prompt: content, blocked, reason };
 }
 
-export function approvalBlocker(stage: FlowStage, title: string, filePath: string, label: string): FlowPrompt {
+export function approvalBlocker(stage: Stage, title: string, filePath: string, label: string): Prompt {
   return prompt("next", stage, [
     "================================================================================",
     `[FLOW CONTROLLER] BLOCKED: ${title}`,
@@ -17,7 +17,7 @@ export function approvalBlocker(stage: FlowStage, title: string, filePath: strin
   ].join("\n"), true, title);
 }
 
-export function testCommandBlocker(stage: FlowStage, rulesPath: string, missing: Array<keyof TestCommands>): FlowPrompt {
+export function testCommandBlocker(stage: Stage, rulesPath: string, missing: Array<keyof TestCommands>): Prompt {
   return prompt("next", stage, [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Missing test command",
@@ -35,7 +35,7 @@ export function testCommandBlocker(stage: FlowStage, rulesPath: string, missing:
   ].join("\n"), true, "Missing test command");
 }
 
-export function invalidPlanBlocker(planPath: string, issues: string[]): FlowPrompt {
+export function invalidPlanBlocker(planPath: string, issues: string[]): Prompt {
   return prompt("next", "plan", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid implementation plan",
@@ -46,7 +46,7 @@ export function invalidPlanBlocker(planPath: string, issues: string[]): FlowProm
   ].join("\n"), true, "Invalid implementation plan");
 }
 
-export function invalidPrdBlocker(prdPath: string, issues: string[]): FlowPrompt {
+export function invalidPrdBlocker(prdPath: string, issues: string[]): Prompt {
   return prompt("next", "setup", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid prd.md",
@@ -58,7 +58,7 @@ export function invalidPrdBlocker(prdPath: string, issues: string[]): FlowPrompt
   ].join("\n"), true, "Invalid prd.md");
 }
 
-export function invalidRulesBlocker(rulesPath: string, issues: string[]): FlowPrompt {
+export function invalidRulesBlocker(rulesPath: string, issues: string[]): Prompt {
   return prompt("next", "setup", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid rules.md",
@@ -69,7 +69,7 @@ export function invalidRulesBlocker(rulesPath: string, issues: string[]): FlowPr
     "================================================================================"
   ].join("\n"), true, "Invalid rules.md");
 }
-export function invalidResearchBlocker(researchPath: string, issues: string[]): FlowPrompt {
+export function invalidResearchBlocker(researchPath: string, issues: string[]): Prompt {
   return prompt("next", "research", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid research_facts.md",
@@ -81,7 +81,7 @@ export function invalidResearchBlocker(researchPath: string, issues: string[]): 
   ].join("\n"), true, "Invalid research_facts.md");
 }
 
-export function invalidDesignBlocker(designPath: string, issues: string[]): FlowPrompt {
+export function invalidDesignBlocker(designPath: string, issues: string[]): Prompt {
   return prompt("next", "design", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid design.md",
@@ -92,7 +92,7 @@ export function invalidDesignBlocker(designPath: string, issues: string[]): Flow
     "================================================================================"
   ].join("\n"), true, "Invalid design.md");
 }
-export function archiveReadinessBlocker(title: string, filePath: string, details: string): FlowPrompt {
+export function archiveReadinessBlocker(title: string, filePath: string, details: string): Prompt {
   return prompt("next", "archive", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Archive readiness failed",
@@ -104,7 +104,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
   ].join("\n"), true, "Archive readiness failed");
 }
 
-export function validationFindingsBlocker(findingsPath: string, issues: string[]): FlowPrompt {
+export function validationFindingsBlocker(findingsPath: string, issues: string[]): Prompt {
   return prompt("next", "repair", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md",

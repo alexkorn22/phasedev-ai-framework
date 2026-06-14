@@ -1,19 +1,19 @@
-export { runFlowRalph } from "./run-flow-ralph";
-export type { FlowRalphDependencies, FlowRalphResult, FlowRalphStatus } from "./run-flow-ralph";
+export { runRunner } from "./run-flow-ralph";
+export type { RunnerDependencies, RunnerResult, RunnerStatus } from "./run-flow-ralph";
 export {
-  DEFAULT_FLOW_RALPH_CONFIG,
+  DEFAULT_CONFIG,
   defaultConfigPath,
   getStageModelConfig,
   getStageSkillConfig,
-  loadFlowRalphConfig,
-  parseFlowRalphConfig,
+  loadConfig,
+  parseConfig,
   projectConfigPath,
-  resolveFlowRalphConfigPath,
+  resolveConfigPath,
   resolveProjectLogDir
 } from "./config";
 export type {
   ApprovalPolicy,
-  FlowRalphConfig,
+  Config,
   NotificationConfig,
   ReasoningEffort,
   SandboxMode,

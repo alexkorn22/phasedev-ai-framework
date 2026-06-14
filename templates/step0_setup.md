@@ -26,7 +26,7 @@ Required actions:
 8. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
 9. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
 10. Before creating artifacts, summarize your final interpretation, material user answers, and accepted assumptions. If the user disagrees or adds material scope, continue intake instead of writing files.
-11. Create the change folder: `openspec/changes/<change-name>/`.
+11. Create the change folder: `.phasedev/changes/<change-name>/`.
 12. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
 13. Create `prd.md` first, then `rules.md`.
 
@@ -76,10 +76,10 @@ Formatting rules:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- change folder `openspec/changes/<change-name>/`
+- change folder `.phasedev/changes/<change-name>/`
 - `prd.md`
 - `rules.md`
 
 Stage completion:
 - After creating `prd.md` and `rules.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that they must review the files, set `approved: true`, and then run `flow next`.
+- Tell the user that they must review the files, set `approved: true`, and then run `phasedev next`.

@@ -5,12 +5,12 @@ import {
   defaultConfigPath,
   getStageModelConfig,
   getStageSkillConfig,
-  loadFlowRalphConfig,
-  parseFlowRalphConfig,
+  loadConfig,
+  parseConfig,
   projectConfigPath,
-  resolveFlowRalphConfigPath,
+  resolveConfigPath,
   resolveProjectLogDir
-} from "../src/features/ralph-runner/config";
+} from "../src/features/runner/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -30,12 +30,12 @@ function writeProjectConfig(projectPath: string, body: string): string {
   return configPath;
 }
 
-describe("flow-ralph config", () => {
+describe("logs config", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
 
   test("parses config with comments and defaults", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 codex:
   default:
     model: gpt-5.4-mini # variants are documented in config.yaml
@@ -54,13 +54,13 @@ loop:
     expect(config.codex.approvalPolicy).toBe("never");
     expect(config.codex.streamAgentOutput).toBe(true);
     expect(config.loop.maxIterations).toBe(3);
-    expect(config.loop.logDir).toBe("openspec/logs");
+    expect(config.loop.logDir).toBe(".phasedev/logs");
     expect(config.loop.enableLogs).toBe(true);
     expect(config.loop.runArchiveStage).toBe(true);
     expect(config.loop.notifications.telegram).toEqual({
       enabled: false,
-      botTokenEnv: "FLOW_RALPH_TELEGRAM_BOT_TOKEN",
-      chatIdEnv: "FLOW_RALPH_TELEGRAM_CHAT_ID"
+      botTokenEnv: "TELEGRAM_BOT_TOKEN",
+      chatIdEnv: "TELEGRAM_CHAT_ID"
     });
     expect(getStageModelConfig(config, "archive")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "low" });
     expect(getStageModelConfig(config, "implementation")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "medium" });
@@ -81,10 +81,10 @@ codex:
     model: explicit-model
 `, "utf-8");
 
-    const resolvedPath = resolveFlowRalphConfigPath(projectPath, explicitConfigPath);
+    const resolvedPath = resolveConfigPath(projectPath, explicitConfigPath);
 
     expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
-    expect(loadFlowRalphConfig(resolvedPath).codex.default.model).toBe("explicit-model");
+    expect(loadConfig(resolvedPath).codex.default.model).toBe("explicit-model");
   });
 
   test("resolves project openspec config before root default config", () => {
@@ -95,20 +95,20 @@ codex:
     model: project-model
 `);
 
-    const resolvedPath = resolveFlowRalphConfigPath(projectPath);
+    const resolvedPath = resolveConfigPath(projectPath);
 
     expect(resolvedPath).toBe(projectConfig);
-    expect(loadFlowRalphConfig(resolvedPath).codex.default.model).toBe("project-model");
+    expect(loadConfig(resolvedPath).codex.default.model).toBe("project-model");
   });
 
   test("resolves root default config when project config is missing", () => {
     const projectPath = path.join(testTmpDir, "project-without-config");
 
-    expect(resolveFlowRalphConfigPath(projectPath)).toBe(defaultConfigPath());
+    expect(resolveConfigPath(projectPath)).toBe(defaultConfigPath());
   });
 
   test("parses stage skills without inheriting skills from default", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 codex:
   default:
     model: gpt-5.4-mini
@@ -137,7 +137,7 @@ codex:
   });
 
   test("allows stages with only main and additional skills", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 codex:
   stages:
     implementation:
@@ -156,7 +156,7 @@ codex:
   });
 
   test("deduplicates stage skills by priority", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 codex:
   stages:
     implementation:
@@ -182,7 +182,7 @@ codex:
   });
 
   test("parses streamAgentOutput override", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 codex:
   streamAgentOutput: false
 `);
@@ -191,7 +191,7 @@ codex:
   });
 
   test("parses enableLogs override", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 loop:
   enableLogs: false
 `);
@@ -200,7 +200,7 @@ loop:
   });
 
   test("parses runArchiveStage override", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 loop:
   runArchiveStage: false
 `);
@@ -209,21 +209,21 @@ loop:
   });
 
   test("rejects invalid enableLogs type", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 loop:
   enableLogs: 123
 `)).toThrow("loop.enableLogs");
   });
 
   test("rejects invalid runArchiveStage type", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 loop:
   runArchiveStage: 123
 `)).toThrow("loop.runArchiveStage");
   });
 
   test("parses telegram notification override", () => {
-    const config = parseFlowRalphConfig(`
+    const config = parseConfig(`
 loop:
   notifications:
     telegram:
@@ -240,14 +240,14 @@ loop:
   });
 
   test("rejects invalid telegram notification config", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 loop:
   notifications:
     telegram:
       enabled: yes
 `)).toThrow("loop.notifications.telegram.enabled");
 
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 loop:
   notifications:
     telegram:
@@ -256,7 +256,7 @@ loop:
   });
 
   test("rejects invalid enum values", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 codex:
   default:
     reasoningEffort: huge
@@ -264,7 +264,7 @@ codex:
   });
 
   test("rejects invalid skill config", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 codex:
   stages:
     implementation:
@@ -272,7 +272,7 @@ codex:
         main: dev-core
 `)).toThrow("codex.stages.implementation.skills.main");
 
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 codex:
   stages:
     implementation:
@@ -283,7 +283,7 @@ codex:
   });
 
   test("rejects invalid stage keys", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 codex:
   stages:
     unknown:
@@ -292,7 +292,7 @@ codex:
   });
 
   test("rejects nonpositive maxIterations", () => {
-    expect(() => parseFlowRalphConfig(`
+    expect(() => parseConfig(`
 loop:
   maxIterations: 0
 `)).toThrow("loop.maxIterations");
@@ -300,7 +300,7 @@ loop:
 
   test("resolves logDir under project path", () => {
     const projectPath = path.resolve("/tmp/project");
-    expect(resolveProjectLogDir(projectPath, "openspec/flow-ralph")).toBe(path.join(projectPath, "openspec", "flow-ralph"));
+    expect(resolveProjectLogDir(projectPath, ".phasedev/logs")).toBe(path.join(projectPath, ".phasedev", "logs"));
   });
 
   test("rejects logDir outside project path", () => {

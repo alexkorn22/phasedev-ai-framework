@@ -32,7 +32,7 @@ export function createTelegramLogger(
         summary
       ))
       .catch(error => {
-        reporter.log(`[FLOW RALPH] Failed to send Telegram notification: ${formatError(error)}`);
+        reporter.log(`[PHASEDEV RUNNER] Failed to send Telegram notification: ${formatError(error)}`);
       });
   }
 

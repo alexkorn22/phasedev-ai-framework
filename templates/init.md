@@ -18,7 +18,7 @@ may_modify_files: false
 - Allowed persistent artifacts: none.
 - Do not create, edit, move, archive, approve, test, or validate files during init.
 - Do not start Stage 0 or any later stage from this prompt.
-- Wait for the next message containing the exact `flow next` output.
+- Wait for the next message containing the exact `phasedev next` output.
 
 ## Flow Model
 
@@ -34,8 +34,8 @@ Stage order:
 6. Archive
 
 Flow rules:
-- `flow next` owns the executable stage contract and all artifact instructions.
-- Complete only the stage printed by `flow next`, then stop.
+- `phasedev next` owns the executable stage contract and all artifact instructions.
+- Complete only the stage printed by `phasedev next`, then stop.
 - Do not move to the next stage yourself.
-- Stage-specific skill policy is supplied only by the current `flow next` prompt from `config.yaml`.
+- Stage-specific skill policy is supplied only by the current `phasedev next` prompt from `config.yaml`.
 - Do not infer allowed skills from this init prompt.

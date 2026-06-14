@@ -1,13 +1,13 @@
-import { FlowRalphConfig } from "../../entities/flow-config/config";
-import { FlowPrompt } from "../../entities/flow-stage/types";
+import { Config } from "../../entities/config/config";
+import { Prompt } from "../../entities/stage/types";
 import { renderTemplate } from "../../shared/templates/render-template";
-import { resolveCurrentFlowState } from "./current-flow-state";
+import { resolveCurrentState } from "./current-flow-state";
 import { prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 
-export function getInitPrompt(projectPath: string, _config?: FlowRalphConfig): FlowPrompt {
+export function getInitPrompt(projectPath: string, _config?: Config): Prompt {
   try {
-    const state = resolveCurrentFlowState(projectPath);
+    const state = resolveCurrentState(projectPath);
 
     return prompt("init", "init", renderTemplate("init", {
       current_stage: state.stage,

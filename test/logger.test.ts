@@ -2,12 +2,12 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/ralph-logger";
+import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/logger";
 import type { IterationLogEntry } from "../src/entities/iteration-log";
 import type { FetchLike } from "../src/shared/telegram";
 
 function makeTmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "ag-dev-flow-ralph-logger-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ag-dev-logs-logger-test-"));
 }
 
 function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntry {
@@ -17,7 +17,7 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     stage: "implementation",
     model: "gpt-5.5",
     reasoningEffort: "medium",
-    activeChange: "openspec/changes/sample-change",
+    activeChange: ".phasedev/changes/sample-change",
     durationMs: 5000,
     usage: { inputTokens: 100, cachedInputTokens: 10, outputTokens: 50, reasoningOutputTokens: 20 },
     changedFiles: { added: ["a.ts"], modified: [], deleted: [] },

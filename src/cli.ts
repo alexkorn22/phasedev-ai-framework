@@ -1,7 +1,7 @@
-import { loadFlowRalphConfig, resolveFlowRalphConfigPath } from "./entities/flow-config/config";
-import { checkArchiveCompletion } from "./features/flow-control/check-archive";
-import { checkFlow, checkValidationCompletion, flowRouteKinds, FlowRouteKind, isFlowRouteKind, ValidationCheckOptions } from "./features/flow-control/check-flow";
-import { getInitPrompt, getNextPrompt } from "./features/flow-control";
+import { loadConfig, resolveConfigPath } from "./entities/config/config";
+import { checkArchiveCompletion } from "./features/stage-control/check-archive";
+import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
+import { getInitPrompt, getNextPrompt } from "./features/stage-control";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
 
 function parseExpectedRoute(args: string[]): string | undefined {
@@ -59,18 +59,18 @@ function main(): void {
 
   if (command === "check") {
     const expectedRoute = parseExpectedRoute(args);
-    let expectedRouteKind: FlowRouteKind | undefined;
+    let expectedRouteKind: RouteKind | undefined;
     if (expectedRoute) {
-      if (!isFlowRouteKind(expectedRoute)) {
-        console.log(`[FLOW CHECK] FAILED: unknown expected route ${expectedRoute}.`);
-        console.log(`Known routes: ${flowRouteKinds().join(", ")}`);
+      if (!isRouteKind(expectedRoute)) {
+        console.log(`[PHASEDEV CHECK] FAILED: unknown expected route ${expectedRoute}.`);
+        console.log(`Known routes: ${routeKinds().join(", ")}`);
         process.exitCode = 1;
         return;
       }
       expectedRouteKind = expectedRoute;
     }
 
-    const result = checkFlow(projectPath, expectedRouteKind);
+    const result = checkRoute(projectPath, expectedRouteKind);
     console.log(result.message);
     process.exitCode = result.ok ? 0 : 1;
     return;
@@ -79,7 +79,7 @@ function main(): void {
   if (command === "check-validation") {
     const parsed = parseValidationCheckOptions(args);
     if (!parsed.options) {
-      console.log(`[FLOW VALIDATION CHECK] FAILED: ${parsed.error}`);
+      console.log(`[PHASEDEV VALIDATION CHECK] FAILED: ${parsed.error}`);
       process.exitCode = 1;
       return;
     }
@@ -98,13 +98,13 @@ function main(): void {
   }
 
   if (command === "next") {
-    const configPath = resolveFlowRalphConfigPath(projectPath, parseConfigPath(args));
-    const config = loadFlowRalphConfig(configPath);
+    const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
+    const config = loadConfig(configPath);
     console.log(getNextPrompt(projectPath, config).prompt);
     return;
   }
 
-  console.log("Usage: bun run src/flow-cli.ts <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
+  console.log("Usage: bun run src/cli.ts <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
 }
 
 main();

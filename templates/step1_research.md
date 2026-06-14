@@ -7,7 +7,7 @@ Stage contract: create the factual basis for the design stage.
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [rules.md]({{rules_path}})
-- Existing project specs: [openspec/specs]({{project_specs_path}})
+- Existing project specs: [.phasedev/specs]({{project_specs_path}})
 
 Output artifact:
 - [research_facts.md]({{research_path}})
@@ -19,9 +19,9 @@ Use the Artifact Build Contract below as the only source of structure for `resea
 Requirements for `research_facts.md`:
 - Source priority:
   1. actual implementation in code, config, tests, and runtime wiring;
-  2. existing specifications in `openspec/specs`;
+  2. existing specifications in `.phasedev/specs`;
   3. `prd.md` and `rules.md` as the contract for the current change.
-- Read `openspec/specs` if that folder exists. Use it to identify already documented capabilities, domain terms, existing spec areas, and likely future archive/spec-sync targets.
+- Read `.phasedev/specs` if that folder exists. Use it to identify already documented capabilities, domain terms, existing spec areas, and likely future archive/spec-sync targets.
 - Code evidence determines the final research status. Specs provide documented context, but cannot confirm actual implementation behavior by themselves.
 - If code and specs conflict, treat code as current truth and record specs as documented context or stale/conflicting context.
 - Do not conclude that the project actually supports a capability only because it appears in specs.
@@ -55,4 +55,4 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that research is ready and the next transition is run through `flow next`.
+- Tell the user that research is ready and the next transition is run through `phasedev next`.

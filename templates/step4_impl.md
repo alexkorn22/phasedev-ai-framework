@@ -48,4 +48,4 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After updating the change set and `implementation_plan.md`, stop.
-- Tell the user that the current phase is ready for validation and the next transition is run through `flow next`.
+- Tell the user that the current phase is ready for validation and the next transition is run through `phasedev next`.

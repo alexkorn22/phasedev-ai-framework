@@ -1,17 +1,17 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { FlowPrompt, FlowStage } from "../src/entities/flow-stage/types";
-import { runFlowRalphCli } from "../src/flow-ralph";
-import { DEFAULT_FLOW_RALPH_CONFIG, FlowRalphConfig, runFlowRalph } from "../src/features/ralph-runner";
+import { Prompt, Stage } from "../src/entities/stage/types";
+import { runRunnerCli } from "../src/logs";
+import { DEFAULT_CONFIG, Config, runRunner } from "../src/features/runner";
 import { splitTelegramMessage } from "../src/shared/telegram";
-import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/ralph-logger";
+import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/logger";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
 
 function setupTestDir() {
-  testTmpDir = createTempWorkspace("flow-ralph");
+  testTmpDir = createTempWorkspace("logs");
 }
 
 function cleanupTestDir() {
@@ -20,25 +20,25 @@ function cleanupTestDir() {
 
 function setupProject(): string {
   fs.mkdirSync(path.join(testTmpDir, ".git"), { recursive: true });
-  fs.mkdirSync(path.join(testTmpDir, "openspec", "changes", "sample-change"), { recursive: true });
+  fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "sample-change"), { recursive: true });
   return testTmpDir;
 }
 
-function makeConfig(overrides: Partial<FlowRalphConfig["loop"]> = {}, codexOverrides: Partial<FlowRalphConfig["codex"]> = {}): FlowRalphConfig {
+function makeConfig(overrides: Partial<Config["loop"]> = {}, codexOverrides: Partial<Config["codex"]> = {}): Config {
   return {
-    ...DEFAULT_FLOW_RALPH_CONFIG,
+    ...DEFAULT_CONFIG,
     codex: {
-      ...DEFAULT_FLOW_RALPH_CONFIG.codex,
+      ...DEFAULT_CONFIG.codex,
       ...codexOverrides
     },
     loop: {
-      ...DEFAULT_FLOW_RALPH_CONFIG.loop,
+      ...DEFAULT_CONFIG.loop,
       ...overrides
     }
   };
 }
 
-function makeTelegramConfig(overrides: Partial<FlowRalphConfig["loop"]> = {}, codexOverrides: Partial<FlowRalphConfig["codex"]> = {}): FlowRalphConfig {
+function makeTelegramConfig(overrides: Partial<Config["loop"]> = {}, codexOverrides: Partial<Config["codex"]> = {}): Config {
   return makeConfig({
     ...overrides,
     notifications: {
@@ -51,7 +51,7 @@ function makeTelegramConfig(overrides: Partial<FlowRalphConfig["loop"]> = {}, co
   }, codexOverrides);
 }
 
-function flowPrompt(command: "init" | "next", stage: FlowStage, text: string, blocked = false): FlowPrompt {
+function flowPrompt(command: "init" | "next", stage: Stage, text: string, blocked = false): Prompt {
   return { command, stage, prompt: text, blocked, reason: blocked ? "blocked" : undefined };
 }
 
@@ -136,8 +136,8 @@ function validResearchBody(): string {
 
 | Fact ID | Type | Source | Fact | Supports |
 |---|---|---|---|---|
-| F1 | code | \`src/features/ralph-runner/run-flow-ralph.ts:296\` | Ralph recognizes the research stage. | R1 |
-| F2 | code | \`test/flow-ralph.test.ts:112\` | Ralph fixture uses validated research facts. | SC1 |
+| F1 | code | \`src/features/runner/run-runner.ts:296\` | Ralph recognizes the research stage. | R1 |
+| F2 | code | \`test/runner.test.ts:112\` | Ralph fixture uses validated research facts. | SC1 |
 
 ## Research Gaps & Blockers
 
@@ -245,7 +245,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 
 function setupArchiveReadyProject(): string {
   const projectPath = setupProject();
-  const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+  const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
   writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
   writeApprovedArtifact(path.join(changeDir, "rules.md"), `
@@ -270,13 +270,13 @@ const telegramEnv = {
   TEST_TELEGRAM_CHAT_ID: "456"
 };
 
-describe("flow-ralph runner", () => {
+describe("logs runner", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
 
   test("creates a fresh Codex thread for every stage session and sends init bootstrap with next", async () => {
     const projectPath = setupProject();
-    const planPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
     fs.writeFileSync(planPath, `
 # Plan
 
@@ -288,7 +288,7 @@ describe("flow-ralph runner", () => {
     let stageTurnCount = 0;
     let archived = false;
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => {
           const thread = { id: `thread-${threads.length + 1}`, prompts: [] as string[] };
@@ -301,7 +301,7 @@ describe("flow-ralph runner", () => {
                 stageTurnCount++;
                 if (stageTurnCount === 2) {
                   archived = true;
-                  const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+                  const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
                   fs.mkdirSync(archiveDir, { recursive: true });
                   fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
                     status: "completed",
@@ -326,7 +326,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", stageTurnCount >= 1 ? "archive" : "implementation", `next prompt ${stageTurnCount + 1}`),
-      findActiveChangeDir: () => archived ? null : path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => archived ? null : path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -342,13 +342,13 @@ describe("flow-ralph runner", () => {
     expect(threads[1].prompts[0]).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
     expect(threads[1].prompts[0]).toContain("next prompt 2");
     expect(threads[0].id).not.toBe(threads[1].id);
-    expect(result.logPath).toContain(path.join(projectPath, "openspec", "logs"));
-    expect(messages).toContain("[FLOW RALPH] stage: implementation");
-    expect(messages).toContain("[FLOW RALPH] model: gpt-5.4");
-    expect(messages).toContain("[FLOW RALPH] reasoning: high");
-    expect(messages).not.toContain("[FLOW RALPH] running flow init...");
-    expect(messages).not.toContain("[FLOW RALPH] flow init completed");
-    expect(messages).toContain("[FLOW RALPH] running stage with init bootstrap: implementation");
+    expect(result.logPath).toContain(path.join(projectPath, ".phasedev", "logs"));
+    expect(messages).toContain("[PHASEDEV RUNNER] stage: implementation");
+    expect(messages).toContain("[PHASEDEV RUNNER] model: gpt-5.4");
+    expect(messages).toContain("[PHASEDEV RUNNER] reasoning: high");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] running flow init...");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] flow init completed");
+    expect(messages).toContain("[PHASEDEV RUNNER] running stage with init bootstrap: implementation");
   });
 
   test("stops on blocked flow prompt without starting Codex", async () => {
@@ -356,14 +356,14 @@ describe("flow-ralph runner", () => {
     const messages: string[] = [];
     let createdCodex = false;
 
-    const result = await runFlowRalph(projectPath, makeConfig(), {
+    const result = await runRunner(projectPath, makeConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
       },
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "[FLOW CONTROLLER] BLOCKED", true),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -371,17 +371,17 @@ describe("flow-ralph runner", () => {
     expect(result.status).toBe("blocked");
     expect(result.iterations).toBe(0);
     expect(createdCodex).toBe(false);
-    expect(messages).toContain("[FLOW RALPH] blocked at stage: design");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: design");
   });
 
   test("stops before archive_ready when archive execution is disabled", async () => {
     const projectPath = setupArchiveReadyProject();
-    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
     const messages: string[] = [];
     let createdCodex = false;
     let requestedNextPrompt = false;
 
-    const result = await runFlowRalph(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -399,14 +399,14 @@ describe("flow-ralph runner", () => {
     expect(result.reason).toContain("loop.runArchiveStage=false");
     expect(createdCodex).toBe(false);
     expect(requestedNextPrompt).toBe(false);
-    expect(messages).toContain("[FLOW RALPH] blocked at stage: archive");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: archive");
     expect(fs.existsSync(changeDir)).toBe(true);
-    expect(fs.existsSync(path.join(projectPath, "openspec", "changes", "archive"))).toBe(false);
+    expect(fs.existsSync(path.join(projectPath, ".phasedev", "changes", "archive"))).toBe(false);
   });
 
   test("does not resume pending archive when archive execution is disabled", async () => {
     const projectPath = setupProject();
-    const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     const messages: string[] = [];
     let createdCodex = false;
     let requestedNextPrompt = false;
@@ -418,7 +418,7 @@ describe("flow-ralph runner", () => {
       startedAt: "2026-05-29T10:00:00.000Z"
     }), "utf-8");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -436,7 +436,7 @@ describe("flow-ralph runner", () => {
     expect(result.reason).toContain("loop.runArchiveStage=false");
     expect(createdCodex).toBe(false);
     expect(requestedNextPrompt).toBe(false);
-    expect(messages).toContain("[FLOW RALPH] blocked at stage: archive");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: archive");
   });
 
   test("passes loaded config into init and next prompt builders", async () => {
@@ -454,10 +454,10 @@ describe("flow-ralph runner", () => {
         }
       }
     });
-    const seenInitConfigs: FlowRalphConfig[] = [];
-    const seenNextConfigs: FlowRalphConfig[] = [];
+    const seenInitConfigs: Config[] = [];
+    const seenNextConfigs: Config[] = [];
 
-    await runFlowRalph(projectPath, config, {
+    await runRunner(projectPath, config, {
       createCodex: () => ({
         startThread: () => ({
           async run() {
@@ -473,7 +473,7 @@ describe("flow-ralph runner", () => {
         if (promptConfig) seenNextConfigs.push(promptConfig);
         return flowPrompt("next", "implementation", "same next prompt");
       },
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -486,7 +486,7 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const threads: Array<{ prompts: string[] }> = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           const thread = { prompts: [] as string[] };
@@ -502,7 +502,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", threads.length >= 1 ? "archive" : "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -518,7 +518,7 @@ describe("flow-ralph runner", () => {
     fs.mkdirSync(socketDir, { recursive: true });
     fs.symlinkSync("/var/run/mysqld/definitely-missing.sock", path.join(socketDir, "mysql.sock"));
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-broken-symlink",
@@ -529,7 +529,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -540,7 +540,7 @@ describe("flow-ralph runner", () => {
   test("treats streamed implementation file changes outside OpenSpec as progress", async () => {
     const projectPath = setupProject();
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-code-progress",
@@ -563,7 +563,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "implementation prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -574,7 +574,7 @@ describe("flow-ralph runner", () => {
   test("blocks streamed code changes during non-code stages", async () => {
     const projectPath = setupProject();
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-code-change",
@@ -597,7 +597,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -608,9 +608,9 @@ describe("flow-ralph runner", () => {
 
   test("allows design stage to create linked architecture markdown files", async () => {
     const projectPath = setupProject();
-    const linkedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "data-flow.md");
+    const linkedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "data-flow.md");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-linked-doc",
@@ -625,7 +625,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -637,11 +637,11 @@ describe("flow-ralph runner", () => {
 
   test("allows archive stage to update current archive and openspec specs", async () => {
     const projectPath = setupProject();
-    const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     const deltaSpecPath = path.join(archiveDir, "specs", "flow-routing", "spec.md");
-    const mainSpecPath = path.join(projectPath, "openspec", "specs", "flow-routing", "spec.md");
+    const mainSpecPath = path.join(projectPath, ".phasedev", "specs", "flow-routing", "spec.md");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-archive-spec-sync",
@@ -665,7 +665,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "archive", "archive prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -678,9 +678,9 @@ describe("flow-ralph runner", () => {
 
   test("blocks non-archive stages from mutating archived changes", async () => {
     const projectPath = setupProject();
-    const archiveFilePath = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-old-change", "notes.md");
+    const archiveFilePath = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-old-change", "notes.md");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-archive-mutation",
@@ -695,21 +695,21 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.reason).toContain("openspec/changes/archive/2026-05-29-old-change/notes.md");
+    expect(result.reason).toContain(".phasedev/changes/archive/2026-05-29-old-change/notes.md");
     expect(result.reason).toContain("outside allowlist");
   });
 
   test("blocks nested architecture files during design stage", async () => {
     const projectPath = setupProject();
-    const nestedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "nested", "data-flow.md");
+    const nestedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "nested", "data-flow.md");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-nested-doc",
@@ -724,7 +724,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -738,7 +738,7 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const outsidePath = path.resolve(projectPath, "..", "outside.ts");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-outside-project-change",
@@ -761,7 +761,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "implementation prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -772,7 +772,7 @@ describe("flow-ralph runner", () => {
 
   test("runs real repair route when archive execution is disabled", async () => {
     const projectPath = setupArchiveReadyProject();
-    const findingsPath = path.join(projectPath, "openspec", "changes", "sample-change", "validation_findings.md");
+    const findingsPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "validation_findings.md");
     writeValidationFindings(
       findingsPath,
       "repair_required",
@@ -780,7 +780,7 @@ describe("flow-ralph runner", () => {
     );
     let ranRepair = false;
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair",
@@ -805,9 +805,9 @@ describe("flow-ralph runner", () => {
 
   test("allows repair stage to update linked architecture markdown files", async () => {
     const projectPath = setupProject();
-    const linkedDesignPath = path.join(projectPath, "openspec", "changes", "sample-change", "architecture", "runtime-layout.md");
+    const linkedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "runtime-layout.md");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair-linked-design",
@@ -822,7 +822,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -834,11 +834,11 @@ describe("flow-ralph runner", () => {
 
   test("blocks repair stage from updating project flow config", async () => {
     const projectPath = setupProject();
-    const configPath = path.join(projectPath, "openspec", "config.yaml");
+    const configPath = path.join(projectPath, ".phasedev", "config.yaml");
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n", "utf-8");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair-config",
@@ -852,23 +852,23 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.reason).toContain("openspec/config.yaml");
+    expect(result.reason).toContain(".phasedev/config.yaml");
     expect(result.reason).toContain("outside allowlist");
   });
 
   test("stops at maxIterations", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
+    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
     let promptCounter = 0;
     const threads: unknown[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           threads.push({});
@@ -885,7 +885,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", `next prompt ${++promptCounter}`),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -897,11 +897,11 @@ describe("flow-ralph runner", () => {
 
   test("writes only formatted ralph-log.jsonl under project log directory", async () => {
     const projectPath = setupProject();
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-1",
@@ -912,7 +912,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -930,11 +930,11 @@ describe("flow-ralph runner", () => {
   test("streams Codex events to reporter and logs finalResponse from agent message", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-stream",
@@ -946,7 +946,7 @@ describe("flow-ralph runner", () => {
                 { type: "turn.started" },
                 { type: "item.completed", item: { id: "reasoning-1", type: "reasoning", text: "checking flow state" } },
                 { type: "item.completed", item: { id: "cmd-1", type: "command_execution", command: "bun test", aggregated_output: "tests passed", exit_code: 0, status: "completed" } },
-                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: "openspec/changes/sample-change/implementation_plan.md", kind: "update" }], status: "completed" } },
+                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: ".phasedev/changes/sample-change/implementation_plan.md", kind: "update" }], status: "completed" } },
                 { type: "item.completed", item: { id: "tool-1", type: "mcp_tool_call", server: "server", tool: "tool", arguments: { ok: true }, result: { content: [], structured_content: { done: true } }, status: "completed" } },
                 { type: "item.completed", item: { id: "search-1", type: "web_search", query: "query" } },
                 { type: "item.completed", item: { id: "todo-1", type: "todo_list", items: [{ text: "Validate", completed: true }] } },
@@ -959,7 +959,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -970,7 +970,7 @@ describe("flow-ralph runner", () => {
     expect(messages).toContain("[CODEX implementation] reasoning: checking flow state");
     expect(messages).toContain("[CODEX implementation] command: bun test");
     expect(messages).toContain("[CODEX implementation] command output:\ntests passed");
-    expect(messages).toContain("[CODEX implementation] file_change: completed update openspec/changes/sample-change/implementation_plan.md");
+    expect(messages).toContain("[CODEX implementation] file_change: completed update .phasedev/changes/sample-change/implementation_plan.md");
     expect(messages).toContain("[CODEX implementation] mcp_tool_call: server/tool completed");
     expect(messages).toContain("[CODEX implementation] web_search: query");
     expect(messages).toContain("[CODEX implementation] todo_list:\n- [x] Validate");
@@ -993,7 +993,7 @@ describe("flow-ralph runner", () => {
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-telegram-stream",
@@ -1012,7 +1012,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => reporterMessages.push(message) },
       env: telegramEnv,
       iterationLogger: tgLogger,
@@ -1022,7 +1022,7 @@ describe("flow-ralph runner", () => {
     await tgLogger.flush();
 
     expect(result.status).toBe("no_progress");
-    expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
+    expect(reporterMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
     
     // Telegram should ONLY receive the compact summary
     expect(telegramMessages).toHaveLength(1);
@@ -1037,11 +1037,11 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const messages: string[] = [];
     const prompts: string[] = [];
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-buffered",
@@ -1056,7 +1056,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1083,7 +1083,7 @@ describe("flow-ralph runner", () => {
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
+    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-buffered-telegram",
@@ -1097,7 +1097,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       env: telegramEnv,
       iterationLogger: tgLogger,
@@ -1116,7 +1116,7 @@ describe("flow-ralph runner", () => {
   test("throws when streamed Codex turn fails", async () => {
     const projectPath = setupProject();
 
-    await expect(runFlowRalph(projectPath, makeConfig(), {
+    await expect(runRunner(projectPath, makeConfig(), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-failed",
@@ -1132,7 +1132,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     })).rejects.toThrow("model failed");
@@ -1142,7 +1142,7 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const options: unknown[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }, {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }, {
       stages: {
         implementation: { model: "gpt-5.3-codex", reasoningEffort: "medium" }
       }
@@ -1160,7 +1160,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -1174,7 +1174,7 @@ describe("flow-ralph runner", () => {
 
   test("continues when plan state changes even if stage and prompt are the same", async () => {
     const projectPath = setupProject();
-    const planPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
     fs.writeFileSync(planPath, `
 # Plan
 
@@ -1185,7 +1185,7 @@ describe("flow-ralph runner", () => {
     let nextPromptCount = 0;
     const threads: unknown[] = [];
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => {
           threads.push({});
@@ -1202,7 +1202,7 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
                 } else {
                   archived = true;
-                  const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+                  const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
                   fs.mkdirSync(archiveDir, { recursive: true });
                   fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
                     status: "completed",
@@ -1220,7 +1220,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", nextPromptCount++ >= 1 ? "archive" : "implementation", "same next prompt"),
-      findActiveChangeDir: () => archived ? null : path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => archived ? null : path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -1231,7 +1231,7 @@ describe("flow-ralph runner", () => {
 
   test("continues when validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
-    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
@@ -1242,10 +1242,10 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
-    const logPath = path.join(projectPath, "openspec", "logs", "ralph-log.jsonl");
+    const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repeat",
@@ -1281,7 +1281,7 @@ describe("flow-ralph runner", () => {
 
   test("continues when final validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
-    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
@@ -1292,7 +1292,7 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Final | API response omits required error handling. | Add error mapping. |", "final");
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-final-repeat",
@@ -1326,7 +1326,7 @@ describe("flow-ralph runner", () => {
 
   test("continues when validation reports a different blocking finding after repair", async () => {
     const projectPath = setupProject();
-    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
@@ -1338,7 +1338,7 @@ describe("flow-ralph runner", () => {
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -1373,7 +1373,7 @@ describe("flow-ralph runner", () => {
 
   test("does not block when repeated finding is non-blocking", async () => {
     const projectPath = setupProject();
-    const changeDir = path.join(projectPath, "openspec", "changes", "sample-change");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
     const planPath = path.join(changeDir, "implementation_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
@@ -1385,7 +1385,7 @@ describe("flow-ralph runner", () => {
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -1420,13 +1420,13 @@ describe("flow-ralph runner", () => {
 
   test("writes formatted agent response logs when enableLogs is true", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
+    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
     let stageCounter = 0;
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-log-test",
@@ -1443,7 +1443,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1465,11 +1465,11 @@ describe("flow-ralph runner", () => {
 
   test("does not write log when enableLogs is false", async () => {
     const projectPath = setupProject();
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: false }), {
+    await runRunner(projectPath, makeConfig({ maxIterations: 1, enableLogs: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-no-log",
@@ -1480,7 +1480,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1493,12 +1493,12 @@ describe("flow-ralph runner", () => {
     const projectPath = setupProject();
     const messages: string[] = [];
 
-    const logDir = path.join(projectPath, "openspec", "logs");
+    const logDir = path.join(projectPath, ".phasedev", "logs");
     const conflictPath = path.join(logDir, "ralph-log.jsonl");
     fs.mkdirSync(conflictPath, { recursive: true });
     const jsonLogger = createJsonFileLogger(conflictPath, { log: msg => messages.push(msg) });
 
-    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: true }), {
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-fs-error",
@@ -1509,7 +1509,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1524,7 +1524,7 @@ describe("flow-ralph runner", () => {
     const reporterMessages: string[] = [];
     let fetchCount = 0;
 
-    const result = await runFlowRalphCli(["--project-path", projectPath], {
+    const result = await runRunnerCli(["--project-path", projectPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-missing-env",
@@ -1535,8 +1535,8 @@ describe("flow-ralph runner", () => {
       }),
       reporter: { log: message => reporterMessages.push(message) },
       env: {
-        FLOW_RALPH_TELEGRAM_BOT_TOKEN: undefined,
-        FLOW_RALPH_TELEGRAM_CHAT_ID: undefined
+        TELEGRAM_BOT_TOKEN: undefined,
+        TELEGRAM_CHAT_ID: undefined
       },
       fetchImpl: async () => {
         fetchCount++;
@@ -1546,7 +1546,7 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("no_progress");
     expect(fetchCount).toBe(0);
-    expect(reporterMessages.some(message => message.includes("Telegram notifications disabled: missing FLOW_RALPH_TELEGRAM_BOT_TOKEN or FLOW_RALPH_TELEGRAM_CHAT_ID"))).toBe(true);
+    expect(reporterMessages.some(message => message.includes("Telegram notifications disabled: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID"))).toBe(true);
   });
 
   test("continues when Telegram API sends fail and does not recursively notify the failure", async () => {
@@ -1563,7 +1563,7 @@ describe("flow-ralph runner", () => {
       }
     }, { log: message => reporterMessages.push(message) });
 
-    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-telegram-failure",
@@ -1574,7 +1574,7 @@ describe("flow-ralph runner", () => {
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       env: telegramEnv,
       iterationLogger: tgLogger,
@@ -1615,7 +1615,7 @@ codex:
   streamAgentOutput: false
 `, "utf-8");
 
-    await runFlowRalphCli(["--project-path", projectPath, "--config", configPath], {
+    await runRunnerCli(["--project-path", projectPath, "--config", configPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-cli",
@@ -1629,16 +1629,16 @@ codex:
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    expect(reporterMessages).toContain("[FLOW RALPH] status: no_progress");
-    expect(reporterMessages).toContain("[FLOW RALPH] iterations: 1");
+    expect(reporterMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
+    expect(reporterMessages).toContain("[PHASEDEV RUNNER] iterations: 1");
     expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
     expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
 
   test("flow:ralph CLI uses project openspec config without --config", async () => {
     const projectPath = setupProject();
-    const projectConfigPath = path.join(projectPath, "openspec", "config.yaml");
-    const envPath = path.join(projectPath, "openspec", ".env");
+    const projectConfigPath = path.join(projectPath, ".phasedev", "config.yaml");
+    const envPath = path.join(projectPath, ".phasedev", ".env");
     const reporterMessages: string[] = [];
     const telegramMessages: string[] = [];
 
@@ -1652,11 +1652,11 @@ codex:
   streamAgentOutput: false
 `, "utf-8");
     fs.writeFileSync(envPath, `
-FLOW_RALPH_TELEGRAM_BOT_TOKEN=123:from-project-env-file
-FLOW_RALPH_TELEGRAM_CHAT_ID=789
+TELEGRAM_BOT_TOKEN=123:from-project-env-file
+TELEGRAM_CHAT_ID=789
 `, "utf-8");
 
-    await runFlowRalphCli(["--project-path", projectPath], {
+    await runRunnerCli(["--project-path", projectPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-project-config",
@@ -1670,7 +1670,7 @@ FLOW_RALPH_TELEGRAM_CHAT_ID=789
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
+    expect(reporterMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
     expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
     expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
@@ -1691,11 +1691,11 @@ codex:
   streamAgentOutput: false
 `, "utf-8");
     fs.writeFileSync(envPath, `
-FLOW_RALPH_TELEGRAM_BOT_TOKEN=123:from-env-file
-FLOW_RALPH_TELEGRAM_CHAT_ID=789
+TELEGRAM_BOT_TOKEN=123:from-env-file
+TELEGRAM_CHAT_ID=789
 `, "utf-8");
 
-    await runFlowRalphCli(["--project-path", projectPath, "--config", configPath], {
+    await runRunnerCli(["--project-path", projectPath, "--config", configPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-cli-env-file",

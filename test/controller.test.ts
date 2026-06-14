@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { getInitPrompt, getNextPrompt } from "../src/features/flow-control";
+import { getInitPrompt, getNextPrompt } from "../src/features/stage-control";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -142,8 +142,8 @@ function validResearchBody(): string {
 
 | Fact ID | Type | Source | Fact | Supports |
 |---|---|---|---|---|
-| F1 | code | \`src/features/flow-control/flow-route.ts:94\` | Missing research routes to the research stage. | R1 |
-| F2 | code | \`test/flow-controller.test.ts:275\` | Controller fixture asserts design follows valid research. | SC1 |
+| F1 | code | \`src/features/stage-control/flow-route.ts:94\` | Missing research routes to the research stage. | R1 |
+| F2 | code | \`test/controller.test.ts:275\` | Controller fixture asserts design follows valid research. | SC1 |
 
 ## Research Gaps & Blockers
 
@@ -193,7 +193,7 @@ None.
 }
 
 function setupChange(planContent: string, options: { findings?: string; designApproved?: boolean; planApproved?: boolean } = {}) {
-  const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+  const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
   writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
@@ -235,11 +235,11 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("active_change: none");
     expect(result.prompt).toContain("may_modify_files: false");
     expect(result.prompt).toContain("Allowed persistent artifacts: none");
-    expect(fs.existsSync(path.join(testTmpDir, "openspec", "changes"))).toBe(false);
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes"))).toBe(false);
   });
 
   test("next prompt blocks approved PRD that does not satisfy Intent contract", () => {
-    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n");
     writeArtifact(path.join(changeDir, "rules.md"), `
@@ -288,7 +288,7 @@ describe("flow controller typed stages", () => {
       findings: validationFindings("ready", "final")
     });
     const today = new Date().toISOString().split("T")[0];
-    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
 
     const result = getInitPrompt(testTmpDir);
 
@@ -300,8 +300,8 @@ describe("flow controller typed stages", () => {
   });
 
   test("init prompt blocks invalid active change state without throwing", () => {
-    fs.mkdirSync(path.join(testTmpDir, "openspec", "changes", "first-change"), { recursive: true });
-    fs.mkdirSync(path.join(testTmpDir, "openspec", "changes", "second-change"), { recursive: true });
+    fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "first-change"), { recursive: true });
+    fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "second-change"), { recursive: true });
 
     const result = getInitPrompt(testTmpDir);
 
@@ -309,7 +309,7 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("init");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
-    expect(result.prompt).toContain("Multiple active changes found in openspec/changes");
+    expect(result.prompt).toContain("Multiple active changes found in .phasedev/changes");
     expect(result.prompt).toContain("flow init performed no filesystem changes");
     expect(result.prompt).toContain("Fix the flow state before running `flow next`.");
   });
@@ -322,14 +322,14 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
     expect(result.prompt).toContain("Artifact Build Contract: rules.md");
-    expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, "openspec", "changes", "<change-name>", "prd.md")}\``);
+    expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<change-name>", "prd.md")}\``);
     expect(result.prompt).toContain("template is the only output structure");
     expect(result.prompt).toContain("## Intent");
     expect(result.prompt).toContain("# Rules");
   });
 
   test("design prompt includes inline artifact contract for architecture design", () => {
-    const changeDir = path.join(testTmpDir, "openspec", "changes", "sample-change");
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
     writeArtifact(path.join(changeDir, "rules.md"), `
@@ -369,7 +369,7 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 4. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
-    expect(result.prompt).toContain(`bun run "${path.resolve(__dirname, "..", "src", "flow-cli.ts")}" check --project-path "${testTmpDir}" --expect-route phase_validation`);
+    expect(result.prompt).toContain(`bun run "${path.resolve(__dirname, "..", "src", "cli.ts")}" check --project-path "${testTmpDir}" --expect-route phase_validation`);
   });
 
   test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {
@@ -498,7 +498,7 @@ Complete API work.
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Stage 5B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
-    expect(result.prompt).toContain("flow-cli.ts\" check-validation --project-path");
+    expect(result.prompt).toContain("cli.ts\" check-validation --project-path");
     expect(result.prompt).toContain("--scope final");
     expect(result.prompt).toContain("## Controller Observed Changed Files");
     expect(result.prompt).toContain("Generation Bundle");
@@ -533,7 +533,7 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
     const today = new Date().toISOString().split("T")[0];
-    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", `${today}-sample-change`);
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
     const statePath = path.join(archiveDir, ".flow-archive.json");
 
     expect(result.stage).toBe("archive");
@@ -563,11 +563,11 @@ Complete API work.
     expect(first.stage).toBe("archive");
     expect(second.stage).toBe("archive");
     expect(second.prompt).toContain(".flow-archive.json");
-    expect(second.prompt).toContain("openspec/changes/archive");
+    expect(second.prompt).toContain(".phasedev/changes/archive");
   });
 
   test("malformed archive state blocks archive routing instead of falling through", () => {
-    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     const statePath = path.join(archiveDir, ".flow-archive.json");
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(statePath, "{ malformed json", "utf-8");

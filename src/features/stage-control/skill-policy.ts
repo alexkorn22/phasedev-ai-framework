@@ -1,5 +1,5 @@
-import { FlowStage } from "../../entities/flow-stage/types";
-import { FlowRalphConfig, getStageSkillConfig, StageSkillConfig } from "../../entities/flow-config/config";
+import { Stage } from "../../entities/stage/types";
+import { Config, getStageSkillConfig, StageSkillConfig } from "../../entities/config/config";
 
 function formatSkillList(skills: string[]): string {
   return skills.length > 0
@@ -30,7 +30,7 @@ function flowSkillBoundaryProtocol(): string[] {
   ];
 }
 
-function stageSpecificRules(stage: FlowStage): string[] {
+function stageSpecificRules(stage: Stage): string[] {
   if (stage !== "phase_validation" && stage !== "final_validation") {
     return [];
   }
@@ -43,7 +43,7 @@ function stageSpecificRules(stage: FlowStage): string[] {
   ];
 }
 
-function externalSkillArtifactRule(stage: FlowStage): string {
+function externalSkillArtifactRule(stage: Stage): string {
   if (stage === "phase_validation" || stage === "final_validation") {
     return "- Skills may not create persistent files outside this stage allowlist; do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`.";
   }
@@ -51,7 +51,7 @@ function externalSkillArtifactRule(stage: FlowStage): string {
   return "- Skills may not create persistent files outside this stage allowlist; map relevant conclusions only into existing template fields/rows or final response.";
 }
 
-export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): string {
+export function renderSkillPolicy(stage: Stage, config: Config): string {
   const skills = getStageSkillConfig(config, stage);
   const routerRules = hasConfiguredRouters(skills)
     ? [

@@ -17,7 +17,7 @@ export function createJsonFileLogger(
         fs.mkdirSync(path.dirname(logPath), { recursive: true });
         fs.appendFileSync(logPath, JSON.stringify(entry) + "\n", "utf-8");
       } catch (error) {
-        reporter.log(`[FLOW RALPH] Failed to write to ralph-log.jsonl: ${error instanceof Error ? error.message : String(error)}`);
+        reporter.log(`[PHASEDEV RUNNER] Failed to write to ralph-log.jsonl: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
     async flush(): Promise<void> {

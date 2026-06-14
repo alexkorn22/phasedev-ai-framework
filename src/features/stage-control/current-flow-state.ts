@@ -1,14 +1,14 @@
-import { FlowStage } from "../../entities/flow-stage/types";
-import type { FlowRoute } from "./flow-route";
-import { resolveFlowRoute } from "./flow-route";
+import { Stage } from "../../entities/stage/types";
+import type { Route } from "./flow-route";
+import { resolveRoute } from "./flow-route";
 
-export interface CurrentFlowState {
-  stage: FlowStage;
-  routeKind: FlowRoute["kind"];
+export interface CurrentState {
+  stage: Stage;
+  routeKind: Route["kind"];
   activeChangePath: string | null;
 }
 
-export function resolveCurrentFlowState(projectPath: string): CurrentFlowState {
-  const route = resolveFlowRoute(projectPath);
+export function resolveCurrentState(projectPath: string): CurrentState {
+  const route = resolveRoute(projectPath);
   return { stage: route.stage, routeKind: route.kind, activeChangePath: route.activeChangePath };
 }

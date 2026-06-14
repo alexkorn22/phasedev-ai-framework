@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { parse as parseYaml } from "yaml";
-import { FlowStage } from "../flow-stage/types";
+import { Stage } from "../stage/types";
+import { SYSTEM_DIR } from "../change/paths";
 
 export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type SandboxMode = "workspace-write" | "danger-full-access";
@@ -32,10 +33,10 @@ export type NotificationConfig = {
   telegram: TelegramNotificationConfig;
 };
 
-export interface FlowRalphConfig {
+export interface Config {
   codex: {
     default: StageModelConfig;
-    stages: Partial<Record<Exclude<FlowStage, "init">, StageConfig>>;
+    stages: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
     sandboxMode: SandboxMode;
     approvalPolicy: ApprovalPolicy;
     networkAccessEnabled: boolean;
@@ -56,7 +57,7 @@ export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
   additional: []
 };
 
-export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
+export const DEFAULT_CONFIG: Config = {
   codex: {
     default: {
       model: "gpt-5.4",
@@ -70,14 +71,14 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
   },
   loop: {
     maxIterations: 10,
-    logDir: "openspec/logs",
+    logDir: `${SYSTEM_DIR}/logs`,
     enableLogs: true,
     runArchiveStage: true,
     notifications: {
       telegram: {
         enabled: false,
-        botTokenEnv: "FLOW_RALPH_TELEGRAM_BOT_TOKEN",
-        chatIdEnv: "FLOW_RALPH_TELEGRAM_CHAT_ID"
+        botTokenEnv: "TELEGRAM_BOT_TOKEN",
+        chatIdEnv: "TELEGRAM_CHAT_ID"
       }
     }
   }
@@ -86,7 +87,7 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
 const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
 const SANDBOX_MODES = new Set(["workspace-write", "danger-full-access"]);
 const APPROVAL_POLICIES = new Set(["never", "on-request", "on-failure", "untrusted"]);
-const FLOW_STAGES = new Set<Exclude<FlowStage, "init">>([
+const STAGES = new Set<Exclude<Stage, "init">>([
   "setup",
   "research",
   "design",
@@ -103,10 +104,10 @@ export function defaultConfigPath(): string {
 }
 
 export function projectConfigPath(projectPath: string): string {
-  return path.join(path.resolve(projectPath), "openspec", "config.yaml");
+  return path.join(path.resolve(projectPath), SYSTEM_DIR, "config.yaml");
 }
 
-export function resolveFlowRalphConfigPath(projectPath: string, explicitConfigPath?: string): string {
+export function resolveConfigPath(projectPath: string, explicitConfigPath?: string): string {
   if (explicitConfigPath) {
     return path.resolve(explicitConfigPath);
   }
@@ -230,52 +231,52 @@ function parseNotificationConfig(value: unknown, fallback: NotificationConfig, k
   };
 }
 
-export function parseFlowRalphConfig(content: string): FlowRalphConfig {
+export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
   const codex = asRecord(root.codex, "codex");
   const loop = asRecord(root.loop, "loop");
 
-  const defaultModel = parseStageModelConfig(codex.default, DEFAULT_FLOW_RALPH_CONFIG.codex.default, "codex.default");
+  const defaultModel = parseStageModelConfig(codex.default, DEFAULT_CONFIG.codex.default, "codex.default");
   const rawStages = asRecord(codex.stages, "codex.stages");
-  const stages: FlowRalphConfig["codex"]["stages"] = {};
+  const stages: Config["codex"]["stages"] = {};
 
   for (const [stageName, value] of Object.entries(rawStages)) {
-    if (!FLOW_STAGES.has(stageName as Exclude<FlowStage, "init">)) {
+    if (!STAGES.has(stageName as Exclude<Stage, "init">)) {
       throw new Error(`Config key codex.stages.${stageName} is not a valid flow stage.`);
     }
 
-    stages[stageName as Exclude<FlowStage, "init">] = parseStageConfig(value, defaultModel, `codex.stages.${stageName}`);
+    stages[stageName as Exclude<Stage, "init">] = parseStageConfig(value, defaultModel, `codex.stages.${stageName}`);
   }
 
   return {
     codex: {
       default: defaultModel,
       stages,
-      sandboxMode: readEnum(codex.sandboxMode, DEFAULT_FLOW_RALPH_CONFIG.codex.sandboxMode, "codex.sandboxMode", SANDBOX_MODES),
-      approvalPolicy: readEnum(codex.approvalPolicy, DEFAULT_FLOW_RALPH_CONFIG.codex.approvalPolicy, "codex.approvalPolicy", APPROVAL_POLICIES),
-      networkAccessEnabled: readBoolean(codex.networkAccessEnabled, DEFAULT_FLOW_RALPH_CONFIG.codex.networkAccessEnabled, "codex.networkAccessEnabled"),
-      streamAgentOutput: readBoolean(codex.streamAgentOutput, DEFAULT_FLOW_RALPH_CONFIG.codex.streamAgentOutput, "codex.streamAgentOutput")
+      sandboxMode: readEnum(codex.sandboxMode, DEFAULT_CONFIG.codex.sandboxMode, "codex.sandboxMode", SANDBOX_MODES),
+      approvalPolicy: readEnum(codex.approvalPolicy, DEFAULT_CONFIG.codex.approvalPolicy, "codex.approvalPolicy", APPROVAL_POLICIES),
+      networkAccessEnabled: readBoolean(codex.networkAccessEnabled, DEFAULT_CONFIG.codex.networkAccessEnabled, "codex.networkAccessEnabled"),
+      streamAgentOutput: readBoolean(codex.streamAgentOutput, DEFAULT_CONFIG.codex.streamAgentOutput, "codex.streamAgentOutput")
     },
     loop: {
-      maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_FLOW_RALPH_CONFIG.loop.maxIterations, "loop.maxIterations"),
-      logDir: readString(loop.logDir, DEFAULT_FLOW_RALPH_CONFIG.loop.logDir, "loop.logDir"),
-      enableLogs: readBoolean(loop.enableLogs, DEFAULT_FLOW_RALPH_CONFIG.loop.enableLogs, "loop.enableLogs"),
-      runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_FLOW_RALPH_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
-      notifications: parseNotificationConfig(loop.notifications, DEFAULT_FLOW_RALPH_CONFIG.loop.notifications, "loop.notifications")
+      maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_CONFIG.loop.maxIterations, "loop.maxIterations"),
+      logDir: readString(loop.logDir, DEFAULT_CONFIG.loop.logDir, "loop.logDir"),
+      enableLogs: readBoolean(loop.enableLogs, DEFAULT_CONFIG.loop.enableLogs, "loop.enableLogs"),
+      runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
+      notifications: parseNotificationConfig(loop.notifications, DEFAULT_CONFIG.loop.notifications, "loop.notifications")
     }
   };
 }
 
-export function loadFlowRalphConfig(configPath = defaultConfigPath()): FlowRalphConfig {
+export function loadConfig(configPath = defaultConfigPath()): Config {
   if (!fs.existsSync(configPath)) {
-    return DEFAULT_FLOW_RALPH_CONFIG;
+    return DEFAULT_CONFIG;
   }
 
-  return parseFlowRalphConfig(fs.readFileSync(configPath, "utf-8"));
+  return parseConfig(fs.readFileSync(configPath, "utf-8"));
 }
 
-export function getStageModelConfig(config: FlowRalphConfig, stage: FlowStage): StageModelConfig {
+export function getStageModelConfig(config: Config, stage: Stage): StageModelConfig {
   if (stage === "init") {
     return config.codex.default;
   }
@@ -286,7 +287,7 @@ export function getStageModelConfig(config: FlowRalphConfig, stage: FlowStage): 
   };
 }
 
-export function getStageSkillConfig(config: FlowRalphConfig, stage: FlowStage): StageSkillConfig {
+export function getStageSkillConfig(config: Config, stage: Stage): StageSkillConfig {
   if (stage === "init") {
     return EMPTY_STAGE_SKILLS;
   }

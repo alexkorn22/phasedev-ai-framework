@@ -18,11 +18,11 @@ Required stage-contract checks:
 - scope = full change;
 - all phases in [implementation_plan.md]({{plan_path}}) have status `[x]`;
 - Final Validation does not mark phases as `[x]`;
-- change-set inventory gate: before deciding the verdict, identify the complete set of repository files changed outside `openspec/**` from available read-only repository evidence;
-- inspect every changed production/source/config/test file outside `openspec/**`, not only the flow artifacts, implementation plan, or `Check Evidence`;
+- change-set inventory gate: before deciding the verdict, identify the complete set of repository files changed outside `.phasedev/**` from available read-only repository evidence;
+- inspect every changed production/source/config/test file outside `.phasedev/**`, not only the flow artifacts, implementation plan, or `Check Evidence`;
 - final requirements conformance pass: verify that the actual changed code implements exactly the initial change requirements from PRD, approved design, and implementation plan artifacts; if behavior is missing, extra, contradictory, or only implied by `Check Evidence`, add a finding;
-- final code review pass: perform a full read-only code review of the changed files outside `openspec/**` using the configured skill policy;
-- final security review pass: perform a read-only security review of the changed files outside `openspec/**` using the configured skill policy;
+- final code review pass: perform a full read-only code review of the changed files outside `.phasedev/**` using the configured skill policy;
+- final security review pass: perform a read-only security review of the changed files outside `.phasedev/**` using the configured skill policy;
 - PRD-first check: the actual change set must satisfy the approved [prd.md]({{prd_path}}), not only the implementation plan;
 - `Intent`: `Change type`, `Why`, `Target state`, and `Risk boundaries` align with actual implementation and validation evidence;
 - `Requirements`: every `R#` is implemented by the actual change set or has a finding;
@@ -50,4 +50,4 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After writing `validation_findings.md`, stop.
-- Tell the user the verdict, whether the full change is confirmed correctly solved, and the next transition through `flow next`.
+- Tell the user the verdict, whether the full change is confirmed correctly solved, and the next transition through `phasedev next`.

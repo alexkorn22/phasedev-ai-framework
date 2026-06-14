@@ -1,12 +1,16 @@
 {
-  "name": "agentic-flow-engine",
+  "name": "phasedev",
   "version": "1.0.0",
   "description": "Autonomous Agentic Engineering Flow controller",
-  "main": "src/flow-cli.ts",
+  "main": "src/cli.ts",
+  "bin": {
+    "phasedev": "./src/cli.ts"
+  },
   "type": "module",
   "scripts": {
     "test": "bun test",
-    "flow:ralph": "bun run src/flow-ralph.ts",
+    "run": "bun run src/runner.ts",
+    "phasedev:run": "bun run src/runner.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

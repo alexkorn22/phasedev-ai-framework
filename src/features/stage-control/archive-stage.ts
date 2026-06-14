@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import { FlowRalphConfig, loadFlowRalphConfig } from "../../entities/flow-config/config";
-import { createArchiveState, findPendingArchiveState, FlowArchiveState } from "../../entities/flow-change/archive-state";
-import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths } from "../../entities/flow-change/paths";
-import { FlowPrompt } from "../../entities/flow-stage/types";
+import { Config, loadConfig } from "../../entities/config/config";
+import { createArchiveState, findPendingArchiveState, ArchiveState } from "../../entities/change/archive-state";
+import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths } from "../../entities/change/paths";
+import { Prompt } from "../../entities/stage/types";
 import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
@@ -30,7 +30,7 @@ function archiveUrls(paths: ChangePaths): ArchiveUrls {
   };
 }
 
-export function archivePrompt(projectPath: string, state: FlowArchiveState, config: FlowRalphConfig): FlowPrompt {
+export function archivePrompt(projectPath: string, state: ArchiveState, config: Config): Prompt {
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 
@@ -50,12 +50,12 @@ export function archivePrompt(projectPath: string, state: FlowArchiveState, conf
   }));
 }
 
-export function getPendingArchivePrompt(projectPath: string, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt | null {
+export function getPendingArchivePrompt(projectPath: string, config: Config = loadConfig()): Prompt | null {
   const pendingState = findPendingArchiveState(projectPath);
   return pendingState ? archivePrompt(projectPath, pendingState, config) : null;
 }
 
-export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: FlowRalphConfig = loadFlowRalphConfig()): FlowPrompt {
+export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: Config = loadConfig()): Prompt {
   const pendingPrompt = getPendingArchivePrompt(projectPath, config);
   if (pendingPrompt) {
     return pendingPrompt;

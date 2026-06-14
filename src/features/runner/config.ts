@@ -1,18 +1,18 @@
 export {
-  DEFAULT_FLOW_RALPH_CONFIG,
+  DEFAULT_CONFIG,
   EMPTY_STAGE_SKILLS,
   defaultConfigPath,
   getStageModelConfig,
   getStageSkillConfig,
-  loadFlowRalphConfig,
-  parseFlowRalphConfig,
+  loadConfig,
+  parseConfig,
   projectConfigPath,
-  resolveFlowRalphConfigPath,
+  resolveConfigPath,
   resolveProjectLogDir
-} from "../../entities/flow-config/config";
+} from "../../entities/config/config";
 export type {
   ApprovalPolicy,
-  FlowRalphConfig,
+  Config,
   NotificationConfig,
   ReasoningEffort,
   SandboxMode,
@@ -20,4 +20,4 @@ export type {
   StageModelConfig,
   StageSkillConfig,
   TelegramNotificationConfig
-} from "../../entities/flow-config/config";
+} from "../../entities/config/config";

@@ -1,4 +1,4 @@
-export type FlowStage =
+export type Stage =
   | "init"
   | "setup"
   | "research"
@@ -10,9 +10,9 @@ export type FlowStage =
   | "repair"
   | "archive";
 
-export interface FlowPrompt {
+export interface Prompt {
   command: "init" | "next";
-  stage: FlowStage;
+  stage: Stage;
   prompt: string;
   blocked: boolean;
   reason?: string;

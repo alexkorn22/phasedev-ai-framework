@@ -24,7 +24,7 @@ Gate-status file:
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
 Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the final response.
 Use `R#` requirements from `prd.md` as the only source of new requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the final response and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent, risk notes, or success criteria unless the same behavior is expressed as requirement-level behavior in a concrete `R#`.
-`openspec/specs` is long-lived AI context for future Research stages. Prefer omission over speculative requirements.
+`.phasedev/specs` is long-lived AI context for future Research stages. Prefer omission over speculative requirements.
 
 ## Visual Formatting Scope
 
@@ -43,7 +43,7 @@ Work only with requirement-level changes derived from the archived change artifa
 1. Read inputs.
 2. Classify every `R#`.
 3. Create delta specs when needed.
-4. Sync `openspec/specs` when needed.
+4. Sync `.phasedev/specs` when needed.
 5. Set `.flow-archive.json` to completed.
 6. Run the archive self-check.
 7. Report changed specs or skipped sync, then stop.
@@ -85,7 +85,7 @@ Do not add to OpenSpec:
 
 ## Delta-first specs
 
-1. Analyze existing specifications: [openspec/specs]({{main_specs_path}}).
+1. Analyze existing specifications: [.phasedev/specs]({{main_specs_path}}).
 2. If there are no spec-level changes, explicitly record this in the final report: `Spec sync skipped: no requirement-level changes`.
 3. If there are changes, create delta specs in the archived change directory: [{{archive_path}}/specs]({{change_specs_path}}).
    - Capability spec path: `{{archive_path}}/specs/<capability>/spec.md`.
@@ -138,7 +138,7 @@ Format rules:
 
 ## Sync specs
 
-After creating delta specs, sync them into `openspec/specs`:
+After creating delta specs, sync them into `.phasedev/specs`:
 - carefully add new capabilities;
 - update existing capabilities only within the requirements of the current change;
 - preserve existing requirements/scenarios that the current change does not modify;
@@ -157,7 +157,7 @@ After successful spec sync or an explicit skip, update `.flow-archive.json` in t
 After updating `.flow-archive.json`, run:
 
 ```bash
-bun run src/flow-cli.ts check-archive --archive-path {{archive_path}}
+bun run src/cli.ts check-archive --archive-path {{archive_path}}
 ```
 
 If the check fails, fix only Archive artifacts allowed by this stage and rerun the same command. Do not report Archive as complete until this command exits successfully.
@@ -172,5 +172,5 @@ Stage completion:
 
 Allowed persistent artifacts for this stage:
 - OpenSpec delta specs in `{{archive_path}}/specs`
-- `openspec/specs`
+- `.phasedev/specs`
 - `{{archive_state_path}}`

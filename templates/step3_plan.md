@@ -80,7 +80,7 @@ If the check fails, fix the reported artifact issues in this same stage, then re
 
 Stage completion:
 - After writing `implementation_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that the plan is ready. Explain that the user must personally review [implementation_plan.md]({{plan_path}}), change `approved: false` to `approved: true` (and enter their name in `approved_by: "..."`) in its header, and then run `flow next`.
+- Tell the user that the plan is ready. Explain that the user must personally review [implementation_plan.md]({{plan_path}}), change `approved: false` to `approved: true` (and enter their name in `approved_by: "..."`) in its header, and then run `phasedev next`.
 
 ## Artifact allowlist
 

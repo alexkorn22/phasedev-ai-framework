@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { FLOW_ARCHIVE_STATE_FILE } from "../../entities/flow-change/archive-state";
+import { FLOW_ARCHIVE_STATE_FILE } from "../../entities/change/archive-state";
 
 export interface ArchiveCheckResult {
   ok: boolean;

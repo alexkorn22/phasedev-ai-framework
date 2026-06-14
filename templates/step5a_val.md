@@ -47,4 +47,4 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After writing `validation_findings.md` and possibly updating the phase status, stop.
-- Tell the user the verdict, whether the phase is confirmed correctly solved, and the next transition through `flow next`.
+- Tell the user the verdict, whether the phase is confirmed correctly solved, and the next transition through `phasedev next`.

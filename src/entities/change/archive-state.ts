@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { archiveRootPath } from "./paths";
 
-export interface FlowArchiveState {
+export interface ArchiveState {
   status: "in_progress" | "completed";
   changeName: string;
   archivePath: string;
@@ -10,7 +10,7 @@ export interface FlowArchiveState {
   completedAt?: string;
 }
 
-export interface InvalidFlowArchiveState {
+export interface InvalidArchiveState {
   archivePath: string;
   statePath: string;
   reason: string;
@@ -23,8 +23,8 @@ export function archiveStatePath(archivePath: string): string {
 }
 
 interface ArchiveStateParseResult {
-  state: FlowArchiveState | null;
-  invalid: InvalidFlowArchiveState | null;
+  state: ArchiveState | null;
+  invalid: InvalidArchiveState | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,15 +81,15 @@ function parseArchiveState(archivePath: string): ArchiveStateParseResult {
   };
 }
 
-export function readArchiveState(archivePath: string): FlowArchiveState | null {
+export function readArchiveState(archivePath: string): ArchiveState | null {
   return parseArchiveState(archivePath).state;
 }
 
-export function writeArchiveState(state: FlowArchiveState): void {
+export function writeArchiveState(state: ArchiveState): void {
   fs.writeFileSync(archiveStatePath(state.archivePath), `${JSON.stringify(state, null, 2)}\n`, "utf-8");
 }
 
-export function createArchiveState(changeName: string, archivePath: string, now: Date): FlowArchiveState {
+export function createArchiveState(changeName: string, archivePath: string, now: Date): ArchiveState {
   const state = {
     status: "in_progress" as const,
     changeName,
@@ -113,7 +113,7 @@ function archiveDirectories(projectPath: string): string[] {
     .sort();
 }
 
-export function findInvalidArchiveState(projectPath: string): InvalidFlowArchiveState | null {
+export function findInvalidArchiveState(projectPath: string): InvalidArchiveState | null {
   for (const directory of archiveDirectories(projectPath)) {
     const invalid = parseArchiveState(directory).invalid;
     if (invalid) {
@@ -124,7 +124,7 @@ export function findInvalidArchiveState(projectPath: string): InvalidFlowArchive
   return null;
 }
 
-export function findPendingArchiveState(projectPath: string): FlowArchiveState | null {
+export function findPendingArchiveState(projectPath: string): ArchiveState | null {
   for (const directory of archiveDirectories(projectPath)) {
     const state = readArchiveState(directory);
     if (state?.status === "in_progress") {

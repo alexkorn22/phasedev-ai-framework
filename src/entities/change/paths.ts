@@ -1,5 +1,7 @@
 import * as path from "path";
 
+export const SYSTEM_DIR = ".phasedev";
+
 export interface ChangePaths {
   changeDir: string;
   prdPath: string;
@@ -23,7 +25,7 @@ export function buildChangePaths(changeDir: string): ChangePaths {
 }
 
 export function archiveRootPath(projectPath: string): string {
-  return path.join(projectPath, "openspec", "changes", "archive");
+  return path.join(projectPath, SYSTEM_DIR, "changes", "archive");
 }
 
 export function archiveTargetPath(projectPath: string, changeName: string, date: string): string {

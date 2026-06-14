@@ -1,17 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "crypto";
-import { findActiveChangeDir } from "../../entities/flow-change/active-change";
-import { readArchiveState } from "../../entities/flow-change/archive-state";
-import { archiveRootPath } from "../../entities/flow-change/paths";
+import { findActiveChangeDir } from "../../entities/change/active-change";
+import { readArchiveState } from "../../entities/change/archive-state";
+import { archiveRootPath } from "../../entities/change/paths";
 import type { IterationLogger, IterationLogEntry, IterationOutcome, IterationUsage } from "../../entities/iteration-log";
-import { FlowPrompt } from "../../entities/flow-stage/types";
-import { getInitPrompt, getNextPrompt } from "../flow-control";
-import { resolveFlowRoute } from "../flow-control/flow-route";
+import { Prompt } from "../../entities/stage/types";
+import { getInitPrompt, getNextPrompt } from "../stage-control";
+import { resolveRoute } from "../stage-control/flow-route";
 import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
-import { FlowRalphConfig, getStageModelConfig, resolveProjectLogDir } from "./config";
+import { Config, getStageModelConfig, resolveProjectLogDir } from "./config";
 
-export interface FlowRalphDependencies {
+export interface RunnerDependencies {
   createCodex?: () => Promise<CodexFactory> | CodexFactory;
   getInitPrompt?: typeof getInitPrompt;
   getNextPrompt?: typeof getNextPrompt;
@@ -22,10 +22,10 @@ export interface FlowRalphDependencies {
   now?: () => Date;
 }
 
-export type FlowRalphStatus = "archived" | "blocked" | "no_progress" | "max_iterations";
+export type RunnerStatus = "archived" | "blocked" | "no_progress" | "max_iterations";
 
-export interface FlowRalphResult {
-  status: FlowRalphStatus;
+export interface RunnerResult {
+  status: RunnerStatus;
   iterations: number;
   logPath: string;
   reason: string;
@@ -37,7 +37,7 @@ interface ChangedFiles {
   deleted: string[];
 }
 
-function wrapStagePrompt(initPrompt: FlowPrompt, nextPrompt: FlowPrompt): string {
+function wrapStagePrompt(initPrompt: Prompt, nextPrompt: Prompt): string {
   return [
     "Below is the exact output of the manual `flow init` command.",
     "Use it as bootstrap context only.",
@@ -93,7 +93,7 @@ function hasCompletedArchivedChange(projectPath: string, previousActiveChange: s
 }
 
 function isArchiveExecutionRoute(projectPath: string): boolean {
-  const route = resolveFlowRoute(projectPath);
+  const route = resolveRoute(projectPath);
   return route.kind === "archive_ready" || route.kind === "pending_archive";
 }
 
@@ -251,7 +251,7 @@ function mergeChangedFiles(...changes: ChangedFiles[]): ChangedFiles {
 
 function hasReportedCodeChange(changed: ChangedFiles): boolean {
   return [...changed.added, ...changed.modified, ...changed.deleted]
-    .some(filePath => !filePath.replace(/\\/g, "/").startsWith("openspec/"));
+    .some(filePath => !filePath.replace(/\\/g, "/").startsWith(".phasedev/"));
 }
 
 function isOutsideProjectPath(normalizedPath: string): boolean {
@@ -259,7 +259,7 @@ function isOutsideProjectPath(normalizedPath: string): boolean {
 }
 
 function isOpenSpecSpecsPath(normalizedPath: string): boolean {
-  return normalizedPath === "openspec/specs" || normalizedPath.startsWith("openspec/specs/");
+  return normalizedPath === ".phasedev/specs" || normalizedPath.startsWith(".phasedev/specs/");
 }
 
 function isCurrentArchivePath(normalizedPath: string, relativeChangeDir: string | null): boolean {
@@ -268,7 +268,7 @@ function isCurrentArchivePath(normalizedPath: string, relativeChangeDir: string 
   }
 
   const changeName = path.posix.basename(relativeChangeDir);
-  const archivePrefix = "openspec/changes/archive/";
+  const archivePrefix = ".phasedev/changes/archive/";
   if (!normalizedPath.startsWith(archivePrefix)) {
     return false;
   }
@@ -341,7 +341,7 @@ function validateStageAllowlist(
       }
     } else if (stage === "implementation") {
       const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
-      const isOutsideOpenSpec = !normalized.startsWith("openspec/");
+      const isOutsideOpenSpec = !normalized.startsWith(".phasedev/");
       if (!isPlan && !isOutsideOpenSpec) {
         violations.push(`File '${normalized}' modified during 'implementation' stage is outside allowlist.`);
       }
@@ -352,7 +352,7 @@ function validateStageAllowlist(
         violations.push(`File '${normalized}' modified during '${stage}' stage is outside allowlist.`);
       }
     } else if (stage === "repair") {
-      const isOutsideOpenSpec = !normalized.startsWith("openspec/");
+      const isOutsideOpenSpec = !normalized.startsWith(".phasedev/");
       const isFindings = relativeChangeDir && normalized === `${relativeChangeDir}/validation_findings.md`;
       const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
       const isDesign = relativeChangeDir && (
@@ -370,7 +370,7 @@ function validateStageAllowlist(
       }
     } else if (stage === "archive") {
       const isArchiveJson = normalized === ".flow-archive.json" || normalized.endsWith("/.flow-archive.json");
-      const isArchiveRoot = normalized === "openspec/changes/archive";
+      const isArchiveRoot = normalized === ".phasedev/changes/archive";
       const isInCurrentArchiveDir = isCurrentArchivePath(normalized, relativeChangeDir);
       const isDeletedActiveChange = relativeChangeDir && normalized.startsWith(`${relativeChangeDir}/`);
       const isActiveChangeDir = relativeChangeDir && normalized === relativeChangeDir;
@@ -416,7 +416,7 @@ function buildIterationLogEntry(
   };
 }
 
-export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = {}): Promise<FlowRalphResult> {
+export async function runRunner(projectPath: string, config: Config, dependencies: RunnerDependencies = {}): Promise<RunnerResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
 
@@ -438,28 +438,28 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       const beforeActiveChange = findActive(resolvedProjectPath);
       if (!config.loop.runArchiveStage && isArchiveExecutionRoute(resolvedProjectPath)) {
         const reason = archiveStageDisabledReason();
-        reporter.log("[FLOW RALPH] blocked at stage: archive");
-        reporter.log(`[FLOW RALPH] reason: ${reason}`);
-        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        reporter.log("[PHASEDEV RUNNER] blocked at stage: archive");
+        reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
         return { status: "blocked", iterations: iteration - 1, logPath, reason };
       }
 
       const nextPrompt = getNext(resolvedProjectPath, config);
 
       if (nextPrompt.blocked) {
-        reporter.log(`[FLOW RALPH] blocked at stage: ${nextPrompt.stage}`);
-        reporter.log(`[FLOW RALPH] reason: ${nextPrompt.reason ?? "Flow controller blocked."}`);
-        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
+        reporter.log(`[PHASEDEV RUNNER] reason: ${nextPrompt.reason ?? "Flow controller blocked."}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
         return { status: "blocked", iterations: iteration - 1, logPath, reason: nextPrompt.reason ?? "Flow controller blocked." };
       }
 
       const stageModel = getStageModelConfig(config, nextPrompt.stage);
-      reporter.log(`[FLOW RALPH] iteration ${iteration}/${config.loop.maxIterations}`);
-      reporter.log(`[FLOW RALPH] stage: ${nextPrompt.stage}`);
-      reporter.log(`[FLOW RALPH] model: ${stageModel.model}`);
-      reporter.log(`[FLOW RALPH] reasoning: ${stageModel.reasoningEffort}`);
-      reporter.log(`[FLOW RALPH] active change: ${beforeActiveChange ?? "none"}`);
-      reporter.log("[FLOW RALPH] starting Codex session...");
+      reporter.log(`[PHASEDEV RUNNER] iteration ${iteration}/${config.loop.maxIterations}`);
+      reporter.log(`[PHASEDEV RUNNER] stage: ${nextPrompt.stage}`);
+      reporter.log(`[PHASEDEV RUNNER] model: ${stageModel.model}`);
+      reporter.log(`[PHASEDEV RUNNER] reasoning: ${stageModel.reasoningEffort}`);
+      reporter.log(`[PHASEDEV RUNNER] active change: ${beforeActiveChange ?? "none"}`);
+      reporter.log("[PHASEDEV RUNNER] starting Codex session...");
 
       codex = codex ?? await createCodex();
       const thread = codex.startThread({
@@ -472,7 +472,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       });
 
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
-      reporter.log(`[FLOW RALPH] running stage with init bootstrap: ${nextPrompt.stage}`);
+      reporter.log(`[PHASEDEV RUNNER] running stage with init bootstrap: ${nextPrompt.stage}`);
 
       const startMs = Date.now();
       const turn = await runCodexTurn(
@@ -504,9 +504,9 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       );
 
       if (allowlistViolations.length > 0) {
-        const violationMsg = `[FLOW RALPH] Stage allowlist violation detected during '${nextPrompt.stage}' stage:\n${allowlistViolations.map(v => `- ${v}`).join("\n")}`;
+        const violationMsg = `[PHASEDEV RUNNER] Stage allowlist violation detected during '${nextPrompt.stage}' stage:\n${allowlistViolations.map(v => `- ${v}`).join("\n")}`;
         reporter.log(violationMsg);
-        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
 
         if (config.loop.enableLogs && iterationLogger) {
           iterationLogger.log(buildIterationLogEntry(
@@ -539,19 +539,19 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
 
       if (archived) {
-        reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);
-        reporter.log("[FLOW RALPH] archived");
-        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        reporter.log(`[PHASEDEV RUNNER] stage completed: ${nextPrompt.stage}`);
+        reporter.log("[PHASEDEV RUNNER] archived");
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
         return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
       }
 
       if (!flowStateChanged && !hasReportedCodeChange(reportedChangedFiles)) {
-        reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
-        reporter.log(`[FLOW RALPH] log: ${logPath}`);
+        reporter.log(`[PHASEDEV RUNNER] stage made no flow state change: ${nextPrompt.stage}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
         return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };
       }
 
-      reporter.log(`[FLOW RALPH] stage completed: ${nextPrompt.stage}`);
+      reporter.log(`[PHASEDEV RUNNER] stage completed: ${nextPrompt.stage}`);
     }
 
     return { status: "max_iterations", iterations: config.loop.maxIterations, logPath, reason: "Reached loop.maxIterations." };

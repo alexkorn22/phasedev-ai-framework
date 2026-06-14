@@ -13,3 +13,11 @@
 .env.*
 !.env.example
 /temp
+
+# PhaseDev Sandbox ignored runtime outputs
+demo-sandbox/.phasedev/changes/fix-add/validation_findings.md
+demo-sandbox/.phasedev/changes/fix-add/research_facts.md
+demo-sandbox/.phasedev/changes/fix-add/architecture/
+demo-sandbox/.phasedev/changes/fix-add/implementation_plan.md
+demo-sandbox/.phasedev/changes/archive/
+demo-sandbox/.phasedev/logs/

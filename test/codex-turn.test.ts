@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { runCodexTurn } from "../src/features/ralph-runner/codex-turn";
-import type { CodexStreamEvent } from "../src/features/ralph-runner/codex-stream-reporter";
+import { runCodexTurn } from "../src/features/runner/codex-turn";
+import type { CodexStreamEvent } from "../src/features/runner/codex-stream-reporter";
 
 async function* streamEvents(events: CodexStreamEvent[]): AsyncGenerator<CodexStreamEvent> {
   for (const event of events) {
