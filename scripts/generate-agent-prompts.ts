@@ -10,7 +10,7 @@ interface StageOutput {
   bytes: number;
   stage: Stage;
   sourceProjectPath: string;
-  generatedProjectPath: string;
+  workingProjectPath: string;
 }
 
 interface Options {
@@ -22,8 +22,13 @@ interface Options {
 const repoRoot = path.resolve(__dirname, "..");
 const generatedChangeName = "generated-agent-prompts";
 
+function defaultProjectPath(): string {
+  const demoSandboxPath = path.join(repoRoot, "demo-sandbox");
+  return fs.existsSync(demoSandboxPath) ? demoSandboxPath : process.cwd();
+}
+
 function parseArgs(args: string[]): Options {
-  let projectPath = process.cwd();
+  let projectPath = defaultProjectPath();
   let outDir = path.join(repoRoot, "temp", "generated-agent-prompts");
   let configPath: string | undefined;
 
@@ -63,26 +68,11 @@ function writeFile(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, "utf-8");
 }
 
-function isSameOrInside(candidate: string, root: string): boolean {
-  const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-}
-
-function copyProject(source: string, target: string, excludedRoots: string[]): void {
-  const resolvedExcludedRoots = excludedRoots.map(excluded => path.resolve(excluded));
-  fs.cpSync(source, target, {
-    recursive: true,
-    filter: sourcePath => {
-      const resolvedSourcePath = path.resolve(sourcePath);
-      if (resolvedExcludedRoots.some(excluded => isSameOrInside(resolvedSourcePath, excluded))) {
-        return false;
-      }
-
-      const normalized = sourcePath.replace(/\\/g, "/");
-      return !normalized.includes("/node_modules/") &&
-        !normalized.includes("/.git/");
-    }
-  });
+function ensureSandboxSupportFiles(projectPath: string): void {
+  const packageJsonPath = path.join(projectPath, "package.json");
+  if (!fs.existsSync(packageJsonPath)) {
+    writeFile(packageJsonPath, `${JSON.stringify({ name: "generated-agent-prompts-sandbox", private: true }, null, 2)}\n`);
+  }
 }
 
 function savePrompt(
@@ -91,7 +81,7 @@ function savePrompt(
   stage: Stage,
   promptText: string,
   options: Options,
-  generatedProjectPath: string
+  workingProjectPath: string
 ): StageOutput {
   const filePath = path.join(promptsDir, fileName);
   writeFile(filePath, promptText);
@@ -100,12 +90,12 @@ function savePrompt(
     bytes: fs.statSync(filePath).size,
     stage,
     sourceProjectPath: options.projectPath,
-    generatedProjectPath
+    workingProjectPath
   };
 }
 
-function configFor(projectPath: string, options: Options) {
-  return loadConfig(resolveConfigPath(projectPath, options.configPath));
+function sourceConfig(options: Options) {
+  return loadConfig(resolveConfigPath(options.projectPath, options.configPath));
 }
 
 function saveNextPrompt(
@@ -113,9 +103,10 @@ function saveNextPrompt(
   promptsDir: string,
   fileName: string,
   expectedStage: Exclude<Stage, "init">,
-  options: Options
+  options: Options,
+  config: ReturnType<typeof loadConfig>
 ): StageOutput {
-  const prompt = getNextPrompt(projectPath, configFor(projectPath, options));
+  const prompt = getNextPrompt(projectPath, config);
   if (prompt.stage !== expectedStage) {
     throw new Error(`Expected ${expectedStage} prompt, got ${prompt.stage} for ${fileName}.`);
   }
@@ -165,7 +156,7 @@ function rulesBody(): string {
 `;
 }
 
-function researchBody(): string {
+function researchBody(factSource: string): string {
   return `# Research Facts
 
 ## PRD Intent Trace
@@ -188,8 +179,8 @@ function researchBody(): string {
 
 | Fact ID | Type | Source | Fact | Supports |
 |---|---|---|---|---|
-| F1 | code | \`package.json:1\` | The copied project has repository files available for controller-based prompt generation. | R1 |
-| F2 | code | \`package.json:1\` | The generation scaffold runs in an isolated copied project under the output directory. | SC1 |
+| F1 | code | \`${factSource}\` | The sandbox project has repository files available for controller-based prompt generation. | R1 |
+| F2 | code | \`${factSource}\` | The generation scaffold runs in an isolated generated project under the output directory. | SC1 |
 
 ## Research Gaps & Blockers
 
@@ -322,8 +313,11 @@ function writeBaseArtifacts(paths: ChangePaths): void {
   writeFile(paths.rulesPath, approvedArtifact(rulesBody()));
 }
 
-function writeResearch(paths: ChangePaths): void {
-  writeFile(paths.researchPath, researchBody());
+function writeResearch(paths: ChangePaths, projectPath: string): void {
+  const factSource = fs.existsSync(path.join(projectPath, "math.ts"))
+    ? "math.ts:1"
+    : "package.json:1";
+  writeFile(paths.researchPath, researchBody(factSource));
 }
 
 function writeDesign(paths: ChangePaths): void {
@@ -370,56 +364,57 @@ function writeCombinedPromptFile(manifest: StageOutput[], combinedPath: string):
 function main(): void {
   const options = parseArgs(process.argv.slice(2));
   const promptsDir = path.join(options.outDir, "prompts");
-  const generatedProjectPath = path.join(options.outDir, "generated-project");
   const manifestPath = path.join(options.outDir, "manifest.json");
   const combinedPath = path.join(options.outDir, "all-agent-prompts.md");
+  const workingProjectPath = options.projectPath;
 
   resetDir(options.outDir);
   fs.mkdirSync(promptsDir, { recursive: true });
-  copyProject(options.projectPath, generatedProjectPath, [options.outDir, generatedProjectPath]);
-  fs.rmSync(path.join(generatedProjectPath, ".phasedev", "changes"), { recursive: true, force: true });
+  fs.rmSync(path.join(workingProjectPath, ".phasedev", "changes"), { recursive: true, force: true });
+  ensureSandboxSupportFiles(workingProjectPath);
 
-  const changeDir = path.join(generatedProjectPath, ".phasedev", "changes", generatedChangeName);
+  const changeDir = path.join(workingProjectPath, ".phasedev", "changes", generatedChangeName);
   const paths = buildChangePaths(changeDir);
   const manifest: StageOutput[] = [];
+  const config = sourceConfig(options);
 
-  const initPrompt = getInitPrompt(generatedProjectPath, configFor(generatedProjectPath, options));
-  manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.stage, initPrompt.prompt, options, generatedProjectPath));
+  const initPrompt = getInitPrompt(workingProjectPath, config);
+  manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.stage, initPrompt.prompt, options, workingProjectPath));
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "01-stage-0-setup.md", "setup", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-stage-0-setup.md", "setup", options, config));
   writeBaseArtifacts(paths);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "02-stage-1-research.md", "research", options));
-  writeResearch(paths);
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "02-stage-1-research.md", "research", options, config));
+  writeResearch(paths, workingProjectPath);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "03-stage-2-design.md", "design", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "03-stage-2-design.md", "design", options, config));
   writeDesign(paths);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "04-stage-3-plan.md", "plan", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "04-stage-3-plan.md", "plan", options, config));
   writePlan(paths, "implementation");
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "05-stage-4-implementation.md", "implementation", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "05-stage-4-implementation.md", "implementation", options, config));
   writePlan(paths, "phase_validation");
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "06-stage-5a-phase-validation.md", "phase_validation", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-stage-5a-phase-validation.md", "phase_validation", options, config));
   writePlan(paths, "final_validation");
   writePhaseReadyFindings(paths);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "07-stage-5b-final-validation.md", "final_validation", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "07-stage-5b-final-validation.md", "final_validation", options, config));
   writeRepairFindings(paths);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "08-stage-5r-repair.md", "repair", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-stage-5r-repair.md", "repair", options, config));
   writePlan(paths, "archive");
   writeFinalReadyFindings(paths);
 
-  manifest.push(saveNextPrompt(generatedProjectPath, promptsDir, "09-stage-6-archive.md", "archive", options));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "09-stage-6-archive.md", "archive", options, config));
 
   writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   writeCombinedPromptFile(manifest, combinedPath);
 
   console.log(JSON.stringify({
     projectPath: options.projectPath,
-    generatedProjectPath,
+    workingProjectPath,
     outDir: options.outDir,
     promptsDir,
     manifestPath,
