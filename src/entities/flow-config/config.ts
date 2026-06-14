@@ -70,7 +70,7 @@ export const DEFAULT_FLOW_RALPH_CONFIG: FlowRalphConfig = {
   },
   loop: {
     maxIterations: 10,
-    logDir: "openspec/flow-ralph",
+    logDir: "openspec/logs",
     enableLogs: true,
     runArchiveStage: true,
     notifications: {

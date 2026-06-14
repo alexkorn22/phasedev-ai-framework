@@ -1,11 +1,15 @@
 import * as path from "path";
-import { createRalphOutput, FlowRalphDependencies, FlowRalphResult, loadFlowRalphConfig, resolveFlowRalphConfigPath, runFlowRalph } from "./features/ralph-runner";
+import { FlowRalphDependencies, FlowRalphResult, loadFlowRalphConfig, resolveFlowRalphConfigPath, runFlowRalph, resolveProjectLogDir } from "./features/ralph-runner";
+import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "./features/ralph-logger";
+import type { IterationLogger } from "./entities/iteration-log";
 import { isMainModule } from "./shared/cli/main-module";
 import { parseRalphArgs } from "./shared/cli/parse-ralph-args";
 import { loadEnvFile } from "./shared/env/load-env-file";
 
-export type FlowRalphCliDependencies = Pick<FlowRalphDependencies, "createCodex" | "env" | "fetchImpl"> & {
+export type FlowRalphCliDependencies = Pick<FlowRalphDependencies, "createCodex" | "env"> & {
   reporter?: Pick<typeof console, "log">;
+  iterationLogger?: IterationLogger;
+  fetchImpl?: typeof fetch;
 };
 
 function resolveRalphEnv(resolvedConfigPath: string, baseEnv: Record<string, string | undefined>): Record<string, string | undefined> {
@@ -21,24 +25,51 @@ export async function runFlowRalphCli(args: string[], dependencies: FlowRalphCli
   const resolvedConfigPath = resolveFlowRalphConfigPath(projectPath, configPath);
   const config = loadFlowRalphConfig(resolvedConfigPath);
   const env = resolveRalphEnv(resolvedConfigPath, dependencies.env ?? process.env);
-  const output = createRalphOutput(config.loop.notifications.telegram, dependencies.reporter ?? console, {
-    env,
-    fetchImpl: dependencies.fetchImpl
-  });
+  const reporter = dependencies.reporter ?? console;
+
+  let iterationLogger = dependencies.iterationLogger;
+  if (!iterationLogger) {
+    const loggers: IterationLogger[] = [];
+    const logDir = resolveProjectLogDir(projectPath, config.loop.logDir);
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+
+    if (config.loop.enableLogs) {
+      loggers.push(createJsonFileLogger(logPath));
+    }
+
+    const tg = config.loop.notifications.telegram;
+    if (tg.enabled) {
+      const botToken = env[tg.botTokenEnv];
+      const chatId = env[tg.chatIdEnv];
+      if (botToken && chatId) {
+        loggers.push(createTelegramLogger({
+          botToken,
+          chatId,
+          fetchImpl: dependencies.fetchImpl
+        }, reporter));
+      } else {
+        reporter.log(`[FLOW RALPH] Telegram notifications disabled: missing ${tg.botTokenEnv} or ${tg.chatIdEnv}`);
+      }
+    }
+    iterationLogger = createCompositeLogger(loggers);
+  }
 
   try {
     const result = await runFlowRalph(projectPath, config, {
       createCodex: dependencies.createCodex,
-      output
+      reporter,
+      iterationLogger
     });
 
-    output.log(`[FLOW RALPH] status: ${result.status}`);
-    output.log(`[FLOW RALPH] iterations: ${result.iterations}`);
-    output.log(`[FLOW RALPH] reason: ${result.reason}`);
-    output.log(`[FLOW RALPH] log: ${result.logPath}`);
+    reporter.log(`[FLOW RALPH] status: ${result.status}`);
+    reporter.log(`[FLOW RALPH] iterations: ${result.iterations}`);
+    reporter.log(`[FLOW RALPH] reason: ${result.reason}`);
+    reporter.log(`[FLOW RALPH] log: ${result.logPath}`);
     return result;
   } finally {
-    await output.flush();
+    if (iterationLogger) {
+      await iterationLogger.flush();
+    }
   }
 }
 

@@ -3,7 +3,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { FlowPrompt, FlowStage } from "../src/entities/flow-stage/types";
 import { runFlowRalphCli } from "../src/flow-ralph";
-import { DEFAULT_FLOW_RALPH_CONFIG, FlowRalphConfig, runFlowRalph, splitTelegramMessage } from "../src/features/ralph-runner";
+import { DEFAULT_FLOW_RALPH_CONFIG, FlowRalphConfig, runFlowRalph } from "../src/features/ralph-runner";
+import { splitTelegramMessage } from "../src/shared/telegram";
+import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/ralph-logger";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -340,7 +342,7 @@ describe("flow-ralph runner", () => {
     expect(threads[1].prompts[0]).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
     expect(threads[1].prompts[0]).toContain("next prompt 2");
     expect(threads[0].id).not.toBe(threads[1].id);
-    expect(result.logPath).toContain(path.join(projectPath, "openspec", "flow-ralph"));
+    expect(result.logPath).toContain(path.join(projectPath, "openspec", "logs"));
     expect(messages).toContain("[FLOW RALPH] stage: implementation");
     expect(messages).toContain("[FLOW RALPH] model: gpt-5.4");
     expect(messages).toContain("[FLOW RALPH] reasoning: high");
@@ -893,8 +895,11 @@ describe("flow-ralph runner", () => {
     expect(threads).toHaveLength(2);
   });
 
-  test("writes only formatted log.md under project log directory", async () => {
+  test("writes only formatted ralph-log.jsonl under project log directory", async () => {
     const projectPath = setupProject();
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
@@ -909,21 +914,25 @@ describe("flow-ralph runner", () => {
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
     expect(fs.existsSync(result.logPath)).toBe(true);
-    expect(result.logPath).toBe(path.join(projectPath, "openspec", "flow-ralph", "log.md"));
-    const logContent = fs.readFileSync(result.logPath, "utf-8");
-    expect(logContent).toContain("## [");
-    expect(logContent).toContain("Iteration: 1 | Stage: implementation");
-    expect(logContent).toContain("done");
-    expect(fs.readdirSync(path.dirname(result.logPath)).some(file => file.endsWith(".jsonl"))).toBe(false);
+    expect(result.logPath).toBe(logPath);
+    const logContent = fs.readFileSync(result.logPath, "utf-8").trim();
+    const parsed = JSON.parse(logContent);
+    expect(parsed.iteration).toBe(1);
+    expect(parsed.stage).toBe("implementation");
+    expect(parsed.agentResponse).toBe("done");
   });
 
   test("streams Codex events to reporter and logs finalResponse from agent message", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
@@ -952,6 +961,7 @@ describe("flow-ralph runner", () => {
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
@@ -967,14 +977,21 @@ describe("flow-ralph runner", () => {
     expect(messages).toContain("[CODEX implementation] agent_message:\nstage streamed response");
     expect(messages).toContain("[CODEX implementation] turn.completed usage: input=10, cached=2, output=3, reasoning=4");
 
-    const logContent = fs.readFileSync(result.logPath, "utf-8");
-    expect(logContent).toContain("stage streamed response");
+    const logContent = fs.readFileSync(result.logPath, "utf-8").trim();
+    const parsed = JSON.parse(logContent);
+    expect(parsed.agentResponse).toBe("stage streamed response");
   });
 
-  test("mirrors Ralph console output, streamed Codex output, and log.md entry to Telegram", async () => {
+  test("mirrors Ralph iteration summary to Telegram using TelegramLogger", async () => {
     const projectPath = setupProject();
     const reporterMessages: string[] = [];
     const telegramMessages: string[] = [];
+
+    const tgLogger = createTelegramLogger({
+      botToken: "123:test-token",
+      chatId: "456",
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
 
     const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
       createCodex: () => ({
@@ -998,23 +1015,31 @@ describe("flow-ralph runner", () => {
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: message => reporterMessages.push(message) },
       env: telegramEnv,
-      fetchImpl: telegramFetchRecorder(telegramMessages),
+      iterationLogger: tgLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
+    await tgLogger.flush();
+
     expect(result.status).toBe("no_progress");
     expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
-    expect(reporterMessages.some(message => message.startsWith("## ["))).toBe(false);
-    expect(telegramMessages).toContain("[FLOW RALPH] iteration 1/1");
-    expect(telegramMessages).toContain("[CODEX implementation] command output:\ntests passed");
-    expect(telegramMessages).toContain("[CODEX implementation] agent_message:\nstage telegram response");
-    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("stage telegram response"))).toBe(true);
+    
+    // Telegram should ONLY receive the compact summary
+    expect(telegramMessages).toHaveLength(1);
+    const summary = telegramMessages[0];
+    expect(summary).toContain("Iteration 1 | implementation | gpt-5.4 (high)");
+    expect(summary).toContain("1\u21922 tokens");
+    expect(summary).toContain("+0/~0/-0 files");
+    expect(summary).toContain("Outcome: no_progress");
   });
 
   test("can disable Codex stream output and fall back to buffered run", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
     const prompts: string[] = [];
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
       createCodex: () => ({
@@ -1033,6 +1058,7 @@ describe("flow-ralph runner", () => {
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
@@ -1042,13 +1068,20 @@ describe("flow-ralph runner", () => {
     expect(prompts[0]).toContain("same next prompt");
     expect(messages.some(message => message.startsWith("[CODEX "))).toBe(false);
 
-    const logContent = fs.readFileSync(result.logPath, "utf-8");
-    expect(logContent).toContain("buffered stage response");
+    const logContent = fs.readFileSync(result.logPath, "utf-8").trim();
+    const parsed = JSON.parse(logContent);
+    expect(parsed.agentResponse).toBe("buffered stage response");
   });
 
   test("does not invent Codex stream messages for Telegram in buffered mode", async () => {
     const projectPath = setupProject();
     const telegramMessages: string[] = [];
+
+    const tgLogger = createTelegramLogger({
+      botToken: "123:test-token",
+      chatId: "456",
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
 
     const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
       createCodex: () => ({
@@ -1067,14 +1100,17 @@ describe("flow-ralph runner", () => {
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
       env: telegramEnv,
-      fetchImpl: telegramFetchRecorder(telegramMessages),
+      iterationLogger: tgLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
+    await tgLogger.flush();
+
     expect(result.status).toBe("no_progress");
-    expect(telegramMessages.some(message => message.startsWith("[CODEX "))).toBe(false);
-    expect(telegramMessages).toContain("[FLOW RALPH] running stage with init bootstrap: implementation");
-    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("buffered telegram response"))).toBe(true);
+    expect(telegramMessages).toHaveLength(1);
+    const summary = telegramMessages[0];
+    expect(summary).toContain("Iteration 1 | implementation | gpt-5.4 (high)");
+    expect(summary).toContain("Outcome: no_progress");
   });
 
   test("throws when streamed Codex turn fails", async () => {
@@ -1206,6 +1242,9 @@ describe("flow-ralph runner", () => {
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
+    const logPath = path.join(projectPath, "openspec", "logs", "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
+
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
@@ -1230,6 +1269,7 @@ describe("flow-ralph runner", () => {
       },
       findActiveChangeDir: () => changeDir,
       reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-30T10:00:00.000Z")
     });
 
@@ -1378,10 +1418,13 @@ describe("flow-ralph runner", () => {
     expect(result.iterations).toBe(2);
   });
 
-  test("writes formatted agent response logs and supports prepending when enableLogs is true", async () => {
+  test("writes formatted agent response logs when enableLogs is true", async () => {
     const projectPath = setupProject();
     const progressPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
     let stageCounter = 0;
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
       createCodex: () => ({
@@ -1402,24 +1445,29 @@ describe("flow-ralph runner", () => {
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    const mdLogPath = path.join(projectPath, "openspec", "flow-ralph", "log.md");
-    expect(fs.existsSync(mdLogPath)).toBe(true);
+    expect(fs.existsSync(result.logPath)).toBe(true);
 
-    const logContent = fs.readFileSync(mdLogPath, "utf-8");
+    const logLines = fs.readFileSync(result.logPath, "utf-8").trim().split("\n");
+    expect(logLines).toHaveLength(2);
 
-    expect(logContent).toMatch(/## \[.+\] Iteration: 2 \| Stage: implementation/);
-    expect(logContent).toContain("Agent response for iteration 2");
-    
-    const indexIter1 = logContent.indexOf("Iteration: 1");
-    const indexIter2 = logContent.indexOf("Iteration: 2");
-    expect(indexIter2).toBeLessThan(indexIter1);
+    const parsed1 = JSON.parse(logLines[0]);
+    const parsed2 = JSON.parse(logLines[1]);
+
+    expect(parsed1.iteration).toBe(1);
+    expect(parsed1.stage).toBe("implementation");
+    expect(parsed2.iteration).toBe(2);
+    expect(parsed2.agentResponse).toBe("Agent response for iteration 2");
   });
 
-  test("does not write log.md when enableLogs is false", async () => {
+  test("does not write log when enableLogs is false", async () => {
     const projectPath = setupProject();
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
 
     await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: false }), {
       createCodex: () => ({
@@ -1434,20 +1482,21 @@ describe("flow-ralph runner", () => {
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
-    const mdLogPath = path.join(projectPath, "openspec", "flow-ralph", "log.md");
-    expect(fs.existsSync(mdLogPath)).toBe(false);
+    expect(fs.existsSync(logPath)).toBe(false);
   });
 
   test("handles file system log write errors gracefully without crashing the loop", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
 
-    const logDir = path.join(projectPath, "openspec", "flow-ralph");
-    const conflictPath = path.join(logDir, "log.md");
+    const logDir = path.join(projectPath, "openspec", "logs");
+    const conflictPath = path.join(logDir, "ralph-log.jsonl");
     fs.mkdirSync(conflictPath, { recursive: true });
+    const jsonLogger = createJsonFileLogger(conflictPath, { log: msg => messages.push(msg) });
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1, enableLogs: true }), {
       createCodex: () => ({
@@ -1461,12 +1510,13 @@ describe("flow-ralph runner", () => {
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
-      reporter: { log: message => messages.push(message) },
+      reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
     expect(result.status).toBe("no_progress");
-    expect(messages.some(msg => msg.includes("Failed to write to log.md"))).toBe(true);
+    expect(messages.some(msg => msg.includes("Failed to write to ralph-log.jsonl"))).toBe(true);
   });
 
   test("does not crash or send Telegram requests when Telegram env vars are missing", async () => {
@@ -1474,7 +1524,7 @@ describe("flow-ralph runner", () => {
     const reporterMessages: string[] = [];
     let fetchCount = 0;
 
-    const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+    const result = await runFlowRalphCli(["--project-path", projectPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-missing-env",
@@ -1483,27 +1533,35 @@ describe("flow-ralph runner", () => {
           }
         })
       }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: message => reporterMessages.push(message) },
-      env: {},
+      env: {
+        FLOW_RALPH_TELEGRAM_BOT_TOKEN: undefined,
+        FLOW_RALPH_TELEGRAM_CHAT_ID: undefined
+      },
       fetchImpl: async () => {
         fetchCount++;
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
-      },
-      now: () => new Date("2026-05-29T10:00:00.000Z")
+      }
     });
 
     expect(result.status).toBe("no_progress");
     expect(fetchCount).toBe(0);
-    expect(reporterMessages.some(message => message.includes("Telegram notifications disabled: missing TEST_TELEGRAM_BOT_TOKEN or TEST_TELEGRAM_CHAT_ID"))).toBe(true);
+    expect(reporterMessages.some(message => message.includes("Telegram notifications disabled: missing FLOW_RALPH_TELEGRAM_BOT_TOKEN or FLOW_RALPH_TELEGRAM_CHAT_ID"))).toBe(true);
   });
 
   test("continues when Telegram API sends fail and does not recursively notify the failure", async () => {
     const projectPath = setupProject();
     const reporterMessages: string[] = [];
     let fetchCount = 0;
+
+    const tgLogger = createTelegramLogger({
+      botToken: "123:test-token",
+      chatId: "456",
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response("bad gateway", { status: 502 });
+      }
+    }, { log: message => reporterMessages.push(message) });
 
     const result = await runFlowRalph(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
       createCodex: () => ({
@@ -1517,20 +1575,18 @@ describe("flow-ralph runner", () => {
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
       getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
-      reporter: { log: message => reporterMessages.push(message) },
+      reporter: { log: () => undefined },
       env: telegramEnv,
-      fetchImpl: async () => {
-        fetchCount++;
-        return new Response("bad gateway", { status: 502 });
-      },
+      iterationLogger: tgLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
+    await tgLogger.flush();
+
     const failureMessages = reporterMessages.filter(message => message.includes("Failed to send Telegram notification"));
     expect(result.status).toBe("no_progress");
-    expect(fetchCount).toBeGreaterThan(0);
-    expect(failureMessages.length).toBeGreaterThan(0);
-    expect(fetchCount).toBeLessThan(reporterMessages.length + failureMessages.length);
+    expect(fetchCount).toBe(1);
+    expect(failureMessages.length).toBe(1);
   });
 
   test("splits long Telegram messages below the Telegram sendMessage limit", () => {
@@ -1575,9 +1631,8 @@ codex:
 
     expect(reporterMessages).toContain("[FLOW RALPH] status: no_progress");
     expect(reporterMessages).toContain("[FLOW RALPH] iterations: 1");
-    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
-    expect(telegramMessages).toContain("[FLOW RALPH] iterations: 1");
-    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
 
   test("flow:ralph CLI uses project openspec config without --config", async () => {
@@ -1616,8 +1671,8 @@ FLOW_RALPH_TELEGRAM_CHAT_ID=789
     });
 
     expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
-    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
-    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done from project config"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
 
   test("flow:ralph CLI loads Telegram credentials from .env next to config", async () => {
@@ -1654,7 +1709,7 @@ FLOW_RALPH_TELEGRAM_CHAT_ID=789
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    expect(telegramMessages).toContain("[FLOW RALPH] status: no_progress");
-    expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("done from env file"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
+    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
 });

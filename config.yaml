@@ -88,11 +88,11 @@ codex:
 
 loop:
   maxIterations: 10 # максимум сессий этапов за один запуск
-  logDir: openspec/flow-ralph # путь относительно projectPath
-  enableLogs: true # включение/выключение логов ответов агента
+  logDir: openspec/logs # путь относительно projectPath
+  enableLogs: true # включение/выключение JSON логов ответов агента
   runArchiveStage: true # true = Ralph выполняет Archive; false = остановиться перед Archive и потребовать ручной flow next
   notifications:
     telegram:
-      enabled: true # true = зеркалировать вывод Ralph Loop и log.md записи в Telegram
+      enabled: true # true = отправлять компактный саммари-отчет об итерации в Telegram
       botTokenEnv: FLOW_RALPH_TELEGRAM_BOT_TOKEN # имя env var с токеном Telegram bot
       chatIdEnv: FLOW_RALPH_TELEGRAM_CHAT_ID # имя env var с chat id получателя

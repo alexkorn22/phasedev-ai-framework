@@ -4,14 +4,12 @@ import { createHash } from "crypto";
 import { findActiveChangeDir } from "../../entities/flow-change/active-change";
 import { readArchiveState } from "../../entities/flow-change/archive-state";
 import { archiveRootPath } from "../../entities/flow-change/paths";
+import type { IterationLogger, IterationLogEntry, IterationOutcome, IterationUsage } from "../../entities/iteration-log";
 import { FlowPrompt } from "../../entities/flow-stage/types";
 import { getInitPrompt, getNextPrompt } from "../flow-control";
 import { resolveFlowRoute } from "../flow-control/flow-route";
 import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { FlowRalphConfig, getStageModelConfig, resolveProjectLogDir } from "./config";
-import { createRalphOutput, RalphOutput } from "./ralph-output";
-import { FetchLike } from "./telegram-notifier";
-import { initializeMarkdownLog, logAgentResponse } from "./run-logs";
 
 export interface FlowRalphDependencies {
   createCodex?: () => Promise<CodexFactory> | CodexFactory;
@@ -19,9 +17,8 @@ export interface FlowRalphDependencies {
   getNextPrompt?: typeof getNextPrompt;
   findActiveChangeDir?: typeof findActiveChangeDir;
   reporter?: Pick<typeof console, "log">;
-  output?: RalphOutput;
+  iterationLogger?: IterationLogger;
   env?: Record<string, string | undefined>;
-  fetchImpl?: FetchLike;
   now?: () => Date;
 }
 
@@ -280,9 +277,14 @@ function isCurrentArchivePath(normalizedPath: string, relativeChangeDir: string 
   return archiveEntry.endsWith(`-${changeName}`);
 }
 
+function isLogDirPath(normalizedPath: string, relativeLogDir: string): boolean {
+  return normalizedPath === relativeLogDir || normalizedPath.startsWith(`${relativeLogDir}/`);
+}
+
 function validateStageAllowlist(
   stage: string,
   projectPath: string,
+  relativeLogDir: string,
   activeChangeDir: string | null,
   changed: ChangedFiles
 ): string[] {
@@ -302,7 +304,7 @@ function validateStageAllowlist(
       continue;
     }
 
-    if (normalized.startsWith("openspec/flow-ralph/") || normalized === "openspec/flow-ralph") {
+    if (isLogDirPath(normalized, relativeLogDir)) {
       continue;
     }
 
@@ -382,6 +384,38 @@ function validateStageAllowlist(
   return violations;
 }
 
+function buildIterationLogEntry(
+  iteration: number,
+  stage: string,
+  model: string,
+  reasoningEffort: string,
+  activeChange: string | null,
+  durationMs: number,
+  usage: IterationUsage | null,
+  changedFiles: ChangedFiles,
+  flowStateChanged: boolean,
+  allowlistViolations: string[],
+  outcome: IterationOutcome,
+  agentResponse: string,
+  now: () => Date
+): IterationLogEntry {
+  return {
+    timestamp: now().toISOString(),
+    iteration,
+    stage,
+    model,
+    reasoningEffort,
+    activeChange,
+    durationMs,
+    usage,
+    changedFiles,
+    flowStateChanged,
+    allowlistViolations,
+    outcome,
+    agentResponse
+  };
+}
+
 export async function runFlowRalph(projectPath: string, config: FlowRalphConfig, dependencies: FlowRalphDependencies = {}): Promise<FlowRalphResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
@@ -389,21 +423,15 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
   const getInit = dependencies.getInitPrompt ?? getInitPrompt;
   const getNext = dependencies.getNextPrompt ?? getNextPrompt;
   const findActive = dependencies.findActiveChangeDir ?? findActiveChangeDir;
-  const reporter = dependencies.output ?? createRalphOutput(
-    config.loop.notifications.telegram,
-    dependencies.reporter ?? console,
-    { env: dependencies.env, fetchImpl: dependencies.fetchImpl }
-  );
+  const reporter = dependencies.reporter ?? console;
+  const iterationLogger = dependencies.iterationLogger ?? null;
   const createCodex = dependencies.createCodex ?? createDefaultCodexFactory;
   const now = dependencies.now ?? (() => new Date());
   const logDir = resolveProjectLogDir(resolvedProjectPath, config.loop.logDir);
-  const logPath = path.join(logDir, "log.md");
+  const relativeLogDir = path.relative(resolvedProjectPath, logDir).replace(/\\/g, "/");
+  const logPath = path.join(logDir, "ralph-log.jsonl");
 
   try {
-    if (config.loop.enableLogs) {
-      initializeMarkdownLog(logDir, reporter);
-    }
-
     let codex: CodexFactory | null = null;
 
     for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
@@ -445,6 +473,8 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
 
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
       reporter.log(`[FLOW RALPH] running stage with init bootstrap: ${nextPrompt.stage}`);
+
+      const startMs = Date.now();
       const turn = await runCodexTurn(
         thread,
         wrapStagePrompt(getInit(resolvedProjectPath, config), nextPrompt),
@@ -452,6 +482,8 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         reporter,
         config.codex.streamAgentOutput
       );
+      const durationMs = Date.now() - startMs;
+
       const afterStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
 
       const beforeHash = computeCombinedHash(beforeStageSnapshot);
@@ -466,6 +498,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       const allowlistViolations = validateStageAllowlist(
         nextPrompt.stage,
         resolvedProjectPath,
+        relativeLogDir,
         activeChangeDir,
         changedFiles
       );
@@ -474,6 +507,15 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         const violationMsg = `[FLOW RALPH] Stage allowlist violation detected during '${nextPrompt.stage}' stage:\n${allowlistViolations.map(v => `- ${v}`).join("\n")}`;
         reporter.log(violationMsg);
         reporter.log(`[FLOW RALPH] log: ${logPath}`);
+
+        if (config.loop.enableLogs && iterationLogger) {
+          iterationLogger.log(buildIterationLogEntry(
+            iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+            beforeActiveChange, durationMs, turn.usage, changedFiles, false,
+            allowlistViolations, "violation", turn.finalResponse, now
+          ));
+        }
+
         return {
           status: "blocked",
           iterations: iteration,
@@ -482,20 +524,16 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         };
       }
 
-      if (config.loop.enableLogs) {
-        const logEntry = logAgentResponse(
-          logDir,
-          iteration,
-          nextPrompt.stage,
-          stageModel.model,
-          stageModel.reasoningEffort,
-          turn.finalResponse ?? "",
-          now,
-          reporter
-        );
-        if (logEntry !== null) {
-          reporter.notify(logEntry);
-        }
+      const flowStateChanged = beforeHash !== afterHash;
+
+      if (config.loop.enableLogs && iterationLogger) {
+        const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
+        const outcome: IterationOutcome = archived ? "archived" : flowStateChanged ? "completed" : "no_progress";
+        iterationLogger.log(buildIterationLogEntry(
+          iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+          beforeActiveChange, durationMs, turn.usage, changedFiles, flowStateChanged,
+          [], outcome, turn.finalResponse, now
+        ));
       }
 
       const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
@@ -507,7 +545,7 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
       }
 
-      if (beforeHash === afterHash && !hasReportedCodeChange(reportedChangedFiles)) {
+      if (!flowStateChanged && !hasReportedCodeChange(reportedChangedFiles)) {
         reporter.log(`[FLOW RALPH] stage made no flow state change: ${nextPrompt.stage}`);
         reporter.log(`[FLOW RALPH] log: ${logPath}`);
         return { status: "no_progress", iterations: iteration, logPath, reason: "Stage completed without changing project state." };
@@ -518,6 +556,8 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
 
     return { status: "max_iterations", iterations: config.loop.maxIterations, logPath, reason: "Reached loop.maxIterations." };
   } finally {
-    await reporter.flush();
+    if (iterationLogger) {
+      await iterationLogger.flush();
+    }
   }
 }

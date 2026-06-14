@@ -54,7 +54,7 @@ loop:
     expect(config.codex.approvalPolicy).toBe("never");
     expect(config.codex.streamAgentOutput).toBe(true);
     expect(config.loop.maxIterations).toBe(3);
-    expect(config.loop.logDir).toBe("openspec/flow-ralph");
+    expect(config.loop.logDir).toBe("openspec/logs");
     expect(config.loop.enableLogs).toBe(true);
     expect(config.loop.runArchiveStage).toBe(true);
     expect(config.loop.notifications.telegram).toEqual({

@@ -3,7 +3,7 @@ const DEFAULT_TELEGRAM_TIMEOUT_MS = 10_000;
 
 export type FetchLike = typeof fetch;
 
-export interface TelegramNotifierOptions {
+export interface TelegramSendOptions {
   botToken: string;
   chatId: string;
   fetchImpl?: FetchLike;
@@ -36,7 +36,7 @@ export function splitTelegramMessage(text: string): string[] {
   return splitByCodePoint(text, TELEGRAM_MESSAGE_CHUNK_SIZE);
 }
 
-async function sendTelegramChunk(options: Required<TelegramNotifierOptions>, text: string): Promise<void> {
+async function sendChunk(options: Required<TelegramSendOptions>, text: string): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
@@ -63,17 +63,12 @@ async function sendTelegramChunk(options: Required<TelegramNotifierOptions>, tex
   }
 }
 
-export async function sendTelegramMessage(options: TelegramNotifierOptions, text: string): Promise<void> {
+export async function sendTelegramMessage(options: TelegramSendOptions, text: string): Promise<void> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TELEGRAM_TIMEOUT_MS;
   const chunks = splitTelegramMessage(text);
 
   for (const chunk of chunks) {
-    await sendTelegramChunk({
-      botToken: options.botToken,
-      chatId: options.chatId,
-      fetchImpl,
-      timeoutMs
-    }, chunk);
+    await sendChunk({ botToken: options.botToken, chatId: options.chatId, fetchImpl, timeoutMs }, chunk);
   }
 }
