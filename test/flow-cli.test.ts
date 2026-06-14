@@ -401,19 +401,19 @@ codex:
     expect(output).toContain("## Configured Skill Policy");
     expect(output).toContain("## Flow Skill Boundary Protocol");
     expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
-    expect(output).toContain("Configured skills are execution-method instructions, not Flow-state authorities.");
-    expect(output).toContain("If a selected skill applies to the stage work, use its method, checklist, algorithm, or review logic.");
-    expect(output).toContain("Do not skip a selected skill only because it defines its own report, artifact, lifecycle, or output format.");
-    expect(output).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
-    expect(output).toContain("Use only configured main skills or configured additional skills.");
-    expect(output).toContain("Priority 1 - routers (mandatory only when configured):\n- none configured");
-    expect(output).toContain("Priority 2 - main skills");
+    expect(output).toContain("Skills are method instructions only; they never control Flow state.");
+    expect(output).toContain("Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.");
+    expect(output).toContain("Do not skip an applicable selected skill because its native output format differs");
+    expect(output).toContain("Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
+    expect(output).toContain("Allowed skills:");
+    expect(output).toContain("Routers:\n- none configured");
+    expect(output).toContain("Main:");
     expect(output).toContain("- `dev-core`");
     expect(output).toContain("- `test-driven-development`");
-    expect(output).toContain("Priority 3 - additional skills");
+    expect(output).toContain("Additional fallback:");
     expect(output).toContain("- `api-and-interface-design`");
-    expect(output).toContain("Authorized external skills are limited to configured main skills and configured additional skills.");
-    expect(output).toContain("If no main or additional skill fits the stage need, stop and ask the user to update `config.yaml` or approve an exception.");
+    expect(output).toContain("Allowed external skills: configured main skills and configured additional skills.");
+    expect(output).toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(output).not.toContain("router-selected");
     expect(output).toContain("Check Evidence");
   });
@@ -464,12 +464,13 @@ codex:
 
     expect(output).toContain("## Flow Skill Boundary Protocol");
     expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
-    expect(output).toContain("Priority 1 - routers (read every configured router first, mandatory only when configured):\n- `using-zuvo`");
-    expect(output).toContain("Priority 2 - router-selected skills (highest priority method skills when a configured router selects a matching skill from its own content or routing table):");
-    expect(output).toContain("Apply router instructions to the current stage evidence. If a router selects a matching skill from its own content or routing table, load and use that router-selected skill before considering main or additional skills.");
-    expect(output).toContain("Authorized external skills are limited to configured routers, router-selected skills explicitly named by router content, configured main skills, and configured additional skills.");
-    expect(output).toContain("Priority 3 - main skills (use only when routers are not configured or no router-selected skill fits the stage evidence):");
-    expect(output).toContain("Priority 4 - additional skills (secondary allowed pool; load only when router-selected and main skills are insufficient or a listed additional skill is clearly better):");
+    expect(output).toContain("Routers (read first):\n- `using-zuvo`");
+    expect(output).toContain("Router-selected:");
+    expect(output).toContain("determined after reading routers; explicit router content only");
+    expect(output).toContain("Router-selected skills explicitly named by router content have priority over main/additional skills.");
+    expect(output).toContain("Allowed external skills: configured routers, router-selected skills explicitly named by router content, configured main skills, configured additional skills.");
+    expect(output).toContain("Main fallback:");
+    expect(output).toContain("Additional fallback:");
   });
 
   test("implementation prompt disables external skills when stage skills are empty", () => {
@@ -489,10 +490,10 @@ codex:
     const output = runNext(["--config", configPath]);
 
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
+    expect(output).toContain("Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
     expect(output).toContain("No external skills are configured for this stage in `config.yaml`.");
-    expect(output).toContain("Do not use external skills for this stage unless the user updates `config.yaml` or explicitly approves an exception.");
-    expect(output).not.toContain("Priority 1 - routers");
+    expect(output).toContain("Do not use external skills unless the user updates `config.yaml` or explicitly approves an exception.");
+    expect(output).not.toContain("Routers (read first):");
   });
 
   test("plan prompt includes PRD intent input for downstream planning", () => {
@@ -1596,12 +1597,44 @@ codex:
 
       expect(policy).toContain("## Flow Skill Boundary Protocol");
       expect(policy).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
-      expect(policy).toContain("Configured skills are execution-method instructions, not Flow-state authorities.");
-      expect(policy).toContain("If a selected skill applies to the stage work, use its method, checklist, algorithm, or review logic.");
-      expect(policy).toContain("Do not skip a selected skill only because it defines its own report, artifact, lifecycle, or output format.");
-      expect(policy).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
-      expect(policy).toContain("Skill-specific artifacts, sections, tables, reports, lifecycle steps, approval changes, and state changes must be discarded or adapted into the current Flow contract.");
+      expect(policy).toContain("Skills are method instructions only; they never control Flow state.");
+      expect(policy).toContain("Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.");
+      expect(policy).toContain("Do not preload every configured skill body; keep skill loading minimal.");
+      expect(policy).toContain("Do not skip an applicable selected skill because its native output format differs");
+      expect(policy).toContain("Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
+      expect(policy).toContain("Do not invent extra Flow artifact structure.");
     }
+  });
+
+  test("generated skill policy stays compact without dropping core contracts", () => {
+    const config = parseFlowRalphConfig(`
+codex:
+  stages:
+    implementation:
+      skills:
+        routers:
+          - using-zuvo
+        main:
+          - dev-core
+        additional:
+          - security-and-hardening
+    final_validation:
+      skills:
+        routers:
+          - using-zuvo
+        main: []
+        additional:
+          - performance-audit
+`);
+
+    const implementationPolicy = renderSkillPolicy("implementation", config);
+    const validationPolicy = renderSkillPolicy("final_validation", config);
+
+    expect(implementationPolicy.length).toBeLessThan(2600);
+    expect(validationPolicy.length).toBeLessThan(3300);
+    expect(implementationPolicy).toContain("Authority order:");
+    expect(implementationPolicy).toContain("Allowed external skills:");
+    expect(validationPolicy).toContain("Validation stages are review-only");
   });
 
   test("stage templates receive generated config skill policy", () => {
@@ -1636,10 +1669,10 @@ codex:
 
     expect(output).toContain("- `playwright`");
     expect(output).toContain("Validation stages are review-only");
-    expect(output).toContain("Do not rerun tests, builds, browsers, deployments, migrations, or other execution gates as validation gates.");
-    expect(output).toContain("Read-only review, audit, and static-inspection methods selected by the configured skill policy are allowed");
-    expect(output).toContain("do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`");
-    expect(output).toContain("Convert skill findings into strict `validation_findings.md` rows when they are findings");
+    expect(output).toContain("do not rerun tests, builds, browsers, deployments, migrations, or other execution gates.");
+    expect(output).toContain("Read-only review/audit/static-inspection skill methods are allowed");
+    expect(output).toContain("do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`");
+    expect(output).toContain("convert findings into rows");
     expect(output).toContain("put non-registry explanation only in the final response");
     expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Input artifacts"));
   });
