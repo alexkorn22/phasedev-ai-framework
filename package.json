@@ -11,6 +11,7 @@
     "test": "bun test",
     "run": "bun run src/runner.ts",
     "phasedev:run": "bun run src/runner.ts",
+    "prompts:generate": "bun run scripts/generate-agent-prompts.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
