@@ -6,7 +6,7 @@ Stage contract: prepare the initial change artifacts.
 
 Input:
 - task/change description from the current context;
-- user rules and constraints for this task;
+- user rules and constraints for this task, including an explicit answer that there are no additional task-specific constraints;
 - current project repository, inspected only after initial intake is complete;
 - clarifications available from the user if the task description is not enough for requirements.
 
@@ -16,10 +16,11 @@ Non-input:
 Required actions:
 1. Initial intake comes before repository inspection. If both the task/change description and task-specific rules or constraints are missing, ask for both in one short intake batch, then stop until the user answers.
 2. If only one of those inputs is missing, ask only for the missing input, then stop until the user answers.
-3. If the current context already contains enough data, do not ask intake questions just to follow process.
-4. Do not create `.phasedev/`, `.phasedev/changes/`, the change folder, `prd.md`, or `rules.md` until both items are available: the task description and task rules/constraints.
-5. Before initial intake is complete, do not inspect files, search the repository, read transcripts/logs, inspect config, inspect tests, inspect artifact templates, or inspect the `ag-dev-flow` framework source. The only correct action is to ask for the missing task/rules input and stop.
-6. After initial intake is complete, run a material-question gate before creating files:
+3. Task-specific rules or constraints do not need to exist. If the user says there are no additional rules or constraints, treat that as a complete intake answer and record the result as "no additional task-specific constraints" in your working interpretation, not as a blocker.
+4. If the current context already contains enough data, including an explicit "no additional constraints" answer when applicable, do not ask intake questions just to follow process.
+5. Do not create `.phasedev/`, `.phasedev/changes/`, the change folder, `prd.md`, or `rules.md` until both items are available: the task description and task rules/constraints answer.
+6. Before initial intake is complete, do not inspect files, search the repository, read transcripts/logs, inspect config, inspect tests, inspect artifact templates, or inspect the `ag-dev-flow` framework source. The only correct action is to ask for the missing task/rules input and stop.
+7. After initial intake is complete, run a material-question gate before creating files:
    - inspect only the current project repository and project instructions when needed to avoid asking questions answerable from local project evidence;
    - do not inspect `ag-dev-flow` source or template files; the artifact templates are embedded in this prompt;
    - ask only questions whose answer can change `Intent` values, `R#`, `SC#`, success evidence type, risk boundaries, or test commands;
@@ -27,19 +28,24 @@ Required actions:
    - name the artifact field or section each question can change;
    - do not ask for operational details that do not change artifact content, including the change folder slug;
    - do not ask obvious questions or questions answerable from repository evidence.
-7. Close material ambiguity around why the change is needed, target state, required behavior, success criteria, evidence type, and risk boundaries.
-8. For `feature` and `experiment` changes, clarify the user/system outcome, expected impact, success evidence, and risk boundaries.
-9. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
-10. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
-11. Before creating artifacts, summarize your final interpretation, material user answers, and accepted assumptions. If the user disagrees or adds material scope, continue intake instead of writing files.
-12. Choose a change folder slug only after intake is complete:
+8. Resolve input conflicts before writing artifacts:
+   - project and repo-local instructions constrain how work may be done;
+   - current user task text and clarifications define the requested product change;
+   - repository evidence can clarify existing behavior but must not silently override user intent;
+   - if sources conflict in a way that can change `Intent`, `R#`, `SC#`, risk boundaries, or test commands, name the conflict, list the affected artifact fields, ask for resolution, and stop.
+9. Close material ambiguity around why the change is needed, target state, required behavior, success criteria, evidence type, and risk boundaries.
+10. For `feature` and `experiment` changes, clarify the user/system outcome, expected impact, success evidence, and risk boundaries.
+11. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
+12. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
+13. Before creating artifacts, summarize your final interpretation, material user answers, accepted assumptions, and any "no additional constraints" answer. Ask the user to confirm this interpretation and stop unless the current context already clearly supplies the task description, task rules/constraints answer, and enough material answers to write the artifacts without new assumptions. If the user has already provided that complete context, treat confirmation as satisfied and continue. If the user disagrees or adds material scope, continue intake instead of writing files.
+14. Choose a change folder slug only after intake is complete and the final interpretation is confirmed:
     - The slug is an agent-derived filesystem name, not a user requirement and not a CLI-generated value.
     - Choose a short kebab-case slug from the final task text, for example `create-kanban-board`.
     - Do not ask the user to provide the slug; this is the setup agent's responsibility unless the user already gave an exact folder name.
     - Do not inspect `ag-dev-flow` source code just to determine the slug.
-13. Create the full change folder path `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen slug. If this is a new working project and `.phasedev/` or `.phasedev/changes/` does not exist, create those parent directories as part of this step.
-14. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
-15. Create `prd.md` first, then `rules.md`.
+15. Create the full change folder path `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen slug. If this is a new working project and `.phasedev/` or `.phasedev/changes/` does not exist, create those parent directories as part of this step.
+16. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
+17. Create `prd.md` first, then `rules.md`. Do not run the artifact self-check between those two writes.
 
 Path resolution rule:
 - `prd.md` and `rules.md` in this prompt are paths inside the active change folder, not paths from the project repository root.
@@ -48,9 +54,10 @@ Path resolution rule:
 
 Artifact requirements:
 - `prd.md` remains the main task contract.
+- Later research, design, planning, implementation, and validation stages will treat `prd.md` and `rules.md` as source-of-truth inputs, so write stable, testable statements that can be carried forward without reinterpreting the conversation.
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
 - `prd.md` `Requirements` contains only required project behavior or project results.
-- `prd.md` `Success Criteria` contains verifiable criteria and evidence type.
+- `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
 - `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
 - `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
@@ -63,7 +70,7 @@ When applying the output paths in the Artifact Build Contracts below, replace `<
 
 ## Artifact self-check
 
-After creating `prd.md` and `rules.md`, immediately validate the new artifacts before completing the stage:
+After both artifacts exist, immediately validate the new artifacts before completing the stage. The self-check is a combined Stage 0 check; do not run it after only `prd.md` exists.
 
 ```bash
 {{self_check_command}}
@@ -100,4 +107,9 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After creating `prd.md` and `rules.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that they must review the files, set `approved: true`, and then run `phasedev next`.
+- Final response must include:
+  - the active change folder slug;
+  - the exact paths to `prd.md` and `rules.md`;
+  - a short summary of the final task interpretation;
+  - the artifact self-check command and result;
+  - an explicit request for the user to review the files, set `approved: true`, and then run `phasedev next`.

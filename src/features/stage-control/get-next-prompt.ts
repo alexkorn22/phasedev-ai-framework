@@ -45,12 +45,13 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
   });
 }
 
-function artifactContract(artifactId: string, resolvedOutputPath: string, templateName: string, selfCheckCommand: string, date = new Date().toISOString().split("T")[0]): string {
+function artifactContract(artifactId: string, resolvedOutputPath: string, templateName: string, selfCheckCommand: string, date = new Date().toISOString().split("T")[0], selfCheckFailureGuidance?: string): string {
   return renderArtifactContract({
     artifactId,
     resolvedOutputPath,
     templateName,
     selfCheckCommand,
+    selfCheckFailureGuidance,
     date
   });
 }
@@ -92,10 +93,11 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         const content = fs.readFileSync(taskFile, "utf-8");
         taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
       }
+      const setupSelfCheckGuidance = "Stage 0 is not complete until this command passes after both `prd.md` and `rules.md` exist. Do not run this check after only one setup artifact exists. If it fails, fix only setup artifact issues, then rerun the same command.";
       const basePrompt = renderStageTemplate("setup", "step0_setup", {
         date,
-        prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date),
-        rules_artifact_contract: artifactContract("rules.md", path.join(changeRoot, "rules.md"), "artifacts/rules", selfCheckCommand, date),
+        prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date, setupSelfCheckGuidance),
+        rules_artifact_contract: artifactContract("rules.md", path.join(changeRoot, "rules.md"), "artifacts/rules", selfCheckCommand, date, setupSelfCheckGuidance),
         self_check_command: selfCheckCommand
       }, config);
       return prompt("next", "setup", basePrompt + taskContext);
