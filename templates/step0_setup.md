@@ -36,8 +36,11 @@ Required actions:
 9. Close material ambiguity around why the change is needed, target state, required behavior, success criteria, evidence type, and risk boundaries.
 10. For `feature` and `experiment` changes, clarify the user/system outcome, expected impact, success evidence, and risk boundaries.
 11. For `fix`, `refactor`, and `infra` changes, clarify target behavior, preserved behavior, regression boundaries, validation evidence, and risk boundaries.
-12. Do not guess missing PRD fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
-13. Before creating artifacts, summarize your final interpretation, material user answers, accepted assumptions, and any "no additional constraints" answer. Ask the user to confirm this interpretation and stop unless the current context already clearly supplies the task description, task rules/constraints answer, and enough material answers to write the artifacts without new assumptions. If the user has already provided that complete context, treat confirmation as satisfied and continue. If the user disagrees or adds material scope, continue intake instead of writing files.
+12. Do not guess missing PRD fields. Separate accepted assumptions from material unknowns:
+    - accepted assumptions are allowed only for non-material interpretations that do not change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands;
+    - if an unknown can change any of those artifact values, ask the user and stop instead of recording it as an assumption;
+    - if the user cannot answer a material question, stop instead of encoding a silent assumption.
+13. Before creating artifacts, summarize your final interpretation, material user answers, accepted assumptions, material unknowns resolved by questions, and any "no additional constraints" answer. Ask the user to confirm this interpretation and stop unless the current context already clearly supplies the task description, task rules/constraints answer, enough material answers to write the artifacts without new assumptions, and explicit confirmation of this same final interpretation. If the user already explicitly confirmed the same interpretation in the current context, treat confirmation as satisfied and continue. If artifacts have not been created yet and that same-interpretation confirmation is absent, ask for confirmation and stop. If the user disagrees or adds material scope, continue intake instead of writing files.
 14. Choose a change folder slug only after intake is complete and the final interpretation is confirmed:
     - The slug is an agent-derived filesystem name, not a user requirement and not a CLI-generated value.
     - Choose a short kebab-case slug from the final task text, for example `create-kanban-board`.
@@ -59,6 +62,7 @@ Artifact requirements:
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
 - `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
+- For each `rules.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method only when repository evidence or an explicit user answer supports it; otherwise ask the user for that gate method and stop. Do not invent commands.
 - `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
