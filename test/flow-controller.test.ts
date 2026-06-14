@@ -2,13 +2,16 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { getInitPrompt, getNextPrompt } from "../src/features/flow-control";
+import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
-const testTmpDir = path.resolve(__dirname, "..", "test-controller-temp");
+let testTmpDir: string;
+
+function setupTestDir() {
+  testTmpDir = createTempWorkspace("flow-controller");
+}
 
 function cleanupTestDir() {
-  if (fs.existsSync(testTmpDir)) {
-    fs.rmSync(testTmpDir, { recursive: true, force: true });
-  }
+  cleanupTempWorkspace(testTmpDir);
 }
 
 function writeArtifact(filePath: string, body: string, approved = true) {
@@ -216,7 +219,7 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 }
 
 describe("flow controller typed stages", () => {
-  beforeEach(() => cleanupTestDir());
+  beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
 
   test("init prompt reports init stage", () => {

@@ -8,7 +8,6 @@
 /temp
 /test-results
 /test-results-*/
-/test-cli-temp
 .DS_Store
 .env
 .env.*

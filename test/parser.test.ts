@@ -13,19 +13,21 @@ import { parseTestCommands } from "../src/entities/test-commands/parse-test-comm
 import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
+import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
-const testTmpDir = path.resolve(__dirname, "..", "test-temp");
+let testTmpDir: string;
 
 function setupTestDir() {
+  if (!testTmpDir) {
+    testTmpDir = createTempWorkspace("parser");
+  }
   if (!fs.existsSync(testTmpDir)) {
     fs.mkdirSync(testTmpDir, { recursive: true });
   }
 }
 
 function cleanupTestDir() {
-  if (fs.existsSync(testTmpDir)) {
-    fs.rmSync(testTmpDir, { recursive: true, force: true });
-  }
+  cleanupTempWorkspace(testTmpDir);
 }
 
 describe("Parser & Checker Utilities", () => {

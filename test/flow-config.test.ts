@@ -11,13 +11,16 @@ import {
   resolveFlowRalphConfigPath,
   resolveProjectLogDir
 } from "../src/features/ralph-runner/config";
+import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
-const testTmpDir = path.resolve(__dirname, "..", "test-config-temp");
+let testTmpDir: string;
+
+function setupTestDir() {
+  testTmpDir = createTempWorkspace("flow-config");
+}
 
 function cleanupTestDir() {
-  if (fs.existsSync(testTmpDir)) {
-    fs.rmSync(testTmpDir, { recursive: true, force: true });
-  }
+  cleanupTempWorkspace(testTmpDir);
 }
 
 function writeProjectConfig(projectPath: string, body: string): string {
@@ -28,7 +31,7 @@ function writeProjectConfig(projectPath: string, body: string): string {
 }
 
 describe("flow-ralph config", () => {
-  beforeEach(() => cleanupTestDir());
+  beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
 
   test("parses config with comments and defaults", () => {
