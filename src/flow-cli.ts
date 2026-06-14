@@ -53,9 +53,7 @@ function main(): void {
   const projectPath = parseProjectPath(args);
 
   if (command === "init") {
-    const configPath = resolveFlowRalphConfigPath(projectPath, parseConfigPath(args));
-    const config = loadFlowRalphConfig(configPath);
-    console.log(getInitPrompt(projectPath, config).prompt);
+    console.log(getInitPrompt(projectPath).prompt);
     return;
   }
 

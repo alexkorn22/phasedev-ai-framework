@@ -269,7 +269,7 @@ describe("flow-ralph runner", () => {
   beforeEach(() => cleanupTestDir());
   afterEach(() => cleanupTestDir());
 
-  test("creates a fresh Codex thread for every stage session and sends init then next", async () => {
+  test("creates a fresh Codex thread for every stage session and sends init bootstrap with next", async () => {
     const projectPath = setupProject();
     const planPath = path.join(projectPath, "openspec", "changes", "sample-change", "implementation_plan.md");
     fs.writeFileSync(planPath, `
@@ -329,18 +329,21 @@ describe("flow-ralph runner", () => {
     expect(result.status).toBe("archived");
     expect(result.iterations).toBe(2);
     expect(threads).toHaveLength(2);
-    expect(threads[0].prompts[0]).toBe("init prompt");
-    expect(threads[0].prompts[1]).toContain("next prompt 1");
-    expect(threads[1].prompts[0]).toBe("init prompt");
-    expect(threads[1].prompts[1]).toContain("next prompt 2");
+    expect(threads[0].prompts).toHaveLength(1);
+    expect(threads[1].prompts).toHaveLength(1);
+    expect(threads[0].prompts[0]).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
+    expect(threads[0].prompts[0]).toContain("next prompt 1");
+    expect(threads[0].prompts[0].indexOf("FLOW INIT PROMPT")).toBeLessThan(threads[0].prompts[0].indexOf("FLOW NEXT PROMPT"));
+    expect(threads[1].prompts[0]).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
+    expect(threads[1].prompts[0]).toContain("next prompt 2");
     expect(threads[0].id).not.toBe(threads[1].id);
     expect(result.logPath).toContain(path.join(projectPath, "openspec", "flow-ralph"));
     expect(messages).toContain("[FLOW RALPH] stage: implementation");
     expect(messages).toContain("[FLOW RALPH] model: gpt-5.4");
     expect(messages).toContain("[FLOW RALPH] reasoning: high");
-    expect(messages).toContain("[FLOW RALPH] running flow init...");
-    expect(messages).toContain("[FLOW RALPH] flow init completed");
-    expect(messages).toContain("[FLOW RALPH] running stage: implementation");
+    expect(messages).not.toContain("[FLOW RALPH] running flow init...");
+    expect(messages).not.toContain("[FLOW RALPH] flow init completed");
+    expect(messages).toContain("[FLOW RALPH] running stage with init bootstrap: implementation");
   });
 
   test("stops on blocked flow prompt without starting Codex", async () => {
@@ -950,14 +953,14 @@ describe("flow-ralph runner", () => {
     });
 
     expect(result.status).toBe("no_progress");
-    expect(messages).toContain("[CODEX flow init] thread.started: thread-stream");
-    expect(messages).toContain("[CODEX flow init] reasoning: checking flow state");
-    expect(messages).toContain("[CODEX flow init] command: bun test");
-    expect(messages).toContain("[CODEX flow init] command output:\ntests passed");
-    expect(messages).toContain("[CODEX flow init] file_change: completed update openspec/changes/sample-change/implementation_plan.md");
-    expect(messages).toContain("[CODEX flow init] mcp_tool_call: server/tool completed");
-    expect(messages).toContain("[CODEX flow init] web_search: query");
-    expect(messages).toContain("[CODEX flow init] todo_list:\n- [x] Validate");
+    expect(messages).toContain("[CODEX implementation] thread.started: thread-stream");
+    expect(messages).toContain("[CODEX implementation] reasoning: checking flow state");
+    expect(messages).toContain("[CODEX implementation] command: bun test");
+    expect(messages).toContain("[CODEX implementation] command output:\ntests passed");
+    expect(messages).toContain("[CODEX implementation] file_change: completed update openspec/changes/sample-change/implementation_plan.md");
+    expect(messages).toContain("[CODEX implementation] mcp_tool_call: server/tool completed");
+    expect(messages).toContain("[CODEX implementation] web_search: query");
+    expect(messages).toContain("[CODEX implementation] todo_list:\n- [x] Validate");
     expect(messages).toContain("[CODEX implementation] agent_message:\nstage streamed response");
     expect(messages).toContain("[CODEX implementation] turn.completed usage: input=10, cached=2, output=3, reasoning=4");
 
@@ -1000,7 +1003,7 @@ describe("flow-ralph runner", () => {
     expect(reporterMessages).toContain("[FLOW RALPH] iteration 1/1");
     expect(reporterMessages.some(message => message.startsWith("## ["))).toBe(false);
     expect(telegramMessages).toContain("[FLOW RALPH] iteration 1/1");
-    expect(telegramMessages).toContain("[CODEX flow init] command output:\ntests passed");
+    expect(telegramMessages).toContain("[CODEX implementation] command output:\ntests passed");
     expect(telegramMessages).toContain("[CODEX implementation] agent_message:\nstage telegram response");
     expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("stage telegram response"))).toBe(true);
   });
@@ -1031,7 +1034,9 @@ describe("flow-ralph runner", () => {
     });
 
     expect(result.status).toBe("no_progress");
-    expect(prompts).toHaveLength(2);
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
+    expect(prompts[0]).toContain("same next prompt");
     expect(messages.some(message => message.startsWith("[CODEX "))).toBe(false);
 
     const logContent = fs.readFileSync(result.logPath, "utf-8");
@@ -1065,7 +1070,7 @@ describe("flow-ralph runner", () => {
 
     expect(result.status).toBe("no_progress");
     expect(telegramMessages.some(message => message.startsWith("[CODEX "))).toBe(false);
-    expect(telegramMessages).toContain("[FLOW RALPH] running flow init...");
+    expect(telegramMessages).toContain("[FLOW RALPH] running stage with init bootstrap: implementation");
     expect(telegramMessages.some(message => message.startsWith("## [") && message.includes("buffered telegram response"))).toBe(true);
   });
 

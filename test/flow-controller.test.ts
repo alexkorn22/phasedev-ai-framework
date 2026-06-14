@@ -225,9 +225,14 @@ describe("flow controller typed stages", () => {
     expect(result.command).toBe("init");
     expect(result.stage).toBe("init");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("## Current Flow State");
-    expect(result.prompt).toContain("- Stage: `setup`");
-    expect(result.prompt).toContain("- Active change: none");
+    expect(result.prompt).toContain("## Init State");
+    expect(result.prompt).toContain("command: init");
+    expect(result.prompt).toContain("current_stage: setup");
+    expect(result.prompt).toContain("route_kind: setup");
+    expect(result.prompt).toContain("active_change: none");
+    expect(result.prompt).toContain("may_modify_files: false");
+    expect(result.prompt).toContain("Allowed persistent artifacts: none");
+    expect(fs.existsSync(path.join(testTmpDir, "openspec", "changes"))).toBe(false);
   });
 
   test("next prompt blocks approved PRD that does not satisfy Intent contract", () => {
@@ -264,8 +269,9 @@ describe("flow controller typed stages", () => {
     const result = getInitPrompt(testTmpDir);
 
     expect(result.stage).toBe("init");
-    expect(result.prompt).toContain("- Stage: `implementation`");
-    expect(result.prompt).toContain(`- Active change: file://${changeDir}`);
+    expect(result.prompt).toContain("current_stage: implementation");
+    expect(result.prompt).toContain("route_kind: phase");
+    expect(result.prompt).toContain(`active_change: file://${changeDir}`);
     expect(fs.existsSync(changeDir)).toBe(true);
   });
 
@@ -283,10 +289,26 @@ describe("flow controller typed stages", () => {
 
     const result = getInitPrompt(testTmpDir);
 
-    expect(result.prompt).toContain("- Stage: `archive`");
-    expect(result.prompt).toContain(`- Active change: file://${changeDir}`);
+    expect(result.prompt).toContain("current_stage: archive");
+    expect(result.prompt).toContain("route_kind: archive_ready");
+    expect(result.prompt).toContain(`active_change: file://${changeDir}`);
     expect(fs.existsSync(changeDir)).toBe(true);
     expect(fs.existsSync(archiveDir)).toBe(false);
+  });
+
+  test("init prompt blocks invalid active change state without throwing", () => {
+    fs.mkdirSync(path.join(testTmpDir, "openspec", "changes", "first-change"), { recursive: true });
+    fs.mkdirSync(path.join(testTmpDir, "openspec", "changes", "second-change"), { recursive: true });
+
+    const result = getInitPrompt(testTmpDir);
+
+    expect(result.command).toBe("init");
+    expect(result.stage).toBe("init");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
+    expect(result.prompt).toContain("Multiple active changes found in openspec/changes");
+    expect(result.prompt).toContain("flow init performed no filesystem changes");
+    expect(result.prompt).toContain("Fix the flow state before running `flow next`.");
   });
 
   test("missing active change routes to setup stage", () => {

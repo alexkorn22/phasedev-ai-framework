@@ -327,12 +327,18 @@ describe("flow-cli state machine", () => {
     const output = runInit();
 
     expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
-    expect(output).toContain("## Current Flow State");
-    expect(output).toContain("- Stage: `setup`");
-    expect(output).toContain("- Active change: none");
-    expect(output).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.");
+    expect(output).toContain("## Init State");
+    expect(output).toContain("command: init");
+    expect(output).toContain("current_stage: setup");
+    expect(output).toContain("route_kind: setup");
+    expect(output).toContain("active_change: none");
+    expect(output).toContain("may_modify_files: false");
+    expect(output).toContain("Allowed persistent artifacts: none");
+    expect(output).toContain("Stage-specific skill policy is supplied only by the current `flow next` prompt from `config.yaml`.");
     expect(output).not.toContain("## Mandatory Skill Selection Router");
     expect(output).not.toContain("## Configured Skill Policy");
+    expect(output).not.toContain("Artifact Build Contract");
+    expect(output).not.toContain("Stage 0. AI Layer Setup.");
   });
 
   test("init accepts project openspec config but keeps output policy-free", () => {
@@ -348,9 +354,25 @@ codex:
     const output = runInit();
 
     expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
-    expect(output).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt from `config.yaml`.");
+    expect(output).toContain("Stage-specific skill policy is supplied only by the current `flow next` prompt from `config.yaml`.");
     expect(output).not.toContain("## Configured Skill Policy");
     expect(output).not.toContain("project-only-skill");
+  });
+
+  test("init ignores invalid project openspec config", () => {
+    writeProjectConfig(`
+codex:
+  stages:
+    setup:
+      reasoningEffort: impossible
+`);
+
+    const output = runInit();
+
+    expect(output).toContain("Remember the Agentic Engineering Flow model for this session.");
+    expect(output).toContain("command: init");
+    expect(output).toContain("route_kind: setup");
+    expect(output).not.toContain("Config key");
   });
 
   test("implementation prompt uses config skills without requiring a router", () => {
@@ -1915,7 +1937,7 @@ codex:
     ];
 
     expect(initTemplate).not.toContain("Human Review Formatting Policy");
-    expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
+    expect(initTemplate).toContain("Stage-specific skill policy is supplied only by the current `flow next` prompt");
     expect(setupTemplate).toContain("Human Review Formatting Policy");
     expect(setupTemplate).toContain("For `prd.md`, do not choose structure based on content");
     expect(setupTemplate).toContain("Use only the strict PRD contract");
@@ -1938,7 +1960,7 @@ codex:
     ];
 
     expect(initTemplate).not.toContain("compact visual review surface");
-    expect(initTemplate).toContain("Stage-specific skill policy is supplied by the current `flow next` prompt");
+    expect(initTemplate).toContain("Stage-specific skill policy is supplied only by the current `flow next` prompt");
     expect(setupTemplate).toContain("Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves");
     expect(setupTemplate).toContain("Use concise tables and short wording instead of decorative formatting");
     expect(setupTemplate).not.toContain("semantic emoji markers");
@@ -1966,7 +1988,8 @@ codex:
     ];
 
     expect(initTemplate).not.toContain("If a question affects the approval artifact");
-    expect(initTemplate).toContain("Use subagents only when");
+    expect(initTemplate).not.toContain("Use subagents only when");
+    expect(initTemplate).toContain("Wait for the next message containing the exact `flow next` output");
     expect(setupTemplate).toContain("If a question affects the approval artifact");
     expect(setupTemplate).toContain("ask the user and stop until the answer");
     expect(setupTemplate).toContain("Do not write pending open questions");
@@ -2085,7 +2108,8 @@ codex:
     const planTemplate = readTemplate("step3_plan.md");
     const planContract = readTemplate("artifacts/implementation_plan.md");
 
-    expect(initTemplate).toContain("After successful Phase Validation for all phases, the flow proceeds to `Final Validation`");
+    expect(initTemplate).toContain("5A. Phase Validation");
+    expect(initTemplate).toContain("5B. Final Validation");
     expect(initTemplate).not.toContain("Phase Validation does not run separately");
     expect(planTemplate).toContain("every phase, including the only phase, goes through `Implementation -> Phase Validation`");
     expect(planTemplate).not.toContain("Implementation -> Final Validation` without separate Phase Validation");
@@ -2097,7 +2121,7 @@ codex:
     const archiveTemplate = readTemplate("step6_archive.md");
 
     expect(initTemplate).toContain("6. Archive");
-    expect(initTemplate).toContain("After successful Final Validation, the next `flow next` starts Archive");
+    expect(initTemplate).toContain("`flow next` owns the executable stage contract");
     expect(archiveTemplate).toContain("[prd.md]({{prd_path}})");
     expect(archiveTemplate).toContain("[rules.md]({{rules_path}})");
     expect(archiveTemplate).toContain("[research_facts.md]({{research_path}})");

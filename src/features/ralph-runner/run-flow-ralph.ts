@@ -40,8 +40,15 @@ interface ChangedFiles {
   deleted: string[];
 }
 
-function wrapNextPrompt(nextPrompt: FlowPrompt): string {
+function wrapStagePrompt(initPrompt: FlowPrompt, nextPrompt: FlowPrompt): string {
   return [
+    "Below is the exact output of the manual `flow init` command.",
+    "Use it as bootstrap context only.",
+    "",
+    "=== FLOW INIT PROMPT START ===",
+    initPrompt.prompt,
+    "=== FLOW INIT PROMPT END ===",
+    "",
     "Below is the exact output of the manual `flow next` command.",
     "",
     "Run rules:",
@@ -436,12 +443,15 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
         networkAccessEnabled: config.codex.networkAccessEnabled
       });
 
-      reporter.log("[FLOW RALPH] running flow init...");
-      await runCodexTurn(thread, getInit(resolvedProjectPath, config).prompt, "flow init", reporter, config.codex.streamAgentOutput);
-      reporter.log("[FLOW RALPH] flow init completed");
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
-      reporter.log(`[FLOW RALPH] running stage: ${nextPrompt.stage}`);
-      const turn = await runCodexTurn(thread, wrapNextPrompt(nextPrompt), nextPrompt.stage, reporter, config.codex.streamAgentOutput);
+      reporter.log(`[FLOW RALPH] running stage with init bootstrap: ${nextPrompt.stage}`);
+      const turn = await runCodexTurn(
+        thread,
+        wrapStagePrompt(getInit(resolvedProjectPath, config), nextPrompt),
+        nextPrompt.stage,
+        reporter,
+        config.codex.streamAgentOutput
+      );
       const afterStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
 
       const beforeHash = computeCombinedHash(beforeStageSnapshot);
