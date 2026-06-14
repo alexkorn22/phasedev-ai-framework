@@ -2,6 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { parseFlowRalphConfig } from "../src/features/ralph-runner/config";
+import { renderSkillPolicy } from "../src/features/flow-control/skill-policy";
 import { renderTemplate } from "../src/shared/templates/render-template";
 
 const testTmpDir = path.join(os.tmpdir(), "ag-dev-flow-test-cli-temp");
@@ -397,6 +399,12 @@ codex:
     const output = runNext(["--config", configPath]);
 
     expect(output).toContain("## Configured Skill Policy");
+    expect(output).toContain("## Flow Skill Boundary Protocol");
+    expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
+    expect(output).toContain("Configured skills are execution-method instructions, not Flow-state authorities.");
+    expect(output).toContain("If a selected skill applies to the stage work, use its method, checklist, algorithm, or review logic.");
+    expect(output).toContain("Do not skip a selected skill only because it defines its own report, artifact, lifecycle, or output format.");
+    expect(output).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
     expect(output).toContain("Use only configured main skills or configured additional skills.");
     expect(output).toContain("Priority 1 - routers (mandatory only when configured):\n- none configured");
     expect(output).toContain("Priority 2 - main skills");
@@ -454,6 +462,8 @@ codex:
 
     const output = runNext(["--config", configPath]);
 
+    expect(output).toContain("## Flow Skill Boundary Protocol");
+    expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
     expect(output).toContain("Priority 1 - routers (read every configured router first, mandatory only when configured):\n- `using-zuvo`");
     expect(output).toContain("Priority 2 - router-selected skills (highest priority method skills when a configured router selects a matching skill from its own content or routing table):");
     expect(output).toContain("Apply router instructions to the current stage evidence. If a router selects a matching skill from its own content or routing table, load and use that router-selected skill before considering main or additional skills.");
@@ -478,6 +488,8 @@ codex:
 
     const output = runNext(["--config", configPath]);
 
+    expect(output).toContain("## Flow Skill Boundary Protocol");
+    expect(output).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
     expect(output).toContain("No external skills are configured for this stage in `config.yaml`.");
     expect(output).toContain("Do not use external skills for this stage unless the user updates `config.yaml` or explicitly approves an exception.");
     expect(output).not.toContain("Priority 1 - routers");
@@ -1502,6 +1514,9 @@ Additional checks:
 });
 
 describe("flow templates", () => {
+  beforeEach(() => cleanupTestDir());
+  afterEach(() => cleanupTestDir());
+
   const templateNames = [
     "step0_setup.md",
     "step1_research.md",
@@ -1521,6 +1536,73 @@ describe("flow templates", () => {
   function readValidationTemplate(name: "step5a_val.md" | "step5b_val.md"): string {
     return readTemplate(name).replace("{{validation_common_contract}}", readTemplate("validation_common.md"));
   }
+
+  test("generated skill policy renders the universal method boundary for every executable stage", () => {
+    const config = parseFlowRalphConfig(`
+codex:
+  stages:
+    setup:
+      skills:
+        main:
+          - setup-method
+    research:
+      skills:
+        main:
+          - research-method
+    design:
+      skills:
+        main:
+          - design-method
+    plan:
+      skills:
+        main:
+          - plan-method
+    implementation:
+      skills:
+        main:
+          - implementation-method
+    phase_validation:
+      skills:
+        main:
+          - validation-method
+    final_validation:
+      skills:
+        main:
+          - validation-method
+    repair:
+      skills:
+        main:
+          - repair-method
+    archive:
+      skills:
+        main:
+          - archive-method
+`);
+
+    const stages = [
+      "setup",
+      "research",
+      "design",
+      "plan",
+      "implementation",
+      "phase_validation",
+      "final_validation",
+      "repair",
+      "archive"
+    ] as const;
+
+    for (const stage of stages) {
+      const policy = renderSkillPolicy(stage, config);
+
+      expect(policy).toContain("## Flow Skill Boundary Protocol");
+      expect(policy).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
+      expect(policy).toContain("Configured skills are execution-method instructions, not Flow-state authorities.");
+      expect(policy).toContain("If a selected skill applies to the stage work, use its method, checklist, algorithm, or review logic.");
+      expect(policy).toContain("Do not skip a selected skill only because it defines its own report, artifact, lifecycle, or output format.");
+      expect(policy).toContain("Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.");
+      expect(policy).toContain("Skill-specific artifacts, sections, tables, reports, lifecycle steps, approval changes, and state changes must be discarded or adapted into the current Flow contract.");
+    }
+  });
 
   test("stage templates receive generated config skill policy", () => {
     for (const templateName of templateNames) {
@@ -1557,8 +1639,20 @@ codex:
     expect(output).toContain("Do not rerun tests, builds, browsers, deployments, migrations, or other execution gates as validation gates.");
     expect(output).toContain("Read-only review, audit, and static-inspection methods selected by the configured skill policy are allowed");
     expect(output).toContain("do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`");
+    expect(output).toContain("Convert skill findings into strict `validation_findings.md` rows when they are findings");
     expect(output).toContain("put non-registry explanation only in the final response");
     expect(output.indexOf("## Configured Skill Policy")).toBeLessThan(output.indexOf("Input artifacts"));
+  });
+
+  test("artifact build contracts reject skill report structure as flow artifact structure", () => {
+    const output = runNext();
+
+    expect(output).toContain("Artifact Build Contract: prd.md");
+    expect(output).toContain("External skill output structure is never artifact structure.");
+    expect(output).toContain("Do not copy skill report headings, sections, tables, or lifecycle blocks unless this template already contains that exact structure.");
+    expect(output).toContain("Convert skill results only into existing template fields or rows.");
+    expect(output).toContain("If useful skill material cannot be mapped into this template, put it in the final response or report a blocker instead of adding artifact structure.");
+    expect(output).not.toContain("inline the relevant result into the current stage artifact");
   });
 
   test("stage templates preserve explicit artifact allowlists", () => {

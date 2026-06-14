@@ -15,6 +15,21 @@ function hasConfiguredRouters(skills: StageSkillConfig): boolean {
   return skills.routers.length > 0;
 }
 
+function flowSkillBoundaryProtocol(): string[] {
+  return [
+    "## Flow Skill Boundary Protocol",
+    "",
+    "Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.",
+    "",
+    "- Configured skills are execution-method instructions, not Flow-state authorities.",
+    "- If a selected skill applies to the stage work, use its method, checklist, algorithm, or review logic.",
+    "- Do not skip a selected skill only because it defines its own report, artifact, lifecycle, or output format.",
+    "- Flow owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.",
+    "- Skill-specific artifacts, sections, tables, reports, lifecycle steps, approval changes, and state changes must be discarded or adapted into the current Flow contract.",
+    "- Convert useful skill output into the current artifact template, the final response, or a blocker. Do not invent extra Flow artifact structure for skill output."
+  ];
+}
+
 function stageSpecificRules(stage: FlowStage): string[] {
   if (stage !== "phase_validation" && stage !== "final_validation") {
     return [];
@@ -24,7 +39,7 @@ function stageSpecificRules(stage: FlowStage): string[] {
     "- Validation stages are review-only. Do not rerun tests, builds, browsers, deployments, migrations, or other execution gates as validation gates.",
     "- Read-only review, audit, and static-inspection methods selected by the configured skill policy are allowed when they do not modify repo-tracked files and do not create persistent artifacts outside this stage's allowlist.",
     "- Do not let a skill override the validation stage rule that Implementation checks are already declared passed and must not be re-executed.",
-    "- `validation_findings.md` may contain only YAML frontmatter and exactly one markdown findings table. Convert skill output into strict table rows when it is a finding; put non-registry explanation only in the final response."
+    "- `validation_findings.md` may contain only YAML frontmatter and exactly one markdown findings table. Convert skill findings into strict `validation_findings.md` rows when they are findings; put non-registry explanation only in the final response."
   ];
 }
 
@@ -33,7 +48,7 @@ function externalSkillArtifactRule(stage: FlowStage): string {
     return "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, do not inline prose, sections, evidence blocks, or extra tables into `validation_findings.md`.";
   }
 
-  return "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, inline the relevant result into the current stage artifact or final response instead.";
+  return "- External skills may not create persistent files outside this stage's artifact allowlist. If a skill normally writes its own report/file, map only its relevant conclusions into existing template fields/rows or the final response.";
 }
 
 export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): string {
@@ -64,6 +79,8 @@ export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): st
       "",
       "No external skills are configured for this stage in `config.yaml`.",
       "Do not use external skills for this stage unless the user updates `config.yaml` or explicitly approves an exception.",
+      "",
+      ...flowSkillBoundaryProtocol(),
       "",
       "Flow Next controls artifacts and state. Follow the stage contract and artifact allowlist exactly.",
       ...stageSpecificRules(stage)
@@ -103,6 +120,9 @@ export function renderSkillPolicy(stage: FlowStage, config: FlowRalphConfig): st
     "## Configured Skill Policy",
     "",
     "Flow Next controls artifacts and state. Skills control method only.",
+    "",
+    ...flowSkillBoundaryProtocol(),
+    "",
     ...prioritySections,
     "",
     "Rules:",

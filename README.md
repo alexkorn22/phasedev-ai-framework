@@ -172,6 +172,8 @@ loop:
 
 `codex.stages.<stage>.skills` задает источники external skills для prompt текущего этапа. `routers` читаются первыми, если указаны; skills, явно выбранные содержимым или routing table такого router, считаются разрешенными и имеют приоритет выше `main` и `additional`. `main` используется, когда routers не настроены или ни один router-selected skill не подходит под evidence этапа. `additional` — запасной допустимый пул. Агент не должен предварительно читать все skill bodies; он выбирает минимальный нужный набор по evidence этапа. Если подходящего skill нет среди configured routers, router-selected skills, `main` или `additional`, агент должен остановиться и попросить обновить config/router или явно разрешить исключение.
 
+Skills в конфиге являются method layer, а не владельцами flow state. Если выбранный skill применим к работе этапа, агент должен использовать его метод, алгоритм, чеклист или review-логику. Но Flow всегда владеет форматами артефактов, разрешенными файлами, переходами этапов, approval state, validation verdicts и archive state. Skill-specific reports, headings, tables, lifecycle steps или state changes не копируются в flow напрямую: полезные выводы мапятся только в текущий Artifact Build Contract, финальный ответ или blocker.
+
 Skills не наследуются из `codex.default`: каждый stage должен перечислять их явно. Если `skills` пустой или отсутствует, prompt этапа запрещает external skills без отдельного разрешения пользователя.
 
 `flow init` и текущий `flow next` внутри одной сессии этапа используют одну и ту же модель: модель выбирается по этапу, который вернул `flow next`.
