@@ -8,6 +8,7 @@ import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { renderArtifactContract } from "./artifact-contract";
 import { archivePrompt, startArchiveStage } from "./archive-stage";
+import { renderChangedFileInventory } from "./changed-file-inventory";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./phase-routing";
@@ -40,6 +41,7 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
+    validation_common_contract: renderTemplate("validation_common", {}),
     skill_policy: renderSkillPolicy(stage, config)
   });
 }
@@ -51,6 +53,22 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
     templateName,
     selfCheckCommand,
     date
+  });
+}
+
+function flowFinalValidationCheckCommand(projectPath: string): string {
+  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope final`;
+}
+
+function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
+  return renderArtifactContract({
+    artifactId: "validation_findings.md",
+    resolvedOutputPath: findingsPath,
+    templateName: "artifacts/validation_findings",
+    selfCheckCommand: flowFinalValidationCheckCommand(projectPath),
+    selfCheckFailureGuidance: "Stage is not complete until this command passes. If it fails, fix only `validation_findings.md`, then rerun the same command.",
+    date: new Date().toISOString().split("T")[0]
   });
 }
 
@@ -161,7 +179,8 @@ export function getNextPrompt(projectPath: string, config: FlowRalphConfig = loa
         plan_path: urls.plan_path,
         findings_path: urls.findings_path,
         date: new Date().toISOString().split("T")[0],
-        validation_findings_artifact_contract: artifactContract("validation_findings.md", route.paths.findingsPath, "artifacts/validation_findings", flowCheckCommand(projectPath))
+        controller_changed_files_inventory: renderChangedFileInventory(projectPath),
+        validation_findings_artifact_contract: finalValidationArtifactContract(route.paths.findingsPath, projectPath)
       }, config));
     }
   }

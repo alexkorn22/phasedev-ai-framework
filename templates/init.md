@@ -30,7 +30,7 @@ Workflow model:
 5A. Phase Validation: validate the completed code for the current phase against the implementation plan.
 5B. Final Validation: validate the whole change set before PR after all phases.
 5R. Repair Loop: process validation findings and repair code/tests/plan/design.
-6. Archive: sync OpenSpec delta specs from the archived change into `openspec/specs` and complete `.flow-archive.json`.
+6. Archive: sync OpenSpec delta specs from concrete `R#` behavior into `openspec/specs`, self-check the archive, and complete `.flow-archive.json`.
 
 Validation routing:
 - Every phase, including the only phase in a single-phase plan, goes through `Implementation -> Phase Validation`.

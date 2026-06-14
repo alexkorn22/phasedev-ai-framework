@@ -11,6 +11,7 @@ import { parseCurrentValidationFindings, ValidationFindingState } from "../../en
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderArtifactContract } from "./artifact-contract";
+import { renderChangedFileInventory } from "./changed-file-inventory";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
 import { formatPhaseExcerpt, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
@@ -36,6 +37,7 @@ function renderStageTemplate(stage: Exclude<FlowStage, "init">, templateName: st
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
+    validation_common_contract: renderTemplate("validation_common", {}),
     skill_policy: renderSkillPolicy(stage, config)
   });
 }
@@ -46,12 +48,20 @@ function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
   return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
-function validationFindingsContract(findingsPath: string, projectPath: string, expectedRoute?: string): string {
+function flowValidationCheckCommand(projectPath: string, phaseId: number): string {
+  const cliPath = path.resolve(__dirname, "..", "..", "flow-cli.ts");
+  return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope phase --phase-id ${phaseId}`;
+}
+
+function validationFindingsContract(findingsPath: string, projectPath: string, phaseId?: number): string {
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
-    selfCheckCommand: flowCheckCommand(projectPath, expectedRoute),
+    selfCheckCommand: phaseId === undefined ? flowCheckCommand(projectPath) : flowValidationCheckCommand(projectPath, phaseId),
+    selfCheckFailureGuidance: phaseId === undefined
+      ? undefined
+      : "Stage is not complete until this command passes. If it fails, fix only `validation_findings.md` and the current phase status in `implementation_plan.md` when allowed by the validation verdict, then rerun the same command.",
     date: new Date().toISOString().split("T")[0]
   });
 }
@@ -73,7 +83,8 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
       plan_path: urls.plan_path,
       findings_path: urls.findings_path,
       date: new Date().toISOString().split("T")[0],
-      validation_findings_artifact_contract: validationFindingsContract(path.join(path.dirname(planPath), "validation_findings.md"), projectPath)
+      controller_changed_files_inventory: renderChangedFileInventory(projectPath),
+      validation_findings_artifact_contract: validationFindingsContract(path.join(path.dirname(planPath), "validation_findings.md"), projectPath, currentPhase.id)
     }, config));
   }
 

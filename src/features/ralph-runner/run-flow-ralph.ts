@@ -254,6 +254,25 @@ function isOutsideProjectPath(normalizedPath: string): boolean {
   return path.isAbsolute(normalizedPath) || normalizedPath === ".." || normalizedPath.startsWith("../");
 }
 
+function isOpenSpecSpecsPath(normalizedPath: string): boolean {
+  return normalizedPath === "openspec/specs" || normalizedPath.startsWith("openspec/specs/");
+}
+
+function isCurrentArchivePath(normalizedPath: string, relativeChangeDir: string | null): boolean {
+  if (!relativeChangeDir) {
+    return false;
+  }
+
+  const changeName = path.posix.basename(relativeChangeDir);
+  const archivePrefix = "openspec/changes/archive/";
+  if (!normalizedPath.startsWith(archivePrefix)) {
+    return false;
+  }
+
+  const archiveEntry = normalizedPath.slice(archivePrefix.length).split("/")[0];
+  return archiveEntry.endsWith(`-${changeName}`);
+}
+
 function validateStageAllowlist(
   stage: string,
   projectPath: string,
@@ -277,10 +296,6 @@ function validateStageAllowlist(
     }
 
     if (normalized.startsWith("openspec/flow-ralph/") || normalized === "openspec/flow-ralph") {
-      continue;
-    }
-
-    if (normalized.startsWith("openspec/changes/archive/") || normalized === "openspec/changes/archive") {
       continue;
     }
 
@@ -346,10 +361,12 @@ function validateStageAllowlist(
       }
     } else if (stage === "archive") {
       const isArchiveJson = normalized === ".flow-archive.json" || normalized.endsWith("/.flow-archive.json");
-      const isInArchiveDir = normalized.startsWith("openspec/changes/archive/");
+      const isArchiveRoot = normalized === "openspec/changes/archive";
+      const isInCurrentArchiveDir = isCurrentArchivePath(normalized, relativeChangeDir);
       const isDeletedActiveChange = relativeChangeDir && normalized.startsWith(`${relativeChangeDir}/`);
+      const isActiveChangeDir = relativeChangeDir && normalized === relativeChangeDir;
 
-      if (!isArchiveJson && !isInArchiveDir && !isDeletedActiveChange) {
+      if (!isArchiveJson && !isArchiveRoot && !isInCurrentArchiveDir && !isOpenSpecSpecsPath(normalized) && !isDeletedActiveChange && !isActiveChangeDir) {
         violations.push(`File '${normalized}' modified during 'archive' stage is outside allowlist.`);
       }
     }
@@ -433,7 +450,9 @@ export async function runFlowRalph(projectPath: string, config: FlowRalphConfig,
       const flowChangedFiles = getChangedFiles(beforeStageSnapshot, afterStageSnapshot);
       const reportedChangedFiles = changedFilesFromReportedFileChanges(resolvedProjectPath, turn.fileChanges);
       const changedFiles = mergeChangedFiles(flowChangedFiles, reportedChangedFiles);
-      const activeChangeDir = findActive(resolvedProjectPath);
+      const activeChangeDir = nextPrompt.stage === "archive"
+        ? beforeActiveChange
+        : findActive(resolvedProjectPath);
       const allowlistViolations = validateStageAllowlist(
         nextPrompt.stage,
         resolvedProjectPath,

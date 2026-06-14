@@ -319,7 +319,19 @@ Repair Loop получает compact repair queue из актуальных open
 2. До печати prompt контроллер переносит active change из `openspec/changes/<change-name>` в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>`.
 3. В archived change создается pending-state файл `.flow-archive.json` со статусом `in_progress`.
 4. Prompt архивации ссылается уже на archived change path.
-5. Агент создает delta specs в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>/specs`, разбивая их по функциональным областям (`specs/<capability>/spec.md`), обновляет `openspec/specs`, затем меняет `.flow-archive.json` на `status: "completed"`.
+5. Агент классифицирует каждое `R#` требование перед записью specs: `R# | Spec-level? | Capability | Operation | Target spec | Reason`.
+6. Агент создает delta specs в `openspec/changes/archive/<YYYY-MM-DD>-<change-name>/specs`, разбивая их по функциональным областям (`specs/<capability>/spec.md`), обновляет `openspec/specs`, затем меняет `.flow-archive.json` на `status: "completed"` и добавляет `completedAt`.
+7. Агент запускает archive self-check:
+
+```bash
+bun run src/flow-cli.ts check-archive --archive-path /absolute/project/openspec/changes/archive/<YYYY-MM-DD>-<change-name>
+```
+
+Archive считается завершенным только после successful self-check.
+
+В `openspec/specs` попадает только observable user/system behavior из concrete `R#`: пользовательские workflows, публичные API/CLI/SDK контракты, persisted/integration behavior, authorization/security/privacy behavior, business rules, invariants, validation/error behavior, compatibility/deprecation/migration behavior. Не переносите implementation tasks, test commands, `Check Evidence`, validation findings, repair notes, internal refactoring details, architecture rationale без concrete `R#`, speculative future behavior, а также `Intent`, `Risk boundaries` или `SC#`, если это не закреплено в `R#`.
+
+`openspec/specs` является долговременным AI-контекстом для будущих Research stages. Если требование сомнительно как spec-level behavior, Archive должен пропустить его и объяснить omission в финальном ответе, а не добавлять speculative requirement.
 
 Отдельного archive script и отдельной archive-команды нет. Повторный `flow next` при незавершенном archive stage находит pending `.flow-archive.json` и печатает тот же Archive prompt для уже archived change. Это позволяет возобновить archive stage после сбоя без потери active change.
 

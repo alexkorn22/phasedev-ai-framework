@@ -320,7 +320,7 @@ describe("flow-ralph runner", () => {
         }
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", `next prompt ${stageTurnCount + 1}`),
+      getNextPrompt: () => flowPrompt("next", stageTurnCount >= 1 ? "archive" : "implementation", `next prompt ${stageTurnCount + 1}`),
       findActiveChangeDir: () => archived ? null : path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -493,7 +493,7 @@ describe("flow-ralph runner", () => {
         }
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      getNextPrompt: () => flowPrompt("next", threads.length >= 1 ? "archive" : "implementation", "same next prompt"),
       findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -625,6 +625,76 @@ describe("flow-ralph runner", () => {
     expect(result.status).toBe("max_iterations");
     expect(result.reason).not.toContain("Artifact allowlist violation");
     expect(fs.existsSync(linkedDesignPath)).toBe(true);
+  });
+
+  test("allows archive stage to update current archive and openspec specs", async () => {
+    const projectPath = setupProject();
+    const archiveDir = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    const deltaSpecPath = path.join(archiveDir, "specs", "flow-routing", "spec.md");
+    const mainSpecPath = path.join(projectPath, "openspec", "specs", "flow-routing", "spec.md");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-archive-spec-sync",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.mkdirSync(path.dirname(deltaSpecPath), { recursive: true });
+              fs.writeFileSync(deltaSpecPath, "## ADDED Requirements\n", "utf-8");
+              fs.mkdirSync(path.dirname(mainSpecPath), { recursive: true });
+              fs.writeFileSync(mainSpecPath, "## Requirements\n", "utf-8");
+              fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+                status: "completed",
+                changeName: "sample-change",
+                archivePath: archiveDir,
+                startedAt: "2026-05-29T10:00:00.000Z",
+                completedAt: "2026-05-29T10:10:00.000Z"
+              }), "utf-8");
+            }
+            return { finalResponse: "archive completed" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "archive", "archive prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("archived");
+    expect(result.reason).not.toContain("Artifact allowlist violation");
+    expect(fs.existsSync(deltaSpecPath)).toBe(true);
+    expect(fs.existsSync(mainSpecPath)).toBe(true);
+  });
+
+  test("blocks non-archive stages from mutating archived changes", async () => {
+    const projectPath = setupProject();
+    const archiveFilePath = path.join(projectPath, "openspec", "changes", "archive", "2026-05-29-old-change", "notes.md");
+
+    const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-design-archive-mutation",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.mkdirSync(path.dirname(archiveFilePath), { recursive: true });
+              fs.writeFileSync(archiveFilePath, "mutated archive history\n", "utf-8");
+            }
+            return { finalResponse: "updated archive history" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      findActiveChangeDir: () => path.join(projectPath, "openspec", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("openspec/changes/archive/2026-05-29-old-change/notes.md");
+    expect(result.reason).toContain("outside allowlist");
   });
 
   test("blocks nested architecture files during design stage", async () => {
@@ -1068,6 +1138,7 @@ describe("flow-ralph runner", () => {
 - [ ] 1.1 Implement endpoint
 `, "utf-8");
     let archived = false;
+    let nextPromptCount = 0;
     const threads: unknown[] = [];
 
     const result = await runFlowRalph(projectPath, makeConfig({ maxIterations: 5 }), {
@@ -1104,7 +1175,7 @@ describe("flow-ralph runner", () => {
         }
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
+      getNextPrompt: () => flowPrompt("next", nextPromptCount++ >= 1 ? "archive" : "implementation", "same next prompt"),
       findActiveChangeDir: () => archived ? null : path.join(projectPath, "openspec", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")

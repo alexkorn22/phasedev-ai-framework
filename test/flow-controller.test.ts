@@ -473,7 +473,9 @@ Complete API work.
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Stage 5B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
-    expect(result.prompt).toContain("flow-cli.ts\" check --project-path");
+    expect(result.prompt).toContain("flow-cli.ts\" check-validation --project-path");
+    expect(result.prompt).toContain("--scope final");
+    expect(result.prompt).toContain("## Controller Observed Changed Files");
     expect(result.prompt).toContain("Generation Bundle");
     expect(result.prompt).toContain("Intent");
   });

@@ -273,6 +273,52 @@ function runCheck(args: string[] = []): { exitCode: number; output: string } {
   };
 }
 
+function runCheckValidation(args: string[] = []): { exitCode: number; output: string } {
+  const result = Bun.spawnSync({
+    cmd: ["bun", "run", cliPath, "check-validation", "--project-path", testTmpDir, ...args],
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`
+  };
+}
+
+function runCheckArchive(args: string[] = []): { exitCode: number; output: string } {
+  const result = Bun.spawnSync({
+    cmd: ["bun", "run", cliPath, "check-archive", ...args],
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`
+  };
+}
+
+function writeCompletedArchive(changeName = "sample-change"): string {
+  const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", `2026-05-29-${changeName}`);
+  fs.mkdirSync(archiveDir, { recursive: true });
+  fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+    status: "completed",
+    changeName,
+    archivePath: archiveDir,
+    startedAt: "2026-05-29T10:00:00.000Z",
+    completedAt: "2026-05-29T10:10:00.000Z"
+  }, null, 2), "utf-8");
+  return archiveDir;
+}
+
+function writeDeltaSpec(archiveDir: string, capability: string, content: string): string {
+  const specPath = path.join(archiveDir, "specs", capability, "spec.md");
+  fs.mkdirSync(path.dirname(specPath), { recursive: true });
+  fs.writeFileSync(specPath, content, "utf-8");
+  return specPath;
+}
+
 describe("flow-cli state machine", () => {
   beforeEach(() => cleanupTestDir());
   afterEach(() => cleanupTestDir());
@@ -573,6 +619,154 @@ codex:
     expect(fs.existsSync(archivedDir)).toBe(false);
   });
 
+  test("check-validation final fails when findings type is phase", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[FLOW VALIDATION CHECK] FAILED: final");
+    expect(result.output).toContain("YAML field `type` must be `final` for Final Validation.");
+  });
+
+  test("check-validation final passes when ready findings route to archive_ready", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW VALIDATION CHECK] OK: final validation is complete.");
+  });
+
+  test("check-validation final fails when ready findings leave archive readiness blocked", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Final Validation declared ready, but route is archive_readiness_blocked.");
+  });
+
+  test("check-validation final passes when repair_required findings route to repair", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | validation | Final | Review coverage incomplete. | Complete final validation coverage. |\n")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW VALIDATION CHECK] OK: final validation is complete.");
+  });
+
+  test("check-validation final rejects repaired verdict", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Review coverage was incomplete. | Keep final validation coverage complete. |\n")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("`verdict: repaired` is not valid for Final Validation stage output.");
+  });
+
+  test("check-validation phase fails when ready findings leave the phase incomplete", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const result = runCheckValidation(["--scope", "phase", "--phase-id", "1"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("`verdict: ready` is valid only after Phase 1 is marked [x].");
+  });
+
+  test("check-validation phase passes when ready findings completed the phase", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Phase 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const result = runCheckValidation(["--scope", "phase", "--phase-id", "1"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW VALIDATION CHECK] OK: phase validation is complete.");
+  });
+
+  test("check-validation phase passes when repair_required findings route to repair", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "phase", "| F1 | open | MUST-FIX | validation | Phase 1 | Review coverage incomplete. | Complete phase validation coverage. |\n")
+    });
+
+    const result = runCheckValidation(["--scope", "phase", "--phase-id", "1"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW VALIDATION CHECK] OK: phase validation is complete.");
+  });
+
+  test("check-validation phase rejects repaired verdict", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "phase", "| F1 | resolved | MUST-FIX | validation | Phase 1 | Review coverage was incomplete. | Keep phase validation coverage complete. |\n")
+    });
+
+    const result = runCheckValidation(["--scope", "phase", "--phase-id", "1"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("`verdict: repaired` is not valid for Phase Validation stage output.");
+  });
+
   test("check fails when archive state is malformed", () => {
     const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", "2026-05-29-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
@@ -583,6 +777,122 @@ codex:
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[FLOW CHECK] FAILED: invalid_archive_state (stage: archive)");
     expect(result.output).toContain(".flow-archive.json is not valid JSON");
+  });
+
+  test("check-archive passes for completed archive with valid delta spec", () => {
+    const archiveDir = writeCompletedArchive();
+    writeDeltaSpec(archiveDir, "flow-routing", `## ADDED Requirements
+
+### Requirement: Route approved changes
+The system SHALL route approved changes to Archive.
+
+#### Scenario: Archive-ready change
+- WHEN final validation is ready
+- THEN the Archive stage is selected
+`);
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW ARCHIVE CHECK] OK: archive is complete.");
+  });
+
+  test("check-archive passes for completed archive without delta specs", () => {
+    const archiveDir = writeCompletedArchive();
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[FLOW ARCHIVE CHECK] OK: archive is complete.");
+  });
+
+  test("check-archive fails when archive path or state is invalid", () => {
+    const missingPath = runCheckArchive([]);
+    expect(missingPath.exitCode).toBe(1);
+    expect(missingPath.output).toContain("check-archive requires --archive-path <path>.");
+
+    const archiveDir = path.join(testTmpDir, "openspec", "changes", "archive", "2026-05-29-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    const missingState = runCheckArchive(["--archive-path", archiveDir]);
+    expect(missingState.exitCode).toBe(1);
+    expect(missingState.output).toContain(".flow-archive.json is missing.");
+
+    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), "{ malformed json", "utf-8");
+    const malformedState = runCheckArchive(["--archive-path", archiveDir]);
+    expect(malformedState.exitCode).toBe(1);
+    expect(malformedState.output).toContain(".flow-archive.json is not valid JSON");
+  });
+
+  test("check-archive fails when completed state is incomplete", () => {
+    const archiveDir = writeCompletedArchive();
+    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+      status: "in_progress",
+      changeName: "sample-change",
+      archivePath: archiveDir,
+      startedAt: "2026-05-29T10:00:00.000Z"
+    }), "utf-8");
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("status must be \"completed\"");
+    expect(result.output).toContain("must include completedAt");
+  });
+
+  test("check-archive fails when delta spec path or capability is invalid", () => {
+    const archiveDir = writeCompletedArchive();
+    writeDeltaSpec(archiveDir, "archive", `## ADDED Requirements
+
+### Requirement: Route approved changes
+The system SHALL route approved changes to Archive.
+`);
+    const nestedPath = path.join(archiveDir, "specs", "nested", "capability", "spec.md");
+    fs.mkdirSync(path.dirname(nestedPath), { recursive: true });
+    fs.writeFileSync(nestedPath, "## ADDED Requirements\n", "utf-8");
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Capability name is too generic");
+    expect(result.output).toContain("Delta spec path must be specs/<capability>/spec.md");
+  });
+
+  test("check-archive fails for invalid delta spec headings and placeholders", () => {
+    const archiveDir = writeCompletedArchive();
+    writeDeltaSpec(archiveDir, "flow-routing", `## CHANGED Requirements
+
+### Behavior: Route approved changes
+The system should route approved changes.
+
+#### Case: Archive-ready change
+- WHEN final validation is ready
+- THEN the Archive stage is selected
+
+TODO
+`);
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("unsupported OpenSpec section heading");
+    expect(result.output).toContain("requirement headings must start");
+    expect(result.output).toContain("scenario headings must start");
+    expect(result.output).toContain("contains unresolved placeholder-like prose");
+  });
+
+  test("check-archive fails when added or modified requirement lacks normative text", () => {
+    const archiveDir = writeCompletedArchive();
+    writeDeltaSpec(archiveDir, "flow-routing", `## MODIFIED Requirements
+
+### Requirement: Route approved changes
+The system routes approved changes.
+`);
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("must include normative SHALL or MUST text");
   });
 
   test("multi-phase plan sends completed in-progress phase to phase validation", () => {
@@ -708,6 +1018,9 @@ No phase headings yet.
     expect(output).not.toContain("Stage 5B. Final Validation.");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("do not rerun tests or additional checks");
+    expect(output).toContain("## Controller Observed Changed Files");
+    expect(output).toContain(`bun run "${cliPath}" check-validation --project-path "${testTmpDir}" --scope phase --phase-id 1`);
+    expect(output).not.toContain("check --project-path");
   });
 
   test("single-phase plan sends validated phase to final validation", () => {
@@ -729,6 +1042,8 @@ No phase headings yet.
     expect(output).toContain("Intent");
     expect(output).toContain("Requirements");
     expect(output).toContain("Success Criteria");
+    expect(output).toContain("## Controller Observed Changed Files");
+    expect(output).toContain(`bun run "${cliPath}" check-validation --project-path "${testTmpDir}" --scope final`);
   });
 
   test("repaired phase validation repeats phase validation for current in-progress phase", () => {
@@ -834,6 +1149,8 @@ No markdown finding table here.
 
     expect(output).toContain("Stage 6. Archive.");
     expect(output).toContain(`${archivedDir}/specs/<capability>/spec.md`);
+    expect(output).toContain(`check-archive --archive-path ${archivedDir}`);
+    expect(output).toContain("R# | Spec-level? | Capability | Operation | Target spec | Reason");
     expect(output).toContain(".flow-archive.json");
     expect(output).toContain(`archive path: \`${archivedDir}\``);
     expect(fs.existsSync(path.join(archivedDir, ".flow-archive.json"))).toBe(true);
@@ -1179,6 +1496,10 @@ describe("flow templates", () => {
     return fs.readFileSync(path.resolve(__dirname, "..", "templates", name), "utf-8");
   }
 
+  function readValidationTemplate(name: "step5a_val.md" | "step5b_val.md"): string {
+    return readTemplate(name).replace("{{validation_common_contract}}", readTemplate("validation_common.md"));
+  }
+
   test("stage templates receive generated config skill policy", () => {
     for (const templateName of templateNames) {
       const template = readTemplate(templateName);
@@ -1300,7 +1621,7 @@ codex:
       ["step4_impl.md", ["only the `R#` and `SC#` tied to the current phase", "`Expected Change Surface` in the current phase constrains"]],
       ["step5a_val.md", ["against the concrete `R#` and `SC#`", "use the current phase `Expected Change Surface` as a review aid"]],
       ["step5r_repair.md", ["reference the concrete `R#` or `SC#`"]],
-      ["step6_archive.md", ["Use `R#` requirements from `prd.md` as the primary source of requirement-level content", "`Expected Change Surface`"]]
+      ["step6_archive.md", ["Use `R#` requirements from `prd.md` as the only source of new requirement-level content", "`Expected Change Surface`"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
@@ -1347,7 +1668,7 @@ codex:
   });
 
   test("final validation prompt checks every PRD requirement and success criterion", () => {
-    const finalTemplate = readTemplate("step5b_val.md");
+    const finalTemplate = readValidationTemplate("step5b_val.md");
 
     expect(finalTemplate).toContain("every `R#` is implemented by the actual change set or has a finding");
     expect(finalTemplate).toContain("every `SC#` is demonstrably met according to its PRD `Evidence` type or has a finding");
@@ -1538,8 +1859,8 @@ codex:
   });
 
   test("validation and repair prompts require a strict single findings registry", () => {
-    const phaseTemplate = readTemplate("step5a_val.md");
-    const finalTemplate = readTemplate("step5b_val.md");
+    const phaseTemplate = readValidationTemplate("step5a_val.md");
+    const finalTemplate = readValidationTemplate("step5b_val.md");
     const repairTemplate = readTemplate("step5r_repair.md");
 
     for (const template of [phaseTemplate, finalTemplate]) {
@@ -1686,8 +2007,8 @@ codex:
   });
 
   test("validation prompts forbid visual markers in the machine-readable findings registry", () => {
-    const phaseTemplate = readTemplate("step5a_val.md");
-    const finalTemplate = readTemplate("step5b_val.md");
+    const phaseTemplate = readValidationTemplate("step5a_val.md");
+    const finalTemplate = readValidationTemplate("step5b_val.md");
 
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).not.toContain("Validation Visual Markers");
@@ -1784,6 +2105,15 @@ codex:
     expect(archiveTemplate).toContain("[implementation_plan.md]({{plan_path}})");
     expect(archiveTemplate).toContain("Do not use `validation_findings.md` as a source of requirements");
     expect(archiveTemplate).toContain("{{archive_path}}/specs/<capability>/spec.md");
+    expect(archiveTemplate).toContain("R# | Spec-level? | Capability | Operation | Target spec | Reason");
+    expect(archiveTemplate).toContain("observable user/system behavior");
+    expect(archiveTemplate).toContain("API, CLI, SDK, or public interface contracts");
+    expect(archiveTemplate).toContain("implementation tasks");
+    expect(archiveTemplate).toContain("validation findings");
+    expect(archiveTemplate).toContain("speculative future behavior");
+    expect(archiveTemplate).toContain("long-lived AI context for future Research stages");
+    expect(archiveTemplate).toContain("Prefer omission over speculative requirements");
+    expect(archiveTemplate).toContain("check-archive --archive-path {{archive_path}}");
     expect(archiveTemplate).toContain("One spec file = one functional area.");
     expect(archiveTemplate).toContain("Do not create one large catch-all spec");
     expect(archiveTemplate).toContain("## ADDED Requirements");

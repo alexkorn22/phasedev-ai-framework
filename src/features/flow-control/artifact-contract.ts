@@ -6,6 +6,7 @@ export interface ArtifactContractOptions {
   templateName: string;
   templateContent?: string;
   selfCheckCommand: string;
+  selfCheckFailureGuidance?: string;
   date: string;
 }
 
@@ -42,6 +43,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     options.selfCheckCommand,
     "```",
     "",
-    "Stage is not complete until this command passes. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
+    options.selfCheckFailureGuidance ??
+      "Stage is not complete until this command passes. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
   ].join("\n");
 }

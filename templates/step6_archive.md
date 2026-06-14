@@ -1,6 +1,6 @@
 Stage 6. Archive.
 
-Your task is to complete the already archived change: sync OpenSpec specifications from the approved archived change artifacts and complete the machine state.
+Your task is to complete the already archived change: sync OpenSpec specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
@@ -22,8 +22,9 @@ Gate-status file:
 - Validation status: [validation_findings.md]({{findings_path}})
 
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
-Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the archive report.
-Use `R#` requirements from `prd.md` as the primary source of requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the archive report and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent or risk notes unless they are expressed as requirement-level behavior in a concrete `R#`.
+Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the final response.
+Use `R#` requirements from `prd.md` as the only source of new requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the final response and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent, risk notes, or success criteria unless the same behavior is expressed as requirement-level behavior in a concrete `R#`.
+`openspec/specs` is long-lived AI context for future Research stages. Prefer omission over speculative requirements.
 
 ## Visual Formatting Scope
 
@@ -35,14 +36,58 @@ Constraints:
 - Do not use emoji in YAML frontmatter.
 - Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
 
-## Delta-first specs
+## Archive Procedure
 
 Work only with requirement-level changes derived from the archived change artifacts for `{{change_name}}`.
 
-1. Read the input artifacts and extract only user/system capability changes from concrete `R#` items that should land in long-lived OpenSpec specs. Cross-check the extraction with `Intent`, `Risk boundaries`, and `SC#`, but do not turn intent, risk notes, or evidence notes into specs without requirement-level behavior in `R#`.
-2. Analyze existing specifications: [openspec/specs]({{main_specs_path}}).
-3. If there are no spec-level changes, explicitly record this in the final report: `Spec sync skipped: no requirement-level changes`.
-4. If there are changes, create delta specs in the archived change directory: [{{archive_path}}/specs]({{change_specs_path}}).
+1. Read inputs.
+2. Classify every `R#`.
+3. Create delta specs when needed.
+4. Sync `openspec/specs` when needed.
+5. Set `.flow-archive.json` to completed.
+6. Run the archive self-check.
+7. Report changed specs or skipped sync, then stop.
+
+## Spec-level classification
+
+Before creating or updating specs, classify every `R#` requirement in the final response using this exact table:
+
+```text
+R# | Spec-level? | Capability | Operation | Target spec | Reason
+```
+
+Classification rules:
+- `Spec-level? = yes` only for observable user/system behavior.
+- `Operation = ADDED | MODIFIED | REMOVED | RENAMED | skipped`.
+- This matrix is not a persistent artifact. Do not create a file for it.
+- If you are unsure whether an item is spec-level, set `Operation = skipped`, omit it from OpenSpec, and explain the omission in `Reason`.
+
+Spec-level items include only concrete behavior from `R#`:
+- user-visible workflows or UI behavior;
+- API, CLI, SDK, or public interface contracts;
+- persisted data behavior visible to users or other systems;
+- integration behavior with external or internal systems;
+- authorization, permission, privacy, or security behavior;
+- business rules, invariants, limits, validation rules, and error behavior;
+- compatibility, deprecation, or migration behavior when expressed as required behavior.
+
+Do not add to OpenSpec:
+- implementation tasks;
+- file, module, or class names unless they are part of a public contract;
+- test commands;
+- `Check Evidence`;
+- validation findings;
+- repair notes;
+- internal refactoring details without observable behavior;
+- architecture rationale from `architecture/design.md` unless tied to concrete `R#` behavior;
+- `Intent`, `Risk boundaries`, or `SC#` content unless the same behavior is expressed in an `R#`;
+- speculative future behavior.
+
+## Delta-first specs
+
+1. Analyze existing specifications: [openspec/specs]({{main_specs_path}}).
+2. If there are no spec-level changes, explicitly record this in the final report: `Spec sync skipped: no requirement-level changes`.
+3. If there are changes, create delta specs in the archived change directory: [{{archive_path}}/specs]({{change_specs_path}}).
    - Capability spec path: `{{archive_path}}/specs/<capability>/spec.md`.
    - One spec file = one functional area.
    - Before creating files, extract functional areas from `prd.md`, `rules.md`, `research_facts.md`, `architecture/design.md`, and `implementation_plan.md`.
@@ -107,9 +152,19 @@ After successful spec sync or an explicit skip, update `.flow-archive.json` in t
 - preserve `changeName`, `archivePath`, and `startedAt`;
 - add `completedAt` in ISO-8601 format.
 
+## Archive self-check
+
+After updating `.flow-archive.json`, run:
+
+```bash
+bun run src/flow-cli.ts check-archive --archive-path {{archive_path}}
+```
+
+If the check fails, fix only Archive artifacts allowed by this stage and rerun the same command. Do not report Archive as complete until this command exits successfully.
+
 Stage completion:
-- Stop after updating `.flow-archive.json`.
-- In the report, state which specs were created/updated or why sync was skipped.
+- Stop after the archive self-check passes.
+- In the report, include the `R#` classification table and state which specs were created/updated or why sync was skipped.
 - Include the final archive path: `{{archive_path}}`.
 - Do not suggest running the next flow stage.
 
