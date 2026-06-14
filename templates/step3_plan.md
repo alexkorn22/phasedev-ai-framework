@@ -19,23 +19,12 @@ Planning instructions:
    - after successful Phase Validation for all phases, the flow proceeds to `Final Validation`;
    - each phase must fit fully into one AI-agent working session without context overflow;
    - the optimal phase size is a 3-10 file change; do not artificially split a small change.
-6. Do not create a generic `Definition of Done`; phase completion is determined by task/subtask checkboxes and required checks from the artifact template.
-7. Fill `## Generation Bundle` in [implementation_plan.md]({{plan_path}}); for each area, use only `yes`, `no`, or `not_applicable` and briefly explain the decision.
-8. The plan must trace `Intent` from [prd.md]({{prd_path}}):
-   - `Generation Bundle` must align with `Target state` and `Risk boundaries`;
+6. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - phase sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
-   - checks/evidence must cover each `SC#` according to its PRD `Evidence` type;
-   - if `Risk boundaries` require rollout, observability, or rollback path, the corresponding `Generation Bundle` rows must not be `not_applicable`.
-9. The plan must explicitly connect phases, tasks, checks, and `Check Evidence` to concrete `R#`, `SC#`, `D#`, and PRD `Evidence` types; do not use generic references such as "all requirements" or "the design" without IDs.
-10. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
-11. If the approved design or plan decomposition does not cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
-12. For each phase, add `### Expected Change Surface` between `### Goal` and `### Tasks`.
-13. Keep `Expected Change Surface` as a markdown table with max 7-10 rows per phase.
-14. Use exact files only for critical entrypoints, public contracts, migrations, config, generated artifacts, or known risky files.
-15. Use path patterns, globs, or subsystem ownership rows for broad implementation areas; large phases must group by subsystem/glob instead of enumerating every file.
-16. `Expected Change Surface` must use columns exactly: `Area / Path Pattern`, `Change Type`, `Ownership`, `Trace`; `Trace` must reference concrete `R#`, `SC#`, and relevant `D#`.
-17. For each phase, add `### Check Evidence` immediately after `### Checks`; all evidence rows must initially have `Result = pending`, except clearly irrelevant checks with `not_applicable`.
-18. Do not use task checkboxes inside `Check Evidence`; evidence rows must be ordinary markdown table rows so they do not mix with executable tasks.
+   - checks must cover each `SC#` according to its PRD `Evidence` type;
+   - risk boundaries must be represented in the generated plan.
+7. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
+8. If the approved design or plan decomposition cannot cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
 
 {{implementation_plan_artifact_contract}}
 
@@ -85,4 +74,4 @@ Stage completion:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- `implementation_plan.md`
+- active change folder `implementation_plan.md` at the Artifact Build Contract Output path

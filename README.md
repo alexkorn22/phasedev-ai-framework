@@ -53,14 +53,14 @@ npm install
 ### 2. Initialize a Change
 To start working on a task (e.g., adding authentication) in your target project:
 ```bash
-bun run src/cli.ts init --project-path /absolute/path/to/your-project
+phasedev init --project-path /absolute/path/to/your-project
 ```
 This creates the initial folder `.phasedev/changes/<change-name>` with template PRD and Rules.
 
 ### 3. Run Next Stage Prompt
 Get the contract for the current stage to feed into your AI model:
 ```bash
-bun run src/cli.ts next --project-path /absolute/path/to/your-project
+phasedev next --project-path /absolute/path/to/your-project
 ```
 
 ---

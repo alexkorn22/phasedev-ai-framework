@@ -104,7 +104,7 @@ function main(): void {
     return;
   }
 
-  console.log("Usage: bun run src/cli.ts <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
+  console.log("Usage: phasedev <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
 }
 
 main();

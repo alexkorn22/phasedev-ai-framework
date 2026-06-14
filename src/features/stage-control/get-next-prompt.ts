@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Config, loadConfig } from "../../entities/config/config";
-import { buildChangePaths } from "../../entities/change/paths";
+import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Prompt, Stage } from "../../entities/stage/types";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { shellQuote } from "../../shared/shell/shell-quote";
@@ -27,8 +27,7 @@ function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
 }
 
 function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
-  const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
+  const baseCommand = `phasedev check --project-path ${shellQuote(projectPath)}`;
   return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
@@ -57,8 +56,7 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
 }
 
 function flowFinalValidationCheckCommand(projectPath: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
-  return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope final`;
+  return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope final`;
 }
 
 function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
@@ -88,7 +86,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       let taskContext = "";
       const taskFile = process.env.FLOW_TASK_FILE;
       const date = new Date().toISOString().split("T")[0];
-      const changeRoot = route.activeChangePath ?? path.join(projectPath, "openspec", "changes", "<change-name>");
+      const changeRoot = route.activeChangePath ?? path.join(projectPath, SYSTEM_DIR, "changes", "<derive-slug-from-final-task>");
       const selfCheckCommand = flowCheckCommand(projectPath, "setup_approval");
       if (taskFile && fs.existsSync(taskFile)) {
         const content = fs.readFileSync(taskFile, "utf-8");
@@ -113,7 +111,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       return prompt("next", "research", renderStageTemplate("research", "step1_research", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
-        project_specs_path: toFileUrl(path.join(projectPath, "openspec", "specs")),
+        project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
         research_path: urls.research_path,
         research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design")),
         self_check_command: flowCheckCommand(projectPath, "design")

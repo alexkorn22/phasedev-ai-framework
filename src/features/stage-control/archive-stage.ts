@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Config, loadConfig } from "../../entities/config/config";
 import { createArchiveState, findPendingArchiveState, ArchiveState } from "../../entities/change/archive-state";
-import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths } from "../../entities/change/paths";
+import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Prompt } from "../../entities/stage/types";
 import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
@@ -42,7 +42,7 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
     design_path: urls.design_path,
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
-    main_specs_path: toFileUrl(path.join(projectPath, "openspec", "specs")),
+    main_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
     change_specs_path: toFileUrl(path.join(state.archivePath, "specs")),
     archive_state_path: toFileUrl(path.join(state.archivePath, ".flow-archive.json")),
     archive_path: state.archivePath,

@@ -1,4 +1,4 @@
-import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
+import { renderTemplate } from "../../shared/templates/render-template";
 
 export interface ArtifactContractOptions {
   artifactId: string;
@@ -11,7 +11,6 @@ export interface ArtifactContractOptions {
 }
 
 export function renderArtifactContract(options: ArtifactContractOptions): string {
-  const templatePath = resolveTemplatePath(options.templateName);
   const templateContent = options.templateContent ?? renderTemplate(options.templateName, {
     date: options.date
   });
@@ -21,7 +20,8 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "",
     `- Artifact ID: \`${options.artifactId}\``,
     `- Output path: \`${options.resolvedOutputPath}\``,
-    `- Template source: \`${templatePath}\``,
+    "- Write the artifact exactly at the Output path above. Do not reinterpret the Artifact ID, template comments, package map rows, or allowlist entries as project-root filesystem paths.",
+    "- Template source: embedded below. Do not open framework template files.",
     "- Strict rule: template is the only output structure. Fill this template; do not invent a parallel markdown structure.",
     "",
     "Full template content:",

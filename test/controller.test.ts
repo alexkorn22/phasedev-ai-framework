@@ -235,6 +235,8 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("active_change: none");
     expect(result.prompt).toContain("may_modify_files: false");
     expect(result.prompt).toContain("Allowed persistent artifacts: none");
+    expect(result.prompt).not.toContain("Stage-specific skill policy");
+    expect(result.prompt).not.toContain("Do not infer allowed skills from this init prompt.");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes"))).toBe(false);
   });
 
@@ -310,8 +312,8 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
     expect(result.prompt).toContain("Multiple active changes found in .phasedev/changes");
-    expect(result.prompt).toContain("flow init performed no filesystem changes");
-    expect(result.prompt).toContain("Fix the flow state before running `flow next`.");
+    expect(result.prompt).toContain("phasedev init performed no filesystem changes");
+    expect(result.prompt).toContain("Fix the flow state before running `phasedev next`.");
   });
 
   test("missing active change routes to setup stage", () => {
@@ -322,10 +324,11 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
     expect(result.prompt).toContain("Artifact Build Contract: rules.md");
-    expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<change-name>", "prd.md")}\``);
+    expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md")}\``);
     expect(result.prompt).toContain("template is the only output structure");
     expect(result.prompt).toContain("## Intent");
     expect(result.prompt).toContain("# Rules");
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
   });
 
   test("design prompt includes inline artifact contract for architecture design", () => {
@@ -369,7 +372,7 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 4. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
-    expect(result.prompt).toContain(`bun run "${path.resolve(__dirname, "..", "src", "cli.ts")}" check --project-path "${testTmpDir}" --expect-route phase_validation`);
+    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase_validation`);
   });
 
   test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {
@@ -498,7 +501,7 @@ Complete API work.
     expect(result.stage).toBe("final_validation");
     expect(result.prompt).toContain("Stage 5B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
-    expect(result.prompt).toContain("cli.ts\" check-validation --project-path");
+    expect(result.prompt).toContain(`phasedev check-validation --project-path "${testTmpDir}"`);
     expect(result.prompt).toContain("--scope final");
     expect(result.prompt).toContain("## Controller Observed Changed Files");
     expect(result.prompt).toContain("Generation Bundle");

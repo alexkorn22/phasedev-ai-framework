@@ -21,8 +21,8 @@ export function getInitPrompt(projectPath: string, _config?: Config): Prompt {
       "[FLOW CONTROLLER] BLOCKED: Invalid flow state",
       message,
       "",
-      "flow init performed no filesystem changes.",
-      "Fix the flow state before running `flow next`.",
+      "phasedev init performed no filesystem changes.",
+      "Fix the flow state before running `phasedev next`.",
       "================================================================================"
     ].join("\n"), true, "Invalid flow state");
   }

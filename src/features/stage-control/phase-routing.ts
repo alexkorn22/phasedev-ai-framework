@@ -43,14 +43,12 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
 }
 
 function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
-  const baseCommand = `bun run ${shellQuote(cliPath)} check --project-path ${shellQuote(projectPath)}`;
+  const baseCommand = `phasedev check --project-path ${shellQuote(projectPath)}`;
   return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
 }
 
 function flowValidationCheckCommand(projectPath: string, phaseId: number): string {
-  const cliPath = path.resolve(__dirname, "..", "..", "cli.ts");
-  return `bun run ${shellQuote(cliPath)} check-validation --project-path ${shellQuote(projectPath)} --scope phase --phase-id ${phaseId}`;
+  return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope phase --phase-id ${phaseId}`;
 }
 
 function validationFindingsContract(findingsPath: string, projectPath: string, phaseId?: number): string {

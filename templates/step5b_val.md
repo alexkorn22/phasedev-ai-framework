@@ -39,6 +39,11 @@ Required stage-contract checks:
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
 - YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation; do not leave the template default `type: phase`.
 
+Path resolution rule:
+- `validation_findings.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
+- Write the artifact only to the absolute Output path in the Artifact Build Contract below.
+- Do not create or update project-root flow artifact files during this stage.
+
 {{validation_common_contract}}
 
 {{validation_findings_artifact_contract}}
@@ -46,7 +51,7 @@ Required stage-contract checks:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- `validation_findings.md`
+- active change folder `validation_findings.md` at the Artifact Build Contract Output path
 
 Stage completion:
 - After writing `validation_findings.md`, stop.

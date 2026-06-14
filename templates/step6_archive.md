@@ -1,6 +1,6 @@
 Stage 6. Archive.
 
-Your task is to complete the already archived change: sync OpenSpec specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
+Your task is to complete the already archived change: sync long-lived specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
@@ -21,9 +21,15 @@ Input requirement and design artifacts (you must read them):
 Gate-status file:
 - Validation status: [validation_findings.md]({{findings_path}})
 
+Path resolution rule:
+- Short flow artifact names in this prompt (`prd.md`, `rules.md`, `research_facts.md`, `architecture/design.md`, `implementation_plan.md`, `validation_findings.md`) refer to files inside the archived change at `{{archive_path}}`, not paths from the project repository root.
+- Delta specs belong only under `{{archive_path}}/specs/<capability>/spec.md`.
+- Long-lived synced specs belong only under the project `.phasedev/specs` path linked below.
+- The archive state file is only [{{archive_state_path}}]({{archive_state_path}}); do not create or update a project-root `.flow-archive.json`.
+
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
 Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the final response.
-Use `R#` requirements from `prd.md` as the only source of new requirement-level content for OpenSpec. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the final response and to verify that spec sync reflects approved requirements. Do not create OpenSpec requirements only from intent, risk notes, or success criteria unless the same behavior is expressed as requirement-level behavior in a concrete `R#`.
+Use `R#` requirements from `prd.md` as the only source of new requirement-level content for long-lived specs. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the final response and to verify that spec sync reflects approved requirements. Do not create spec requirements only from intent, risk notes, or success criteria unless the same behavior is expressed as requirement-level behavior in a concrete `R#`.
 `.phasedev/specs` is long-lived AI context for future Research stages. Prefer omission over speculative requirements.
 
 ## Visual Formatting Scope
@@ -31,8 +37,8 @@ Use `R#` requirements from `prd.md` as the only source of new requirement-level 
 In the final report, visual formatting and emoji may be used as semantic visual markers when they help explain the archive step result.
 
 Constraints:
-- Do not use emoji, decorative callouts, or rich formatting in OpenSpec requirement text when they are not part of spec language.
-- OpenSpec specs remain normative, stable, and suitable for long-lived reading without visual decoration.
+- Do not use emoji, decorative callouts, or rich formatting in requirement text when they are not part of spec language.
+- Specs remain normative, stable, and suitable for long-lived reading without visual decoration.
 - Do not use emoji in YAML frontmatter.
 - Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
 
@@ -60,7 +66,7 @@ Classification rules:
 - `Spec-level? = yes` only for observable user/system behavior.
 - `Operation = ADDED | MODIFIED | REMOVED | RENAMED | skipped`.
 - This matrix is not a persistent artifact. Do not create a file for it.
-- If you are unsure whether an item is spec-level, set `Operation = skipped`, omit it from OpenSpec, and explain the omission in `Reason`.
+- If you are unsure whether an item is spec-level, set `Operation = skipped`, omit it from specs, and explain the omission in `Reason`.
 
 Spec-level items include only concrete behavior from `R#`:
 - user-visible workflows or UI behavior;
@@ -71,7 +77,7 @@ Spec-level items include only concrete behavior from `R#`:
 - business rules, invariants, limits, validation rules, and error behavior;
 - compatibility, deprecation, or migration behavior when expressed as required behavior.
 
-Do not add to OpenSpec:
+Do not add to specs:
 - implementation tasks;
 - file, module, or class names unless they are part of a public contract;
 - test commands;
@@ -97,7 +103,7 @@ Do not add to OpenSpec:
    - If the change updates an existing capability, write a delta spec for that capability, but do not mix unrelated requirements from other functional areas.
    - Do not move internal implementation details, temporary tasks, test commands, or validation findings into specs.
 
-Use the OpenSpec delta specs format:
+Use the delta specs format:
 
 ```md
 ## ADDED Requirements
@@ -157,7 +163,7 @@ After successful spec sync or an explicit skip, update `.flow-archive.json` in t
 After updating `.flow-archive.json`, run:
 
 ```bash
-bun run src/cli.ts check-archive --archive-path {{archive_path}}
+phasedev check-archive --archive-path {{archive_path}}
 ```
 
 If the check fails, fix only Archive artifacts allowed by this stage and rerun the same command. Do not report Archive as complete until this command exits successfully.
@@ -171,6 +177,6 @@ Stage completion:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- OpenSpec delta specs in `{{archive_path}}/specs`
+- Delta specs in `{{archive_path}}/specs`
 - `.phasedev/specs`
 - `{{archive_state_path}}`

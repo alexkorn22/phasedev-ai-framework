@@ -2,7 +2,8 @@
 
 <!--
 Authoring instructions for the research agent:
-- Instantiate this template into the change directory as research_facts.md.
+- Instantiate this template into the active change directory as research_facts.md.
+- Do not create or update a project-root research_facts.md file.
 - Remove every HTML comment from the final research_facts.md.
 - Keep exactly one visible top-level title: # Research Facts.
 - The final research_facts.md may contain only the # Research Facts title and the four ## sections shown below, in this exact order.

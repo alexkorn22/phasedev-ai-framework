@@ -6,7 +6,8 @@ date: {{date}}
 
 <!--
 Authoring instructions for the setup agent:
-- Instantiate this template into the change directory as prd.md.
+- Instantiate this template into the active change directory as prd.md.
+- Do not create or update a project-root prd.md file.
 - Remove every HTML comment from the final prd.md.
 - Keep exactly one visible top-level title: # PRD.
 - Do not leave blank cells, copied field descriptions, or placeholder-like prose in the final artifact.

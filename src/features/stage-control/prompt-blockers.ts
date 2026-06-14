@@ -12,7 +12,7 @@ export function approvalBlocker(stage: Stage, title: string, filePath: string, l
     `[FLOW CONTROLLER] BLOCKED: ${title}`,
     `Please review and approve ${label} in:`,
     `- Link: ${toFileUrl(filePath)}`,
-    "Set 'approved: true' in YAML frontmatter once approved, then run 'flow next'.",
+    "Set 'approved: true' in YAML frontmatter once approved, then run 'phasedev next'.",
     "================================================================================"
   ].join("\n"), true, title);
 }
@@ -41,7 +41,7 @@ export function invalidPlanBlocker(planPath: string, issues: string[]): Prompt {
     "[FLOW CONTROLLER] BLOCKED: Invalid implementation plan",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(planPath)}`,
-    "Please update implementation_plan.md, then run 'flow next' again.",
+    "Please update implementation_plan.md, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid implementation plan");
 }
@@ -53,7 +53,7 @@ export function invalidPrdBlocker(prdPath: string, issues: string[]): Prompt {
     "prd.md must follow the PRD artifact contract before this change can continue.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(prdPath)}`,
-    "Fix prd.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "Fix prd.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid prd.md");
 }
@@ -65,7 +65,7 @@ export function invalidRulesBlocker(rulesPath: string, issues: string[]): Prompt
     "rules.md must follow the Rules artifact contract before this change can continue.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(rulesPath)}`,
-    "Fix rules.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "Fix rules.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid rules.md");
 }
@@ -76,7 +76,7 @@ export function invalidResearchBlocker(researchPath: string, issues: string[]): 
     "research_facts.md must follow the Research Facts artifact contract before this change can continue.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(researchPath)}`,
-    "Fix research_facts.md, then run 'flow next' again.",
+    "Fix research_facts.md, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid research_facts.md");
 }
@@ -88,7 +88,7 @@ export function invalidDesignBlocker(designPath: string, issues: string[]): Prom
     "design.md must follow the Design artifact contract before this change can continue.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(designPath)}`,
-    "Fix design.md, reset approval if you changed an already approved artifact, then run 'flow next' again.",
+    "Fix design.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid design.md");
 }
@@ -99,7 +99,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
     title,
     details,
     `- Link: ${toFileUrl(filePath)}`,
-    "Fix the archive readiness issue, then run 'flow next' again.",
+    "Fix the archive readiness issue, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Archive readiness failed");
 }
@@ -111,7 +111,7 @@ export function validationFindingsBlocker(findingsPath: string, issues: string[]
     "validation_findings.md must contain YAML frontmatter followed by exactly one strict findings table.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(findingsPath)}`,
-    "Fix validation_findings.md, then run 'flow next' again.",
+    "Fix validation_findings.md, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid validation_findings.md");
 }

@@ -87,7 +87,7 @@ codex:
     expect(loadConfig(resolvedPath).codex.default.model).toBe("explicit-model");
   });
 
-  test("resolves project openspec config before root default config", () => {
+  test("resolves project flow config before root default config", () => {
     const projectPath = path.join(testTmpDir, "project");
     const projectConfig = writeProjectConfig(projectPath, `
 codex:

@@ -6,7 +6,7 @@ date: {{date}}
 
 <!--
 Authoring instructions for the planning agent:
-- Instantiate this template into the change directory as implementation_plan.md.
+- Fill this template for implementation_plan.md.
 - Remove every HTML comment from the final implementation_plan.md.
 - Replace the title with the concrete change name.
 - Do not leave blank table cells, blank phase names, blank task descriptions, copied field descriptions, or placeholder-like prose in the final artifact.
@@ -22,8 +22,10 @@ Phase status contract:
 
 Task contract:
 - Every executable checkbox item must be atomic and numbered.
-- Task IDs are phase-scoped: 1.1, 1.2, 2.1.
-- Subtasks are allowed only when they clarify execution and must be numbered: 1.1.1, 1.1.2.
+- Use exactly this checkbox syntax for top-level tasks: `- [ ] <phase>.<task> Task description`.
+- Use exactly this checkbox syntax for subtasks: `  - [ ] <phase>.<task>.<subtask> Subtask description`.
+- Task IDs are phase-scoped dot-separated numbers and must start with the phase number.
+- Subtasks are allowed only when they clarify execution and must be numbered with one additional dot segment.
 - Do not add task checkboxes outside phase task sections.
 - Do not add a generic Definition of Done section. Phase completion is all task/subtask checkboxes [x] plus required checks passed.
 
@@ -37,7 +39,7 @@ Generation Bundle contract:
 - Required values must be exactly one of: yes, no, not_applicable.
 - Production code: yes when source/config/runtime code changes are planned.
 - Tests: yes when tests are added or updated; no only when explicitly out of scope.
-- Docs/specs: yes when documentation or OpenSpec-visible behavior changes are planned.
+- Docs/specs: yes when documentation or long-lived spec-visible behavior changes are planned.
 - Migrations: yes when persistence/schema/data migration work is planned.
 - Feature flags/rollout: yes when rollout gating, progressive delivery, or release controls are planned.
 - Observability: yes when logging, metrics, tracing, alerts, or operational signal changes are planned.

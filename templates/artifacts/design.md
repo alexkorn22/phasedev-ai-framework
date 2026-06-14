@@ -8,7 +8,8 @@ date: {{date}}
 
 <!--
 Authoring instructions for the design agent:
-- Instantiate this template into the change directory as architecture/design.md.
+- Instantiate this template into the active change directory as architecture/design.md.
+- Do not create or update a project-root architecture/design.md file.
 - Remove every HTML comment from the final design.md.
 - Keep exactly one visible top-level title: # Design.
 - Do not write TBD, TODO, unknown, clarify later, or to be decided.

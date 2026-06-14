@@ -30,6 +30,11 @@ function cleanupTestDir() {
   cleanupTempWorkspace(testTmpDir);
 }
 
+const canonicalTaskSyntaxIssue =
+  "Use exactly `- [ ] <phase>.<task> Task name` for top-level tasks and `  - [ ] <phase>.<task>.<subtask> Subtask name` for subtasks.";
+const canonicalPhaseHeadingSyntaxIssue =
+  "Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.";
+
 describe("Parser & Checker Utilities", () => {
   beforeAll(() => {
     setupTestDir();
@@ -334,6 +339,54 @@ Unexpected section.
     expect(issues).toContain("Section `## Phase Overview` must contain a markdown table.");
   });
 
+  test("validatePlanArtifact gives canonical guidance for malformed phase headings", () => {
+    const invalidPlanFile = path.join(testTmpDir, "malformed_phase_heading_plan.md");
+    fs.writeFileSync(invalidPlanFile, `---
+approved: false
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update API. |
+| Out of scope | none |
+| Sequencing risk | none |
+| Validation | unit |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update API. |
+| Tests | yes | Add tests. |
+| Docs/specs | not_applicable | No docs. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert code. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | API | 1.1 | unit |
+
+## Phase 1: API
+
+### Goal
+
+Update API.
+`, "utf-8");
+
+    const issues = validatePlanArtifact(invalidPlanFile);
+
+    expect(issues).toContain(`implementation_plan.md has invalid phase heading syntax: \`## Phase 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`implementation_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
+  });
+
   test("validatePlanArtifact accepts Expected Change Surface with globs and enforces design decision traceability", () => {
     const designFile = path.join(testTmpDir, "architecture", "design.md");
     const prdFile = path.join(testTmpDir, "prd.md");
@@ -435,7 +488,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
   });
 
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
-    expect(validatePlanStructure([])).toContain("implementation_plan.md must contain at least one phase heading.");
+    expect(validatePlanStructure([])).toContain(`implementation_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
 
     const issues = validatePlanStructure([
       { id: 1, name: "API", status: "completed", tasks: [{ id: "1.1", name: "Implement endpoint", status: "not_started", children: [] }], additionalChecks: [] },
@@ -561,11 +614,32 @@ date: 2026-06-02
       }
     ]);
 
-    expect(issues).toContain("Phase 1: API has a task without a numbered ID: Missing task id.");
+    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: Missing task id. ${canonicalTaskSyntaxIssue}`);
     expect(issues).toContain("Task 2.1 must start with phase number 1.");
     expect(issues).toContain("Task 1.2 is [x] but contains incomplete subtasks.");
     expect(issues).toContain("Task IDs must be unique; duplicate task id `1.2` in Phase 1: API and Phase 1: API.");
     expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
+  });
+
+  test("validatePlanStructure gives positive canonical guidance for malformed task checkbox IDs", () => {
+    const planFile = path.join(testTmpDir, "malformed_task_ids.md");
+    fs.writeFileSync(planFile, `
+# Plan
+
+## Phase 1: API [~]
+- [ ] 1. Build endpoint
+- [ ] T1.1: Build tests
+- [ ] 1.1: Wire handler
+- [ ] 1.2 Wire route
+`, "utf-8");
+
+    const issues = validatePlanStructure(parsePlan(planFile));
+
+    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: 1. Build endpoint. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: T1.1: Build tests. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: 1.1: Wire handler. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).not.toContain(`Phase 1: API has a task with invalid task ID syntax: 1.2 Wire route. ${canonicalTaskSyntaxIssue}`);
+    expect(issues.join("\n")).not.toContain("do not use");
   });
 
   test("validatePrdArtifact accepts required PRD contract", () => {

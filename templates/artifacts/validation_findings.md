@@ -6,7 +6,8 @@ date: {{date}}
 
 <!--
 Authoring instructions for validation and repair agents:
-- Instantiate this template into the change directory as validation_findings.md when the file does not exist.
+- Instantiate this template into the active change directory as validation_findings.md when the file does not exist.
+- Do not create or update a project-root validation_findings.md file.
 - Remove every HTML comment from the final validation_findings.md.
 - The final artifact must contain only YAML frontmatter and exactly one markdown table.
 - Do not add prose, headings, visual markers, evidence blocks, or extra tables.

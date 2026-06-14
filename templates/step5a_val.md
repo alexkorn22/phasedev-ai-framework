@@ -35,6 +35,12 @@ Required stage-contract checks:
 - if the final verdict is `ready` or `ready_with_risks`, change the current phase status in [implementation_plan.md]({{plan_path}}) from `[~]` to `[x]`;
 - if the final verdict is `repair_required`, keep the current phase status as `[~]`.
 
+Path resolution rule:
+- `validation_findings.md` and `implementation_plan.md` in this prompt are paths inside the active change folder, not paths from the project repository root.
+- Write `validation_findings.md` only to the absolute Output path in the Artifact Build Contract below.
+- Update phase status only in the linked active change folder [implementation_plan.md]({{plan_path}}).
+- Do not create or update project-root flow artifact files during this stage.
+
 {{validation_common_contract}}
 
 {{validation_findings_artifact_contract}}
@@ -42,8 +48,8 @@ Required stage-contract checks:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- `validation_findings.md`
-- phase status in `implementation_plan.md`, only when allowed by validation verdict
+- active change folder `validation_findings.md` at the Artifact Build Contract Output path
+- phase status in active change folder `implementation_plan.md`, only when allowed by validation verdict
 
 Stage completion:
 - After writing `validation_findings.md` and possibly updating the phase status, stop.

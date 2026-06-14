@@ -22,15 +22,28 @@ function flowSkillBoundaryProtocol(): string[] {
     "Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.",
     "",
     "- Skills are method instructions only; they never control Flow state.",
+    "- This prompt is the stage skill policy compiled from `config.yaml`.",
+    "- Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.",
+    "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.",
+    "- If a listed skill is unavailable in the current agent runtime, stop and report a blocker.",
     "- Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.",
     "- Do not preload every configured skill body; keep skill loading minimal.",
     "- Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
     "- Do not skip an applicable selected skill because its native output format differs; adapt useful output into the current Flow contract.",
-    "- Convert useful skill output into the current artifact template, final response, or blocker. Do not invent extra Flow artifact structure."
+    "- Convert useful skill output into the current artifact template, final response, or blocker. Do not invent extra Flow artifact structure.",
+    "- In the final response, include a short skill compliance note listing router skills used, router-selected skills used, main/additional skills used, and skipped/unavailable listed skills."
   ];
 }
 
 function stageSpecificRules(stage: Stage): string[] {
+  if (stage === "setup") {
+    return [
+      "- Setup skills are post-intake only: do not load, read, route through, or apply any configured skill until the task/change description and task-specific rules or constraints are available.",
+      "- If setup intake is missing, ignore the configured skill list for now, ask only for the missing intake, and stop.",
+      "- After intake is available, configured skills may be used only as methods for shaping `prd.md` and `rules.md` within the embedded Artifact Build Contracts."
+    ];
+  }
+
   if (stage !== "phase_validation" && stage !== "final_validation") {
     return [];
   }
@@ -55,15 +68,19 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
   const skills = getStageSkillConfig(config, stage);
   const routerRules = hasConfiguredRouters(skills)
     ? [
-      "- Read every configured router first before selecting method skills.",
-      "- Router-selected skills explicitly named by router content have priority over main/additional skills.",
-      "- Allowed external skills: configured routers, router-selected skills explicitly named by router content, configured main skills, configured additional skills.",
-      "- If none fits, stop and ask the user to update `config.yaml`, update the router, or approve an exception."
+      stage === "setup"
+        ? "- Priority 1: after setup intake is available, use listed router skills first when they help shape the setup artifacts."
+        : "- Priority 1: use listed router skills first.",
+      "- Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.",
+      "- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.",
+      "- Priority 3: use listed additional skills only when Priority 1 and Priority 2 skills are insufficient or an additional skill is clearly better.",
+      "- Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.",
+      "- If none fits, stop and ask the user to update `config.yaml` or approve an exception."
     ]
     : [
       "- No routers are configured; use main skills first.",
       "- Use additional skills only when main skills are insufficient or an additional skill is clearly better.",
-      "- Allowed external skills: configured main skills and configured additional skills.",
+      "- Allowed external skills: only the main and additional skills listed in this prompt.",
       "- If none fits, stop and ask the user to update `config.yaml` or approve an exception."
     ];
   const rules = [
@@ -91,28 +108,25 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
     ? [
       "Allowed skills:",
       "",
-      "Routers (read first):",
+      "Priority 1 - Routers:",
       formatSkillList(skills.routers),
       "",
-      "Router-selected:",
-      "- determined after reading routers; explicit router content only",
-      "",
-      "Main fallback:",
+      "Priority 2 - Main:",
       formatSkillList(skills.main),
       "",
-      "Additional fallback:",
+      "Priority 3 - Additional:",
       formatSkillList(skills.additional)
     ]
     : [
       "Allowed skills:",
       "",
-      "Routers:",
+      "Priority 1 - Routers:",
       "- none configured",
       "",
-      "Main:",
+      "Priority 2 - Main:",
       formatSkillList(skills.main),
       "",
-      "Additional fallback:",
+      "Priority 3 - Additional:",
       formatSkillList(skills.additional)
     ];
 

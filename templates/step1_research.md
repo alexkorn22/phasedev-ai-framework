@@ -10,7 +10,12 @@ Input artifacts:
 - Existing project specs: [.phasedev/specs]({{project_specs_path}})
 
 Output artifact:
-- [research_facts.md]({{research_path}})
+- [research_facts.md]({{research_path}}) inside the active change folder.
+
+Path resolution rule:
+- `research_facts.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
+- Write the artifact only to the absolute Output path in the Artifact Build Contract below.
+- Do not create or update a project-root `research_facts.md` file during this stage.
 
 Use the Artifact Build Contract below as the only source of structure for `research_facts.md`.
 
@@ -51,7 +56,7 @@ If the check fails, fix the reported artifact issues in this same stage, then re
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- `research_facts.md`
+- active change folder `research_facts.md` at the Artifact Build Contract Output path
 
 Stage completion:
 - After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.

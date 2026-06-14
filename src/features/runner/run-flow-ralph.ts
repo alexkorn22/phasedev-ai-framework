@@ -39,18 +39,18 @@ interface ChangedFiles {
 
 function wrapStagePrompt(initPrompt: Prompt, nextPrompt: Prompt): string {
   return [
-    "Below is the exact output of the manual `flow init` command.",
+    "Below is the exact output of the manual `phasedev init` command.",
     "Use it as bootstrap context only.",
     "",
     "=== FLOW INIT PROMPT START ===",
     initPrompt.prompt,
     "=== FLOW INIT PROMPT END ===",
     "",
-    "Below is the exact output of the manual `flow next` command.",
+    "Below is the exact output of the manual `phasedev next` command.",
     "",
     "Run rules:",
     "- Execute only the printed stage contract.",
-    "- Do not run `flow next`, `flow init`, or the flow controller yourself.",
+    "- Do not run `phasedev next`, `phasedev init`, or the flow controller yourself.",
     "- Do not move to the next stage.",
     "- Do not set human approval automatically.",
     "- Stop when the stage contract requires stopping.",
@@ -98,7 +98,7 @@ function isArchiveExecutionRoute(projectPath: string): boolean {
 }
 
 function archiveStageDisabledReason(): string {
-  return "Archive stage execution is disabled by loop.runArchiveStage=false. Run 'flow next' manually to archive or enable loop.runArchiveStage.";
+  return "Archive stage execution is disabled by loop.runArchiveStage=false. Run 'phasedev next' manually to archive or enable loop.runArchiveStage.";
 }
 
 function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
@@ -107,7 +107,7 @@ function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
 
 function snapshotFlowState(projectPath: string, logDir: string): Map<string, string> {
   const root = path.resolve(projectPath);
-  const openspecRoot = path.join(root, "openspec");
+  const flowRoot = path.join(root, ".phasedev");
   const snapshot = new Map<string, string>();
 
   function visit(itemPath: string): void {
@@ -156,8 +156,8 @@ function snapshotFlowState(projectPath: string, logDir: string): Map<string, str
     }
   }
 
-  if (fs.existsSync(openspecRoot)) {
-    visit(openspecRoot);
+  if (fs.existsSync(flowRoot)) {
+    visit(flowRoot);
   }
   return snapshot;
 }
@@ -258,7 +258,7 @@ function isOutsideProjectPath(normalizedPath: string): boolean {
   return path.isAbsolute(normalizedPath) || normalizedPath === ".." || normalizedPath.startsWith("../");
 }
 
-function isOpenSpecSpecsPath(normalizedPath: string): boolean {
+function isFlowSpecsPath(normalizedPath: string): boolean {
   return normalizedPath === ".phasedev/specs" || normalizedPath.startsWith(".phasedev/specs/");
 }
 
@@ -341,8 +341,8 @@ function validateStageAllowlist(
       }
     } else if (stage === "implementation") {
       const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
-      const isOutsideOpenSpec = !normalized.startsWith(".phasedev/");
-      if (!isPlan && !isOutsideOpenSpec) {
+      const isOutsideFlowState = !normalized.startsWith(".phasedev/");
+      if (!isPlan && !isOutsideFlowState) {
         violations.push(`File '${normalized}' modified during 'implementation' stage is outside allowlist.`);
       }
     } else if (stage === "phase_validation" || stage === "final_validation") {
@@ -352,7 +352,7 @@ function validateStageAllowlist(
         violations.push(`File '${normalized}' modified during '${stage}' stage is outside allowlist.`);
       }
     } else if (stage === "repair") {
-      const isOutsideOpenSpec = !normalized.startsWith(".phasedev/");
+      const isOutsideFlowState = !normalized.startsWith(".phasedev/");
       const isFindings = relativeChangeDir && normalized === `${relativeChangeDir}/validation_findings.md`;
       const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
       const isDesign = relativeChangeDir && (
@@ -365,7 +365,7 @@ function validateStageAllowlist(
       );
       const isPrd = relativeChangeDir && normalized === `${relativeChangeDir}/prd.md`;
 
-      if (!isOutsideOpenSpec && !isFindings && !isPlan && !isDesign && !isPrd) {
+      if (!isOutsideFlowState && !isFindings && !isPlan && !isDesign && !isPrd) {
         violations.push(`File '${normalized}' modified during 'repair' stage is outside allowlist.`);
       }
     } else if (stage === "archive") {
@@ -375,7 +375,7 @@ function validateStageAllowlist(
       const isDeletedActiveChange = relativeChangeDir && normalized.startsWith(`${relativeChangeDir}/`);
       const isActiveChangeDir = relativeChangeDir && normalized === relativeChangeDir;
 
-      if (!isArchiveJson && !isArchiveRoot && !isInCurrentArchiveDir && !isOpenSpecSpecsPath(normalized) && !isDeletedActiveChange && !isActiveChangeDir) {
+      if (!isArchiveJson && !isArchiveRoot && !isInCurrentArchiveDir && !isFlowSpecsPath(normalized) && !isDeletedActiveChange && !isActiveChangeDir) {
         violations.push(`File '${normalized}' modified during 'archive' stage is outside allowlist.`);
       }
     }

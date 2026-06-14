@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
 import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
+import { CANONICAL_PHASE_HEADING_SYNTAX, CANONICAL_TASK_SYNTAX } from "./contract-messages";
 
 const REQUIRED_GENERATION_BUNDLE_AREAS = [
   "Production code",
@@ -226,7 +227,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string): string
   const taskIds = new Map<string, string>();
 
   if (phases.length === 0) {
-    return ["implementation_plan.md must contain at least one phase heading."];
+    return [`implementation_plan.md must contain at least one phase heading. ${CANONICAL_PHASE_HEADING_SYNTAX}`];
   }
 
   const shouldValidateArtifactContract = hasParsedPlanContent(phases);
@@ -286,7 +287,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string): string
     for (const task of allTasks) {
       const taskLabel = task.id || task.name;
       if (task.id.length === 0) {
-        issues.push(`Phase ${phase.id}: ${phase.name} has a task without a numbered ID: ${task.name}.`);
+        issues.push(`Phase ${phase.id}: ${phase.name} has a task with invalid task ID syntax: ${task.name}. ${CANONICAL_TASK_SYNTAX}`);
         continue;
       }
 

@@ -6,7 +6,8 @@ date: {{date}}
 
 <!--
 Authoring instructions for the setup agent:
-- Instantiate this template into the change directory as rules.md.
+- Instantiate this template into the active change directory as rules.md.
+- Do not create or update a project-root rules.md file.
 - Remove every HTML comment from the final rules.md.
 - Keep YAML frontmatter first.
 - Do not add other headings or sections.

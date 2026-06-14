@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { CANONICAL_PHASE_HEADING_SYNTAX } from "./contract-messages";
 import { parsePlan } from "./parse-plan";
 import { validatePlanStructure } from "./validate-plan";
 
@@ -152,9 +153,16 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
   }
 
   const actualSections = lines.map(secondLevelHeadingName).filter((section): section is string => section !== null);
-  const allowedSectionPattern = /^(Approval Summary|Generation Bundle|Phase Overview|Phase \d+: .+ \[\s*(x|~| |\/)\s*\])$/i;
+  const allowedFixedSectionPattern = /^(Approval Summary|Generation Bundle|Phase Overview)$/i;
+  const phaseSectionPattern = /^Phase \d+: .+ \[\s*(x|~| |\/)\s*\]$/i;
   for (const section of actualSections) {
-    if (!allowedSectionPattern.test(section)) {
+    if (allowedFixedSectionPattern.test(section) || phaseSectionPattern.test(section)) {
+      continue;
+    }
+
+    if (/^Phase\b/i.test(section)) {
+      issues.push(`implementation_plan.md has invalid phase heading syntax: \`## ${section}\`. ${CANONICAL_PHASE_HEADING_SYNTAX}`);
+    } else {
       issues.push(`implementation_plan.md contains unexpected section \`## ${section}\`.`);
     }
   }

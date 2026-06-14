@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { Prompt, Stage } from "../src/entities/stage/types";
-import { runRunnerCli } from "../src/logs";
+import { runRunnerCli } from "../src/runner";
 import { DEFAULT_CONFIG, Config, runRunner } from "../src/features/runner";
 import { splitTelegramMessage } from "../src/shared/telegram";
 import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/logger";
@@ -346,8 +346,8 @@ describe("logs runner", () => {
     expect(messages).toContain("[PHASEDEV RUNNER] stage: implementation");
     expect(messages).toContain("[PHASEDEV RUNNER] model: gpt-5.4");
     expect(messages).toContain("[PHASEDEV RUNNER] reasoning: high");
-    expect(messages).not.toContain("[PHASEDEV RUNNER] running flow init...");
-    expect(messages).not.toContain("[PHASEDEV RUNNER] flow init completed");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] running phasedev init...");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] phasedev init completed");
     expect(messages).toContain("[PHASEDEV RUNNER] running stage with init bootstrap: implementation");
   });
 
@@ -512,7 +512,7 @@ describe("logs runner", () => {
     expect(threads).toHaveLength(1);
   });
 
-  test("ignores broken symlinks outside OpenSpec when checking progress", async () => {
+  test("ignores broken symlinks outside flow state when checking progress", async () => {
     const projectPath = setupProject();
     const socketDir = path.join(projectPath, "ops", "environments", "development", "backend", "cache", "mysql", "data");
     fs.mkdirSync(socketDir, { recursive: true });
@@ -537,7 +537,7 @@ describe("logs runner", () => {
     expect(result.status).toBe("no_progress");
   });
 
-  test("treats streamed implementation file changes outside OpenSpec as progress", async () => {
+  test("treats streamed implementation file changes outside flow state as progress", async () => {
     const projectPath = setupProject();
 
     const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
@@ -635,7 +635,7 @@ describe("logs runner", () => {
     expect(fs.existsSync(linkedDesignPath)).toBe(true);
   });
 
-  test("allows archive stage to update current archive and openspec specs", async () => {
+  test("allows archive stage to update current archive and flow specs", async () => {
     const projectPath = setupProject();
     const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     const deltaSpecPath = path.join(archiveDir, "specs", "flow-routing", "spec.md");
@@ -1635,7 +1635,7 @@ codex:
     expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
   });
 
-  test("flow:ralph CLI uses project openspec config without --config", async () => {
+  test("flow:ralph CLI uses project flow config without --config", async () => {
     const projectPath = setupProject();
     const projectConfigPath = path.join(projectPath, ".phasedev", "config.yaml");
     const envPath = path.join(projectPath, ".phasedev", ".env");

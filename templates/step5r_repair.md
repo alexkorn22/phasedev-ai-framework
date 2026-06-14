@@ -33,6 +33,12 @@ Finding handling rules:
 - `requirements`: after discussing with the user, update [prd.md]({{prd_path}}), then the affected design/plan/change set;
 - if a table cell needs a literal `|`, escape it as `\|`.
 
+Path resolution rule:
+- Flow artifact names in this prompt (`prd.md`, `architecture/design.md`, `implementation_plan.md`, `validation_findings.md`) refer to the linked files inside the active change folder, not paths from the project repository root.
+- Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation` repair finding.
+- Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create or update a project-root `architecture/` directory as a flow design artifact.
+- Write or update `validation_findings.md` only at the absolute Output path in the Artifact Build Contract below.
+
 Verdict rule:
 - preserve `type` in YAML frontmatter as the scope of the latest validation: `phase` for Phase Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `phase`;
 - do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`;
@@ -51,8 +57,8 @@ Human reapproval:
 
 Allowed persistent artifacts for this stage:
 - affected production/test code
-- affected approved flow artifacts required by finding class
-- `validation_findings.md`
+- affected active change folder flow artifacts required by finding class
+- active change folder `validation_findings.md` at the Artifact Build Contract Output path
 
 Stage completion:
 - After moving all current blocking findings to `resolved` and setting `verdict: repaired`, stop.

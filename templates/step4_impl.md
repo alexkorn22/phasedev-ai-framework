@@ -25,6 +25,11 @@ Scope rules:
 - if the approved plan/design does not cover a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary from the PRD, stop and report a blocker instead of expanding scope yourself;
 - do not mark the phase heading `[x]` at this stage. It must remain `[~]` until successful validation.
 
+Path resolution rule:
+- `implementation_plan.md` in this prompt is the active change folder plan at [implementation_plan.md]({{plan_path}}), not a path from the project repository root.
+- Only production/test/source/config changes from the current phase belong outside `.phasedev/**`.
+- Do not create or update project-root flow artifact files such as `prd.md`, `rules.md`, `research_facts.md`, `implementation_plan.md`, or `validation_findings.md`.
+
 Completion checklist:
 - complete the current phase tasks within the approved `prd.md`, approved design, and approved plan;
 - update only current-phase task checkboxes in [implementation_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
@@ -44,7 +49,7 @@ Completion checklist:
 
 Allowed persistent artifacts for this stage:
 - production/test code needed for current phase
-- task checkboxes and `Check Evidence` rows in `implementation_plan.md`
+- task checkboxes and `Check Evidence` rows in active change folder `implementation_plan.md`
 
 Stage completion:
 - After updating the change set and `implementation_plan.md`, stop.

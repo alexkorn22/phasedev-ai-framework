@@ -159,7 +159,7 @@ function validateSpecContent(specsPath: string, relativeFile: string, issues: st
     if (line.startsWith("## ")) {
       flushRequirement();
       if (!ALLOWED_SECTION_HEADINGS.has(line)) {
-        issues.push(`${relativeFile} contains unsupported OpenSpec section heading: ${line}`);
+        issues.push(`${relativeFile} contains unsupported delta spec section heading: ${line}`);
       } else {
         hasAllowedSection = true;
         currentSection = line;
@@ -190,7 +190,7 @@ function validateSpecContent(specsPath: string, relativeFile: string, issues: st
   flushRequirement();
 
   if (!hasAllowedSection) {
-    issues.push(`${relativeFile} must include at least one OpenSpec requirements section.`);
+    issues.push(`${relativeFile} must include at least one delta spec requirements section.`);
   }
 }
 

@@ -98,8 +98,8 @@ bun test test/cli.test.ts test/config.test.ts test/runner.test.ts
 CLI smoke:
 
 ```bash
-bun run src/cli.ts init --project-path /tmp/some-project
-bun run src/cli.ts next --project-path /tmp/some-project
+phasedev init --project-path /tmp/some-project
+phasedev next --project-path /tmp/some-project
 ```
 
 Do not run `npm run run` as a casual smoke test unless the user wants a real Codex SDK loop.

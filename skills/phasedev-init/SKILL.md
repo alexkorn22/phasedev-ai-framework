@@ -10,7 +10,7 @@ description: Manual-only workflow initializer. Use this skill only when the user
 1. Run the initialization command with the absolute path of the current project:
 
    ```bash
-   bun run /Users/oleksandrkorniienko/WORK/ag-dev-flow/src/cli.ts init --project-path <absolute_current_project_path>
+   phasedev init --project-path <absolute_current_project_path>
    ```
 
 2. Read the prompt printed to stdout and keep it in context for the rest of the turn.

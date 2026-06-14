@@ -10,7 +10,12 @@ Input artifacts:
 - Research results: [research_facts.md]({{research_path}})
 
 Required output artifact:
-- [architecture/design.md]({{design_path}})
+- [architecture/design.md]({{design_path}}) inside the active change folder.
+
+Path resolution rule:
+- `architecture/design.md` and `architecture/*.md` in this prompt are design package paths relative to the active change folder, not paths from the project repository root.
+- Write the entrypoint only to the absolute Output path in the Artifact Build Contract below.
+- Do not create or update a project-root `architecture/` directory during this stage.
 
 Use the Artifact Build Contract below as the only source of structure for `architecture/design.md`.
 
@@ -57,9 +62,10 @@ Requirements for `architecture/design.md`:
 | `architecture/example.md` | Detailed concern, if needed | Mermaid/table/tree diagram | medium |
 
 `Architecture Package Map` is an index of files in the approvable design package, not a component implementation map.
+The `File` column uses design package paths relative to the active change folder; it must not imply project-root filesystem paths.
 If implementation component mapping is needed for review, keep it in `## Key Design Decisions` or a linked architecture subdocument.
 
-All referenced files inside `architecture/` are considered part of the approved design if they are explicitly listed in the approved `architecture/design.md`.
+All referenced files inside the active change folder's `architecture/` directory are considered part of the approved design if they are explicitly listed in the approved `architecture/design.md`.
 
 The controller checks approval only on `architecture/design.md`; separate approval for architecture subdocuments is not required.
 
@@ -91,11 +97,12 @@ For other diagram types, use Mermaid blocks with `sequenceDiagram`, `classDiagra
 ## Artifact allowlist
 
 Allowed persistent artifacts for this stage:
-- `architecture/design.md`
-- linked files inside `architecture/`, only when they are referenced from `architecture/design.md`
+- active change folder `architecture/design.md` at the Artifact Build Contract Output path
+- linked files inside the active change folder `architecture/`, only when they are referenced from `architecture/design.md`
 
 Constraints:
 - do not change production code at this stage;
+- do not create or update project-root `architecture/` files;
 - the AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 ## Human Review Formatting Policy

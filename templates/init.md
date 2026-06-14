@@ -37,5 +37,3 @@ Flow rules:
 - `phasedev next` owns the executable stage contract and all artifact instructions.
 - Complete only the stage printed by `phasedev next`, then stop.
 - Do not move to the next stage yourself.
-- Stage-specific skill policy is supplied only by the current `phasedev next` prompt from `config.yaml`.
-- Do not infer allowed skills from this init prompt.
