@@ -375,6 +375,7 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("# Design");
     expect(result.prompt).toContain("## Architecture Package Map");
     expect(result.prompt).toContain("Use this bounded retrieval order before designing");
+    expect(result.prompt).toContain("If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands)");
     expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
     expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
     expect(result.prompt).toContain("do not add headings beyond the required `# Design` title and those six required `##` sections");

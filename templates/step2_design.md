@@ -13,7 +13,8 @@ Input artifacts:
 
 Use this bounded retrieval order before designing:
 1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
-2. Read [prd.md]({{prd_path}}) completely, then [research_facts.md]({{research_path}}) completely, then [rules.md]({{rules_path}}) for validation constraints.
+2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized.
+   If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
 3. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded design template only.
 4. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.
 
