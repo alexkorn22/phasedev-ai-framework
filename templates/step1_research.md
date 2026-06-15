@@ -21,27 +21,26 @@ Use the Artifact Build Contract below as the only source of structure for `resea
 
 {{research_artifact_contract}}
 
-Requirements for `research_facts.md`:
-- Source priority:
-  1. actual implementation in code, config, tests, and runtime wiring;
-  2. existing specifications in `.phasedev/specs`;
-  3. `prd.md` and `rules.md` as the contract for the current change.
-- Read `.phasedev/specs` if that folder exists. Use it to identify already documented capabilities, domain terms, existing spec areas, and likely future archive/spec-sync targets.
-- Code evidence determines the final research status. Specs provide documented context, but cannot confirm actual implementation behavior by themselves.
-- If code and specs conflict, treat code as current truth and record specs as documented context or stale/conflicting context.
+Decision flow:
+1. Read approved `prd.md` and `rules.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
+2. Gather only enough repository evidence to trace those targets:
+   - Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets, then `.phasedev/specs` if present, then focused follow-up searches for unresolved target-specific evidence gaps.
+   - Context budget: use at most one broad file listing/search to map candidate areas, then focused `rg` queries and file reads for concrete identifiers, modules, commands, tests, and spec areas. Do not perform exhaustive repository or spec audits.
+   - Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded as `confirmed`, `limited`, `blocked`, or `not_applicable` with cited evidence, or once a material PRD blocker is identified.
+3. Fill `research_facts.md` from current-state evidence. Code, config, tests, and runtime wiring create `F#` facts. Existing specs create `S#` facts. PRD-only values are allowed only for intent fields that are not repository facts.
+4. Resolve conflicts by source priority: current code/config/tests/runtime wiring is implementation truth; `.phasedev/specs` is documented context; `prd.md` and `rules.md` define the requested change contract. If code and specs conflict, record code as current truth and the spec as stale or conflicting context.
+5. Use blockers only for material realignment needs. Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact for the relevant `R#`/`SC#`, not a reason to stop. Stop and report a PRD blocker only when the approved PRD/rules are internally contradictory, infeasible against hard repository constraints, or cannot be truthfully traced after bounded retrieval without changing `Intent`, `Target state`, `Risk boundaries`, a specific `R#`, a specific `SC#`, or an evidence type.
+
+Research artifact requirements:
+- Include exactly the four sections from the embedded template.
+- In `## PRD Intent Trace`, include exactly `Change type`, `Why`, `Target state`, and `Risk boundaries`.
+- In `## Requirements & Success Criteria Trace`, include one row for each `R#` and each `SC#`; use code evidence for implementation status and spec context only in the `Spec Context` column.
+- In `## Source Facts`, include file paths and line numbers for every `F#` and `S#`. Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text only when they directly support a PRD target.
+- Include only spec facts that affect `Intent`, `R#`, `SC#`, evidence type, risk boundaries, or future spec-sync context. Do not copy large spec excerpts.
+- If `.phasedev/specs` is absent or irrelevant, use `none` or `not_applicable` instead of inventing spec context.
+- Use `## Research Gaps & Blockers` only for non-blocking residual gaps or for a concise blocker summary that names the affected PRD/rules fields or IDs.
 - Do not conclude that the project actually supports a capability only because it appears in specs.
-- include confirmed facts relevant to `Intent`, `Target state`, `Risk boundaries`, `R#` requirements, `SC#` success criteria, and `Evidence` types from `prd.md`;
-- include a dedicated `## PRD Intent Trace` section with exactly `Change type`, `Why`, `Target state`, and `Risk boundaries`;
-- include a dedicated trace for each `R#` and `SC#` in `## Requirements & Success Criteria Trace`: state which code facts confirm, limit, or block the concrete requirement/criterion, and record spec context separately;
-- include file paths and line numbers for every `F#` and `S#` in `## Source Facts`;
-- include affected modules, public interfaces, dependencies, existing contracts, and constraints;
-- include similar existing solutions if found;
-- include only spec facts that affect `Intent`, `R#`, `SC#`, evidence type, risk boundaries, or future spec-sync context;
-- Do not copy large spec excerpts.
-- Do not perform a standalone spec audit.
-- if research facts show that approved `Intent`, `Target state`, `Risk boundaries`, a specific `R#`, a specific `SC#`, or an `Evidence` type is incomplete, contradictory, or infeasible, do not turn that into a design assumption. Stop, report a PRD blocker to the user, and identify which PRD fields/IDs must be realigned;
-- explicitly marked unresolved gaps or disputed facts are allowed only for non-blocking research gaps in `## Research Gaps & Blockers`; if they affect `Target state`, `Risk boundaries`, requirements, success criteria, or evidence type, they are blockers, not ordinary gaps;
-- do not include architecture decisions, implementation proposals, or refactoring proposals.
+- Do not include architecture decisions, implementation proposals, or refactoring proposals.
 
 ## Artifact self-check
 

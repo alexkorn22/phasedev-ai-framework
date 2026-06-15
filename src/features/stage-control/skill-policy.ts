@@ -76,6 +76,10 @@ function noMatchingSkillRule(stage: Stage): string {
     return "- For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
   }
 
+  if (stage === "research") {
+    return "- If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
+  }
+
   return "- If none fits, stop and ask the user to update `config.yaml` or approve an exception.";
 }
 

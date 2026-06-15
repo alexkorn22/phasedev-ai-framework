@@ -469,6 +469,8 @@ codex:
     expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
+    expect(output).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
+    expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
   });
 
   test("implementation prompt renders compiled skill priorities before main and additional skills", () => {
@@ -598,8 +600,14 @@ codex:
     expect(output).toContain("Artifact Build Contract: research_facts.md");
     expect(output).toContain("# Research Facts");
     expect(output).toContain(`Existing project specs: [.phasedev/specs](file://${path.join(testTmpDir, ".phasedev", "specs")})`);
-    expect(output).toContain("Code evidence determines the final research status");
+    expect(output).toContain("Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets");
+    expect(output).toContain("Context budget: use at most one broad file listing/search to map candidate areas");
+    expect(output).toContain("Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded");
+    expect(output).toContain("Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact");
+    expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
+    expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
+    expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route design");
 
     cleanupTestDir();
@@ -1658,11 +1666,23 @@ codex:
     const implementationPolicy = renderSkillPolicy("implementation", config);
     const validationPolicy = renderSkillPolicy("final_validation", config);
     const setupPolicy = renderSkillPolicy("setup", config);
+    const researchPolicy = renderSkillPolicy("research", parseConfig(`
+codex:
+  stages:
+    research:
+      skills:
+        routers:
+          - using-ecc
+        main: []
+        additional: []
+`));
 
     expect(setupPolicy).toContain("router skills such as `using-ecc` may classify the task");
     expect(setupPolicy).toContain("do not authorize reading framework source, framework templates, config files");
     expect(setupPolicy).toContain("For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract");
     expect(setupPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
+    expect(researchPolicy).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
+    expect(researchPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(implementationPolicy).toContain("Allowed skills:");
     expect(implementationPolicy).toContain("Priority 1 - Routers:");
     expect(implementationPolicy).toContain("- `using-zuvo`");

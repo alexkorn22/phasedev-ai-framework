@@ -15,6 +15,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
   const templateContent = options.templateContent ?? renderTemplate(options.templateName, {
     date: options.date
   });
+  const hasYamlFrontmatter = templateContent.trimStart().startsWith("---\n");
 
   const contract = [
     `## Artifact Build Contract: ${options.artifactId}`,
@@ -32,7 +33,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "```",
     "",
     "Canonical fill rules:",
-    "- Preserve YAML frontmatter keys exactly; change only allowed values.",
+    ...(hasYamlFrontmatter ? ["- Preserve YAML frontmatter keys exactly; change only allowed values."] : []),
     "- Preserve heading order, table headers, machine-readable statuses, checkbox syntax, and markdown table syntax.",
     "- External skill output structure is never artifact structure.",
     "- Do not copy skill report headings, sections, tables, or lifecycle blocks unless this template already contains that exact structure.",

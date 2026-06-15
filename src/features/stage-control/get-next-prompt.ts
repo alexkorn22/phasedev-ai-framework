@@ -116,7 +116,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         rules_path: urls.rules_path,
         project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
         research_path: urls.research_path,
-        research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design")),
+        research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design"), undefined, undefined, false),
         self_check_command: flowCheckCommand(projectPath, "design")
       }, config));
     }
