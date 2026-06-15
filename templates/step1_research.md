@@ -62,8 +62,8 @@ Allowed persistent artifacts for this stage:
 - active change folder `research_facts.md` at the Artifact Build Contract Output path
 
 Stage completion:
-- After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes. If the self-check is unavailable after the documented command lookup, stop with a blocker/unavailable self-check result instead of the ready template.
-- Final response must use this compact template and include no extra sections:
+- After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
+- Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections:
 
 ```text
 Research ready: {{research_path}}
@@ -72,3 +72,5 @@ Route: design
 Next: phasedev next
 Skill compliance: <configured/router skills used; skipped/unavailable skills>
 ```
+
+- The only exception is unavailable self-check after the documented command lookup. In that case, do not use the `Research ready` template and add no extra sections; final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`.

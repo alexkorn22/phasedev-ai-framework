@@ -630,7 +630,10 @@ codex:
     expect(output).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
     expect(output).toContain("If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.");
     expect(output).toContain("Report `Research ready` only after this self-check passes.");
-    expect(output).toContain("Final response must use this compact template and include no extra sections");
+    expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
+    expect(output).toContain("The only exception is unavailable self-check after the documented command lookup.");
+    expect(output).toContain("do not use the `Research ready` template and add no extra sections");
+    expect(output).toContain("final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");
     expect(output).toContain("Next: phasedev next");
@@ -647,7 +650,9 @@ codex:
       "## Artifact self-check",
       "## Artifact allowlist",
       "Stage completion:",
-      "Final response must use this compact template"
+      "Success final response is allowed only after the self-check passes",
+      "Research ready:",
+      "The only exception is unavailable self-check after the documented command lookup"
     ]);
 
     cleanupTestDir();
