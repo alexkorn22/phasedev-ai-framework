@@ -519,7 +519,8 @@ codex:
     expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
-    expect(output).toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(output).toContain("Priority 1: read listed router skills first when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(output).toContain("Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.");
     expect(output).toContain("Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.");
@@ -1761,7 +1762,8 @@ codex:
     expect(implementationPolicy).not.toContain("Router-selected:");
     expect(implementationPolicy).not.toContain("determined after reading routers");
     expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(implementationPolicy).toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(implementationPolicy).toContain("Priority 1: read listed router skills first when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(implementationPolicy).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
     expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
