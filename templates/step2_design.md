@@ -52,13 +52,15 @@ Decomposition rules:
 - Linked subdocument names must be short, kebab-case, and reflect the area: `command-surface.md`, `runtime-layout.md`, `parser-config.md`, `persistence.md`, `backend-boundaries.md`, `frontend-boundaries.md`, `validation.md`.
 - Do not split artificially: a subdocument is needed only when it genuinely improves human review.
 - Do not duplicate large prose fragments between `design.md` and subdocuments; `design.md` summarizes and links, subdocuments hold details.
+- Each linked subdocument must have a minimal review contract: purpose, one diagram/table/tree review surface, the decisions/contracts/details it expands, and a backlink or clear reference from `architecture/design.md`.
 
 Requirements for `architecture/design.md`:
 - include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
 - keep `## Executive Summary` as a compact approval snapshot table, not a prose essay; this table is the required near-top visual review surface for small/single-file designs;
 - explicitly connect the design direction to `Intent` from [prd.md]({{prd_path}}): why the change is needed, target state, and risk boundaries in `## Executive Summary` or `## Key Design Decisions`;
 - include a `## Traceability Mapping` table with one row for every `R#` requirement and every `SC#` success criterion from the PRD;
-- every traceability row must reference concrete research facts (`F#` or `S#`) from [research_facts.md]({{research_path}}) and at least one concrete design decision ID (`D#`);
+- every traceability row must reference concrete research facts (`F#` or `S#`) from [research_facts.md]({{research_path}}) when applicable, or `not_applicable: <short reason>` when the validated research record has no applicable fact/spec evidence for that row;
+- every traceability row must reference at least one concrete design decision ID (`D#`);
 - define each `D#` exactly once in `## Key Design Decisions`;
 - do not introduce design work that is not grounded in `Target state`, `R#`, `SC#`, or `Risk boundaries` from the PRD;
 - include a compact visual review surface near the top;
@@ -126,6 +128,7 @@ Constraints:
 Formatting rules:
 - YAML frontmatter remains first in the file.
 - Preserve the six-section structure from the embedded artifact template exactly. Choose the content inside those sections based on the concrete change.
+- In `architecture/design.md`, do not add headings beyond the required `# Design` title and the six required `##` sections from the embedded template.
 - The first visible part of the document must quickly explain the technical direction the user is approving.
 - Use `## Executive Summary` as the compact visual review surface. It should contain 2-5 high-signal table rows or callouts with the most important approval information, not a separate invented section.
 - In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
@@ -134,7 +137,7 @@ Formatting rules:
 - Do not encode assumptions or deferred decisions as separate design concepts unless they are grounded in approved PRD rows.
 - Do not accept a technical direction that changes `Intent`, `Target state`, `R#` requirements, `SC#` success criteria, `Evidence` types, or `Risk boundaries` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
 - Do not create empty, decorative, or artificial sections such as risks/alternatives/security when they have no material content.
-- Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
+- Use short paragraphs, bullets, tables, blockquotes, and bold where they help readability inside the required sections.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
 - Use callouts for approval scope, reviewer attention, changed contracts, risks, accepted assumptions, and deferred decisions when they exist.
 - If there are material risks, tradeoffs, accepted assumptions, changed contracts, or reviewer attention points, make them visually noticeable near the top.
@@ -165,7 +168,7 @@ Before completing the stage, verify:
 - Long prose does not duplicate linked subdocuments.
 - Every linked subdocument starts with purpose and a visual review surface.
 - Every `R#` and `SC#` from the PRD appears in `Traceability Mapping`.
-- Every traceability row references valid research evidence and valid `D#` design decisions.
+- Every traceability row references valid research evidence (`F#`/`S#`) or `not_applicable: <short reason>`, plus valid `D#` design decisions.
 - Every `D#` is defined exactly once and referenced by at least one traceability row.
 - Design does not diverge from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
 

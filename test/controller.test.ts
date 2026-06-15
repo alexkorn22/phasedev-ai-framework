@@ -377,6 +377,10 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Use this bounded retrieval order before designing");
     expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
     expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
+    expect(result.prompt).toContain("do not add headings beyond the required `# Design` title and the six required `##` sections");
+    expect(result.prompt).not.toContain("Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.");
+    expect(result.prompt).toContain("`not_applicable: <short reason>`");
+    expect(result.prompt).toContain("Each linked subdocument must have a minimal review contract");
     expect(result.prompt).toContain("Use `## Executive Summary` as the compact visual review surface");
     expect(result.prompt).toContain("If evidence is incomplete but the missing detail does not change approval scope");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
