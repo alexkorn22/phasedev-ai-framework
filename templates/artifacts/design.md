@@ -17,6 +17,8 @@ Authoring instructions for the design agent:
 - Do not add other ## sections.
 - Every design decision that affects implementation must have a stable D# ID.
 - Keep this file compact: use tables for approval, traceability, and decisions.
+- Use Executive Summary as the near-top visual review surface; do not add a separate visual-review section.
+- Risks & Open Questions is for bounded non-blocking review notes, not unresolved material approval questions.
 -->
 
 ## Executive Summary
@@ -26,6 +28,7 @@ Authoring instructions for the design agent:
 | Approval scope |  |
 | Out of scope |  |
 | Key decision |  |
+| Reviewer attention |  |
 | Validation |  |
 
 ## Traceability Mapping

@@ -374,6 +374,14 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt).toContain("# Design");
     expect(result.prompt).toContain("## Architecture Package Map");
+    expect(result.prompt).toContain("Use this bounded retrieval order before designing");
+    expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
+    expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
+    expect(result.prompt).toContain("Use `## Executive Summary` as the compact visual review surface");
+    expect(result.prompt).toContain("If evidence is incomplete but the missing detail does not change approval scope");
+    expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
+    expect(result.prompt).toContain("Final response must be compact and include");
+    expect(result.prompt).toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("--expect-route design_approval");
   });
 

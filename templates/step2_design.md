@@ -9,6 +9,20 @@ Input artifacts:
 - Test command rules: [rules.md]({{rules_path}})
 - Research results: [research_facts.md]({{research_path}})
 
+## Context retrieval protocol
+
+Use this bounded retrieval order before designing:
+1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
+2. Read [prd.md]({{prd_path}}) completely, then [research_facts.md]({{research_path}}) completely, then [rules.md]({{rules_path}}) for validation constraints.
+3. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded design template only.
+4. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.
+
+Context budget and stop condition:
+- Start with PRD, research facts, rules, and active change paths; do not broad-scan the repository by default.
+- For repository evidence, first run targeted searches for named files, APIs, modules, commands, or concepts from the PRD/research. If those searches identify no relevant surface, record the absence as a bounded risk instead of continuing an open-ended scan.
+- Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence, at least one `D#`, affected boundaries, and plan impact, and no material approval ambiguity remains.
+- Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless a stage input explicitly requires that evidence.
+
 Required output artifact:
 - [architecture/design.md]({{design_path}}) inside the active change folder.
 
@@ -41,7 +55,7 @@ Decomposition rules:
 
 Requirements for `architecture/design.md`:
 - include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
-- keep `## Executive Summary` as a compact approval snapshot table, not a prose essay;
+- keep `## Executive Summary` as a compact approval snapshot table, not a prose essay; this table is the required near-top visual review surface for small/single-file designs;
 - explicitly connect the design direction to `Intent` from [prd.md]({{prd_path}}): why the change is needed, target state, and risk boundaries in `## Executive Summary` or `## Key Design Decisions`;
 - include a `## Traceability Mapping` table with one row for every `R#` requirement and every `SC#` success criterion from the PRD;
 - every traceability row must reference concrete research facts (`F#` or `S#`) from [research_facts.md]({{research_path}}) and at least one concrete design decision ID (`D#`);
@@ -51,7 +65,7 @@ Requirements for `architecture/design.md`:
 - include the required `Architecture Package Map` table in `## Architecture Package Map`;
 - include key design decisions as a table in `## Key Design Decisions`;
 - use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable` only when there is no material contract surface;
-- include open risks and questions in `## Risks & Open Questions`;
+- include accepted risks, tradeoffs, and non-blocking open questions in `## Risks & Open Questions`;
 - link every additional architecture file if any are created.
 
 `Architecture Package Map` format:
@@ -111,27 +125,34 @@ Constraints:
 
 Formatting rules:
 - YAML frontmatter remains first in the file.
-- Choose structure based on the concrete change content.
+- Preserve the six-section structure from the embedded artifact template exactly. Choose the content inside those sections based on the concrete change.
 - The first visible part of the document must quickly explain the technical direction the user is approving.
-- Immediately after the title/intro, add a compact visual review surface. This is not a fixed section; it is 2-5 callouts, bullets, or table rows with the most important approval information.
+- Use `## Executive Summary` as the compact visual review surface. It should contain 2-5 high-signal table rows or callouts with the most important approval information, not a separate invented section.
 - In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
 - Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, diagrams, tables, callouts, or grouping clearly speed up review.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
-- If a question affects the approval artifact, ask the user and stop until the answer.
-- Do not write pending open questions into `architecture/design.md` as a substitute for asking the user.
 - Do not encode assumptions or deferred decisions as separate design concepts unless they are grounded in approved PRD rows.
-- Do not accept a technical direction that changes `Target state`, `R#` requirements, `SC#` success criteria, `Evidence` types, or `Risk boundaries` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
+- Do not accept a technical direction that changes `Intent`, `Target state`, `R#` requirements, `SC#` success criteria, `Evidence` types, or `Risk boundaries` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
 - Do not create empty, decorative, or artificial sections such as risks/alternatives/security when they have no material content.
 - Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
 - Use callouts for approval scope, reviewer attention, changed contracts, risks, accepted assumptions, and deferred decisions when they exist.
 - If there are material risks, tradeoffs, accepted assumptions, changed contracts, or reviewer attention points, make them visually noticeable near the top.
 - Reflect `Risk boundaries` in design decisions, validation mapping, and rollout/rollback considerations where relevant.
-- If design needs an assumption or deferred decision that is not already grounded in the PRD tables, stop and realign the PRD instead of adding a new approval concept.
 - Emoji may be used as semantic visual markers when they help scan the document.
 - Do not use emoji in YAML frontmatter.
 - Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
 - In `architecture/design.md`, preserve all machine-readable approval frontmatter elements and explicitly list linked architecture files if they are part of the approved design.
+
+## Uncertainty decision flow
+
+Prefer a complete, approvable design when the available inputs support one:
+1. If a design choice is directly supported by PRD rows and research facts, make the decision, assign a `D#`, and map it in traceability.
+2. If evidence is incomplete but the missing detail does not change approval scope, PRD semantics, public contracts, or downstream implementation boundaries, choose the smallest conservative design that satisfies the PRD and record the remaining risk in `## Risks & Open Questions`.
+3. If a question changes what the user is approving, expands scope, contradicts research, changes a public contract, weakens a risk boundary, or requires a PRD/research update, ask the user and stop before writing or finalizing `architecture/design.md`.
+4. Do not write pending material questions into `architecture/design.md` as a substitute for asking the user.
+
+`## Risks & Open Questions` is for bounded review notes that do not block approval of the proposed architecture. It is not a backlog for unresolved material decisions.
 
 ## Completion self-check
 
@@ -158,4 +179,9 @@ If the check fails, fix the reported artifact issues in this same stage, then re
 
 Stage completion:
 - After writing the architecture package, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user they need to review `architecture/design.md`, set `approved: true`, and then run `phasedev next`.
+- Final response must be compact and include:
+  - artifact path: `architecture/design.md`;
+  - linked architecture docs created, or `none`;
+  - self-check command and result;
+  - configured/router skills used, skipped, or unavailable;
+  - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev next`.
