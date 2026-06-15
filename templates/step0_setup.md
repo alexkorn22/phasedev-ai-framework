@@ -40,8 +40,13 @@ Required actions:
     - accepted assumptions are allowed only for non-material interpretations that do not change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands;
     - if an unknown can change any of those artifact values, ask the user and stop instead of recording it as an assumption;
     - if the user cannot answer a material question, stop instead of encoding a silent assumption.
-13. Before creating artifacts, summarize your final interpretation, material user answers, accepted assumptions, material unknowns resolved by questions, and any "no additional constraints" answer. Ask the user to confirm this interpretation and stop unless the current context already clearly supplies the task description, task rules/constraints answer, enough material answers to write the artifacts without new assumptions, and explicit confirmation of this same final interpretation. If the user already explicitly confirmed the same interpretation in the current context, treat confirmation as satisfied and continue. If artifacts have not been created yet and that same-interpretation confirmation is absent, ask for confirmation and stop. If the user disagrees or adds material scope, continue intake instead of writing files.
-14. Choose a change folder slug only after intake is complete and the final interpretation is confirmed:
+13. Before creating artifacts, run a final interpretation checkpoint:
+    - summarize your final interpretation, material user answers, accepted assumptions, material unknowns resolved by questions, and any "no additional constraints" answer in your working context;
+    - proceed without a separate confirmation stop when the current context already supplies the task description, task-specific rules/constraints answer, and enough acceptance/evidence/risk data to write `prd.md` and `rules.md` without adding material assumptions;
+    - ask the user to confirm the interpretation and stop only when material ambiguity remains, sources conflict, or you would otherwise need to invent an `Intent` value, `R#`, `SC#`, success evidence type, risk boundary, or test command/method;
+    - if the user already explicitly confirmed the same interpretation in the current context, treat confirmation as satisfied and continue;
+    - if the user disagrees or adds material scope, continue intake instead of writing files.
+14. Choose a change folder slug only after intake is complete and the final interpretation checkpoint is satisfied:
     - The slug is an agent-derived filesystem name, not a user requirement and not a CLI-generated value.
     - Choose a short kebab-case slug from the final task text, for example `create-kanban-board`.
     - Do not ask the user to provide the slug; this is the setup agent's responsibility unless the user already gave an exact folder name.
@@ -63,6 +68,7 @@ Artifact requirements:
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
 - `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
 - For each `rules.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method only when repository evidence or an explicit user answer supports it; otherwise ask the user for that gate method and stop. Do not invent commands.
+- Named manual methods in `rules.md` must use machine-readable wording: `manual: <named method supported by user/repo evidence>`, for example `manual: compare generated prompt against Stage 0 acceptance notes`. Do not use vague manual labels such as `manual review`, `check manually`, or `n/a`.
 - `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 

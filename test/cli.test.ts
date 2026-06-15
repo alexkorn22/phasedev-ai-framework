@@ -480,6 +480,12 @@ codex:
     const configPath = writeConfig(`
 codex:
   stages:
+    setup:
+      skills:
+        routers:
+          - using-ecc
+        main: []
+        additional: []
     implementation:
       skills:
         routers:
@@ -552,6 +558,8 @@ codex:
     expect(output).toContain(path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md"));
     expect(output).not.toContain(["open", "spec", "changes"].join("/"));
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
+    expect(output).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
+    expect(output).toContain("manual: <named method supported by user/repo evidence>");
     expect(output).toContain("template is the only output structure");
     expect(output).toContain("# PRD");
     expect(output).toContain("# Rules");
@@ -1622,7 +1630,10 @@ codex:
 
     const implementationPolicy = renderSkillPolicy("implementation", config);
     const validationPolicy = renderSkillPolicy("final_validation", config);
+    const setupPolicy = renderSkillPolicy("setup", config);
 
+    expect(setupPolicy).toContain("router skills such as `using-ecc` may classify the task");
+    expect(setupPolicy).toContain("do not authorize reading framework source, framework templates, config files");
     expect(implementationPolicy).toContain("Allowed skills:");
     expect(implementationPolicy).toContain("Priority 1 - Routers:");
     expect(implementationPolicy).toContain("- `using-zuvo`");

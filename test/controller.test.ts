@@ -326,6 +326,8 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Artifact Build Contract: rules.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md")}\``);
     expect(result.prompt).toContain("template is the only output structure");
+    expect(result.prompt).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
+    expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("## Intent");
     expect(result.prompt).toContain("# Rules");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);

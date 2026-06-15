@@ -40,7 +40,9 @@ function stageSpecificRules(stage: Stage): string[] {
     return [
       "- Setup skills are post-intake only: do not load, read, route through, or apply any configured skill until the task/change description and task-specific rules or constraints are available.",
       "- If setup intake is missing, ignore the configured skill list for now, ask only for the missing intake, and stop.",
-      "- After intake is available, configured skills may be used only as methods for shaping `prd.md` and `rules.md` within the embedded Artifact Build Contracts."
+      "- After intake is available, configured skills may be used only as methods for shaping `prd.md` and `rules.md` within the embedded Artifact Build Contracts.",
+      "- For setup, router skills such as `using-ecc` may classify the task, select an applicable method skill, or improve context discipline, but they do not authorize reading framework source, framework templates, config files, or unrelated repository areas that this Stage 0 contract forbids.",
+      "- If a router-selected skill asks for extra reports, headings, lifecycle files, broad codebase scans, or source/template reading beyond this setup contract, adapt only the relevant method guidance and keep the Stage 0 repository-reading limits."
     ];
   }
 
