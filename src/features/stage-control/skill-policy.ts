@@ -67,6 +67,14 @@ function externalSkillArtifactRule(stage: Stage): string {
   return "- Skills may not create persistent files outside this stage allowlist; map relevant conclusions only into existing template fields/rows or final response.";
 }
 
+function noMatchingSkillRule(stage: Stage): string {
+  if (stage === "setup") {
+    return "- For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
+  }
+
+  return "- If none fits, stop and ask the user to update `config.yaml` or approve an exception.";
+}
+
 export function renderSkillPolicy(stage: Stage, config: Config): string {
   const skills = getStageSkillConfig(config, stage);
   const routerRules = hasConfiguredRouters(skills)
@@ -78,13 +86,13 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
       "- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.",
       "- Priority 3: use listed additional skills only when Priority 1 and Priority 2 skills are insufficient or an additional skill is clearly better.",
       "- Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.",
-      "- If none fits, stop and ask the user to update `config.yaml` or approve an exception."
+      noMatchingSkillRule(stage)
     ]
     : [
       "- No routers are configured; use main skills first.",
       "- Use additional skills only when main skills are insufficient or an additional skill is clearly better.",
       "- Allowed external skills: only the main and additional skills listed in this prompt.",
-      "- If none fits, stop and ask the user to update `config.yaml` or approve an exception."
+      noMatchingSkillRule(stage)
     ];
   const rules = [
     ...routerRules,

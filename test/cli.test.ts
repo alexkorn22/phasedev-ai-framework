@@ -565,8 +565,11 @@ codex:
     expect(output).not.toContain(["open", "spec", "changes"].join("/"));
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
     expect(output).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
+    expect(output).toContain("use this repository read order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
+    expect(output).toContain("stop reading once you have enough evidence to fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
     expect(output).toContain("manual: <named method supported by user/repo evidence>");
     expect(output).toContain("template is the only output structure");
+    expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and self-check execution");
     expect(output).toContain("# PRD");
     expect(output).toContain("# Rules");
     expect(output).toContain("Artifact self-check");
@@ -1619,6 +1622,13 @@ describe("flow templates", () => {
     const config = parseConfig(`
 codex:
   stages:
+    setup:
+      skills:
+        routers:
+          - using-ecc
+        main:
+          - spec-driven-development
+        additional: []
     implementation:
       skills:
         routers:
@@ -1642,6 +1652,8 @@ codex:
 
     expect(setupPolicy).toContain("router skills such as `using-ecc` may classify the task");
     expect(setupPolicy).toContain("do not authorize reading framework source, framework templates, config files");
+    expect(setupPolicy).toContain("For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract");
+    expect(setupPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(implementationPolicy).toContain("Allowed skills:");
     expect(implementationPolicy).toContain("Priority 1 - Routers:");
     expect(implementationPolicy).toContain("- `using-zuvo`");
@@ -1651,6 +1663,7 @@ codex:
     expect(implementationPolicy).not.toContain("determined after reading routers");
     expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
+    expect(implementationPolicy).toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(validationPolicy).toContain("Allowed skills:");
     expect(validationPolicy).toContain("- `performance-audit`");
     expect(validationPolicy).toContain("Validation stages are review-only");

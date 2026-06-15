@@ -21,6 +21,8 @@ Required actions:
 5. Do not create `.phasedev/`, `.phasedev/changes/`, the change folder, `prd.md`, or `rules.md` until both items are available: the task description and task rules/constraints answer.
 6. Before initial intake is complete, do not inspect files, search the repository, read transcripts/logs, inspect config, inspect tests, inspect artifact templates, or inspect the `ag-dev-flow` framework source. The only correct action is to ask for the missing task/rules input and stop.
 7. After initial intake is complete, run a material-question gate before creating files:
+   - use this repository read order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change;
+   - keep retrieval bounded: at most one broad file listing and focused searches for concrete evidence; stop reading once you have enough evidence to fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions;
    - inspect only the current project repository and project instructions when needed to avoid asking questions answerable from local project evidence;
    - do not inspect `ag-dev-flow` source or template files; the artifact templates are embedded in this prompt;
    - ask only questions whose answer can change `Intent` values, `R#`, `SC#`, success evidence type, risk boundaries, or test commands;
@@ -65,7 +67,6 @@ Path resolution rule:
 - Do not create or update project-root `prd.md` or `rules.md` files during this stage.
 
 Artifact requirements:
-- `prd.md` remains the main task contract.
 - Later research, design, planning, implementation, and validation stages will treat `prd.md` and `rules.md` as source-of-truth inputs, so write stable, testable statements that can be carried forward without reinterpreting the conversation.
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
 - `prd.md` `Requirements` contains only required project behavior or project results.
@@ -99,20 +100,14 @@ If the exact self-check command cannot be executed because the `phasedev` CLI is
 `prd.md` and `rules.md` are approval artifacts, but they are also machine-read by later AI agents. Keep them compact, stable, and predictable.
 
 Formatting rules:
-- YAML frontmatter remains first in each file.
-- For `prd.md`, do not choose structure based on content. Use only the strict PRD contract from the template.
-- The first visible part of `prd.md` after `# PRD` must be `## Intent`; write approval context inside the allowed tables.
+- Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and self-check execution. Do not restate or reinterpret those strict fill rules in the artifacts.
 - Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves; do not add a separate approval summary.
 - Use concise tables and short wording instead of decorative formatting.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a question affects the approval artifact, ask the user and stop until the answer.
 - Do not write pending open questions into `prd.md` or `rules.md` as a substitute for asking the user.
 - Do not encode assumptions or deferred decisions as separate sections. If they are material, resolve them before writing PRD or express the resulting requirement, risk boundary, or success criterion in the allowed tables.
-- Do not create any additional sections in `prd.md`, such as approval summary, scope, out of scope, assumptions, deferred decisions, risks, notes, or security. Distribute material content across the allowed sections.
-- In `prd.md`, do not use headings other than the strictly allowed headings. Short paragraphs, bullets, tables, blockquotes, and bold may be used only inside the allowed sections.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
-- For `prd.md`, use only the allowed sections: put intent and risk boundaries in `## Intent`, required behavior in `## Requirements`, and proof targets plus evidence type in `## Success Criteria`.
-- In `rules.md`, preserve all machine-readable elements of the `## Test Commands` table without decorative formatting inside commands.
 
 ## Artifact allowlist
 
