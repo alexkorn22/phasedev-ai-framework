@@ -322,9 +322,14 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("setup");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
+    expect(result.prompt).toContain(`current project repository at \`${testTmpDir}\``);
+    expect(result.prompt).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
     expect(result.prompt).toContain("Artifact Build Contract: rules.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md")}\``);
+    expect(result.prompt).toContain("Before creating the change folder, prevent slug collisions");
+    expect(result.prompt).toContain("derive the next non-conflicting slug by appending `-2`, then `-3`");
+    expect(result.prompt).toContain("do not overwrite or reuse it");
     expect(result.prompt).toContain("template is the only output structure");
     expect(result.prompt).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");

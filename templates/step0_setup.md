@@ -7,7 +7,7 @@ Stage contract: prepare the initial change artifacts.
 Input:
 - task/change description from the current context;
 - user rules and constraints for this task, including an explicit answer that there are no additional task-specific constraints;
-- current project repository, inspected only after initial intake is complete;
+- current project repository at `{{project_path}}`, inspected only after initial intake is complete; this absolute path is the only target repository for repository inspection and artifact writes;
 - clarifications available from the user if the task description is not enough for requirements.
 
 Non-input:
@@ -51,9 +51,13 @@ Required actions:
     - Choose a short kebab-case slug from the final task text, for example `create-kanban-board`.
     - Do not ask the user to provide the slug; this is the setup agent's responsibility unless the user already gave an exact folder name.
     - Do not inspect `ag-dev-flow` source code just to determine the slug.
-15. Create the full change folder path `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen slug. If this is a new working project and `.phasedev/` or `.phasedev/changes/` does not exist, create those parent directories as part of this step.
-16. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
-17. Create `prd.md` first, then `rules.md`. Do not run the artifact self-check between those two writes.
+15. Before creating the change folder, prevent slug collisions in `{{project_path}}/.phasedev/changes/`:
+    - if `.phasedev/changes/<chosen-slug>/` already exists, or if it contains `prd.md` or `rules.md`, do not overwrite or reuse it;
+    - derive the next non-conflicting slug by appending `-2`, then `-3`, and so on, only while the slug still clearly represents the final task;
+    - if the user specified an exact folder name and it collides, or if no safe representative slug can be derived, stop and report a blocker instead of asking for a slug.
+16. Create the full change folder path `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen non-conflicting slug. If this is a new working project and `.phasedev/` or `.phasedev/changes/` does not exist, create those parent directories as part of this step.
+17. Use the Artifact Build Contracts below as the only source of structure for `prd.md` and `rules.md`.
+18. Create `prd.md` first, then `rules.md`. Do not run the artifact self-check between those two writes.
 
 Path resolution rule:
 - `prd.md` and `rules.md` in this prompt are paths inside the active change folder, not paths from the project repository root.

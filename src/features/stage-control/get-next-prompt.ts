@@ -96,6 +96,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       const setupSelfCheckGuidance = "Stage 0 is not complete until this command passes after both `prd.md` and `rules.md` exist. Do not run this check after only one setup artifact exists. If it fails, fix only setup artifact issues, then rerun the same command.";
       const basePrompt = renderStageTemplate("setup", "step0_setup", {
         date,
+        project_path: projectPath,
         prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date, setupSelfCheckGuidance),
         rules_artifact_contract: artifactContract("rules.md", path.join(changeRoot, "rules.md"), "artifacts/rules", selfCheckCommand, date, setupSelfCheckGuidance),
         self_check_command: selfCheckCommand

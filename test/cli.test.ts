@@ -555,7 +555,12 @@ codex:
     let output = runNext();
     expect(output).toContain("Artifact Build Contract: prd.md");
     expect(output).toContain("Artifact Build Contract: rules.md");
+    expect(output).toContain(`current project repository at \`${testTmpDir}\``);
+    expect(output).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(output).toContain(path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md"));
+    expect(output).toContain("Before creating the change folder, prevent slug collisions");
+    expect(output).toContain("derive the next non-conflicting slug by appending `-2`, then `-3`");
+    expect(output).toContain("do not overwrite or reuse it");
     expect(output).not.toContain(["open", "spec", "changes"].join("/"));
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
     expect(output).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
