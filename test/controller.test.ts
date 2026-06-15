@@ -330,10 +330,17 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Before creating the change folder, prevent slug collisions");
     expect(result.prompt).toContain("derive the next non-conflicting slug by appending `-2`, then `-3`");
     expect(result.prompt).toContain("do not overwrite or reuse it");
-    expect(result.prompt).toContain("template is the only output structure");
-    expect(result.prompt).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
+    expect(result.prompt).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
+    expect(result.prompt).toContain("Context budget: at most one broad file listing plus focused searches for concrete evidence");
+    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
+    expect(result.prompt).toContain("embedded template is the only artifact structure");
+    expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
+    expect(result.prompt).not.toContain("Strict fill rules:");
+    expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("manual: inspect Stage 0 artifacts against accepted task constraints");
+    expect(result.prompt).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route setup_approval` subcommand");
+    expect(result.prompt).toContain("Final response must be compact and include only");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
     expect(result.prompt).toContain("# Rules");
@@ -361,7 +368,7 @@ describe("flow controller typed stages", () => {
     expect(result.stage).toBe("design");
     expect(result.prompt).toContain("Artifact Build Contract: architecture/design.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(changeDir, "architecture", "design.md")}\``);
-    expect(result.prompt).toContain("template is the only output structure");
+    expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt).toContain("# Design");
     expect(result.prompt).toContain("## Architecture Package Map");
     expect(result.prompt).toContain("--expect-route design_approval");

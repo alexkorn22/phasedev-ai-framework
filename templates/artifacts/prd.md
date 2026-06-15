@@ -6,13 +6,7 @@ date: {{date}}
 
 <!--
 Authoring instructions for the setup agent:
-- Instantiate this template into the active change directory as prd.md.
-- Do not create or update a project-root prd.md file.
-- Remove every HTML comment from the final prd.md.
 - Keep exactly one visible top-level title: # PRD.
-- Do not leave blank cells, copied field descriptions, or placeholder-like prose in the final artifact.
-- Do not write TBD, TODO, unknown, clarify later, or to be decided.
-- Before writing prd.md, ask only questions whose answers change Intent fields, R# requirements, SC# success criteria, risk boundaries, evidence type, or test commands.
 - The final prd.md may contain only the # PRD title and the three ## sections shown below, in this exact order.
 - Do not add any other ## sections.
 - Do not add ### or deeper headings. Put additional material inside the allowed tables.
