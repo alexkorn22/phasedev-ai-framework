@@ -436,7 +436,8 @@ codex:
     expect(output).toContain("Priority 3 - Additional:");
     expect(output).toContain("- `api-and-interface-design`");
     expect(output).toContain("Allowed external skills: only the main and additional skills listed in this prompt.");
-    expect(output).toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
+    expect(output).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
+    expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(output).not.toContain("Router-selected:");
     expect(output).toContain("Check Evidence");
   });
@@ -479,7 +480,7 @@ codex:
     expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(output).toContain("Priority 1: use listed router skills first when they help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.");
+    expect(output).toContain("Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.");
     expect(output).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
     expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
   });
@@ -517,7 +518,7 @@ codex:
     expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
-    expect(output).toContain("Priority 1: use listed router skills first.");
+    expect(output).toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(output).toContain("Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.");
     expect(output).toContain("Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.");
@@ -678,7 +679,21 @@ codex:
     expect(output).toContain("# Implementation Plan");
     expect(output.match(/`- \[ \] <phase>\.<task> Task description`/g) ?? []).toHaveLength(1);
     expect(output).toContain("Artifact self-check");
+    expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route plan_approval");
+    expect(output).toContain("Use this bounded retrieval order before planning");
+    expect(output).toContain("Verify that `prd.md` and `design.md` have `approved: true`");
+    expect(output).toContain("Context budget and stop condition:");
+    expect(output).toContain("Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped");
+    expect(output).toContain("use its existing four-row table as the compact review surface");
+    expect(output).toContain("Do not add extra callouts, bullets, table rows, or review-only blocks outside the embedded template structure.");
+    expect(output).toContain("If a detail is missing but does not change approval scope");
+    expect(output).toContain("choose the smallest conservative planning assumption");
+    expect(output).toContain("If the missing answer would change what the user is approving");
+    expect(output).toContain("Do not use emoji in `implementation_plan.md`");
+    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand");
+    expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");
+    expect(output).not.toContain("Emoji may be used as semantic visual markers");
   });
 
   test("check reports invalid fresh PRD without rendering the next prompt", () => {
@@ -1736,8 +1751,10 @@ codex:
     expect(implementationPolicy).not.toContain("Router-selected:");
     expect(implementationPolicy).not.toContain("determined after reading routers");
     expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
+    expect(implementationPolicy).toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
-    expect(implementationPolicy).toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
+    expect(implementationPolicy).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
+    expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(validationPolicy).toContain("Allowed skills:");
     expect(validationPolicy).toContain("- `performance-audit`");
     expect(validationPolicy).toContain("Validation stages are review-only");

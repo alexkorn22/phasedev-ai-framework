@@ -166,14 +166,16 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       return approvalBlocker("design", "Design requires review", route.paths.designPath, "architecture/design.md");
     case "plan": {
       const urls = urlsFor(route.paths);
+      const date = new Date().toISOString().split("T")[0];
+      const selfCheckCommand = flowCheckCommand(projectPath, "plan_approval");
       return prompt("next", "plan", renderStageTemplate("plan", "step3_plan", {
         prd_path: urls.prd_path,
         design_path: urls.design_path,
         rules_path: urls.rules_path,
         plan_path: urls.plan_path,
-        date: new Date().toISOString().split("T")[0],
-        implementation_plan_artifact_contract: artifactContract("implementation_plan.md", route.paths.planPath, "artifacts/implementation_plan", flowCheckCommand(projectPath, "plan_approval")),
-        self_check_command: flowCheckCommand(projectPath, "plan_approval")
+        date,
+        implementation_plan_artifact_contract: artifactContract("implementation_plan.md", route.paths.planPath, "artifacts/implementation_plan", selfCheckCommand, date, undefined, false),
+        self_check_command: selfCheckCommand
       }, config));
     }
     case "plan_approval":

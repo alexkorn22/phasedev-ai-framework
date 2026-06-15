@@ -76,23 +76,19 @@ function noMatchingSkillRule(stage: Stage): string {
     return "- For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
   }
 
-  if (stage === "research") {
-    return "- If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
-  }
-
-  return "- If none fits, stop and ask the user to update `config.yaml` or approve an exception.";
+  return "- If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
 }
 
 function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
   if (stage === "setup") {
-    return "- Priority 1: after setup intake is available, use listed router skills first when they help shape the setup artifacts.";
+    return "- Priority 1: after setup intake is available, read listed router skills first when they are available and help shape the setup artifacts.";
   }
 
   if (stage === "research" && onlyRouters) {
-    return "- Priority 1: use listed router skills first when they help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
+    return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
   }
 
-  return "- Priority 1: use listed router skills first.";
+  return "- Priority 1: read listed router skills first when they are available and applicable to the stage evidence.";
 }
 
 export function renderSkillPolicy(stage: Stage, config: Config): string {

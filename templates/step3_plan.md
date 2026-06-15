@@ -9,6 +9,21 @@ Input artifacts (you must read them):
 - Approved design: [design.md]({{design_path}})
 - Development rules: [rules.md]({{rules_path}})
 
+## Context retrieval protocol
+
+Use this bounded retrieval order before planning:
+1. Read this prompt and the embedded Artifact Build Contract first so the output shape is fixed before analysis.
+2. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `implementation_plan.md`.
+3. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
+4. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded implementation plan template only.
+5. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
+
+Context budget and stop condition:
+- Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
+- For repository evidence, use at most 2-4 broad file listings/searches total as a soft cap, then focused searches for concrete identifiers, modules, commands, or paths named by PRD/design/rules.
+- Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one phase, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
+- Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless an approved input explicitly requires that evidence.
+
 Planning instructions:
 1. Use the Artifact Build Contract below as the only source of structure for [implementation_plan.md]({{plan_path}}).
 2. Create the implementation plan file: [implementation_plan.md]({{plan_path}}), filling that template for the current change.
@@ -24,7 +39,7 @@ Planning instructions:
    - checks must cover each `SC#` according to its PRD `Evidence` type;
    - risk boundaries must be represented in the generated plan.
 7. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
-8. If the approved design or plan decomposition cannot cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
+8. If the approved design or bounded planning evidence cannot cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
 
 {{implementation_plan_artifact_contract}}
 
@@ -34,28 +49,26 @@ Planning instructions:
 
 Formatting rules:
 - YAML frontmatter remains first in the file.
-- Choose structure based on the concrete change content.
-- The first visible part of the document must quickly explain phase order and exactly what the user is approving.
-- Immediately after the title/intro, add a compact visual review surface. This is not a fixed section; it is 2-5 callouts, bullets, or table rows with the most important approval information.
-- In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
-- Visual markers, callouts, bullets, and review-only formatting must live inside existing allowed sections: `Approval Summary`, `Phase Overview`, or phase-local `###` sections.
+- The first visible content after `# Implementation Plan` is `## Approval Summary`; use its existing four-row table as the compact review surface for what the user is approving.
+- Do not add extra callouts, bullets, table rows, or review-only blocks outside the embedded template structure.
+- Review formatting must live inside existing template fields only: `Approval Summary`, `Generation Bundle`, `Phase Overview`, or phase-local `###` sections.
 - Do not add new `##` sections to `implementation_plan.md` beyond the artifact template's allowed `##` sections and phase headings.
-- Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, callouts, or grouping clearly speed up review.
+- Do not leave an approval artifact as an ordinary wall of markdown when concise table content or grouping inside the existing fields would speed up review.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
-- If a question affects the approval artifact, ask the user and stop until the answer.
-- Do not write pending open questions into `implementation_plan.md` as a substitute for asking the user.
-- Do not encode assumptions or deferred decisions as separate plan concepts unless they are grounded in approved design and a concrete PRD row.
 - Do not create empty, decorative, or artificial sections when they do not help review.
-- Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.
-- If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
-- Use callouts for approval scope, reviewer attention, sequencing risks, accepted assumptions, and deferred decisions when they exist.
-- If there are sequencing risks, accepted assumptions, dependencies, or reviewer attention points, make them visually noticeable near the top.
-- Emoji may be used as semantic visual markers when they help scan the document.
-- Do not use emoji in YAML frontmatter.
-- Do not use emoji in commands, file paths, code blocks, or required machine-readable labels.
-- Use emoji only in human-facing prose or table cells.
-- Do not use emoji in machine-parsed phase headings `## Phase N: <Phase name> [<status>]`.
+- Use short paragraphs, bullets, tables, and bold only inside existing template sections where they improve readability.
+- If a list grows beyond 7 items, group it by meaningful categories inside the relevant existing section instead of using one long flat list.
+- Put sequencing risks, accepted assumptions, dependencies, and reviewer attention points in the existing `Approval Summary` rows or the relevant phase-local fields.
+- Do not use emoji in `implementation_plan.md`; keep machine-sensitive approval artifacts plain text.
 - In `implementation_plan.md`, preserve all machine-readable elements from the artifact template.
+
+## Uncertainty decision flow
+
+Prefer a complete, approvable plan when approved inputs support one:
+1. If the phase, task, check, or change-surface choice is directly supported by approved PRD/design/rules, make the planning decision and map it to concrete `R#`, `SC#`, and `D#` IDs.
+2. If a detail is missing but does not change approval scope, PRD semantics, approved design decisions, public contracts, risk boundaries, phase ordering, or required checks, choose the smallest conservative planning assumption and record it in an existing `Approval Summary`, `Phase Overview`, or phase-local field with concrete trace IDs.
+3. If the missing answer would change what the user is approving, expand scope, contradict approved PRD/design, weaken a risk boundary, change a public contract, or make required checks impossible to name, ask the user and stop before writing or finalizing `implementation_plan.md`.
+4. Do not write pending material questions into `implementation_plan.md` as a substitute for asking the user. Do not encode assumptions or deferred decisions unless they are grounded in approved design and concrete PRD rows.
 
 ## Artifact self-check
 
@@ -66,6 +79,8 @@ After creating `implementation_plan.md`, immediately validate the new artifact b
 ```
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `implementation_plan.md` until this self-check passes.
+
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route plan_approval` or `bunx phasedev check --project-path ... --expect-route plan_approval` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
 
 Stage completion:
 - After writing `implementation_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
