@@ -568,11 +568,14 @@ codex:
     expect(output).toContain("use this repository read order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("stop reading once you have enough evidence to fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
     expect(output).toContain("manual: <named method supported by user/repo evidence>");
+    expect(output).toContain("manual: inspect Stage 0 artifacts against accepted task constraints");
     expect(output).toContain("template is the only output structure");
-    expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and self-check execution");
+    expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, and placeholder handling");
     expect(output).toContain("# PRD");
     expect(output).toContain("# Rules");
     expect(output).toContain("Artifact self-check");
+    expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
+    expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--expect-route setup_approval");
     expect(output).toContain("If the exact self-check command cannot be executed because the `phasedev` CLI is unavailable, report the exact command failure as a blocker.");

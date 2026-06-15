@@ -15,6 +15,10 @@ function hasConfiguredRouters(skills: StageSkillConfig): boolean {
   return skills.routers.length > 0;
 }
 
+function hasOnlyConfiguredRouters(skills: StageSkillConfig): boolean {
+  return skills.routers.length > 0 && skills.main.length === 0 && skills.additional.length === 0;
+}
+
 function flowSkillBoundaryProtocol(): string[] {
   return [
     "## Flow Skill Boundary Protocol",
@@ -77,14 +81,19 @@ function noMatchingSkillRule(stage: Stage): string {
 
 export function renderSkillPolicy(stage: Stage, config: Config): string {
   const skills = getStageSkillConfig(config, stage);
+  const onlyRouters = hasOnlyConfiguredRouters(skills);
   const routerRules = hasConfiguredRouters(skills)
     ? [
       stage === "setup"
         ? "- Priority 1: after setup intake is available, use listed router skills first when they help shape the setup artifacts."
         : "- Priority 1: use listed router skills first.",
       "- Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.",
-      "- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.",
-      "- Priority 3: use listed additional skills only when Priority 1 and Priority 2 skills are insufficient or an additional skill is clearly better.",
+      ...(skills.main.length > 0
+        ? ["- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence."]
+        : []),
+      ...(skills.additional.length > 0
+        ? ["- Priority 3: use listed additional skills only when Priority 1 and Priority 2 skills are insufficient or an additional skill is clearly better."]
+        : []),
       "- Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.",
       noMatchingSkillRule(stage)
     ]
@@ -116,7 +125,17 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
   }
 
   const prioritySections = hasConfiguredRouters(skills)
-    ? [
+    ? onlyRouters
+      ? [
+        "Allowed skills:",
+        "",
+        "Priority 1 - Routers:",
+        formatSkillList(skills.routers),
+        "",
+        "Priority 2 - Main: none configured",
+        "Priority 3 - Additional: none configured"
+      ]
+      : [
       "Allowed skills:",
       "",
       "Priority 1 - Routers:",

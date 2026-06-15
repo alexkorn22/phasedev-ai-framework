@@ -333,6 +333,8 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("template is the only output structure");
     expect(result.prompt).toContain("proceed without a separate confirmation stop when the current context already supplies the task description");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
+    expect(result.prompt).toContain("manual: inspect Stage 0 artifacts against accepted task constraints");
+    expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
     expect(result.prompt).toContain("# Rules");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);

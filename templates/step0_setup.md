@@ -72,7 +72,8 @@ Artifact requirements:
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
 - `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
-- For each `rules.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method only when repository evidence or an explicit user answer supports it; otherwise ask the user for that gate method and stop. Do not invent commands.
+- For each `rules.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method when repository evidence or an explicit user answer supports it.
+- If the repository is clearly new/minimal and has no package/test metadata or project commands, use the controller-supported fallback `manual: inspect Stage 0 artifacts against accepted task constraints` for missing gates instead of blocking solely because command metadata is absent. Otherwise ask the user for that gate method and stop. Do not invent commands.
 - Named manual methods in `rules.md` must use machine-readable wording: `manual: <named method supported by user/repo evidence>`, for example `manual: compare generated prompt against Stage 0 acceptance notes`. Do not use vague manual labels such as `manual review`, `check manually`, or `n/a`.
 - `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
@@ -100,7 +101,7 @@ If the exact self-check command cannot be executed because the `phasedev` CLI is
 `prd.md` and `rules.md` are approval artifacts, but they are also machine-read by later AI agents. Keep them compact, stable, and predictable.
 
 Formatting rules:
-- Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and self-check execution. Do not restate or reinterpret those strict fill rules in the artifacts.
+- Artifact Build Contracts above are the canonical source for exact structure, comment removal, and placeholder handling. Do not restate or reinterpret those strict fill rules in the artifacts.
 - Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves; do not add a separate approval summary.
 - Use concise tables and short wording instead of decorative formatting.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.

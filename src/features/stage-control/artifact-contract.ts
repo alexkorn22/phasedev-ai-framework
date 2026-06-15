@@ -7,6 +7,7 @@ export interface ArtifactContractOptions {
   templateContent?: string;
   selfCheckCommand: string;
   selfCheckFailureGuidance?: string;
+  includeSelfCheck?: boolean;
   date: string;
 }
 
@@ -15,7 +16,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     date: options.date
   });
 
-  return [
+  const contract = [
     `## Artifact Build Contract: ${options.artifactId}`,
     "",
     `- Artifact ID: \`${options.artifactId}\``,
@@ -39,15 +40,22 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "- If useful skill material cannot be mapped into this template, put it in the final response or report a blocker instead of adding artifact structure.",
     "- Use HTML comments as authoring guidance only.",
     "- Remove every HTML comment from the final artifact file.",
-    "- Do not leave placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`.",
-    "",
-    "Self-check command:",
-    "",
-    "```bash",
-    options.selfCheckCommand,
-    "```",
-    "",
-    options.selfCheckFailureGuidance ??
-      "Stage is not complete until this command passes. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
-  ].join("\n");
+    "- Do not leave placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`."
+  ];
+
+  if (options.includeSelfCheck ?? true) {
+    contract.push(
+      "",
+      "Self-check command:",
+      "",
+      "```bash",
+      options.selfCheckCommand,
+      "```",
+      "",
+      options.selfCheckFailureGuidance ??
+        "Stage is not complete until this command passes. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
+    );
+  }
+
+  return contract.join("\n");
 }
