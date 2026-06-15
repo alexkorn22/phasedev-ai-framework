@@ -92,6 +92,8 @@ After both artifacts exist, immediately validate the new artifacts before comple
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `prd.md` or `rules.md` until this self-check passes.
 
+If the exact self-check command cannot be executed because the `phasedev` CLI is unavailable, report the exact command failure as a blocker. Do not invent alternative commands unless this prompt or controller output explicitly provides them.
+
 ## Human Review Formatting Policy
 
 `prd.md` and `rules.md` are approval artifacts, but they are also machine-read by later AI agents. Keep them compact, stable, and predictable.
@@ -125,5 +127,6 @@ Stage completion:
   - the active change folder slug;
   - the exact paths to `prd.md` and `rules.md`;
   - a short summary of the final task interpretation;
+  - a short skill compliance note listing configured/router skills used and skipped/unavailable skills;
   - the artifact self-check command and result;
   - an explicit request for the user to review the files, set `approved: true`, and then run `phasedev next`.

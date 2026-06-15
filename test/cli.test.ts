@@ -412,7 +412,8 @@ codex:
     expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(output).toContain("If a listed skill is unavailable in the current agent runtime, stop and report a blocker.");
+    expect(output).toContain("If a listed skill is unavailable but is not needed or applicable for the available stage evidence, continue under this Flow stage contract and record it as skipped/unavailable in the final skill compliance note.");
+    expect(output).toContain("If a listed skill is unavailable and is needed or applicable for the available stage evidence, or the configured stage contract requires that skill for the work, stop and report a blocker.");
     expect(output).toContain("Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.");
     expect(output).toContain("Do not skip an applicable selected skill because its native output format differs");
     expect(output).toContain("In the final response, include a short skill compliance note listing router skills used, router-selected skills used, main/additional skills used, and skipped/unavailable listed skills.");
@@ -571,6 +572,8 @@ codex:
     expect(output).toContain("Artifact self-check");
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--expect-route setup_approval");
+    expect(output).toContain("If the exact self-check command cannot be executed because the `phasedev` CLI is unavailable, report the exact command failure as a blocker.");
+    expect(output).toContain("a short skill compliance note listing configured/router skills used and skipped/unavailable skills");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
