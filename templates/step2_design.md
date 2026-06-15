@@ -54,61 +54,29 @@ Decomposition rules:
 - Do not duplicate large prose fragments between `design.md` and subdocuments; `design.md` summarizes and links, subdocuments hold details.
 - Each linked subdocument must have a minimal review contract: purpose, one diagram/table/tree review surface, the decisions/contracts/details it expands, and a backlink or clear reference from `architecture/design.md`.
 
-Requirements for `architecture/design.md`:
-- include a concise summary of the solution and exactly what the user approves in `## Executive Summary`;
-- keep `## Executive Summary` as a compact approval snapshot table, not a prose essay; this table is the required near-top visual review surface for small/single-file designs;
-- explicitly connect the design direction to `Intent` from [prd.md]({{prd_path}}): why the change is needed, target state, and risk boundaries in `## Executive Summary` or `## Key Design Decisions`;
-- include a `## Traceability Mapping` table with one row for every `R#` requirement and every `SC#` success criterion from the PRD;
-- every traceability row must reference concrete research facts (`F#` or `S#`) from [research_facts.md]({{research_path}}) when applicable, or `not_applicable: <short reason>` when the validated research record has no applicable fact/spec evidence for that row;
-- every traceability row must reference at least one concrete design decision ID (`D#`);
-- define each `D#` exactly once in `## Key Design Decisions`;
-- do not introduce design work that is not grounded in `Target state`, `R#`, `SC#`, or `Risk boundaries` from the PRD;
-- include a compact visual review surface near the top;
-- include the required `Architecture Package Map` table in `## Architecture Package Map`;
-- include key design decisions as a table in `## Key Design Decisions`;
-- use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable` only when there is no material contract surface;
-- include accepted risks, tradeoffs, and non-blocking open questions in `## Risks & Open Questions`;
-- link every additional architecture file if any are created.
-
-`Architecture Package Map` format:
-
-| File | Purpose | Visual content | Review priority |
-| --- | --- | --- | --- |
-| `architecture/design.md` | Entry point and approval summary | review table, package map, top-level diagram | high |
-| `architecture/example.md` | Detailed concern, if needed | Mermaid/table/tree diagram | medium |
-
-`Architecture Package Map` is an index of files in the approvable design package, not a component implementation map.
-The `File` column uses design package paths relative to the active change folder; it must not imply project-root filesystem paths.
-If implementation component mapping is needed for review, keep it in `## Key Design Decisions` or a linked architecture subdocument.
-
-All referenced files inside the active change folder's `architecture/` directory are considered part of the approved design if they are explicitly listed in the approved `architecture/design.md`.
-
-The controller checks approval only on `architecture/design.md`; separate approval for architecture subdocuments is not required.
+Artifact-specific content rules:
+- Preserve the six-section structure from the embedded artifact template exactly; do not add headings beyond the required `# Design` title and those six required `##` sections.
+- In `## Executive Summary`, provide a compact approval snapshot table that states the solution direction, approval scope, out-of-scope boundaries, key reviewer attention, and validation plan.
+- Explicitly connect the design direction to PRD `Intent`, `Target state`, `R#`, `SC#`, and `Risk boundaries`; do not introduce design work outside those approved inputs.
+- In `## Traceability Mapping`, include one row for every `R#` and `SC#`; each row must reference at least one valid `D#` and either valid `F#`/`S#` evidence or `not_applicable: <short reason>` when the validated research record justifies no applicable evidence for that row.
+- Define each `D#` exactly once in `## Key Design Decisions`, and make every `D#` traceable from at least one row.
+- Use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable: <reason>` only when there is no material contract surface.
+- Use `## Architecture Package Map` only as the index of approvable design files. Its `File` column uses active-change-folder design package paths, not project-root paths. Link every additional `architecture/*.md` file that is part of approval.
+- The controller checks approval only on `architecture/design.md`; explicitly listed subdocuments are approved through that entrypoint.
 
 ## Visual-first policy
 
 Human reviewers must quickly understand what will change and how it is planned. Write the design as a reviewable architecture map, not as a long prose essay.
 
-Visual-first formatting rules:
+Visual review aids:
 - For a non-trivial design package, use at least one Mermaid diagram.
-- Use schemas, diagrams, tables, matrix views, and directory trees wherever they make human review easier.
-- Mermaid is suitable for `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, `stateDiagram`, and component/data-flow diagrams.
+- Use schemas, diagrams, tables, matrix views, directory trees, callouts, and semantic visual markers only when they speed up review inside the allowed template sections.
+- Optional Mermaid/callouts/visual markers must never change YAML frontmatter, table headers, required section structure, machine-readable labels, or required traceability fields.
+- Use Mermaid `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, or `stateDiagram` when the design affects runtime flow, dependency direction, persistence, API contracts, UI states, or validation paths.
 - Use tables for contracts, public interfaces, risks, ownership, decisions, alternatives, and validation mapping.
-- Use directory trees for planned file/module layout.
-- A diagram must explain real changes or planned architecture; do not add decorative diagrams without review value.
-- If the design affects runtime flow, dependency direction, persistence, API contract, UI states, or validation path, show that with a diagram.
+- A visual must explain real changes or planned architecture; do not add decorative diagrams.
 - Every linked subdocument must start with purpose, then a diagram/table/tree review surface, then decisions/contracts/details.
-- Do not bury important risks, changed contracts, or ownership boundaries deep in prose; show them near the top in a table/callout.
-
-Example Mermaid syntax when it fits the content:
-
-```mermaid
-flowchart TD
-  A[Input contract] --> B[Design decision]
-  B --> C[Implementation boundary]
-```
-
-For other diagram types, use Mermaid blocks with `sequenceDiagram`, `classDiagram`, `erDiagram`, or `stateDiagram` when they explain the change better.
+- Do not bury material risks, changed contracts, accepted assumptions, or ownership boundaries deep in prose; show them in `## Executive Summary` or the relevant required section.
 
 ## Artifact allowlist
 
@@ -127,20 +95,13 @@ Constraints:
 
 Formatting rules:
 - YAML frontmatter remains first in the file.
-- Preserve the six-section structure from the embedded artifact template exactly. Choose the content inside those sections based on the concrete change.
-- In `architecture/design.md`, do not add headings beyond the required `# Design` title and the six required `##` sections from the embedded template.
 - The first visible part of the document must quickly explain the technical direction the user is approving.
 - Use `## Executive Summary` as the compact visual review surface. It should contain 2-5 high-signal table rows or callouts with the most important approval information, not a separate invented section.
 - In the compact visual review surface, use semantic emoji markers when they add signal: 📌 approval scope, 🚫 out of scope, ✅ key decision/success, ⚠️ risk/reviewer attention, 🧪 validation, 🔒 security/secret boundary.
-- Do not leave an approval artifact as an ordinary wall of markdown when semantic visual markers, diagrams, tables, callouts, or grouping clearly speed up review.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
-- Do not encode assumptions or deferred decisions as separate design concepts unless they are grounded in approved PRD rows.
 - Do not accept a technical direction that changes `Intent`, `Target state`, `R#` requirements, `SC#` success criteria, `Evidence` types, or `Risk boundaries` from the PRD. If design requires that kind of change, stop and ask the user to realign the PRD.
-- Do not create empty, decorative, or artificial sections such as risks/alternatives/security when they have no material content.
 - Use short paragraphs, bullets, tables, blockquotes, and bold where they help readability inside the required sections.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
-- Use callouts for approval scope, reviewer attention, changed contracts, risks, accepted assumptions, and deferred decisions when they exist.
-- If there are material risks, tradeoffs, accepted assumptions, changed contracts, or reviewer attention points, make them visually noticeable near the top.
 - Reflect `Risk boundaries` in design decisions, validation mapping, and rollout/rollback considerations where relevant.
 - Emoji may be used as semantic visual markers when they help scan the document.
 - Do not use emoji in YAML frontmatter.
@@ -151,9 +112,10 @@ Formatting rules:
 
 Prefer a complete, approvable design when the available inputs support one:
 1. If a design choice is directly supported by PRD rows and research facts, make the decision, assign a `D#`, and map it in traceability.
-2. If evidence is incomplete but the missing detail does not change approval scope, PRD semantics, public contracts, or downstream implementation boundaries, choose the smallest conservative design that satisfies the PRD and record the remaining risk in `## Risks & Open Questions`.
+2. If evidence is incomplete but the missing detail does not change approval scope, PRD semantics, public contracts, or downstream implementation boundaries, choose the smallest conservative design that satisfies the PRD and record the bounded note in `## Risks & Open Questions` with an explicit label such as `assumption: ...` or `risk: ...`.
 3. If a question changes what the user is approving, expands scope, contradicts research, changes a public contract, weakens a risk boundary, or requires a PRD/research update, ask the user and stop before writing or finalizing `architecture/design.md`.
-4. Do not write pending material questions into `architecture/design.md` as a substitute for asking the user.
+4. Treat material unknowns as blockers before finalizing the artifact. Do not hide them with placeholder words or write pending material questions into `architecture/design.md` as a substitute for asking the user.
+5. `not_applicable: <reason>` is a valid mapping only when justified by the validated research record and the reason is specific enough for review.
 
 `## Risks & Open Questions` is for bounded review notes that do not block approval of the proposed architecture. It is not a backlog for unresolved material decisions.
 
@@ -179,6 +141,11 @@ Then immediately validate the new design artifact before completing the stage:
 ```
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `architecture/design.md` until this self-check passes.
+
+Bounded escape hatch:
+- If the same self-check command remains unavailable after checking for a controller-provided or local package executable, report a blocker with the exact command and output.
+- If the same non-actionable validator failure repeats after one concrete artifact fix attempt and rerun, stop and report a blocker with the exact command, output, and fix attempted.
+- Do not loop indefinitely on unavailable commands or repeated non-actionable failures.
 
 Stage completion:
 - After writing the architecture package, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
