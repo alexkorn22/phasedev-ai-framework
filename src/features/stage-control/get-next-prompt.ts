@@ -136,6 +136,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
+        project_path: projectPath,
         research_path: urls.research_path,
         research_artifact_contract: researchArtifactContract(route.paths.researchPath, projectPath),
         self_check_command: flowCheckCommand(projectPath, "design")

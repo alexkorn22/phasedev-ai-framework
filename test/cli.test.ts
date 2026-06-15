@@ -611,8 +611,11 @@ codex:
     expect(output).toContain("Artifact Build Contract: research_facts.md");
     expect(output).toContain("# Research Facts");
     expect(output).toContain(`Existing project specs: [.phasedev/specs](file://${path.join(testTmpDir, ".phasedev", "specs")})`);
+    expect(output).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
+    expect(output).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
     expect(output).toContain("Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets");
-    expect(output).toContain("Context budget: use at most one broad file listing/search to map candidate areas");
+    expect(output).toContain("Context budget: use a small bounded number of broad file listings/searches, at most one per target area");
+    expect(output).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
     expect(output).toContain("Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded");
     expect(output).toContain("Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact");
     expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
@@ -622,6 +625,8 @@ codex:
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route design");
+    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand");
+    expect(output).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");

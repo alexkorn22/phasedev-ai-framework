@@ -377,6 +377,32 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("--expect-route design_approval");
   });
 
+  test("research prompt constrains repository evidence to target project root", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("research");
+    expect(result.prompt).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
+    expect(result.prompt).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
+    expect(result.prompt).toContain("Context budget: use a small bounded number of broad file listings/searches, at most one per target area");
+    expect(result.prompt).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
+    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand");
+    expect(result.prompt).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
+  });
+
   test("implementation route reports implementation stage", () => {
     setupChange(`
 # Plan

@@ -8,6 +8,7 @@ Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [rules.md]({{rules_path}})
 - Existing project specs: [.phasedev/specs]({{project_specs_path}})
+- Target project root for repository evidence: `{{project_path}}`
 
 Output artifact:
 - [research_facts.md]({{research_path}}) inside the active change folder.
@@ -16,6 +17,7 @@ Path resolution rule:
 - `research_facts.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
 - Write the artifact only to the absolute Output path in the Artifact Build Contract below.
 - Do not create or update a project-root `research_facts.md` file during this stage.
+- Run all code, config, test, and runtime evidence searches under `{{project_path}}` unless an explicit input artifact path in this prompt points elsewhere.
 
 Use the Artifact Build Contract below as the only source of structure for `research_facts.md`.
 
@@ -25,7 +27,7 @@ Decision flow:
 1. Read approved `prd.md` and `rules.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
 2. Gather only enough repository evidence to trace those targets:
    - Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets, then `.phasedev/specs` if present, then focused follow-up searches for unresolved target-specific evidence gaps.
-   - Context budget: use at most one broad file listing/search to map candidate areas, then focused `rg` queries and file reads for concrete identifiers, modules, commands, tests, and spec areas. Do not perform exhaustive repository or spec audits.
+   - Context budget: use a small bounded number of broad file listings/searches, at most one per target area such as package layout, source modules, tests, runtime/config, and specs, then focused `rg` queries and file reads for concrete identifiers, modules, commands, tests, and spec areas. Do not perform exhaustive repository or spec audits.
    - Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded as `confirmed`, `limited`, `blocked`, or `not_applicable` with cited evidence, or once a material PRD blocker is identified.
 3. Fill `research_facts.md` from current-state evidence. Code, config, tests, and runtime wiring create `F#` facts. Existing specs create `S#` facts. PRD-only values are allowed only for intent fields that are not repository facts.
 4. Resolve conflicts by source priority: current code/config/tests/runtime wiring is implementation truth; `.phasedev/specs` is documented context; `prd.md` and `rules.md` define the requested change contract. If code and specs conflict, record code as current truth and the spec as stale or conflicting context.
@@ -51,6 +53,8 @@ After creating `research_facts.md`, immediately validate the new artifact before
 ```
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not report research as ready until this self-check passes.
+
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available, report the exact command failure as a blocker.
 
 ## Artifact allowlist
 
