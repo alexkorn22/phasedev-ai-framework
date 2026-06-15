@@ -39,7 +39,7 @@ Planning instructions:
    - checks must cover each `SC#` according to its PRD `Evidence` type;
    - risk boundaries must be represented in the generated plan.
 7. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
-8. If the approved design or bounded planning evidence cannot cover `Target state`, a specific `R#`, a specific `SC#`, a required `D#`, an `Evidence` type, or risk boundaries from the PRD, stop and ask the user to realign the PRD/design instead of creating an incomplete plan.
+8. Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction, missing approval authority, a public contract or risk-boundary decision the approved inputs do not authorize, or an impossible-to-name required check. Do not stop for low-level implementation details that do not change approval scope; make the smallest conservative scoped planning assumption and record it with concrete trace IDs.
 
 {{implementation_plan_artifact_contract}}
 
@@ -80,11 +80,16 @@ After creating `implementation_plan.md`, immediately validate the new artifact b
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `implementation_plan.md` until this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route plan_approval` or `bunx phasedev check --project-path ... --expect-route plan_approval` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route plan_approval`, `bunx phasedev check --project-path ... --expect-route plan_approval`, or local CLI invocation like `bun run src/cli.ts check --project-path ... --expect-route plan_approval` when package/source entrypoint evidence supports it. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
 
 Stage completion:
 - After writing `implementation_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that the plan is ready. Explain that the user must personally review [implementation_plan.md]({{plan_path}}), change `approved: false` to `approved: true` (and enter their name in `approved_by: "..."`) in its header, and then run `phasedev next`.
+- Final response must use this compact template and include no extra sections:
+  - `Plan ready: implementation_plan.md`
+  - `Plan path: {{plan_path}}`
+  - `Self-check: <exact command> -> <result>`
+  - `Skill compliance: <configured/router skills used; skipped/unavailable skills>`
+  - `Next: review implementation_plan.md, set approved: true and approved_by: "<your name>" only if accepted, then run phasedev next.`
 
 ## Artifact allowlist
 
