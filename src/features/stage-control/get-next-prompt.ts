@@ -57,6 +57,27 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
   });
 }
 
+const RESEARCH_TEMPLATE_SAMPLE_VALUES = [
+  "src/file.ts:42",
+  "test/file.test.ts:12",
+  ".phasedev/specs/foo/spec.md:12",
+  "Current implementation does X.",
+  "Tests verify behavior X.",
+  "Existing spec describes capability Y."
+];
+
+function researchArtifactContract(researchPath: string, projectPath: string): string {
+  return renderArtifactContract({
+    artifactId: "research_facts.md",
+    resolvedOutputPath: researchPath,
+    templateName: "artifacts/research_facts",
+    selfCheckCommand: flowCheckCommand(projectPath, "design"),
+    includeSelfCheck: false,
+    blockedFinalArtifactContent: RESEARCH_TEMPLATE_SAMPLE_VALUES,
+    date: new Date().toISOString().split("T")[0]
+  });
+}
+
 function flowFinalValidationCheckCommand(projectPath: string): string {
   return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope final`;
 }
@@ -116,7 +137,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         rules_path: urls.rules_path,
         project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
         research_path: urls.research_path,
-        research_artifact_contract: artifactContract("research_facts.md", route.paths.researchPath, "artifacts/research_facts", flowCheckCommand(projectPath, "design"), undefined, undefined, false),
+        research_artifact_contract: researchArtifactContract(route.paths.researchPath, projectPath),
         self_check_command: flowCheckCommand(projectPath, "design")
       }, config));
     }

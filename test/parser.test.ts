@@ -998,6 +998,50 @@ TODO: find blockers.
     expect(issues).toContain("Source Facts must include at least one `F#` code fact.");
   });
 
+  test("validateResearchFacts rejects embedded template sample rows", () => {
+    const researchFile = path.join(testTmpDir, "sample_rows_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile, `# Research Facts
+
+## PRD Intent Trace
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
+| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |
+| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |
+
+## Requirements & Success Criteria Trace
+
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | S1 | none |
+| SC1 | limited | F2 | none | Fixture criterion is partially evidenced. |
+
+## Source Facts
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | \`src/file.ts:42\` | Current implementation does X. | R1 |
+| F2 | code | \`test/file.test.ts:12\` | Tests verify behavior X. | SC1 |
+| S1 | spec | \`.phasedev/specs/foo/spec.md:12\` | Existing spec describes capability Y. | R1 |
+
+## Research Gaps & Blockers
+
+No non-blocking gaps.
+`);
+
+    const issues = validateResearchFacts(researchFile);
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `src/file.ts:42`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `test/file.test.ts:12`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `.phasedev/specs/foo/spec.md:12`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Current implementation does X.`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Tests verify behavior X.`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Existing spec describes capability Y.`.");
+  });
+
   test("validateResearchFacts requires complete PRD trace IDs exactly once", () => {
     const prdFile = path.join(testTmpDir, "research_trace_prd.md");
     const researchFile = path.join(testTmpDir, "research_trace.md");

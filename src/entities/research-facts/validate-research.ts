@@ -25,6 +25,15 @@ const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bto be decided\b/i, label: "to be decided" }
 ];
 
+const BLOCKED_TEMPLATE_SAMPLE_VALUES = [
+  "src/file.ts:42",
+  "test/file.test.ts:12",
+  ".phasedev/specs/foo/spec.md:12",
+  "Current implementation does X.",
+  "Tests verify behavior X.",
+  "Existing spec describes capability Y."
+];
+
 interface TableRow {
   cells: string[];
   rowNumber: number;
@@ -344,6 +353,12 @@ export function validateResearchFacts(filePath: string, prdPath?: string): strin
   for (const placeholder of BLOCKED_PLACEHOLDERS) {
     if (placeholder.pattern.test(content)) {
       issues.push(`research_facts.md must not contain placeholder text: ${placeholder.label}.`);
+    }
+  }
+
+  for (const sampleValue of BLOCKED_TEMPLATE_SAMPLE_VALUES) {
+    if (content.includes(sampleValue)) {
+      issues.push(`research_facts.md must replace embedded template sample value \`${sampleValue}\`.`);
     }
   }
 

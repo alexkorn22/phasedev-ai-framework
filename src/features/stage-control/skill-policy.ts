@@ -83,14 +83,24 @@ function noMatchingSkillRule(stage: Stage): string {
   return "- If none fits, stop and ask the user to update `config.yaml` or approve an exception.";
 }
 
+function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
+  if (stage === "setup") {
+    return "- Priority 1: after setup intake is available, use listed router skills first when they help shape the setup artifacts.";
+  }
+
+  if (stage === "research" && onlyRouters) {
+    return "- Priority 1: use listed router skills first when they help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
+  }
+
+  return "- Priority 1: use listed router skills first.";
+}
+
 export function renderSkillPolicy(stage: Stage, config: Config): string {
   const skills = getStageSkillConfig(config, stage);
   const onlyRouters = hasOnlyConfiguredRouters(skills);
   const routerRules = hasConfiguredRouters(skills)
     ? [
-      stage === "setup"
-        ? "- Priority 1: after setup intake is available, use listed router skills first when they help shape the setup artifacts."
-        : "- Priority 1: use listed router skills first.",
+      routerPriorityRule(stage, onlyRouters),
       "- Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.",
       ...(skills.main.length > 0
         ? ["- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence."]

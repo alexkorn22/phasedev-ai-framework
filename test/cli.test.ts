@@ -323,6 +323,16 @@ function writeDeltaSpec(archiveDir: string, capability: string, content: string)
   return specPath;
 }
 
+function expectSubstringsInOrder(content: string, fragments: string[]): void {
+  let fromIndex = 0;
+
+  for (const fragment of fragments) {
+    const foundIndex = content.indexOf(fragment, fromIndex);
+    expect(foundIndex).toBeGreaterThanOrEqual(0);
+    fromIndex = foundIndex + fragment.length;
+  }
+}
+
 describe("flow-cli state machine", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
@@ -469,6 +479,7 @@ codex:
     expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
+    expect(output).toContain("Priority 1: use listed router skills first when they help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.");
     expect(output).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
     expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
   });
@@ -605,10 +616,31 @@ codex:
     expect(output).toContain("Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded");
     expect(output).toContain("Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact");
     expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
+    expect(output).toContain("Replace every embedded template example row and example value with real stage-specific content.");
+    expect(output).toContain("The final artifact must not contain these embedded template sample values: `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route design");
+    expect(output).toContain("Final response must use this compact template and include no extra sections");
+    expect(output).toContain("Research ready:");
+    expect(output).toContain("Route: design");
+    expect(output).toContain("Next: phasedev next");
+    expectSubstringsInOrder(output, [
+      "Stage 1. Research.",
+      "## Configured Skill Policy",
+      "Input artifacts:",
+      "Output artifact:",
+      "## Artifact Build Contract: research_facts.md",
+      "Full template content:",
+      "Canonical fill rules:",
+      "Decision flow:",
+      "Research artifact requirements:",
+      "## Artifact self-check",
+      "## Artifact allowlist",
+      "Stage completion:",
+      "Final response must use this compact template"
+    ]);
 
     cleanupTestDir();
     changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");

@@ -59,4 +59,12 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Tell the user that research is ready and the next transition is run through `phasedev next`.
+- Final response must use this compact template and include no extra sections:
+
+```text
+Research ready: {{research_path}}
+Self-check: {{self_check_command}} -> <result>
+Route: design
+Next: phasedev next
+Skill compliance: <configured/router skills used; skipped/unavailable skills>
+```

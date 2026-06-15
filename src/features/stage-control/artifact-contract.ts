@@ -8,6 +8,7 @@ export interface ArtifactContractOptions {
   selfCheckCommand: string;
   selfCheckFailureGuidance?: string;
   includeSelfCheck?: boolean;
+  blockedFinalArtifactContent?: string[];
   date: string;
 }
 
@@ -43,6 +44,13 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "- Remove every HTML comment from the final artifact file.",
     "- Do not leave placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`."
   ];
+
+  if (options.blockedFinalArtifactContent?.length) {
+    contract.push(
+      "- Replace every embedded template example row and example value with real stage-specific content.",
+      `- The final artifact must not contain these embedded template sample values: ${options.blockedFinalArtifactContent.map(value => `\`${value}\``).join(", ")}.`
+    );
+  }
 
   if (options.includeSelfCheck ?? true) {
     contract.push(
