@@ -23,7 +23,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "",
     `- Artifact ID: \`${options.artifactId}\``,
     `- Output path: \`${options.resolvedOutputPath}\``,
-    "- Write the artifact exactly at the Output path above. Do not reinterpret the Artifact ID, template comments, package map rows, or allowlist entries as project-root filesystem paths.",
+    "- Write the artifact exactly at the Output path above. Do not reinterpret the Artifact ID, template comments, embedded template rows, or allowlist entries as project-root filesystem paths.",
     "- Template source: embedded below. Do not open framework template files.",
     "- Structure source: the embedded template is the only artifact structure. Fill that template; do not invent parallel markdown structure.",
     "",

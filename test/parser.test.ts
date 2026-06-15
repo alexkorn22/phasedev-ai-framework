@@ -1010,8 +1010,8 @@ TODO: find blockers.
 |---|---|---|---|---|
 | Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
 | Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |
-| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |
+| Target state | Requested target from PRD. | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
+| Risk boundaries | Requested risk boundary from PRD. | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
 
 ## Requirements & Success Criteria Trace
 
@@ -1034,6 +1034,10 @@ No non-blocking gaps.
 `);
 
     const issues = validateResearchFacts(researchFile);
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Requested target from PRD.`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Requested risk boundary from PRD.`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`.");
+    expect(issues).toContain("research_facts.md must replace embedded template sample value `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `src/file.ts:42`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `test/file.test.ts:12`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `.phasedev/specs/foo/spec.md:12`.");

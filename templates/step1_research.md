@@ -52,9 +52,9 @@ After creating `research_facts.md`, immediately validate the new artifact before
 {{self_check_command}}
 ```
 
-If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not report research as ready until this self-check passes.
+If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Report `Research ready` only after this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available, report the exact command failure as a blocker.
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.
 
 ## Artifact allowlist
 
@@ -62,7 +62,7 @@ Allowed persistent artifacts for this stage:
 - active change folder `research_facts.md` at the Artifact Build Contract Output path
 
 Stage completion:
-- After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
+- After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes. If the self-check is unavailable after the documented command lookup, stop with a blocker/unavailable self-check result instead of the ready template.
 - Final response must use this compact template and include no extra sections:
 
 ```text

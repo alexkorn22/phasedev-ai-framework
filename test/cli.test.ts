@@ -620,13 +620,15 @@ codex:
     expect(output).toContain("Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact");
     expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
     expect(output).toContain("Replace every embedded template example row and example value with real stage-specific content.");
-    expect(output).toContain("The final artifact must not contain these embedded template sample values: `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
+    expect(output).toContain("The final artifact must not contain these embedded template sample values: `Requested target from PRD.`, `Requested risk boundary from PRD.`, `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route design");
     expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand");
     expect(output).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
+    expect(output).toContain("If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.");
+    expect(output).toContain("Report `Research ready` only after this self-check passes.");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");

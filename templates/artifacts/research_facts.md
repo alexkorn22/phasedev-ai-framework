@@ -24,8 +24,8 @@ Authoring instructions for the research agent:
 |---|---|---|---|---|
 | Change type |  | not_applicable | prd-only |  |
 | Why |  | not_applicable | prd-only |  |
-| Target state |  | confirmed | F1 |  |
-| Risk boundaries |  | confirmed | F2 |  |
+| Target state | Requested target from PRD. | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
+| Risk boundaries | Requested risk boundary from PRD. | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
 
 ## Requirements & Success Criteria Trace
 
