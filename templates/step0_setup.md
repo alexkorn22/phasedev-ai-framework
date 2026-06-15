@@ -17,7 +17,7 @@ Decision flow:
 1. Complete intake before repository inspection. Required intake is the task/change description and the task-specific rules/constraints answer. If either item is missing, ask only for missing intake in one short batch and stop. An explicit "no additional constraints" answer is complete intake, not a blocker.
 2. After intake is complete, gather only enough local evidence to write stable setup artifacts:
    - Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change.
-   - Context budget: at most one broad file listing plus focused searches for concrete evidence.
+   - Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery, plus focused searches for concrete evidence.
    - Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions.
 3. Resolve material ambiguity and conflicts before writing files. User task text and clarifications define requested product intent; project and repo-local instructions constrain how work may be done; repository evidence clarifies existing behavior but must not silently override user intent. If a conflict or unknown can change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands, name the affected artifact fields, ask 1-3 short questions, and stop.
 4. Run the interpretation checkpoint. Summarize the final interpretation, material user answers, accepted non-material assumptions, and any "no additional constraints" answer in your working context. Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data to write both artifacts without material assumptions.
@@ -45,7 +45,7 @@ Artifact requirements:
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
 - `rules.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
 - For each `rules.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method when repository evidence or an explicit user answer supports it.
-- If the repository is clearly new/minimal and has no package/test metadata or project commands, use the controller-supported fallback `manual: inspect Stage 0 artifacts against accepted task constraints` for missing gates instead of blocking solely because command metadata is absent. Otherwise ask the user for that gate method and stop. Do not invent commands.
+- Use the controller-supported fallback `manual: inspect Stage 0 artifacts against accepted task constraints` for missing gates only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method. Otherwise ask the user for that gate method and stop. Do not invent commands.
 - Named manual methods in `rules.md` must use machine-readable wording: `manual: <named method supported by user/repo evidence>`, for example `manual: compare generated prompt against Stage 0 acceptance notes`. Do not use vague manual labels such as `manual review`, `check manually`, or `n/a`.
 - `rules.md` must not duplicate requirements, scope, risks, or success criteria.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
@@ -88,10 +88,10 @@ Allowed persistent artifacts for this stage:
 
 Stage completion:
 - After creating `prd.md` and `rules.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
-- Final response must be compact and include only:
-  - the active change folder slug;
-  - the exact paths to `prd.md` and `rules.md`;
-  - a short summary of the final task interpretation;
-  - one skill compliance line listing configured/router skills used and skipped/unavailable skills;
-  - the artifact self-check command and result;
-  - an explicit request for the user to review the files, set `approved: true`, and then run `phasedev next`.
+- Final response must use this compact template and include no extra sections:
+  - `Change slug: <slug>`
+  - `Artifacts: <absolute-prd-path>; <absolute-rules-path>`
+  - `Interpretation: <one-sentence final task interpretation>`
+  - `Skill compliance: <configured/router skills used; skipped/unavailable skills>`
+  - `Self-check: <exact command> -> <result>`
+  - `Next: review the files, set approved: true, then run phasedev next`

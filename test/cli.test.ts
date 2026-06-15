@@ -566,10 +566,10 @@ codex:
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
     expect(output).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
-    expect(output).toContain("Context budget: at most one broad file listing plus focused searches for concrete evidence");
+    expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
     expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
     expect(output).toContain("manual: <named method supported by user/repo evidence>");
-    expect(output).toContain("manual: inspect Stage 0 artifacts against accepted task constraints");
+    expect(output).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
     expect(output).toContain("embedded template is the only artifact structure");
     expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths");
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
@@ -582,8 +582,10 @@ codex:
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--expect-route setup_approval");
     expect(output).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route setup_approval` subcommand");
-    expect(output).toContain("Final response must be compact and include only");
-    expect(output).toContain("one skill compliance line listing configured/router skills used and skipped/unavailable skills");
+    expect(output).toContain("Final response must use this compact template and include no extra sections");
+    expect(output).toContain("Change slug: <slug>");
+    expect(output).toContain("Self-check: <exact command> -> <result>");
+    expect(output).toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
