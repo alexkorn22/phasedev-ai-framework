@@ -23,8 +23,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const generatedChangeName = "generated-agent-prompts";
 
 function defaultProjectPath(): string {
-  const demoSandboxPath = path.join(repoRoot, "demo-sandbox");
-  return fs.existsSync(demoSandboxPath) ? demoSandboxPath : process.cwd();
+  return repoRoot;
 }
 
 function parseArgs(args: string[]): Options {
@@ -73,6 +72,10 @@ function ensureSandboxSupportFiles(projectPath: string): void {
   if (!fs.existsSync(packageJsonPath)) {
     writeFile(packageJsonPath, `${JSON.stringify({ name: "generated-agent-prompts-sandbox", private: true }, null, 2)}\n`);
   }
+}
+
+function generatedWorkingProjectPath(options: Options): string {
+  return path.join(options.outDir, "sandbox-project");
 }
 
 function savePrompt(
@@ -366,11 +369,10 @@ function main(): void {
   const promptsDir = path.join(options.outDir, "prompts");
   const manifestPath = path.join(options.outDir, "manifest.json");
   const combinedPath = path.join(options.outDir, "all-agent-prompts.md");
-  const workingProjectPath = options.projectPath;
+  const workingProjectPath = generatedWorkingProjectPath(options);
 
   resetDir(options.outDir);
   fs.mkdirSync(promptsDir, { recursive: true });
-  fs.rmSync(path.join(workingProjectPath, ".phasedev", "changes"), { recursive: true, force: true });
   ensureSandboxSupportFiles(workingProjectPath);
 
   const changeDir = path.join(workingProjectPath, ".phasedev", "changes", generatedChangeName);

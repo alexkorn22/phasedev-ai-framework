@@ -57,6 +57,30 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
   });
 }
 
+const IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES = [
+  "- `implementation_plan.md` is a human approval artifact and a downstream machine contract; keep prose concise and put review decisions inside existing template fields only.",
+  "- Keep `approved: false`; only the user can approve the plan.",
+  "- Keep exactly the non-phase `##` sections from the template, then sequential `## Phase N: Name [ ]` headings. Planning initializes every phase status as `[ ]`.",
+  "- Fill `Approval Summary` as the compact review surface: scope, out-of-scope work, sequencing risk, and validation.",
+  "- Fill `Generation Bundle`, `Phase Overview`, each phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, and `Check Evidence` from approved PRD/design/rules only.",
+  "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete phase, task, check, evidence, or change-surface trace content.",
+  "- Do not use vague trace labels such as `all requirements`; reference concrete `R#`, `SC#`, and relevant `D#` IDs.",
+  "- Use concise tables, grouped lists, and short paragraphs inside existing template sections when they improve review speed; do not add review-only sections or decorative content.",
+  "- Do not use emoji in `implementation_plan.md`; keep machine-sensitive approval artifacts plain text."
+];
+
+function implementationPlanArtifactContract(planPath: string, selfCheckCommand: string, date: string): string {
+  return renderArtifactContract({
+    artifactId: "implementation_plan.md",
+    resolvedOutputPath: planPath,
+    templateName: "artifacts/implementation_plan",
+    selfCheckCommand,
+    includeSelfCheck: false,
+    canonicalFillRules: IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES,
+    date
+  });
+}
+
 const RESEARCH_TEMPLATE_SAMPLE_VALUES = [
   "Requested target from PRD.",
   "Requested risk boundary from PRD.",
@@ -174,7 +198,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         rules_path: urls.rules_path,
         plan_path: urls.plan_path,
         date,
-        implementation_plan_artifact_contract: artifactContract("implementation_plan.md", route.paths.planPath, "artifacts/implementation_plan", selfCheckCommand, date, undefined, false),
+        implementation_plan_artifact_contract: implementationPlanArtifactContract(route.paths.planPath, selfCheckCommand, date),
         self_check_command: selfCheckCommand
       }, config));
     }

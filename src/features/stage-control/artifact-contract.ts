@@ -9,6 +9,7 @@ export interface ArtifactContractOptions {
   selfCheckFailureGuidance?: string;
   includeSelfCheck?: boolean;
   blockedFinalArtifactContent?: string[];
+  canonicalFillRules?: string[];
   date: string;
 }
 
@@ -42,7 +43,8 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "- If useful skill material cannot be mapped into this template, put it in the final response or report a blocker instead of adding artifact structure.",
     "- Use HTML comments as authoring guidance only.",
     "- Remove every HTML comment from the final artifact file.",
-    "- Do not leave placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`."
+    "- Do not leave placeholder-like prose such as `TBD`, `TODO`, `unknown`, `clarify later`, or `to be decided`.",
+    ...(options.canonicalFillRules ?? [])
   ];
 
   if (options.blockedFinalArtifactContent?.length) {

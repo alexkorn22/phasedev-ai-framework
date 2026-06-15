@@ -13,10 +13,11 @@ Input artifacts (you must read them):
 
 Use this bounded retrieval order before planning:
 1. Read this prompt and the embedded Artifact Build Contract first so the output shape is fixed before analysis.
-2. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `implementation_plan.md`.
-3. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
-4. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded implementation plan template only.
-5. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
+2. Confirm that [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [rules.md]({{rules_path}}) exist and are readable. If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `implementation_plan.md`.
+3. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `implementation_plan.md`.
+4. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
+5. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded implementation plan template only.
+6. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
 
 Context budget and stop condition:
 - Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
@@ -27,40 +28,20 @@ Context budget and stop condition:
 Planning instructions:
 1. Use the Artifact Build Contract below as the only source of structure for [implementation_plan.md]({{plan_path}}).
 2. Create the implementation plan file: [implementation_plan.md]({{plan_path}}), filling that template for the current change.
-3. Use the HTML comments in the template as authoring guidance, but remove all comments from the final `implementation_plan.md`.
-4. Do not change `approved: false` to `approved: true`; approval is performed only by the user.
-5. Split implementation into sequential autonomous phases:
+3. Apply the contract's canonical fill rules for comments, placeholders, status values, trace IDs, review formatting, and machine-readable fields.
+4. Split implementation into sequential autonomous phases:
    - every phase, including the only phase, goes through `Implementation -> Phase Validation`;
    - after successful Phase Validation for all phases, the flow proceeds to `Final Validation`;
    - each phase must fit fully into one AI-agent working session without context overflow;
    - the optimal phase size is a 3-10 file change; do not artificially split a small change.
-6. The plan must trace `Intent` from [prd.md]({{prd_path}}):
+5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - phase sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
    - checks must cover each `SC#` according to its PRD `Evidence` type;
    - risk boundaries must be represented in the generated plan.
-7. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
-8. Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction, missing approval authority, a public contract or risk-boundary decision the approved inputs do not authorize, or an impossible-to-name required check. Do not stop for low-level implementation details that do not change approval scope; make the smallest conservative scoped planning assumption and record it with concrete trace IDs.
+6. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
+7. Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction, missing approval authority, a public contract or risk-boundary decision the approved inputs do not authorize, or an impossible-to-name required check. Do not stop for low-level implementation details that do not change approval scope; make the smallest conservative scoped planning assumption and record it with concrete trace IDs.
 
 {{implementation_plan_artifact_contract}}
-
-## Human Review Formatting Policy
-
-`implementation_plan.md` is an approval artifact, so format it for quick human review.
-
-Formatting rules:
-- YAML frontmatter remains first in the file.
-- The first visible content after `# Implementation Plan` is `## Approval Summary`; use its existing four-row table as the compact review surface for what the user is approving.
-- Do not add extra callouts, bullets, table rows, or review-only blocks outside the embedded template structure.
-- Review formatting must live inside existing template fields only: `Approval Summary`, `Generation Bundle`, `Phase Overview`, or phase-local `###` sections.
-- Do not add new `##` sections to `implementation_plan.md` beyond the artifact template's allowed `##` sections and phase headings.
-- Do not leave an approval artifact as an ordinary wall of markdown when concise table content or grouping inside the existing fields would speed up review.
-- Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
-- Do not create empty, decorative, or artificial sections when they do not help review.
-- Use short paragraphs, bullets, tables, and bold only inside existing template sections where they improve readability.
-- If a list grows beyond 7 items, group it by meaningful categories inside the relevant existing section instead of using one long flat list.
-- Put sequencing risks, accepted assumptions, dependencies, and reviewer attention points in the existing `Approval Summary` rows or the relevant phase-local fields.
-- Do not use emoji in `implementation_plan.md`; keep machine-sensitive approval artifacts plain text.
-- In `implementation_plan.md`, preserve all machine-readable elements from the artifact template.
 
 ## Uncertainty decision flow
 

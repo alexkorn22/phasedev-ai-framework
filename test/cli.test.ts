@@ -684,11 +684,15 @@ codex:
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route plan_approval");
     expect(output).toContain("Use this bounded retrieval order before planning");
+    expect(output).toContain("If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `implementation_plan.md`.");
     expect(output).toContain("Verify that `prd.md` and `design.md` have `approved: true`");
     expect(output).toContain("Context budget and stop condition:");
     expect(output).toContain("Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped");
-    expect(output).toContain("use its existing four-row table as the compact review surface");
-    expect(output).toContain("Do not add extra callouts, bullets, table rows, or review-only blocks outside the embedded template structure.");
+    expect(output).toContain("Keep `approved: false`; only the user can approve the plan.");
+    expect(output).toContain("Fill `Approval Summary` as the compact review surface");
+    expect(output).toContain("Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear");
+    expect(output).toContain("Use concise tables, grouped lists, and short paragraphs inside existing template sections when they improve review speed");
+    expect(output).not.toContain("## Human Review Formatting Policy");
     expect(output).toContain("Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction");
     expect(output).toContain("Do not stop for low-level implementation details that do not change approval scope");
     expect(output).toContain("If a detail is missing but does not change approval scope");
@@ -705,6 +709,25 @@ codex:
     expect(output).toContain("Next: review implementation_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev next.");
     expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");
     expect(output).not.toContain("Emoji may be used as semantic visual markers");
+  });
+
+  test("prompt generator renders plan prompt from isolated generated sandbox", () => {
+    const outDir = path.join(testTmpDir, "generated-agent-prompts");
+    const scriptPath = path.resolve(__dirname, "..", "scripts", "generate-agent-prompts.ts");
+    const result = Bun.spawnSync({
+      cmd: ["bun", "run", scriptPath, "--project-path", testTmpDir, "--out-dir", outDir],
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+
+    expect(result.exitCode).toBe(0);
+    const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-stage-3-plan.md"), "utf-8");
+    const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
+
+    expect(planPrompt).toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
+    expect(planPrompt).not.toContain("demo-sandbox");
+    expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
+    expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
   });
 
   test("check reports invalid fresh PRD without rendering the next prompt", () => {
