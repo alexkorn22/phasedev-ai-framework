@@ -752,6 +752,10 @@ codex:
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current phase boundary");
     expect(implementationPrompt).toContain("use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`");
+    expect(implementationPrompt).toContain("if checks fail and the failure is causally related to the current phase change set, fix only inside the approved current-phase surface and repeat the affected checks");
+    expect(implementationPrompt).toContain("if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope");
+    expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the phase heading `[~]`");
+    expect(implementationPrompt).toContain("do not substitute a different route check");
     expect(implementationPrompt).toContain("--expect-route phase_validation");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Phase 1: Prompt Generation");

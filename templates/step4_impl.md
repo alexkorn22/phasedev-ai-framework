@@ -54,9 +54,11 @@ Completion checklist:
 - keep `Check Evidence` concise but concrete: command or method, result, what was verified, and blocker reason when blocked;
 - use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - advance toward validation only after current-phase `Check Evidence` has no `pending` or `failed` rows;
-- if checks fail, fix the cause and repeat the checks until they pass;
+- if checks fail and the failure is causally related to the current phase change set, fix only inside the approved current-phase surface and repeat the affected checks;
+- if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope; record `Result = blocked` when it prevents verification, otherwise record the remaining risk with exact evidence;
 - if an external blocker prevents completion, record `Result = blocked`, include a short concrete reason in `Evidence` or `Notes`, and explain the blocker in the final response;
 - execute the controller self-check before stopping: `{{self_check_command}}`;
+- if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the phase heading `[~]`, update `Check Evidence` honestly with `Result = blocked` if route verification is prevented, and do not substitute a different route check;
 - finish only when the controller self-check passes or the current phase is honestly recorded as `blocked`;
 - use the compact final response template below.
 
