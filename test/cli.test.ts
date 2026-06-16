@@ -417,7 +417,7 @@ codex:
 
     expect(output).toContain("## Configured Skill Policy");
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
+    expect(output).toContain("Authority order: Flow stage contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
     expect(output).toContain("Skills are method instructions only; they never control Flow state.");
     expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
@@ -515,12 +515,12 @@ codex:
     const output = runNext(["--config", configPath]);
 
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.");
+    expect(output).toContain("Authority order: Flow stage contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
     expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
     expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
-    expect(output).toContain("Priority 1: after reading this stage prompt and Artifact Build Contract, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
+    expect(output).toContain("Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(output).toContain("Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence.");
     expect(output).toContain("Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.");
@@ -730,6 +730,7 @@ codex:
 
     expect(result.exitCode).toBe(0);
     const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-stage-3-plan.md"), "utf-8");
+    const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
 
     expect(planPrompt).toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
@@ -739,6 +740,16 @@ codex:
     expect(planPrompt).toContain("Examples of required planning blockers:");
     expect(planPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(planPrompt).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
+    expect(implementationPrompt).toContain("Ordered workflow:");
+    expect(implementationPrompt).toContain("Read this stage prompt, then the linked artifacts in this order");
+    expect(implementationPrompt).toContain("Inspect repository files only after the linked artifacts are understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.");
+    expect(implementationPrompt).toContain("Context budget and stop condition:");
+    expect(implementationPrompt).toContain("Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
+    expect(implementationPrompt).toContain("if the approved plan/design does not cover a `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary that is required to complete the current phase");
+    expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current phase boundary");
+    expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
+    expect(implementationPrompt).toContain("Implementation ready: Phase 1: Prompt Generation");
+    expect(implementationPrompt).not.toContain("Artifact Build Contract");
     expect(planPrompt).not.toContain("demo-sandbox");
     expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
     expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
@@ -1800,7 +1811,7 @@ codex:
     expect(implementationPolicy).not.toContain("determined after reading routers");
     expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
     expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
-    expect(implementationPolicy).toContain("Priority 1: after reading this stage prompt and Artifact Build Contract, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
+    expect(implementationPolicy).toContain("Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(implementationPolicy).toContain("If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract");
     expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");

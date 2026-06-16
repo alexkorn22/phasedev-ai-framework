@@ -23,7 +23,7 @@ function flowSkillBoundaryProtocol(): string[] {
   return [
     "## Flow Skill Boundary Protocol",
     "",
-    "Authority order: Flow stage contract > Artifact Build Contract > artifact template > configured skill policy > selected skill body.",
+    "Authority order: Flow stage contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.",
     "",
     "- Skills are method instructions only; they never control Flow state.",
     "- This prompt is the stage skill policy compiled from `config.yaml`.",
@@ -88,7 +88,7 @@ function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
     return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
   }
 
-  return "- Priority 1: after reading this stage prompt and Artifact Build Contract, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.";
+  return "- Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.";
 }
 
 export function renderSkillPolicy(stage: Stage, config: Config): string {
