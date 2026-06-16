@@ -741,6 +741,8 @@ codex:
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseOutputPath = phaseValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const phaseCheckProjectPath = phaseValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope phase --phase-id 1/)?.[1];
+    const finalOutputPath = finalValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
+    const finalCheckProjectPath = finalValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope final/)?.[1];
 
     expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
     expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
@@ -811,6 +813,11 @@ codex:
     expect(finalValidationPrompt).toContain("type: final");
     expect(finalValidationPrompt).toContain("phasedev check-validation --project-path");
     expect(finalValidationPrompt).toContain("--scope final");
+    expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
+    expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalValidationPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
+    expect(finalValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `implementation_plan.md` current phase");
     expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
     expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
