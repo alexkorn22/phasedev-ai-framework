@@ -32,7 +32,9 @@ function flowSkillBoundaryProtocol(): string[] {
     "- If a listed skill is unavailable, continue under this Flow stage contract and record it as skipped/unavailable in the final skill compliance note.",
     "- Stop for an unavailable skill only when this stage cannot be completed under the Flow stage contract without that skill's method.",
     "- Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.",
-    "- Do not preload every configured skill body; keep skill loading minimal.",
+    "- Router skills listed as Priority 1 are read first when available because they may select method skills.",
+    "- Main, additional, and router-selected method skills are loaded only when they apply to the available stage evidence.",
+    "- Do not preload every configured method skill body; keep method skill loading minimal.",
     "- Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
     "- Do not skip an applicable selected skill because its native output format differs; adapt useful output into the current Flow contract.",
     "- Convert useful skill output into the current artifact template, final response, or blocker. Do not invent extra Flow artifact structure.",
@@ -88,7 +90,7 @@ function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
     return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
   }
 
-  return "- Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills when they are available; then use only router-selected or configured method skills that apply to the stage evidence.";
+  return "- Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select method skills; then load only router-selected, main, or additional method skills that apply to the stage evidence.";
 }
 
 export function renderSkillPolicy(stage: Stage, config: Config): string {

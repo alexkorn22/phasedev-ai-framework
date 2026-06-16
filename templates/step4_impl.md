@@ -19,7 +19,7 @@ Current phase from approved plan:
 Ordered workflow:
 1. Read this stage prompt, then the linked artifacts in this order: [prd.md]({{prd_path}}), [rules.md]({{rules_path}}), [design.md]({{design_path}}), and the current phase excerpt from [implementation_plan.md]({{plan_path}}).
 2. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, and approved `Risk boundaries`.
-3. Load configured/router skill instructions only when they apply to current phase evidence; adapt useful method guidance back into this stage contract.
+3. Read configured Priority 1 router skills first when available because they may select method skills; load main, additional, or router-selected method skills only when they apply to current phase evidence, and adapt useful method guidance back into this stage contract.
 4. Inspect repository files only after the linked artifacts are understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
 5. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 
@@ -35,7 +35,8 @@ Scope rules:
 - `Expected Change Surface` in the current phase constrains the allowed implementation areas for this stage;
 - do not expand scope beyond the current phase `Expected Change Surface`, related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
-- if the approved plan/design does not cover a `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary that is required to complete the current phase, stop and report a blocker instead of expanding scope yourself;
+- if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary, stop and report a blocker instead of expanding scope yourself;
+- if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking;
 - do not block on PRD/design coverage gaps outside the current phase boundary; mention them only as remaining risks if discovered while following the retrieval order;
 - do not mark the phase heading `[x]` at this stage. It must remain `[~]` until successful validation.
 
