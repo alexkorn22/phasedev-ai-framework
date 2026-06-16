@@ -4,6 +4,7 @@ import { getInitPrompt, getNextPrompt } from "../src/features/stage-control";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";
 import { Stage } from "../src/entities/stage/types";
+import { shellQuote } from "../src/shared/shell/shell-quote";
 
 interface StageOutput {
   file: string;
@@ -90,9 +91,10 @@ function toFileUrl(absolutePath: string): string {
   return `file://${absolutePath.replace(/\\/g, "/")}`;
 }
 
-function snapshotPromptArtifactLinks(promptText: string, options: Options, workingProjectPath: string, fileName: string): string {
+function snapshotPromptArtifactLinks(promptText: string, options: Options, workingProjectPath: string, fileName: string, stage: Stage): string {
   const sourceChangeDir = path.join(workingProjectPath, ".phasedev", "changes", generatedChangeName);
-  const snapshotChangeDir = path.join(options.outDir, "artifact-snapshots", path.basename(fileName, ".md"), ".phasedev", "changes", generatedChangeName);
+  const snapshotProjectPath = path.join(options.outDir, "artifact-snapshots", path.basename(fileName, ".md"));
+  const snapshotChangeDir = path.join(snapshotProjectPath, ".phasedev", "changes", generatedChangeName);
   let rewrittenPrompt = promptText;
 
   for (const relativePath of flowArtifactRelativePaths) {
@@ -109,6 +111,12 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
       .split(sourcePath).join(snapshotPath);
   }
 
+  if (stage === "phase_validation") {
+    rewrittenPrompt = rewrittenPrompt
+      .split(`--project-path ${shellQuote(workingProjectPath)}`)
+      .join(`--project-path ${shellQuote(snapshotProjectPath)}`);
+  }
+
   return rewrittenPrompt;
 }
 
@@ -121,7 +129,7 @@ function savePrompt(
   workingProjectPath: string
 ): StageOutput {
   const filePath = path.join(promptsDir, fileName);
-  writeFile(filePath, snapshotPromptArtifactLinks(promptText, options, workingProjectPath, fileName));
+  writeFile(filePath, snapshotPromptArtifactLinks(promptText, options, workingProjectPath, fileName, stage));
   return {
     file: filePath,
     bytes: fs.statSync(filePath).size,

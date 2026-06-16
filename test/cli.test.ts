@@ -737,6 +737,8 @@ codex:
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
     const phasePlanLink = phaseValidationPrompt.match(/\[implementation_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
+    const phaseOutputPath = phaseValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
+    const phaseCheckProjectPath = phaseValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope phase --phase-id 1/)?.[1];
 
     expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
     expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
@@ -772,6 +774,8 @@ codex:
     expect(phaseValidationPrompt).toContain("Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
     expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: phase\ndate:");
+    expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(phaseCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
     expect(phasePlanLink).toBeTruthy();
     const phasePlanPath = phasePlanLink!.replace(/^file:\/\//, "");
     expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
@@ -785,6 +789,7 @@ codex:
       expect(fs.readFileSync(phaseFindingsPath, "utf-8")).toContain("type: phase");
       expect(fs.readFileSync(phaseFindingsPath, "utf-8")).not.toContain("type: final");
     }
+    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
     expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md")}`);
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(planPrompt).not.toContain("demo-sandbox");
