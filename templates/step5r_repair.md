@@ -42,17 +42,24 @@ Finding handling rules:
 - if repair reruns checks or changes evidence for the affected phase, update `Check Evidence` in [implementation_plan.md]({{plan_path}});
 - in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - do not leave relevant repair evidence as `pending` or `failed`, except for an external blocker recorded as `blocked` with a reason;
-- `implementation`: update the change set within the current approved design and plan;
+- if a table cell needs a literal `|`, escape it as `\|`.
+
+Repair class map:
+- `implementation`: change affected production/source/config/test files inside the current approved design and plan;
+- `test`: change the affected tests, test fixtures, or test command evidence; change production/source code only when the test exposes a real implementation defect inside the approved scope;
 - `plan`: update [implementation_plan.md]({{plan_path}}), then update the affected change set;
 - `design`: update [design.md]({{design_path}}) and related architecture files, then update the affected plan/change set;
-- `requirements`: after required user discussion for material approval-scope changes, update [prd.md]({{prd_path}}), then the affected design/plan/change set;
-- if a table cell needs a literal `|`, escape it as `\|`.
+- `requirements`: stop for user discussion before material approval-scope changes; after approval, update [prd.md]({{prd_path}}), then affected design/plan/change set;
+- `validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency; do not change product behavior unless concrete evidence proves the blocker is a real product defect;
+- `security`: change affected source/config/tests needed to remove the security blocker inside approved scope; if the fix changes public requirements, use the `requirements` rule;
+- `code_review`: change the exact files or active change artifacts identified by the review finding; if review evidence is stale or wrong, update only the finding row with precise evidence.
 
 Path resolution rule:
 - Flow artifact names in this prompt (`prd.md`, `architecture/design.md`, `implementation_plan.md`, `validation_findings.md`) refer to the linked files inside the active change folder, not paths from the project repository root.
-- Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation` repair finding.
+- Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation`, `test`, `security`, or `code_review` repair finding.
 - Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create or update a project-root `architecture/` directory as a flow design artifact.
 - Write or update `validation_findings.md` only at the absolute Output path in the Artifact Build Contract below.
+- in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead.
 
 Verdict rule:
 - preserve `type` in YAML frontmatter as the scope of the latest validation: `phase` for Phase Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `phase`;

@@ -837,6 +837,17 @@ codex:
     expect(repairPrompt).toContain("Stop retrieval when every queued finding ID has a concrete repair target");
     expect(repairPrompt).toContain("preserve all existing registry rows that are not in the current blocking queue");
     expect(repairPrompt).toContain("if a requirements/design detail is ambiguous but does not change approval scope");
+    expect(repairPrompt).toContain("Repair class map:");
+    expect(repairPrompt).toContain("`implementation`: change affected production/source/config/test files inside the current approved design and plan");
+    expect(repairPrompt).toContain("`test`: change the affected tests, test fixtures, or test command evidence");
+    expect(repairPrompt).toContain("`plan`: update [implementation_plan.md]");
+    expect(repairPrompt).toContain("`design`: update [design.md]");
+    expect(repairPrompt).toContain("`requirements`: stop for user discussion before material approval-scope changes");
+    expect(repairPrompt).toContain("`validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency");
+    expect(repairPrompt).toContain("`security`: change affected source/config/tests needed to remove the security blocker");
+    expect(repairPrompt).toContain("`code_review`: change the exact files or active change artifacts identified by the review finding");
+    expect(repairPrompt).toContain("do not set `ready` or `ready_with_risks` during the Repair Loop stage");
+    expect(repairPrompt).toContain("in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
     expect(repairPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(repairPrompt).toContain("Resolved findings: <F# list>");
     expect(repairPrompt).toContain("Self-check: <exact command> -> <result>");
