@@ -687,6 +687,7 @@ codex:
     expect(output).toContain("If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `implementation_plan.md`.");
     expect(output).toContain("Verify that `prd.md` and `design.md` have `approved: true`");
     expect(output).toContain("Context budget and stop condition:");
+    expect(output).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
     expect(output).toContain("Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped");
     expect(output).toContain("Keep `approved: false`; only the user can approve the plan.");
     expect(output).toContain("Fill `Approval Summary` as the compact review surface");
@@ -697,16 +698,23 @@ codex:
     expect(output).toContain("Do not stop for low-level implementation details that do not change approval scope");
     expect(output).toContain("If a detail is missing but does not change approval scope");
     expect(output).toContain("choose the smallest conservative planning assumption");
+    expect(output).toContain("Examples of acceptable conservative planning assumptions:");
+    expect(output).toContain("Use the test command already listed in `rules.md` for the matching evidence type");
+    expect(output).toContain("Examples of required planning blockers:");
+    expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
     expect(output).toContain("Do not use emoji in `implementation_plan.md`");
     expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand");
     expect(output).toContain("local CLI invocation like `bun run src/cli.ts check --project-path ... --expect-route plan_approval` when package/source entrypoint evidence supports it");
-    expect(output).toContain("Final response must use this compact template and include no extra sections");
+    expect(output).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
+    expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("Plan ready: implementation_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
     expect(output).toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
     expect(output).toContain("Next: review implementation_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev next.");
+    expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
+    expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
     expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");
     expect(output).not.toContain("Emoji may be used as semantic visual markers");
   });
@@ -725,6 +733,12 @@ codex:
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
 
     expect(planPrompt).toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
+    expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
+    expect(planPrompt).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
+    expect(planPrompt).toContain("Examples of acceptable conservative planning assumptions:");
+    expect(planPrompt).toContain("Examples of required planning blockers:");
+    expect(planPrompt).toContain("Success final response is allowed only after the self-check passes.");
+    expect(planPrompt).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(planPrompt).not.toContain("demo-sandbox");
     expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
     expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
