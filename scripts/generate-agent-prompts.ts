@@ -21,6 +21,14 @@ interface Options {
 
 const repoRoot = path.resolve(__dirname, "..");
 const generatedChangeName = "generated-agent-prompts";
+const flowArtifactRelativePaths = [
+  "prd.md",
+  "rules.md",
+  "research_facts.md",
+  "implementation_plan.md",
+  "validation_findings.md",
+  path.join("architecture", "design.md")
+];
 
 function defaultProjectPath(): string {
   return repoRoot;
@@ -78,6 +86,32 @@ function generatedWorkingProjectPath(options: Options): string {
   return path.join(options.outDir, "sandbox-project");
 }
 
+function toFileUrl(absolutePath: string): string {
+  return `file://${absolutePath.replace(/\\/g, "/")}`;
+}
+
+function snapshotPromptArtifactLinks(promptText: string, options: Options, workingProjectPath: string, fileName: string): string {
+  const sourceChangeDir = path.join(workingProjectPath, ".phasedev", "changes", generatedChangeName);
+  const snapshotChangeDir = path.join(options.outDir, "artifact-snapshots", path.basename(fileName, ".md"), ".phasedev", "changes", generatedChangeName);
+  let rewrittenPrompt = promptText;
+
+  for (const relativePath of flowArtifactRelativePaths) {
+    const sourcePath = path.join(sourceChangeDir, relativePath);
+    const snapshotPath = path.join(snapshotChangeDir, relativePath);
+
+    if (fs.existsSync(sourcePath)) {
+      fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
+      fs.copyFileSync(sourcePath, snapshotPath);
+    }
+
+    rewrittenPrompt = rewrittenPrompt
+      .split(toFileUrl(sourcePath)).join(toFileUrl(snapshotPath))
+      .split(sourcePath).join(snapshotPath);
+  }
+
+  return rewrittenPrompt;
+}
+
 function savePrompt(
   promptsDir: string,
   fileName: string,
@@ -87,7 +121,7 @@ function savePrompt(
   workingProjectPath: string
 ): StageOutput {
   const filePath = path.join(promptsDir, fileName);
-  writeFile(filePath, promptText);
+  writeFile(filePath, snapshotPromptArtifactLinks(promptText, options, workingProjectPath, fileName));
   return {
     file: filePath,
     bytes: fs.statSync(filePath).size,
@@ -381,16 +415,7 @@ function restoreActiveChangeArtifactSnapshot(changeDir: string): void {
     return;
   }
 
-  const relativeArtifactPaths = [
-    "prd.md",
-    "rules.md",
-    "research_facts.md",
-    "implementation_plan.md",
-    "validation_findings.md",
-    path.join("architecture", "design.md")
-  ];
-
-  for (const relativePath of relativeArtifactPaths) {
+  for (const relativePath of flowArtifactRelativePaths) {
     const sourcePath = path.join(archivedChangeDir, relativePath);
     if (fs.existsSync(sourcePath)) {
       const targetPath = path.join(changeDir, relativePath);

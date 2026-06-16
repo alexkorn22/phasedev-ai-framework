@@ -64,7 +64,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
       "```",
       "",
       options.selfCheckFailureGuidance ??
-        "Stage is not complete until this command passes. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
+        "Artifact contract check must pass before reporting this stage complete. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
     );
   }
 

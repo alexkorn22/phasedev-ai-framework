@@ -116,7 +116,7 @@ function finalValidationArtifactContract(findingsPath: string, projectPath: stri
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
     selfCheckCommand: flowFinalValidationCheckCommand(projectPath),
-    selfCheckFailureGuidance: "Stage is not complete until this command passes. If it fails, fix only `validation_findings.md`, then rerun the same command.",
+    selfCheckFailureGuidance: "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
     date: new Date().toISOString().split("T")[0]
   });
 }

@@ -735,8 +735,10 @@ codex:
     const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
     const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-stage-5a-phase-validation.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
+    const phasePlanLink = phaseValidationPrompt.match(/\[implementation_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
+    const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
 
-    expect(planPrompt).toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
+    expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
     expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
     expect(planPrompt).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
     expect(planPrompt).toContain("Examples of acceptable conservative planning assumptions:");
@@ -765,10 +767,26 @@ codex:
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
     expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
     expect(phaseValidationPrompt).toContain("git diff --name-status -- .");
+    expect(phaseValidationPrompt).toContain("ignored or generated expected surfaces can be verified through filesystem reads, generated manifest/output evidence, or other concrete read-only evidence");
     expect(phaseValidationPrompt).toContain("Preserve every existing finding row, including `resolved` rows");
     expect(phaseValidationPrompt).toContain("Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
     expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: phase\ndate:");
+    expect(phasePlanLink).toBeTruthy();
+    const phasePlanPath = phasePlanLink!.replace(/^file:\/\//, "");
+    expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
+    const phasePlanSnapshot = fs.readFileSync(phasePlanPath, "utf-8");
+    expect(phasePlanSnapshot).toContain("## Phase 1: Prompt Generation [~]");
+    expect(phasePlanSnapshot).not.toContain("## Phase 1: Prompt Generation [x]");
+    expect(phaseFindingsLink).toBeTruthy();
+    const phaseFindingsPath = phaseFindingsLink!.replace(/^file:\/\//, "");
+    expect(phaseFindingsPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
+    if (fs.existsSync(phaseFindingsPath)) {
+      expect(fs.readFileSync(phaseFindingsPath, "utf-8")).toContain("type: phase");
+      expect(fs.readFileSync(phaseFindingsPath, "utf-8")).not.toContain("type: final");
+    }
+    expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md")}`);
+    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(planPrompt).not.toContain("demo-sandbox");
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"))).toBe(true);
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);

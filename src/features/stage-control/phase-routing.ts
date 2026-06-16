@@ -59,7 +59,7 @@ function validationFindingsContract(findingsPath: string, projectPath: string, p
     selfCheckCommand: phaseId === undefined ? flowCheckCommand(projectPath) : flowValidationCheckCommand(projectPath, phaseId),
     selfCheckFailureGuidance: phaseId === undefined
       ? undefined
-      : "Stage is not complete until this command passes. If it fails, fix only `validation_findings.md` and the current phase status in `implementation_plan.md` when allowed by the validation verdict, then rerun the same command.",
+      : "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md` and the current phase status in `implementation_plan.md` when allowed by the validation verdict, then rerun the same command.",
     date: new Date().toISOString().split("T")[0]
   });
 }

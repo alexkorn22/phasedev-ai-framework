@@ -30,7 +30,7 @@ export function renderChangedFileInventory(projectPath: string): string {
     return [
       "## Controller Observed Changed Files",
       "",
-      `Inventory unavailable: ${reason}. Build the changed-file inventory from read-only repository evidence before deciding the verdict.`
+      `Inventory unavailable: ${reason}. Build the changed-file inventory from read-only repository, filesystem, or manifest/output evidence before deciding the verdict; treat this as blocking only if the phase scope cannot be verified or the evidence is contradictory.`
     ].join("\n");
   }
 
@@ -44,7 +44,7 @@ export function renderChangedFileInventory(projectPath: string): string {
     return [
       "## Controller Observed Changed Files",
       "",
-      "No changed files outside .phasedev/** were observed by the controller."
+      "No changed files outside .phasedev/** were observed by the controller. This is not automatically blocking: verify whether the current phase expected surfaces are generated, ignored, already committed, or otherwise provable through read-only filesystem or manifest/output evidence before deciding the verdict."
     ].join("\n");
   }
 
