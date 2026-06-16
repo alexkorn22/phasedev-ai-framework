@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { parseConfig } from "../src/features/runner/config";
 import { renderSkillPolicy } from "../src/features/stage-control/skill-policy";
+import { renderValidationCommonContract } from "../src/features/stage-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
@@ -734,6 +735,7 @@ codex:
     const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-stage-3-plan.md"), "utf-8");
     const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
     const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-stage-5a-phase-validation.md"), "utf-8");
+    const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-stage-5b-final-validation.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
     const phasePlanLink = phaseValidationPrompt.match(/\[implementation_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
@@ -795,6 +797,24 @@ codex:
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
     expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md")}`);
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalValidationPrompt).toContain("Stage 5B. Final Validation.");
+    expect(finalValidationPrompt).toContain("Retrieval order:");
+    expect(finalValidationPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
+    expect(finalValidationPrompt).toContain("scope = full change");
+    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `implementation_plan.md` all phases");
+    expect(finalValidationPrompt).toContain("Build the validation scope from the full approved PRD `Intent`, every `R#`, every `SC#`");
+    expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
+    expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
+    expect(finalValidationPrompt).toContain("do not force `repair_required`");
+    expect(finalValidationPrompt).toContain("do not rerun `unit`, `phase`, `full`, or additional checks at this stage");
+    expect(finalValidationPrompt).toContain("Final Validation does not mark phases as `[x]`");
+    expect(finalValidationPrompt).toContain("type: final");
+    expect(finalValidationPrompt).toContain("phasedev check-validation --project-path");
+    expect(finalValidationPrompt).toContain("--scope final");
+    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `implementation_plan.md` current phase");
+    expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
+    expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
+    expect(finalValidationPrompt).not.toContain("current-phase artifacts, current-phase changed files");
     expect(planPrompt).not.toContain("demo-sandbox");
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"))).toBe(true);
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);
@@ -1787,7 +1807,8 @@ describe("flow templates", () => {
   }
 
   function readValidationTemplate(name: "step5a_val.md" | "step5b_val.md"): string {
-    return readTemplate(name).replace("{{validation_common_contract}}", readTemplate("validation_common.md"));
+    const stage = name === "step5b_val.md" ? "final_validation" : "phase_validation";
+    return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage));
   }
 
   test("stage templates receive generated config skill policy", () => {
@@ -1915,7 +1936,11 @@ codex:
 
     expect(phaseTemplate).toContain("must have `type: phase`");
     expect(finalTemplate).toContain("must have `type: final`");
-    expect(finalTemplate).toContain("do not leave the template default `type: phase`");
+    expect(finalTemplate).not.toContain("template default `type: phase`");
+    expect(phaseTemplate).toContain("Build the validation scope from the current phase `Goal`");
+    expect(finalTemplate).toContain("Build the validation scope from the full approved PRD `Intent`");
+    expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `implementation_plan.md` current phase");
+    expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");

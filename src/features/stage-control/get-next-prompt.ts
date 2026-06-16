@@ -13,6 +13,7 @@ import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPr
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./phase-routing";
 import { renderSkillPolicy } from "./skill-policy";
+import { renderValidationCommonContract } from "./validation-common-contract";
 import { resolveRoute } from "./flow-route";
 
 function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
@@ -40,7 +41,7 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
-    validation_common_contract: renderTemplate("validation_common", {}),
+    validation_common_contract: renderValidationCommonContract(stage),
     skill_policy: renderSkillPolicy(stage, config)
   });
 }
@@ -111,10 +112,15 @@ function flowFinalValidationCheckCommand(projectPath: string): string {
 }
 
 function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
+  const finalTemplateContent = renderTemplate("artifacts/validation_findings", {
+    date: new Date().toISOString().split("T")[0]
+  }).replace("type: phase", "type: final");
+
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
+    templateContent: finalTemplateContent,
     selfCheckCommand: flowFinalValidationCheckCommand(projectPath),
     selfCheckFailureGuidance: "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
     date: new Date().toISOString().split("T")[0]

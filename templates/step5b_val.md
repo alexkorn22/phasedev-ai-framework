@@ -14,6 +14,11 @@ Input artifacts:
 
 {{controller_changed_files_inventory}}
 
+Retrieval order:
+- Start from the approved PRD target state, requirements, success criteria, and risk boundaries; then read the approved design, all phases of the implementation plan, rules, and existing validation findings if present.
+- Treat linked artifact paths as the active change source of truth during real stage execution. If only a generated prompt bundle is being evaluated and linked sandbox files are unavailable, use the embedded artifact contract, controller changed-file inventory, and snapshot root shown by the self-check command; mention unavailable sandbox files only as an evaluation limitation, not as a validation finding.
+- Use repository reads and narrow searches only to verify the full changed-file set, requirements completeness, code review findings, security findings, and contradictions between approved artifacts and actual code.
+
 Required stage-contract checks:
 - scope = full change;
 - all phases in [implementation_plan.md]({{plan_path}}) have status `[x]`;
@@ -33,11 +38,11 @@ Required stage-contract checks:
 - `Generation Bundle` in [implementation_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
 - `Expected Change Surface` in [implementation_plan.md]({{plan_path}}) is delivery scope context for comparing expected and actual changed areas; it is not a new requirements source and does not replace PRD-first validation or actual repo evidence;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods without running tests;
-- `Check Evidence` for relevant phase scope in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
+- `Check Evidence` across all phases in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
 - do not rerun `unit`, `phase`, `full`, or additional checks at this stage;
 - validation result is written to [validation_findings.md]({{findings_path}});
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
-- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation; do not leave the template default `type: phase`.
+- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation.
 
 Path resolution rule:
 - `validation_findings.md` in this prompt is a path inside the active change folder, not a path from the project repository root.

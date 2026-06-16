@@ -15,6 +15,7 @@ import { renderChangedFileInventory } from "./changed-file-inventory";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
 import { formatPhaseExcerpt, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
+import { renderValidationCommonContract } from "./validation-common-contract";
 
 export interface Urls {
   prd_path: string;
@@ -37,7 +38,7 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
-    validation_common_contract: renderTemplate("validation_common", {}),
+    validation_common_contract: renderValidationCommonContract(stage),
     skill_policy: renderSkillPolicy(stage, config)
   });
 }
