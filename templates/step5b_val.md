@@ -47,6 +47,7 @@ Required stage-contract checks:
 Path resolution rule:
 - `validation_findings.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
 - Write the artifact only to the absolute Output path in the Artifact Build Contract below.
+- In generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead.
 - Do not create or update project-root flow artifact files during this stage.
 
 {{validation_common_contract}}

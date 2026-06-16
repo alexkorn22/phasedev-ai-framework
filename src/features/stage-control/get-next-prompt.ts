@@ -114,7 +114,16 @@ function flowFinalValidationCheckCommand(projectPath: string): string {
 function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
   const finalTemplateContent = renderTemplate("artifacts/validation_findings", {
     date: new Date().toISOString().split("T")[0]
-  }).replace("type: phase", "type: final");
+  })
+    .replace("type: phase", "type: final")
+    .replace(
+      "verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.",
+      "verdict must be exactly one of: ready, ready_with_risks, repair_required."
+    )
+    .replace(
+      "- repaired: use only in Repair Loop after actual blocking findings are resolved; do not use ready or ready_with_risks from Repair Loop.\n",
+      ""
+    );
 
   return renderArtifactContract({
     artifactId: "validation_findings.md",

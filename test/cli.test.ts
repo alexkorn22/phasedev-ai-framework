@@ -811,8 +811,13 @@ codex:
     expect(finalValidationPrompt).toContain("do not rerun `unit`, `phase`, `full`, or additional checks at this stage");
     expect(finalValidationPrompt).toContain("Final Validation does not mark phases as `[x]`");
     expect(finalValidationPrompt).toContain("type: final");
+    expect(finalValidationPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
+    expect(finalValidationPrompt).not.toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
+    expect(finalValidationPrompt).not.toContain("- repaired: use only in Repair Loop after actual blocking findings are resolved");
     expect(finalValidationPrompt).toContain("phasedev check-validation --project-path");
     expect(finalValidationPrompt).toContain("--scope final");
+    expect(finalValidationPrompt).toContain("snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
+    expect(finalValidationPrompt).toContain("during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead");
     expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
