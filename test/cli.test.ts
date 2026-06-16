@@ -736,6 +736,7 @@ codex:
     const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
     const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-stage-5a-phase-validation.md"), "utf-8");
     const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-stage-5b-final-validation.md"), "utf-8");
+    const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-stage-5r-repair.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
     const phasePlanLink = phaseValidationPrompt.match(/\[implementation_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
@@ -743,6 +744,8 @@ codex:
     const phaseCheckProjectPath = phaseValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope phase --phase-id 1/)?.[1];
     const finalOutputPath = finalValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const finalCheckProjectPath = finalValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope final/)?.[1];
+    const repairOutputPath = repairPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
+    const repairCheckProjectPath = repairPrompt.match(/phasedev check --project-path "([^"]+)"/)?.[1];
 
     expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
     expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
@@ -827,6 +830,21 @@ codex:
     expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
     expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     expect(finalValidationPrompt).not.toContain("current-phase artifacts, current-phase changed files");
+    expect(repairPrompt).toContain("Stage 5R. Repair Loop.");
+    expect(repairPrompt).toContain("Ordered workflow:");
+    expect(repairPrompt).toContain("Read the Current Repair Queue, then open the full findings registry only to preserve/update rows");
+    expect(repairPrompt).toContain("Context budget and stop condition:");
+    expect(repairPrompt).toContain("Stop retrieval when every queued finding ID has a concrete repair target");
+    expect(repairPrompt).toContain("preserve all existing registry rows that are not in the current blocking queue");
+    expect(repairPrompt).toContain("if a requirements/design detail is ambiguous but does not change approval scope");
+    expect(repairPrompt).toContain("Success final response is allowed only after the self-check passes.");
+    expect(repairPrompt).toContain("Resolved findings: <F# list>");
+    expect(repairPrompt).toContain("Self-check: <exact command> -> <result>");
+    expect(repairOutputPath).toBe(path.join(outDir, "artifact-snapshots", "08-stage-5r-repair", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(repairCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "08-stage-5r-repair"));
+    expect(repairOutputPath).toBe(path.join(repairCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(repairPrompt).not.toContain(`phasedev check --project-path "${path.join(outDir, "sandbox-project")}"`);
+    expect(repairPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(planPrompt).not.toContain("demo-sandbox");
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"))).toBe(true);
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);
@@ -1422,6 +1440,9 @@ No phase headings yet.
     expect(output).toContain("## Current Repair Queue");
     expect(output).toContain("| F2 | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |");
     expect(output).toContain("Full findings registry:");
+    expect(output).toContain("preserve all existing registry rows that are not in the current blocking queue");
+    expect(output).toContain("Context budget and stop condition:");
+    expect(output).toContain("Repair ready for repeat validation.");
     expect(output).not.toContain("| F1 | MUST-FIX | implementation | Phase 1 | API response omits required error handling. |");
   });
 

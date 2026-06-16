@@ -111,7 +111,7 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
       .split(sourcePath).join(snapshotPath);
   }
 
-  if (stage === "phase_validation" || stage === "final_validation") {
+  if (stage === "phase_validation" || stage === "final_validation" || stage === "repair") {
     rewrittenPrompt = rewrittenPrompt
       .split(`--project-path ${shellQuote(workingProjectPath)}`)
       .join(`--project-path ${shellQuote(snapshotProjectPath)}`);
