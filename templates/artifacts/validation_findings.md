@@ -1,5 +1,5 @@
 ---
-verdict: ready
+verdict: <set_after_review>
 type: phase
 date: {{date}}
 ---
@@ -18,6 +18,7 @@ Authoring instructions for validation and repair agents:
 
 Frontmatter contract:
 - verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.
+- Replace `<set_after_review>` with the verdict selected after evidence review; never leave the placeholder in the final file.
 - type must be exactly one of: phase, final.
 - date must be an ISO date.
 

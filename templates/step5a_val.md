@@ -17,6 +17,11 @@ Current phase:
 
 {{controller_changed_files_inventory}}
 
+Retrieval order:
+- Start from the current phase in [implementation_plan.md]({{plan_path}}), then read PRD/design/rules only for the `R#`, `SC#`, risk boundaries, design decisions, and check commands referenced by that phase.
+- Treat linked artifact paths as the active change source of truth during real stage execution. If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt; mention the missing sandbox files only as an evaluation limitation, not as a validation finding.
+- Use repository reads and narrow searches only to verify the current phase changed-file set, implementation completeness, code review findings, and security findings.
+
 Required stage-contract checks:
 - scope = current phase;
 - use the current phase `Expected Change Surface` as a review aid for changed-file inventory and scope comparison, but not as a substitute for actual repository evidence;

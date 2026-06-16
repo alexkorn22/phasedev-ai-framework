@@ -1,11 +1,24 @@
 ## Common Validation Contract
 
 - Validation mode is review-only: do not rerun tests, builds, browsers, migrations, deployments, or other execution gates.
-- Use the controller-observed changed-file inventory as prompt context, then verify completeness from read-only repository evidence before deciding the verdict.
-- If the changed-file inventory is incomplete or cannot be verified, add a `MUST-FIX` finding with `Class = validation`.
-- Perform a requirements conformance pass against the approved requirements, design, implementation plan, and actual changed files.
-- Perform a full code review pass for every changed production/source/config/test file outside `.phasedev/**` using the configured skill policy, including correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
-- Perform a full security review pass for every changed file outside `.phasedev/**` using the configured skill policy, including user/input handling, output encoding/XSS, injection risks, authorization/data isolation where applicable, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
+Positive decision flow:
+
+1. Read linked flow artifacts in this order: `implementation_plan.md` current phase, then `prd.md`, `architecture/design.md`, `rules.md`, and existing `validation_findings.md` if present.
+2. Build the validation scope from the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, and approved risk/design boundaries.
+3. Verify the changed-file inventory with read-only repository evidence before deciding the verdict. Use the controller-observed inventory first, then compare it with read-only baseline/current evidence such as `git status --short --untracked-files=all -- .`, `git diff --name-status -- .`, and `git diff --cached --name-status -- .` when available. Exclude `.phasedev/**`.
+4. Inspect every changed production/source/config/test file tied to the current phase; for large phases, chunk review by current-phase task or path pattern, inspect the most requirement-critical and security-sensitive files first, and keep a short in-memory checklist of files reviewed.
+5. Perform requirements conformance, code review, and security review passes against the approved requirements, design, implementation plan, actual changed files, and Check Evidence.
+6. Decide the verdict from the open finding set and coverage completeness, then write only the allowed artifact updates.
+
+Context budget and stop condition:
+- Spend retrieval budget on current-phase artifacts, current-phase changed files, and narrow searches needed to prove completeness or a concrete finding.
+- Do not inspect unrelated repository areas after every current-phase task, related `R#`, related `SC#`, Check Evidence row, applicable risk/design boundary, and changed file has enough evidence for the verdict.
+- Stop with `repair_required` and a `MUST-FIX` validation finding only when a required review pass or required evidence cannot be completed with enough concrete evidence.
+
+- If the changed-file inventory is incomplete or cannot be verified from read-only repository evidence, add a `MUST-FIX` finding with `Class = validation`.
+- Requirements conformance pass: confirm the current phase satisfies its approved plan/design/PRD trace and does not add unapproved behavior.
+- Code review pass: review every changed production/source/config/test file outside `.phasedev/**` using the configured skill policy, including correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
+- Security review pass: review every changed file outside `.phasedev/**` using the configured skill policy, including user/input handling, output encoding/XSS, injection risks, authorization/data isolation where applicable, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
 - If the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`.
 - Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence, and a clear connection to the validation scope.
 - Declarative Check Evidence such as `passed` without these details is insufficient; add a `MUST-FIX` finding with `Class = validation`.
@@ -22,11 +35,12 @@
 - Before searching for new issues, read existing `validation_findings.md` if it exists.
 - the final file must strictly follow the artifact template and strict registry rules from the template comments.
 - do not add prose, headings, evidence blocks, summaries, visual markers, or extra tables to `validation_findings.md`.
-- do not delete finding rows.
-- add a new finding as a new row at the top of the table.
-- update the existing row with the same `ID` and do not create a duplicate.
-- do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `.phasedev/**`.
-- If no findings are open, save the empty table header and separator from the artifact template.
+- Preserve every existing finding row, including `resolved` rows; history is deleted only if there are no existing rows to preserve.
+- If the file does not exist, or the existing findings table has no body rows, and no findings are open after review, save only the empty table header and separator from the artifact template.
+- Add each new finding as a new row at the top of the table body.
+- Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number; never reuse an existing ID.
+- If a new finding semantically matches an existing row, update that row with the same `ID` and do not create a duplicate.
+- Do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `.phasedev/**`.
 
 Readiness decision rule:
 

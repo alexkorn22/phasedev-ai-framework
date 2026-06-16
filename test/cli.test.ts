@@ -733,6 +733,7 @@ codex:
     expect(result.exitCode).toBe(0);
     const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-stage-3-plan.md"), "utf-8");
     const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
+    const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-stage-5a-phase-validation.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
 
     expect(planPrompt).toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
@@ -760,7 +761,17 @@ codex:
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Phase 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("Artifact Build Contract");
+    expect(phaseValidationPrompt).toContain("Retrieval order:");
+    expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
+    expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
+    expect(phaseValidationPrompt).toContain("git diff --name-status -- .");
+    expect(phaseValidationPrompt).toContain("Preserve every existing finding row, including `resolved` rows");
+    expect(phaseValidationPrompt).toContain("Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number");
+    expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
+    expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: phase\ndate:");
     expect(planPrompt).not.toContain("demo-sandbox");
+    expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"))).toBe(true);
+    expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);
     expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
     expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
   });
@@ -1865,7 +1876,8 @@ codex:
     expect(planTemplate).toContain("Phase status contract:");
     expect(planTemplate).toContain("Check Evidence contract:");
     expect(planTemplate).toContain("| Area / Path Pattern | Change Type | Ownership | Trace |");
-    expect(findingsTemplate).toContain("verdict: ready");
+    expect(findingsTemplate).toContain("verdict: <set_after_review>");
+    expect(findingsTemplate).toContain("Replace `<set_after_review>` with the verdict selected after evidence review");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened MUST-FIX finding exists.");
     expect(findingsTemplate).toContain("type: phase");
     expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Phase | Finding | Required Fix |");

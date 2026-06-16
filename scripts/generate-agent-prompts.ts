@@ -364,6 +364,42 @@ function writeCombinedPromptFile(manifest: StageOutput[], combinedPath: string):
   );
 }
 
+function restoreActiveChangeArtifactSnapshot(changeDir: string): void {
+  const archiveRoot = path.join(path.dirname(changeDir), "archive");
+  if (!fs.existsSync(archiveRoot) || fs.existsSync(changeDir)) {
+    return;
+  }
+
+  const archivedChangeDir = fs.readdirSync(archiveRoot)
+    .filter(entry => entry.endsWith(`-${generatedChangeName}`))
+    .map(entry => path.join(archiveRoot, entry))
+    .filter(entry => fs.statSync(entry).isDirectory())
+    .sort()
+    .at(-1);
+
+  if (!archivedChangeDir) {
+    return;
+  }
+
+  const relativeArtifactPaths = [
+    "prd.md",
+    "rules.md",
+    "research_facts.md",
+    "implementation_plan.md",
+    "validation_findings.md",
+    path.join("architecture", "design.md")
+  ];
+
+  for (const relativePath of relativeArtifactPaths) {
+    const sourcePath = path.join(archivedChangeDir, relativePath);
+    if (fs.existsSync(sourcePath)) {
+      const targetPath = path.join(changeDir, relativePath);
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+}
+
 function main(): void {
   const options = parseArgs(process.argv.slice(2));
   const promptsDir = path.join(options.outDir, "prompts");
@@ -410,6 +446,8 @@ function main(): void {
   writeFinalReadyFindings(paths);
 
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "09-stage-6-archive.md", "archive", options, config));
+
+  restoreActiveChangeArtifactSnapshot(changeDir);
 
   writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   writeCombinedPromptFile(manifest, combinedPath);
