@@ -91,6 +91,7 @@ loop:
   logDir: .phasedev/logs # путь относительно projectPath
   enableLogs: true # включение/выключение JSON логов ответов агента
   runArchiveStage: true # true = Ralph выполняет Archive; false = остановиться перед Archive и потребовать ручной phasedev next
+  autoApprove: false # true = runner автоматически ставит approved: true на валидных human approval artifacts
   notifications:
     telegram:
       enabled: true # true = отправлять компактный саммари-отчет об итерации в Telegram

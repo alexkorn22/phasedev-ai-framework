@@ -57,6 +57,7 @@ loop:
     expect(config.loop.logDir).toBe(".phasedev/logs");
     expect(config.loop.enableLogs).toBe(true);
     expect(config.loop.runArchiveStage).toBe(true);
+    expect(config.loop.autoApprove).toBe(false);
     expect(config.loop.notifications.telegram).toEqual({
       enabled: false,
       botTokenEnv: "TELEGRAM_BOT_TOKEN",
@@ -208,6 +209,15 @@ loop:
     expect(config.loop.runArchiveStage).toBe(false);
   });
 
+  test("parses autoApprove override", () => {
+    const config = parseConfig(`
+loop:
+  autoApprove: true
+`);
+
+    expect(config.loop.autoApprove).toBe(true);
+  });
+
   test("rejects invalid enableLogs type", () => {
     expect(() => parseConfig(`
 loop:
@@ -220,6 +230,13 @@ loop:
 loop:
   runArchiveStage: 123
 `)).toThrow("loop.runArchiveStage");
+  });
+
+  test("rejects invalid autoApprove type", () => {
+    expect(() => parseConfig(`
+loop:
+  autoApprove: yes
+`)).toThrow("loop.autoApprove");
   });
 
   test("parses telegram notification override", () => {

@@ -8,6 +8,7 @@ import type { IterationLogger, IterationLogEntry, IterationOutcome, IterationUsa
 import { Prompt } from "../../entities/stage/types";
 import { getInitPrompt, getNextPrompt } from "../stage-control";
 import { resolveRoute } from "../stage-control/flow-route";
+import { autoApproveCurrentRoute } from "./auto-approve";
 import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { Config, getStageModelConfig, resolveProjectLogDir } from "./config";
 
@@ -99,6 +100,32 @@ function isArchiveExecutionRoute(projectPath: string): boolean {
 
 function archiveStageDisabledReason(): string {
   return "Archive stage execution is disabled by loop.runArchiveStage=false. Run 'phasedev next' manually to archive or enable loop.runArchiveStage.";
+}
+
+function applyAutoApprovals(projectPath: string, reporter: Pick<typeof console, "log">): string | null {
+  const maxApprovalGates = 3;
+  for (let attempt = 0; attempt < maxApprovalGates; attempt++) {
+    let result: ReturnType<typeof autoApproveCurrentRoute>;
+    try {
+      result = autoApproveCurrentRoute(projectPath);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return `AutoApprove failed: ${message}`;
+    }
+
+    if (!result.approved) {
+      return null;
+    }
+
+    if (result.message) {
+      reporter.log(result.message);
+    }
+    if (!result.advanced) {
+      return result.reason ?? "AutoApprove could not advance the current approval route.";
+    }
+  }
+
+  return "AutoApprove exceeded the maximum number of approval gates in one runner iteration.";
 }
 
 function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
@@ -459,6 +486,22 @@ export async function runRunner(projectPath: string, config: Config, dependencie
     let codex: CodexFactory | null = null;
 
     for (let iteration = 1; iteration <= config.loop.maxIterations; iteration++) {
+      if (config.loop.autoApprove) {
+        const autoApproveFailure = applyAutoApprovals(resolvedProjectPath, reporter);
+        if (autoApproveFailure) {
+          reporter.log("[PHASEDEV RUNNER] blocked at stage: approval");
+          reporter.log(`[PHASEDEV RUNNER] reason: ${autoApproveFailure}`);
+          reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
+          const approvalStageModel = getStageModelConfig(config, "setup");
+          logRunnerEvent(iterationLogger, buildIterationLogEntry(
+            iteration - 1, "approval", approvalStageModel.model, approvalStageModel.reasoningEffort,
+            findActive(resolvedProjectPath), 0, null, { added: [], modified: [], deleted: [] }, false,
+            [], "blocked", null, null, autoApproveFailure, now
+          ));
+          return { status: "blocked", iterations: iteration - 1, logPath, reason: autoApproveFailure };
+        }
+      }
+
       const beforeActiveChange = findActive(resolvedProjectPath);
       if (!config.loop.runArchiveStage && isArchiveExecutionRoute(resolvedProjectPath)) {
         const reason = archiveStageDisabledReason();

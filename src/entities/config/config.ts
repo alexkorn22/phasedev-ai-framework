@@ -47,6 +47,7 @@ export interface Config {
     logDir: string;
     enableLogs: boolean;
     runArchiveStage: boolean;
+    autoApprove: boolean;
     notifications: NotificationConfig;
   };
 }
@@ -74,6 +75,7 @@ export const DEFAULT_CONFIG: Config = {
     logDir: `${SYSTEM_DIR}/logs`,
     enableLogs: true,
     runArchiveStage: true,
+    autoApprove: false,
     notifications: {
       telegram: {
         enabled: false,
@@ -263,6 +265,7 @@ export function parseConfig(content: string): Config {
       logDir: readString(loop.logDir, DEFAULT_CONFIG.loop.logDir, "loop.logDir"),
       enableLogs: readBoolean(loop.enableLogs, DEFAULT_CONFIG.loop.enableLogs, "loop.enableLogs"),
       runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
+      autoApprove: readBoolean(loop.autoApprove, DEFAULT_CONFIG.loop.autoApprove, "loop.autoApprove"),
       notifications: parseNotificationConfig(loop.notifications, DEFAULT_CONFIG.loop.notifications, "loop.notifications")
     }
   };

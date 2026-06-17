@@ -104,6 +104,11 @@ function writeApprovedArtifact(filePath: string, body: string): void {
   fs.writeFileSync(filePath, `---\napproved: true\n---\n${body}`, "utf-8");
 }
 
+function writeArtifact(filePath: string, body: string, approved: boolean): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `---\napproved: ${approved ? "true" : "false"}\napproved_by: ""\n---\n${body}`, "utf-8");
+}
+
 function validPrdBody(): string {
   return `# PRD
 
@@ -287,6 +292,69 @@ const telegramEnv = {
   TEST_TELEGRAM_CHAT_ID: "456"
 };
 
+function setupUnapprovedSetupProject(): { projectPath: string; changeDir: string } {
+  const projectPath = setupProject();
+  const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+  writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+  writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`, false);
+  return { projectPath, changeDir };
+}
+
+function setupUnapprovedDesignProject(): { projectPath: string; changeDir: string } {
+  const projectPath = setupProject();
+  const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+  fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+  writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+  writeApprovedArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+  fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+  writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
+  return { projectPath, changeDir };
+}
+
+function setupUnapprovedPlanProject(): { projectPath: string; changeDir: string } {
+  const projectPath = setupProject();
+  const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+  fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+  writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+  writeApprovedArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+  fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+  writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
+  const plan = implementationPlanReadyForArchive()
+    .replace("approved: true", "approved: false\napproved_by: \"\"")
+    .replace("## Phase 1: API [x]", "## Phase 1: API [ ]")
+    .replace("- [x] 1.1 Implement endpoint", "- [ ] 1.1 Implement endpoint")
+    .replace("| unit | `bun test unit` | passed | passed unit tests |  |", "| unit | `bun test unit` | pending | not run yet | none |");
+  fs.writeFileSync(path.join(changeDir, "implementation_plan.md"), plan, "utf-8");
+  return { projectPath, changeDir };
+}
+
 describe("logs runner", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
@@ -399,6 +467,139 @@ describe("logs runner", () => {
     expect(parsed.outcome).toBe("blocked");
     expect(parsed.initPrompt).toBeNull();
     expect(parsed.agentPrompt).toBeNull();
+  });
+
+  test("auto-approves valid setup artifacts before running the next agent stage", async () => {
+    const { projectPath, changeDir } = setupUnapprovedSetupProject();
+    const messages: string[] = [];
+    const prompts: string[] = [];
+
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-research-after-auto-approve",
+          async run(prompt: string) {
+            prompts.push(prompt);
+            return { finalResponse: "research did not write yet" };
+          }
+        })
+      }),
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(result.iterations).toBe(1);
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain("Stage 1. Research.");
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: true");
+    expect(fs.readFileSync(path.join(changeDir, "rules.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
+    expect(messages.some(message => message.includes("auto-approved setup artifacts"))).toBe(true);
+  });
+
+  test("auto-approves a valid design artifact before planning", async () => {
+    const { projectPath, changeDir } = setupUnapprovedDesignProject();
+    const prompts: string[] = [];
+    const messages: string[] = [];
+
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-plan-after-auto-approve",
+          async run(prompt: string) {
+            prompts.push(prompt);
+            return { finalResponse: "plan did not write yet" };
+          }
+        })
+      }),
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(result.iterations).toBe(1);
+    expect(prompts[0]).toContain("Stage 3. Plan.");
+    expect(fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
+    expect(messages.some(message => message.includes("auto-approved design artifact"))).toBe(true);
+  });
+
+  test("auto-approves a valid implementation plan before implementation", async () => {
+    const { projectPath, changeDir } = setupUnapprovedPlanProject();
+    const prompts: string[] = [];
+    const messages: string[] = [];
+
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-implementation-after-auto-approve",
+          async run(prompt: string) {
+            prompts.push(prompt);
+            return { finalResponse: "implementation did not write yet" };
+          }
+        })
+      }),
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("no_progress");
+    expect(result.iterations).toBe(1);
+    expect(prompts[0]).toContain("Stage 4. Implementation.");
+    expect(fs.readFileSync(path.join(changeDir, "implementation_plan.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
+    expect(messages.some(message => message.includes("auto-approved plan artifact"))).toBe(true);
+  });
+
+  test("does not auto-approve invalid artifacts", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+    const messages: string[] = [];
+    let createdCodex = false;
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody().replace("fix", "invalid-type"), false);
+    writeArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`, false);
+
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), {
+      createCodex: () => {
+        createdCodex = true;
+        return { startThread: () => { throw new Error("should not start"); } };
+      },
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(0);
+    expect(createdCodex).toBe(false);
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: false");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: setup");
+  });
+
+  test("autoApprove does not bypass unrelated blocked prompts", async () => {
+    const projectPath = setupProject();
+    let createdCodex = false;
+
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), {
+      createCodex: () => {
+        createdCodex = true;
+        return { startThread: () => { throw new Error("should not start"); } };
+      },
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "design", "[FLOW CONTROLLER] BLOCKED", true),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(0);
+    expect(createdCodex).toBe(false);
   });
 
   test("stops before archive_ready when archive execution is disabled", async () => {

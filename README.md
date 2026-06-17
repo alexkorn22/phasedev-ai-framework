@@ -107,10 +107,15 @@ codex:
 loop:
   maxIterations: 10
   logDir: .phasedev/logs
+  autoApprove: false # runner-only: auto-approve valid PRD/design/plan approval gates
   notifications:
     telegram:
       enabled: false
 ```
+
+`loop.autoApprove: true` is only used by the automated runner. It sets `approved: true` and
+`approved_by: "PhaseDev Runner"` on valid approval artifacts after controller validation has
+already routed to an approval gate. Manual `phasedev next` still stops for human review.
 
 ---
 

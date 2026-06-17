@@ -1005,6 +1005,22 @@ codex:
     expect(fail.output).toContain("expected route research, got setup_approval");
   });
 
+  test("manual next does not auto-approve setup artifacts when loop autoApprove is enabled", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
+    const configPath = writeConfig(`
+loop:
+  autoApprove: true
+`);
+
+    const output = runNext(["--config", configPath]);
+
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Setup incomplete");
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: false");
+  });
+
   test("check can assert the current stage separately from route kind", () => {
     setupChange(`
 # Plan
