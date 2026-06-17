@@ -50,14 +50,21 @@ cd phasedev
 npm install
 ```
 
-### 2. Initialize a Change
-To start working on a task (e.g., adding authentication) in your target project:
+### 2. Initialize PhaseDev in a Target Project
+Create the PhaseDev workspace structure and project-local config in your target project:
+```bash
+phasedev init-project --project-path /absolute/path/to/your-project
+```
+This creates `.phasedev/changes/`, `.phasedev/changes/archive/`, `.phasedev/specs/`, `.phasedev/logs/`, and `.phasedev/config.yaml`. It does not create an active change folder.
+
+### 3. Run the Init Handshake
+Before sending executable stage prompts to an AI agent, print the context-only init handshake:
 ```bash
 phasedev init --project-path /absolute/path/to/your-project
 ```
-This creates the initial folder `.phasedev/changes/<change-name>` with template PRD and Rules.
+This command does not modify files. It only tells the agent to wait for the complete `phasedev next` controller output.
 
-### 3. Run Next Stage Prompt
+### 4. Run Next Stage Prompt
 Get the contract for the current stage to feed into your AI model:
 ```bash
 phasedev next --project-path /absolute/path/to/your-project

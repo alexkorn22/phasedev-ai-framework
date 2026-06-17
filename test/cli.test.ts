@@ -265,6 +265,19 @@ function runInit(args: string[] = []): string {
   return result.stdout.toString();
 }
 
+function runCli(args: string[] = []): { exitCode: number; output: string } {
+  const result = Bun.spawnSync({
+    cmd: ["bun", "run", cliPath, ...args],
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`
+  };
+}
+
 function runCheck(args: string[] = []): { exitCode: number; output: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, "check", "--project-path", testTmpDir, ...args],
@@ -350,6 +363,91 @@ function expectSubstringsInOrder(content: string, fragments: string[]): void {
 describe("flow-cli state machine", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
+
+  test("help output documents commands, workflow, generated files, and stages", () => {
+    const help = runCli(["help"]);
+    const helpLong = runCli(["--help"]);
+    const helpShort = runCli(["-h"]);
+
+    expect(help.exitCode).toBe(0);
+    expect(helpLong.exitCode).toBe(0);
+    expect(helpShort.exitCode).toBe(0);
+    expect(helpLong.output).toBe(help.output);
+    expect(helpShort.output).toBe(help.output);
+    expect(help.output).toContain("PhaseDev AI Framework");
+    expect(help.output).toContain("Workflow:");
+    expect(help.output).toContain("Commands:");
+    expect(help.output).toContain("Generated files:");
+    expect(help.output).toContain("Stages:");
+    expect(help.output).toContain("Examples:");
+    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
+      expect(help.output).toContain(`phasedev ${commandName}`);
+    }
+    for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
+      expect(help.output).toContain(generatedPath);
+    }
+    expect(help.output).toContain("setup");
+    expect(help.output).toContain("research");
+    expect(help.output).toContain("final_validation");
+    expect(help.output).toContain("archive");
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
+  });
+
+  test("unknown command prints help and exits non-zero", () => {
+    const result = runCli(["unknown-command", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Unknown command: unknown-command");
+    expect(result.output).toContain("Commands:");
+    expect(result.output).toContain("phasedev init-project");
+  });
+
+  test("init-project creates PhaseDev workspace structure and project config", () => {
+    const result = runCli(["init-project", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV INIT-PROJECT] OK");
+    for (const workspacePath of [
+      ".phasedev",
+      ".phasedev/changes",
+      ".phasedev/changes/archive",
+      ".phasedev/specs",
+      ".phasedev/logs"
+    ]) {
+      expect(fs.statSync(path.join(testTmpDir, workspacePath)).isDirectory()).toBe(true);
+    }
+    const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
+    expect(fs.existsSync(configPath)).toBe(true);
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("codex:");
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("loop:");
+    expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
+  });
+
+  test("init-project is idempotent and does not overwrite existing config", () => {
+    const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "custom: true\n", "utf-8");
+
+    const first = runCli(["init-project", "--project-path", testTmpDir]);
+    const second = runCli(["init-project", "--project-path", testTmpDir]);
+
+    expect(first.exitCode).toBe(0);
+    expect(second.exitCode).toBe(0);
+    expect(first.output).toContain("config: existing");
+    expect(second.output).toContain("config: existing");
+    expect(fs.readFileSync(configPath, "utf-8")).toBe("custom: true\n");
+    expect(fs.statSync(path.join(testTmpDir, ".phasedev", "changes", "archive")).isDirectory()).toBe(true);
+  });
+
+  test("init-project fails when project path does not exist", () => {
+    const missingPath = path.join(testTmpDir, "missing-project");
+    const result = runCli(["init-project", "--project-path", missingPath]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV INIT-PROJECT] FAILED");
+    expect(result.output).toContain("project path must exist and be a directory");
+    expect(fs.existsSync(missingPath)).toBe(false);
+  });
 
   test("init output contains base prompt without stage skill router", () => {
     const output = runInit();

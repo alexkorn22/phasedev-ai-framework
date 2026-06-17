@@ -3,6 +3,8 @@ import { checkArchiveCompletion } from "./features/stage-control/check-archive";
 import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, stageKinds, isStageKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
 import { Stage } from "./entities/stage/types";
 import { getInitPrompt, getNextPrompt } from "./features/stage-control";
+import { renderHelp } from "./features/cli-help/render-help";
+import { initProject } from "./features/project-init/init-project";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
 
 function parseExpectedRoute(args: string[]): string | undefined {
@@ -61,7 +63,20 @@ function parseValidationCheckOptions(args: string[]): { options?: ValidationChec
 function main(): void {
   const args = process.argv.slice(2);
   const command = args[0];
+
+  if (!command || command === "help" || command === "--help" || command === "-h") {
+    console.log(renderHelp());
+    return;
+  }
+
   const projectPath = parseProjectPath(args);
+
+  if (command === "init-project") {
+    const result = initProject(projectPath);
+    console.log(result.message);
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
 
   if (command === "init") {
     console.log(getInitPrompt(projectPath).prompt);
@@ -126,7 +141,8 @@ function main(): void {
     return;
   }
 
-  console.log("Usage: phasedev <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--expect-stage <stage>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
+  console.log(renderHelp(command));
+  process.exitCode = 1;
 }
 
 main();
