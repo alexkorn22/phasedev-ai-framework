@@ -5,7 +5,7 @@ import { Prompt, Stage } from "../src/entities/stage/types";
 import { runRunnerCli } from "../src/runner";
 import { DEFAULT_CONFIG, Config, runRunner } from "../src/features/runner";
 import { splitTelegramMessage } from "../src/shared/telegram";
-import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/logger";
+import { createJsonFileLogger } from "../src/features/logger";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -80,6 +80,23 @@ function telegramFetchRecorder(messages: string[]): typeof fetch {
     messages.push(String(body.text));
     return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
   };
+}
+
+function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>(res => { resolve = res; });
+  return { promise, resolve };
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  throw new Error("Timed out waiting for condition.");
 }
 
 function writeApprovedArtifact(filePath: string, body: string): void {
@@ -348,12 +365,15 @@ describe("logs runner", () => {
     expect(messages).toContain("[PHASEDEV RUNNER] reasoning: high");
     expect(messages).not.toContain("[PHASEDEV RUNNER] running phasedev init...");
     expect(messages).not.toContain("[PHASEDEV RUNNER] phasedev init completed");
-    expect(messages).toContain("[PHASEDEV RUNNER] running stage with init bootstrap: implementation");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] starting Codex session...");
+    expect(messages).toContain("[PHASEDEV RUNNER] running Codex stage with init bootstrap: implementation");
   });
 
   test("stops on blocked flow prompt without starting Codex", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
+    const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
     let createdCodex = false;
 
     const result = await runRunner(projectPath, makeConfig(), {
@@ -365,6 +385,7 @@ describe("logs runner", () => {
       getNextPrompt: () => flowPrompt("next", "design", "[FLOW CONTROLLER] BLOCKED", true),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
+      iterationLogger: jsonLogger,
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
 
@@ -372,6 +393,12 @@ describe("logs runner", () => {
     expect(result.iterations).toBe(0);
     expect(createdCodex).toBe(false);
     expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: design");
+    const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
+    expect(parsed.iteration).toBe(0);
+    expect(parsed.stage).toBe("design");
+    expect(parsed.outcome).toBe("blocked");
+    expect(parsed.initPrompt).toBeNull();
+    expect(parsed.agentPrompt).toBeNull();
   });
 
   test("stops before archive_ready when archive execution is disabled", async () => {
@@ -510,6 +537,109 @@ describe("logs runner", () => {
     expect(result.status).toBe("no_progress");
     expect(result.iterations).toBe(1);
     expect(threads).toHaveLength(1);
+  });
+
+  test("stops as blocked when implementation records blocked check evidence without advancing", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+    const planPath = path.join(changeDir, "implementation_plan.md");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApprovedArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+    writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
+    fs.writeFileSync(planPath, `---
+approved: true
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the Ralph fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Exercise the test fixture production path. |
+| Tests | yes | Use fixture commands from rules.md. |
+| Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
+| Migrations | not_applicable | No persistence changes are part of this fixture. |
+| Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
+| Observability | not_applicable | No observability changes are part of this fixture. |
+| Rollback path | not_applicable | Revert the fixture change if needed. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete the fixture phase. Satisfies R1 and SC1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/**\` | update | Fixture implementation area | R1, SC1, D1 |
+
+### Tasks
+
+- [ ] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | pending | not run yet | none |
+`, "utf-8");
+
+    const messages: string[] = [];
+    let calls = 0;
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          async run() {
+            calls++;
+            fs.writeFileSync(planPath, fs.readFileSync(planPath, "utf-8").replace(
+              "| unit | `bun test unit` | pending | not run yet | none |",
+              "| unit | `bun test unit` | blocked | plan surface is invalid | update the approved plan |"
+            ), "utf-8");
+            return { finalResponse: "blocked by approved plan gap" };
+          }
+        })
+      }),
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(1);
+    expect(result.reason).toContain("Current implementation phase is blocked by Check Evidence.");
+    expect(calls).toBe(1);
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: implementation");
   });
 
   test("ignores broken symlinks outside flow state when checking progress", async () => {
@@ -900,12 +1030,14 @@ describe("logs runner", () => {
     const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
+    let sentPrompt = "";
 
     const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-1",
-          async run() {
+          async run(prompt: string) {
+            sentPrompt = prompt;
             return { finalResponse: "done" };
           }
         })
@@ -924,6 +1056,10 @@ describe("logs runner", () => {
     const parsed = JSON.parse(logContent);
     expect(parsed.iteration).toBe(1);
     expect(parsed.stage).toBe("implementation");
+    expect(parsed.initPrompt).toBe("init prompt");
+    expect(parsed.agentPrompt).toBe(sentPrompt);
+    expect(parsed.agentPrompt).toContain("=== FLOW INIT PROMPT START ===\ninit prompt\n=== FLOW INIT PROMPT END ===");
+    expect(parsed.agentPrompt).toContain("=== FLOW NEXT PROMPT START ===\nsame next prompt\n=== FLOW NEXT PROMPT END ===");
     expect(parsed.agentResponse).toBe("done");
   });
 
@@ -933,12 +1069,14 @@ describe("logs runner", () => {
     const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
+    let sentPrompt = "";
 
     const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-stream",
           async runStreamed(prompt: string) {
+            sentPrompt = prompt;
             const isStageTurn = prompt.includes("FLOW NEXT PROMPT");
             return {
               events: streamEvents([
@@ -979,58 +1117,9 @@ describe("logs runner", () => {
 
     const logContent = fs.readFileSync(result.logPath, "utf-8").trim();
     const parsed = JSON.parse(logContent);
+    expect(parsed.initPrompt).toBe("init prompt");
+    expect(parsed.agentPrompt).toBe(sentPrompt);
     expect(parsed.agentResponse).toBe("stage streamed response");
-  });
-
-  test("mirrors Ralph iteration summary to Telegram using TelegramLogger", async () => {
-    const projectPath = setupProject();
-    const reporterMessages: string[] = [];
-    const telegramMessages: string[] = [];
-
-    const tgLogger = createTelegramLogger({
-      botToken: "123:test-token",
-      chatId: "456",
-      fetchImpl: telegramFetchRecorder(telegramMessages)
-    });
-
-    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
-      createCodex: () => ({
-        startThread: () => ({
-          id: "thread-telegram-stream",
-          async runStreamed(prompt: string) {
-            const isStageTurn = prompt.includes("FLOW NEXT PROMPT");
-            return {
-              events: streamEvents([
-                { type: "turn.started" },
-                { type: "item.completed", item: { id: "cmd-1", type: "command_execution", command: "bun test", aggregated_output: "tests passed", exit_code: 0, status: "completed" } },
-                { type: "item.completed", item: { id: "msg-1", type: "agent_message", text: isStageTurn ? "stage telegram response" : "init telegram response" } },
-                { type: "turn.completed", usage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 2, reasoning_output_tokens: 3 } }
-              ])
-            };
-          }
-        })
-      }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
-      reporter: { log: message => reporterMessages.push(message) },
-      env: telegramEnv,
-      iterationLogger: tgLogger,
-      now: () => new Date("2026-05-29T10:00:00.000Z")
-    });
-
-    await tgLogger.flush();
-
-    expect(result.status).toBe("no_progress");
-    expect(reporterMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
-    
-    // Telegram should ONLY receive the compact summary
-    expect(telegramMessages).toHaveLength(1);
-    const summary = telegramMessages[0];
-    expect(summary).toContain("Iteration 1 | implementation | gpt-5.4 (high)");
-    expect(summary).toContain("1\u21922 tokens");
-    expect(summary).toContain("+0/~0/-0 files");
-    expect(summary).toContain("Outcome: no_progress");
   });
 
   test("can disable Codex stream output and fall back to buffered run", async () => {
@@ -1070,47 +1159,9 @@ describe("logs runner", () => {
 
     const logContent = fs.readFileSync(result.logPath, "utf-8").trim();
     const parsed = JSON.parse(logContent);
+    expect(parsed.initPrompt).toBe("init prompt");
+    expect(parsed.agentPrompt).toBe(prompts[0]);
     expect(parsed.agentResponse).toBe("buffered stage response");
-  });
-
-  test("does not invent Codex stream messages for Telegram in buffered mode", async () => {
-    const projectPath = setupProject();
-    const telegramMessages: string[] = [];
-
-    const tgLogger = createTelegramLogger({
-      botToken: "123:test-token",
-      chatId: "456",
-      fetchImpl: telegramFetchRecorder(telegramMessages)
-    });
-
-    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
-      createCodex: () => ({
-        startThread: () => ({
-          id: "thread-buffered-telegram",
-          async run(prompt: string) {
-            return { finalResponse: prompt.includes("FLOW NEXT PROMPT") ? "buffered telegram response" : "buffered init response" };
-          },
-          async runStreamed() {
-            throw new Error("stream should be disabled");
-          }
-        })
-      }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
-      reporter: { log: () => undefined },
-      env: telegramEnv,
-      iterationLogger: tgLogger,
-      now: () => new Date("2026-05-29T10:00:00.000Z")
-    });
-
-    await tgLogger.flush();
-
-    expect(result.status).toBe("no_progress");
-    expect(telegramMessages).toHaveLength(1);
-    const summary = telegramMessages[0];
-    expect(summary).toContain("Iteration 1 | implementation | gpt-5.4 (high)");
-    expect(summary).toContain("Outcome: no_progress");
   });
 
   test("throws when streamed Codex turn fails", async () => {
@@ -1459,17 +1510,32 @@ describe("logs runner", () => {
 
     expect(parsed1.iteration).toBe(1);
     expect(parsed1.stage).toBe("implementation");
+    expect(parsed1.initPrompt).toBe("init prompt");
+    expect(parsed1.agentPrompt).toContain("=== FLOW NEXT PROMPT START ===\nnext prompt\n=== FLOW NEXT PROMPT END ===");
     expect(parsed2.iteration).toBe(2);
+    expect(parsed2.initPrompt).toBe("init prompt");
+    expect(parsed2.agentPrompt).toContain("=== FLOW NEXT PROMPT START ===\nnext prompt\n=== FLOW NEXT PROMPT END ===");
     expect(parsed2.agentResponse).toBe("Agent response for iteration 2");
   });
 
-  test("does not write log when enableLogs is false", async () => {
+  test("CLI does not create JSON log when enableLogs is false", async () => {
     const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "no-json-log-config.yaml");
     const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
-    const jsonLogger = createJsonFileLogger(logPath);
 
-    await runRunner(projectPath, makeConfig({ maxIterations: 1, enableLogs: false }), {
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  enableLogs: false
+  notifications:
+    telegram:
+      enabled: false
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+
+    await runRunnerCli(["--project-path", projectPath, "--config", configPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-no-log",
@@ -1478,12 +1544,7 @@ describe("logs runner", () => {
           }
         })
       }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
-      reporter: { log: () => undefined },
-      iterationLogger: jsonLogger,
-      now: () => new Date("2026-05-29T10:00:00.000Z")
+      reporter: { log: () => undefined }
     });
 
     expect(fs.existsSync(logPath)).toBe(false);
@@ -1551,19 +1612,23 @@ describe("logs runner", () => {
 
   test("continues when Telegram API sends fail and does not recursively notify the failure", async () => {
     const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "telegram-failure-config.yaml");
     const reporterMessages: string[] = [];
     let fetchCount = 0;
 
-    const tgLogger = createTelegramLogger({
-      botToken: "123:test-token",
-      chatId: "456",
-      fetchImpl: async () => {
-        fetchCount++;
-        return new Response("bad gateway", { status: 502 });
-      }
-    }, { log: message => reporterMessages.push(message) });
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  notifications:
+    telegram:
+      enabled: true
+      botTokenEnv: TEST_TELEGRAM_BOT_TOKEN
+      chatIdEnv: TEST_TELEGRAM_CHAT_ID
+codex:
+  streamAgentOutput: false
+`, "utf-8");
 
-    const result = await runRunner(projectPath, makeTelegramConfig({ maxIterations: 1 }), {
+    const result = await runRunnerCli(["--project-path", projectPath, "--config", configPath], {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-telegram-failure",
@@ -1572,21 +1637,20 @@ describe("logs runner", () => {
           }
         })
       }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "same next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
-      reporter: { log: () => undefined },
       env: telegramEnv,
-      iterationLogger: tgLogger,
-      now: () => new Date("2026-05-29T10:00:00.000Z")
+      reporter: { log: message => reporterMessages.push(message) },
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response("bad gateway", { status: 502 });
+      }
     });
 
-    await tgLogger.flush();
-
     const failureMessages = reporterMessages.filter(message => message.includes("Failed to send Telegram notification"));
+    const mirroredMessages = reporterMessages.filter(message => !message.includes("Failed to send Telegram notification"));
     expect(result.status).toBe("no_progress");
-    expect(fetchCount).toBe(1);
-    expect(failureMessages.length).toBe(1);
+    expect(fetchCount).toBeGreaterThan(0);
+    expect(fetchCount).toBe(mirroredMessages.length);
+    expect(failureMessages.length).toBeGreaterThan(0);
   });
 
   test("splits long Telegram messages below the Telegram sendMessage limit", () => {
@@ -1597,7 +1661,7 @@ describe("logs runner", () => {
     expect(chunks.join("")).toBe("x".repeat(8200));
   });
 
-  test("flow:ralph CLI final status lines use the same Telegram output path", async () => {
+  test("flow:ralph CLI mirrors console output to Telegram", async () => {
     const projectPath = setupProject();
     const configPath = path.join(testTmpDir, "ralph-config.yaml");
     const reporterMessages: string[] = [];
@@ -1631,8 +1695,88 @@ codex:
 
     expect(reporterMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
     expect(reporterMessages).toContain("[PHASEDEV RUNNER] iterations: 1");
-    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
-    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
+    expect(telegramMessages).toEqual(reporterMessages);
+  });
+
+  test("flow:ralph CLI sends Telegram messages while the stage is still running", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "live-telegram-config.yaml");
+    const telegramMessages: string[] = [];
+    const releaseStage = createDeferred();
+
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  notifications:
+    telegram:
+      enabled: true
+      botTokenEnv: TEST_TELEGRAM_BOT_TOKEN
+      chatIdEnv: TEST_TELEGRAM_CHAT_ID
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+
+    const runPromise = runRunnerCli(["--project-path", projectPath, "--config", configPath], {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-live-telegram",
+          async run() {
+            await releaseStage.promise;
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      reporter: { log: () => undefined },
+      env: telegramEnv,
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
+
+    await waitFor(() => telegramMessages.some(message => message.startsWith("[PHASEDEV RUNNER] running Codex stage with init bootstrap: ")));
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
+    expect(telegramMessages).not.toContain("[PHASEDEV RUNNER] status: no_progress");
+
+    releaseStage.resolve();
+    await runPromise;
+
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
+  });
+
+  test("flow:ralph CLI sends Telegram notifications when JSON logs are disabled", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(testTmpDir, "telegram-without-json-config.yaml");
+    const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
+    const telegramMessages: string[] = [];
+
+    fs.writeFileSync(configPath, `
+loop:
+  maxIterations: 1
+  enableLogs: false
+  notifications:
+    telegram:
+      enabled: true
+      botTokenEnv: TEST_TELEGRAM_BOT_TOKEN
+      chatIdEnv: TEST_TELEGRAM_CHAT_ID
+codex:
+  streamAgentOutput: false
+`, "utf-8");
+
+    await runRunnerCli(["--project-path", projectPath, "--config", configPath], {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-telegram-no-json",
+          async run() {
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      reporter: { log: () => undefined },
+      env: telegramEnv,
+      fetchImpl: telegramFetchRecorder(telegramMessages)
+    });
+
+    expect(fs.existsSync(logPath)).toBe(false);
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
   });
 
   test("flow:ralph CLI uses project flow config without --config", async () => {
@@ -1671,8 +1815,7 @@ TELEGRAM_CHAT_ID=789
     });
 
     expect(reporterMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
-    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
-    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
+    expect(telegramMessages).toEqual(reporterMessages);
   });
 
   test("flow:ralph CLI loads Telegram credentials from .env next to config", async () => {
@@ -1709,7 +1852,7 @@ TELEGRAM_CHAT_ID=789
       fetchImpl: telegramFetchRecorder(telegramMessages)
     });
 
-    expect(telegramMessages.some(msg => msg.includes("Outcome: no_progress"))).toBe(true);
-    expect(telegramMessages.some(msg => msg.includes("Iteration 1"))).toBe(true);
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
+    expect(telegramMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
   });
 });

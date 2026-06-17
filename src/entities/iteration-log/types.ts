@@ -32,5 +32,7 @@ export interface IterationLogEntry {
   flowStateChanged: boolean;
   allowlistViolations: string[];
   outcome: IterationOutcome;
+  initPrompt: string | null;
+  agentPrompt: string | null;
   agentResponse: string;
 }

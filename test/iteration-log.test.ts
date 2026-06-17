@@ -25,6 +25,8 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     flowStateChanged: true,
     allowlistViolations: [],
     outcome: "completed",
+    initPrompt: "SECRET INIT PROMPT",
+    agentPrompt: "SECRET FLOW PROMPT",
     agentResponse: "Stage done.",
     ...overrides
   };
@@ -89,5 +91,15 @@ describe("formatIterationSummary", () => {
   test("handles null activeChange", () => {
     const summary = formatIterationSummary(makeEntry({ activeChange: null }));
     expect(typeof summary).toBe("string");
+  });
+
+  test("does not include the raw agent prompt", () => {
+    const summary = formatIterationSummary(makeEntry({ agentPrompt: "SECRET FLOW PROMPT" }));
+    expect(summary).not.toContain("SECRET FLOW PROMPT");
+  });
+
+  test("does not include the raw init prompt", () => {
+    const summary = formatIterationSummary(makeEntry({ initPrompt: "SECRET INIT PROMPT" }));
+    expect(summary).not.toContain("SECRET INIT PROMPT");
   });
 });

@@ -1,12 +1,23 @@
 import { loadConfig, resolveConfigPath } from "./entities/config/config";
 import { checkArchiveCompletion } from "./features/stage-control/check-archive";
-import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
+import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, stageKinds, isStageKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
+import { Stage } from "./entities/stage/types";
 import { getInitPrompt, getNextPrompt } from "./features/stage-control";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
 
 function parseExpectedRoute(args: string[]): string | undefined {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--expect-route" && args[i + 1]) {
+      return args[i + 1];
+    }
+  }
+
+  return undefined;
+}
+
+function parseExpectedStage(args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--expect-stage" && args[i + 1]) {
       return args[i + 1];
     }
   }
@@ -59,7 +70,9 @@ function main(): void {
 
   if (command === "check") {
     const expectedRoute = parseExpectedRoute(args);
+    const expectedStage = parseExpectedStage(args);
     let expectedRouteKind: RouteKind | undefined;
+    let expectedStageKind: Stage | undefined;
     if (expectedRoute) {
       if (!isRouteKind(expectedRoute)) {
         console.log(`[PHASEDEV CHECK] FAILED: unknown expected route ${expectedRoute}.`);
@@ -69,8 +82,17 @@ function main(): void {
       }
       expectedRouteKind = expectedRoute;
     }
+    if (expectedStage) {
+      if (!isStageKind(expectedStage)) {
+        console.log(`[PHASEDEV CHECK] FAILED: unknown expected stage ${expectedStage}.`);
+        console.log(`Known stages: ${stageKinds().join(", ")}`);
+        process.exitCode = 1;
+        return;
+      }
+      expectedStageKind = expectedStage;
+    }
 
-    const result = checkRoute(projectPath, expectedRouteKind);
+    const result = checkRoute(projectPath, expectedRouteKind, expectedStageKind);
     console.log(result.message);
     process.exitCode = result.ok ? 0 : 1;
     return;
@@ -104,7 +126,7 @@ function main(): void {
     return;
   }
 
-  console.log("Usage: phasedev <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
+  console.log("Usage: phasedev <init|next|check|check-validation|check-archive> [--project-path <path>] [--config <path>] [--expect-route <route>] [--expect-stage <stage>] [--scope phase|final] [--phase-id <N>] [--archive-path <path>]");
 }
 
 main();

@@ -1,7 +1,9 @@
 import * as fs from "fs";
+import * as path from "path";
 import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
 import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
 import { CANONICAL_PHASE_HEADING_SYNTAX, CANONICAL_TASK_SYNTAX } from "./contract-messages";
+import { emptyTableCellsDiagnostic, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 const REQUIRED_GENERATION_BUNDLE_AREAS = [
   "Production code",
@@ -44,38 +46,6 @@ function headingLevel(line: string): number | null {
   return match?.[1]?.length ?? null;
 }
 
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
-}
-
 function phaseSectionLines(phase: Phase, sectionName: string): string[] {
   const lines = (phase.rawContent ?? "").split("\n");
   const headingIndex = lines.findIndex(line => new RegExp(`^###\\s+${sectionName}\\s*$`, "i").test(line.trim()));
@@ -88,7 +58,32 @@ function phaseSectionLines(phase: Phase, sectionName: string): string[] {
   return lines.slice(headingIndex + 1, boundaryIndex === -1 ? lines.length : boundaryIndex);
 }
 
-function validateExpectedChangeSurface(phase: Phase, issues: string[]): void {
+function normalizeSurfacePath(value: string): string {
+  return value.trim().replace(/^`(.+)`$/, "$1").trim();
+}
+
+function hasGlobPattern(value: string): boolean {
+  return /[*?[\]{}]/.test(value);
+}
+
+function validateExpectedSurfacePath(rowLabel: string, cells: string[], basePath: string | undefined, issues: string[]): void {
+  if (!basePath) {
+    return;
+  }
+
+  const surfacePath = normalizeSurfacePath(cells[0] ?? "");
+  const changeType = (cells[1] ?? "").trim().toLowerCase();
+  if (surfacePath.length === 0 || changeType !== "modify" || hasGlobPattern(surfacePath)) {
+    return;
+  }
+
+  const resolvedPath = path.isAbsolute(surfacePath) ? surfacePath : path.resolve(basePath, surfacePath);
+  if (!fs.existsSync(resolvedPath)) {
+    issues.push(`${rowLabel} references MODIFY path that does not exist: \`${surfacePath}\`.`);
+  }
+}
+
+function validateExpectedChangeSurface(phase: Phase, issues: string[], basePath?: string): void {
   const rows = phaseSectionLines(phase, "Expected Change Surface").filter(line => line.trim().startsWith("|"));
   if (rows.length === 0) {
     issues.push(`Phase ${phase.id}: ${phase.name} must contain a non-empty Expected Change Surface table.`);
@@ -103,11 +98,11 @@ function validateExpectedChangeSurface(phase: Phase, issues: string[]): void {
     issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface columns must be exactly: ${EXPECTED_CHANGE_SURFACE_HEADERS.join(", ")}.`);
   }
 
-  if (!rows[1] || !isSeparatorRow(splitMarkdownTableRow(rows[1]))) {
+  if (!rows[1] || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(rows[1]))) {
     issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface must include a separator row immediately after the header.`);
   }
 
-  const dataRows = rows.slice(2).filter(row => !isSeparatorRow(splitMarkdownTableRow(row)));
+  const dataRows = rows.slice(2).filter(row => !isMarkdownTableSeparatorRow(splitMarkdownTableRow(row)));
   if (dataRows.length === 0) {
     issues.push(`Phase ${phase.id}: ${phase.name} must contain at least one Expected Change Surface row.`);
   }
@@ -122,13 +117,15 @@ function validateExpectedChangeSurface(phase: Phase, issues: string[]): void {
       issues.push(`${rowLabel} must have exactly ${EXPECTED_CHANGE_SURFACE_HEADERS.length} cells.`);
       continue;
     }
-    if (cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`${rowLabel} must not contain empty cells.`);
+    const emptyCellsIssue = emptyTableCellsDiagnostic("Expected Change Surface", { rowNumber: index + 1, cells }, EXPECTED_CHANGE_SURFACE_HEADERS, { rowLabel });
+    if (emptyCellsIssue) {
+      issues.push(emptyCellsIssue);
     }
     const trace = cells[3] ?? "";
     if (!/\bR\d+\b/.test(trace) || !/\bSC\d+\b/.test(trace) || !/\bD\d+\b/.test(trace)) {
       issues.push(`${rowLabel} Trace must reference at least one \`R#\`, one \`SC#\`, and one \`D#\`.`);
     }
+    validateExpectedSurfacePath(rowLabel, cells, basePath, issues);
   }
 }
 
@@ -222,7 +219,7 @@ function validatePhaseStatusOrder(phases: Phase[], issues: string[]): void {
   }
 }
 
-export function validatePlanStructure(phases: Phase[], prdPath?: string): string[] {
+export function validatePlanStructure(phases: Phase[], prdPath?: string, surfaceBasePath?: string): string[] {
   const issues: string[] = [];
   const taskIds = new Map<string, string>();
 
@@ -274,7 +271,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string): string
         }
       }
       if (phaseHasSection(phase, "Expected Change Surface")) {
-        validateExpectedChangeSurface(phase, issues);
+        validateExpectedChangeSurface(phase, issues, surfaceBasePath);
       }
       validateCheckEvidenceRows(phase, phase.checkEvidence ?? [], issues);
     }

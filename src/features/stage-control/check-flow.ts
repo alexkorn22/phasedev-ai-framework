@@ -47,6 +47,19 @@ const ROUTE_KINDS = new Set<RouteKind>([
   "final_validation"
 ]);
 
+const STAGE_KINDS = new Set<Stage>([
+  "init",
+  "setup",
+  "research",
+  "design",
+  "plan",
+  "implementation",
+  "phase_validation",
+  "final_validation",
+  "repair",
+  "archive"
+]);
+
 function hasIssues(route: Route): route is Route & { issues: string[] } {
   return "issues" in route;
 }
@@ -82,6 +95,14 @@ export function isRouteKind(value: string): value is RouteKind {
 
 export function routeKinds(): string[] {
   return Array.from(ROUTE_KINDS);
+}
+
+export function isStageKind(value: string): value is Stage {
+  return STAGE_KINDS.has(value as Stage);
+}
+
+export function stageKinds(): string[] {
+  return Array.from(STAGE_KINDS);
 }
 
 export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions): ValidationCheckResult {
@@ -165,7 +186,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
   };
 }
 
-export function checkRoute(projectPath: string, expectedRoute?: RouteKind): FlowCheckResult {
+export function checkRoute(projectPath: string, expectedRoute?: RouteKind, expectedStage?: Stage): FlowCheckResult {
   const route = resolveRoute(projectPath);
 
   if (hasIssues(route)) {
@@ -186,6 +207,15 @@ export function checkRoute(projectPath: string, expectedRoute?: RouteKind): Flow
       route: route.kind,
       stage: route.stage,
       message: `[PHASEDEV CHECK] FAILED: expected route ${expectedRoute}, got ${route.kind} (stage: ${route.stage}).`
+    };
+  }
+
+  if (expectedStage && route.stage !== expectedStage) {
+    return {
+      ok: false,
+      route: route.kind,
+      stage: route.stage,
+      message: `[PHASEDEV CHECK] FAILED: expected stage ${expectedStage}, got ${route.stage} (route: ${route.kind}).`
     };
   }
 

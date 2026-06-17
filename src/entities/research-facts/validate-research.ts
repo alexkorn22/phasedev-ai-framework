@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { emptyTableCellsDiagnostic, isMarkdownTableSeparatorRow, MarkdownTableRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import { extractPrdTraceability } from "../prd/traceability";
 
 const REQUIRED_SECTIONS = [
@@ -38,46 +39,11 @@ const BLOCKED_TEMPLATE_SAMPLE_VALUES = [
   "Existing spec describes capability Y."
 ];
 
-interface TableRow {
-  cells: string[];
-  rowNumber: number;
-}
-
 interface SourceFact {
   id: string;
   type: string;
   rowNumber: number;
   supports: string;
-}
-
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
 }
 
 function headingName(line: string): string | null {
@@ -105,7 +71,7 @@ function sectionLines(lines: string[], sectionName: string): string[] {
   return lines.slice(startIndex + 1, endIndex === -1 ? lines.length : endIndex);
 }
 
-function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): TableRow[] {
+function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
   const tableLines = sectionLines(lines, sectionName).filter(line => line.trim().startsWith("|"));
   if (tableLines.length === 0) {
     issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
@@ -117,7 +83,7 @@ function tableRowsForSection(lines: string[], sectionName: string, expectedHeade
     issues.push(`${sectionName} columns must be exactly: ${expectedHeaders.join(", ")}.`);
   }
 
-  if (tableLines.length < 2 || !isSeparatorRow(splitMarkdownTableRow(tableLines[1]))) {
+  if (tableLines.length < 2 || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(tableLines[1]))) {
     issues.push(`${sectionName} must include a separator row immediately after the header.`);
   }
 
@@ -127,15 +93,16 @@ function tableRowsForSection(lines: string[], sectionName: string, expectedHeade
   }));
 }
 
-function validateCellCountAndNonEmpty(sectionName: string, rows: TableRow[], expectedCellCount: number, issues: string[]): TableRow[] {
+function validateCellCountAndNonEmpty(sectionName: string, rows: MarkdownTableRow[], expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
   return rows.filter(row => {
-    if (row.cells.length !== expectedCellCount) {
-      issues.push(`${sectionName} row ${row.rowNumber} must have exactly ${expectedCellCount} cells.`);
+    if (row.cells.length !== expectedHeaders.length) {
+      issues.push(`${sectionName} row ${row.rowNumber} must have exactly ${expectedHeaders.length} cells.`);
       return false;
     }
 
-    if (row.cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`${sectionName} row ${row.rowNumber} must not contain empty cells.`);
+    const emptyCellsIssue = emptyTableCellsDiagnostic(sectionName, row, expectedHeaders);
+    if (emptyCellsIssue) {
+      issues.push(emptyCellsIssue);
     }
 
     return true;
@@ -160,7 +127,7 @@ function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdInt
   const validRows = validateCellCountAndNonEmpty(
     "PRD Intent Trace",
     tableRowsForSection(lines, "PRD Intent Trace", INTENT_TABLE_HEADERS, issues),
-    INTENT_TABLE_HEADERS.length,
+    INTENT_TABLE_HEADERS,
     issues
   );
   const fields = validRows.map(row => row.cells[0]);
@@ -212,7 +179,7 @@ function validateTraceTable(lines: string[], sourceFacts: SourceFact[], prdPath:
   const validRows = validateCellCountAndNonEmpty(
     "Requirements & Success Criteria Trace",
     tableRowsForSection(lines, "Requirements & Success Criteria Trace", TRACE_TABLE_HEADERS, issues),
-    TRACE_TABLE_HEADERS.length,
+    TRACE_TABLE_HEADERS,
     issues
   );
   const actualIds = validRows.map(row => row.cells[0]);
@@ -290,7 +257,7 @@ function validateSourceFacts(lines: string[], issues: string[]): SourceFact[] {
   const validRows = validateCellCountAndNonEmpty(
     "Source Facts",
     tableRowsForSection(lines, "Source Facts", SOURCE_FACTS_HEADERS, issues),
-    SOURCE_FACTS_HEADERS.length,
+    SOURCE_FACTS_HEADERS,
     issues
   );
   const facts: SourceFact[] = [];
@@ -330,7 +297,7 @@ function validateSourceFactSupports(sourceFacts: SourceFact[], traceIds: Set<str
   for (const fact of sourceFacts) {
     for (const reference of splitReferences(fact.supports)) {
       if (!/^R\d+$/.test(reference) && !/^SC\d+$/.test(reference)) {
-        issues.push(`Source Facts row ${fact.rowNumber} Supports must reference only \`R#\` or \`SC#\` IDs.`);
+        issues.push(`Source Facts row ${fact.rowNumber} (${fact.id}) Supports must reference only \`R#\` or \`SC#\` IDs.`);
         continue;
       }
 

@@ -387,6 +387,81 @@ Update API.
     expect(issues).toContain(`implementation_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
   });
 
+  test("validatePlanArtifact names empty cells in fixed tables and Expected Change Surface", () => {
+    const invalidPlanFile = path.join(testTmpDir, "empty_cells_plan_artifact.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.writeFileSync(invalidPlanFile, `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope |  |
+| Out of scope | Runtime product changes. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes |  |
+| Tests | yes | Add parser regression. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert prompt changes. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 |  | 1.1 | unit |
+
+## Phase 1: Prompt Updates [~]
+
+### Goal
+
+Update prompts.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`templates/step3_plan.md\` | update |  | R1, SC1, D1 |
+
+### Tasks
+
+- [x] 1.1 Update setup prompt
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | parser tests passed | none |
+`, "utf-8");
+
+    const issues = validatePlanArtifact(invalidPlanFile);
+    expect(issues).toContain("Approval Summary row 4 (Approval scope) has empty cell(s): Decision.");
+    expect(issues).toContain("Generation Bundle row 4 (Production code) has empty cell(s): Plan.");
+    expect(issues).toContain("Phase Overview row 4 (Phase 1) has empty cell(s): Goal.");
+    expect(issues).toContain("Phase 1: Prompt Updates Expected Change Surface row 1 (`templates/step3_plan.md`) has empty cell(s): Ownership.");
+    expect(issues).not.toContain("Approval Summary row 4 must not contain empty cells.");
+    expect(issues).not.toContain("Generation Bundle row 4 must not contain empty cells.");
+    expect(issues).not.toContain("Phase Overview row 4 must not contain empty cells.");
+    expect(issues).not.toContain("Phase 1: Prompt Updates Expected Change Surface row 1 must not contain empty cells.");
+  });
+
   test("validatePlanArtifact accepts Expected Change Surface with globs and enforces design decision traceability", () => {
     const designFile = path.join(testTmpDir, "architecture", "design.md");
     const prdFile = path.join(testTmpDir, "prd.md");
@@ -485,6 +560,81 @@ Add bounded expected change surfaces for R1, SC1, and D1.
     expect(validatePlanArtifact(missingDecisionPlanFile, prdFile, designFile)).toContain("Design decision `D1` is not mapped in the implementation plan.");
     expect(validatePlanArtifact(vagueTracePlanFile, prdFile, designFile)).toContain("Phase 1: Plan Surface Expected Change Surface row 1 Trace must reference at least one `R#`, one `SC#`, and one `D#`.");
     expect(validatePlanArtifact(validPlanFile, prdFile)).toEqual([]);
+  });
+
+  test("validatePlanArtifact rejects concrete modify paths that do not exist", () => {
+    const planFile = path.join(testTmpDir, "missing_modify_surface_plan.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.join(testTmpDir, "src", "entities"), { recursive: true });
+    fs.writeFileSync(path.join(testTmpDir, "src", "entities", "existing.ts"), "export {};\n", "utf-8");
+    fs.writeFileSync(planFile, `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
+| Out of scope | Runtime product behavior. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update validator code for R1, SC1, D1. |
+| Tests | yes | Add parser regression for R1, SC1, D1. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert plan validator changes. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+
+## Phase 1: Plan Surface [~]
+
+### Goal
+
+Add bounded expected change surfaces for R1, SC1, and D1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/entities/missing.ts\` | modify | Plan artifact validation | R1, SC1, D1 |
+| \`src/new-file.ts\` | new | Plan artifact validation | R1, SC1, D1 |
+| \`src/entities/*.ts\` | modify | Plan artifact validation | R1, SC1, D1 |
+
+### Tasks
+
+- [ ] 1.1 Implement validator.
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | pending | not run yet | none |
+`, "utf-8");
+
+    const issues = validatePlanArtifact(planFile);
+
+    expect(issues).toContain("Phase 1: Plan Surface Expected Change Surface row 1 references MODIFY path that does not exist: `src/entities/missing.ts`.");
+    expect(issues).not.toContain("Phase 1: Plan Surface Expected Change Surface row 2 references NEW path that does not exist: `src/new-file.ts`.");
+    expect(issues).not.toContain("Phase 1: Plan Surface Expected Change Surface row 3 references MODIFY path that does not exist: `src/entities/*.ts`.");
   });
 
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
@@ -1078,6 +1228,21 @@ No non-blocking gaps.
     expect(validateResearchFacts(researchFile)).toContain("PRD Intent Trace must include field `Why`.");
   });
 
+  test("validateResearchFacts names empty PRD Intent Trace Notes cells", () => {
+    const researchFile = path.join(testTmpDir, "empty_intent_notes_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    writeResearchFixture(researchFile, validResearchFactsBody()
+      .replace("| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |", "| Change type | fix | not_applicable | prd-only |  |")
+      .replace("| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |", "| Why | Keep routing decisions grounded. | not_applicable | prd-only |  |"));
+
+    const issues = validateResearchFacts(researchFile);
+    expect(issues).toContain("PRD Intent Trace row 3 (Change type) has empty cell(s): Notes.");
+    expect(issues).toContain("PRD Intent Trace row 4 (Why) has empty cell(s): Notes.");
+    expect(issues).not.toContain("PRD Intent Trace row 3 must not contain empty cells.");
+    expect(issues).not.toContain("PRD Intent Trace row 4 must not contain empty cells.");
+  });
+
   test("validateResearchFacts requires PRD Intent Trace values to match prd.md", () => {
     const prdFile = path.join(testTmpDir, "research_intent_prd.md");
     const researchFile = path.join(testTmpDir, "mismatched_intent_research.md");
@@ -1177,13 +1342,16 @@ No non-blocking gaps.
   test("validateResearchFacts requires Source Facts Supports to reference trace IDs", () => {
     const unknownSupportFile = path.join(testTmpDir, "unknown_support_research.md");
     const invalidSupportFile = path.join(testTmpDir, "invalid_support_research.md");
+    const invalidSpecSupportFile = path.join(testTmpDir, "invalid_spec_support_research.md");
     cleanupTestDir();
     setupTestDir();
     writeResearchFixture(unknownSupportFile, validResearchFactsBody().replace("| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R1 |", "| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R99 |"));
     writeResearchFixture(invalidSupportFile, validResearchFactsBody().replace("| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | R1 |", "| F1 | code | `src/index.ts:42` | Current implementation routes approved changes. | Target state |"));
+    writeResearchFixture(invalidSpecSupportFile, validResearchFactsBody().replace("| S1 | spec | `.phasedev/specs/flow/spec.md:8` | Existing spec describes flow routing. | R1 |", "| S1 | spec | `.phasedev/specs/flow/spec.md:8` | Existing spec describes flow routing. | none |"));
 
     expect(validateResearchFacts(unknownSupportFile)).toContain("Source Facts row 3 Supports references unknown trace ID `R99`.");
-    expect(validateResearchFacts(invalidSupportFile)).toContain("Source Facts row 3 Supports must reference only `R#` or `SC#` IDs.");
+    expect(validateResearchFacts(invalidSupportFile)).toContain("Source Facts row 3 (F1) Supports must reference only `R#` or `SC#` IDs.");
+    expect(validateResearchFacts(invalidSpecSupportFile)).toContain("Source Facts row 5 (S1) Supports must reference only `R#` or `SC#` IDs.");
   });
 
   function validDesignBody(): string {
@@ -1305,6 +1473,52 @@ None.
 `, "utf-8");
 
     expect(validateDesign(designFile)).toContain("Architecture Package Map columns must be exactly: File, Purpose, Visual content, Review priority.");
+  });
+
+  test("validateDesign names empty table cells by section, row identity, and column", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const prdFile = path.join(testTmpDir, "design_empty_cells_prd.md");
+    const researchFile = path.join(testTmpDir, "design_empty_cells_research.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(prdFile, `# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep routing decisions grounded. |
+| Target state | Research traces concrete flow behavior. |
+| Risk boundaries | No unrelated flow changes. |
+
+## Requirements
+| ID | Requirement |
+|---|---|
+| R1 | First requirement. |
+
+## Success Criteria
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | First criterion. | review |
+`, "utf-8");
+    writeResearchFixture(researchFile);
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+${validDesignBody()
+  .replace("| R1 | F1, S1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase must implement routing updates. |", "| R1 | F1, S1 | D1 |  | Plan phase must implement routing updates. |")
+  .replace("| `architecture/design.md` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |", "| `architecture/design.md` | Entry point and approval summary for this design package. |  | high |")}
+`, "utf-8");
+
+    const issues = validateDesign(designFile, { prdPath: prdFile, researchPath: researchFile });
+    expect(issues).toContain("Traceability Mapping row 4 (R1) has empty cell(s): Design Coverage.");
+    expect(issues).toContain("Architecture Package Map row 3 (`architecture/design.md`) has empty cell(s): Visual content.");
+    expect(issues).not.toContain("Traceability Mapping row 4 must not contain empty cells.");
+    expect(issues).not.toContain("Architecture Package Map row 3 must not contain empty cells.");
   });
 
   test("validateDesign enforces package map file paths, priority, and file coverage", () => {

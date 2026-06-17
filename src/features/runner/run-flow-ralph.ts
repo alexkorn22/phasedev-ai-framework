@@ -396,6 +396,8 @@ function buildIterationLogEntry(
   flowStateChanged: boolean,
   allowlistViolations: string[],
   outcome: IterationOutcome,
+  initPrompt: string | null,
+  agentPrompt: string | null,
   agentResponse: string,
   now: () => Date
 ): IterationLogEntry {
@@ -412,8 +414,30 @@ function buildIterationLogEntry(
     flowStateChanged,
     allowlistViolations,
     outcome,
+    initPrompt,
+    agentPrompt,
     agentResponse
   };
+}
+
+function logRunnerEvent(iterationLogger: IterationLogger | null, entry: IterationLogEntry): void {
+  if (iterationLogger) {
+    iterationLogger.log(entry);
+  }
+}
+
+function implementationBlockedReason(projectPath: string): string | null {
+  const route = resolveRoute(projectPath);
+  if (route.kind !== "phase" || route.stage !== "implementation") {
+    return null;
+  }
+
+  const blockedRows = (route.activePhase.checkEvidence ?? []).filter(row => row.result === "blocked");
+  if (blockedRows.length === 0) {
+    return null;
+  }
+
+  return `Current implementation phase is blocked by Check Evidence. Phase ${route.activePhase.id}: ${route.activePhase.name}.`;
 }
 
 export async function runRunner(projectPath: string, config: Config, dependencies: RunnerDependencies = {}): Promise<RunnerResult> {
@@ -441,16 +465,29 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         reporter.log("[PHASEDEV RUNNER] blocked at stage: archive");
         reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
+        const stageModel = getStageModelConfig(config, "archive");
+        logRunnerEvent(iterationLogger, buildIterationLogEntry(
+          iteration - 1, "archive", stageModel.model, stageModel.reasoningEffort,
+          beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
+          [], "blocked", null, null, reason, now
+        ));
         return { status: "blocked", iterations: iteration - 1, logPath, reason };
       }
 
       const nextPrompt = getNext(resolvedProjectPath, config);
 
       if (nextPrompt.blocked) {
+        const reason = nextPrompt.reason ?? "Flow controller blocked.";
         reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
-        reporter.log(`[PHASEDEV RUNNER] reason: ${nextPrompt.reason ?? "Flow controller blocked."}`);
+        reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-        return { status: "blocked", iterations: iteration - 1, logPath, reason: nextPrompt.reason ?? "Flow controller blocked." };
+        const stageModel = getStageModelConfig(config, nextPrompt.stage);
+        logRunnerEvent(iterationLogger, buildIterationLogEntry(
+          iteration - 1, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+          beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
+          [], "blocked", null, null, reason, now
+        ));
+        return { status: "blocked", iterations: iteration - 1, logPath, reason };
       }
 
       const stageModel = getStageModelConfig(config, nextPrompt.stage);
@@ -459,7 +496,6 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       reporter.log(`[PHASEDEV RUNNER] model: ${stageModel.model}`);
       reporter.log(`[PHASEDEV RUNNER] reasoning: ${stageModel.reasoningEffort}`);
       reporter.log(`[PHASEDEV RUNNER] active change: ${beforeActiveChange ?? "none"}`);
-      reporter.log("[PHASEDEV RUNNER] starting Codex session...");
 
       codex = codex ?? await createCodex();
       const thread = codex.startThread({
@@ -472,12 +508,14 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       });
 
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
-      reporter.log(`[PHASEDEV RUNNER] running stage with init bootstrap: ${nextPrompt.stage}`);
+      reporter.log(`[PHASEDEV RUNNER] running Codex stage with init bootstrap: ${nextPrompt.stage}`);
 
+      const initPrompt = getInit(resolvedProjectPath, config);
+      const agentPrompt = wrapStagePrompt(initPrompt, nextPrompt);
       const startMs = Date.now();
       const turn = await runCodexTurn(
         thread,
-        wrapStagePrompt(getInit(resolvedProjectPath, config), nextPrompt),
+        agentPrompt,
         nextPrompt.stage,
         reporter,
         config.codex.streamAgentOutput
@@ -508,13 +546,11 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         reporter.log(violationMsg);
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
 
-        if (config.loop.enableLogs && iterationLogger) {
-          iterationLogger.log(buildIterationLogEntry(
-            iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
-            beforeActiveChange, durationMs, turn.usage, changedFiles, false,
-            allowlistViolations, "violation", turn.finalResponse, now
-          ));
-        }
+        logRunnerEvent(iterationLogger, buildIterationLogEntry(
+          iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+          beforeActiveChange, durationMs, turn.usage, changedFiles, false,
+          allowlistViolations, "violation", initPrompt.prompt, agentPrompt, turn.finalResponse, now
+        ));
 
         return {
           status: "blocked",
@@ -526,23 +562,29 @@ export async function runRunner(projectPath: string, config: Config, dependencie
 
       const flowStateChanged = beforeHash !== afterHash;
 
-      if (config.loop.enableLogs && iterationLogger) {
-        const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
-        const outcome: IterationOutcome = archived ? "archived" : flowStateChanged ? "completed" : "no_progress";
-        iterationLogger.log(buildIterationLogEntry(
-          iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
-          beforeActiveChange, durationMs, turn.usage, changedFiles, flowStateChanged,
-          [], outcome, turn.finalResponse, now
-        ));
-      }
-
       const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
+      const blockedReason = !archived && flowStateChanged && nextPrompt.stage === "implementation"
+        ? implementationBlockedReason(resolvedProjectPath)
+        : null;
+      const outcome: IterationOutcome = archived ? "archived" : blockedReason ? "blocked" : flowStateChanged ? "completed" : "no_progress";
+      logRunnerEvent(iterationLogger, buildIterationLogEntry(
+        iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+        beforeActiveChange, durationMs, turn.usage, changedFiles, flowStateChanged,
+        [], outcome, initPrompt.prompt, agentPrompt, turn.finalResponse, now
+      ));
 
       if (archived) {
         reporter.log(`[PHASEDEV RUNNER] stage completed: ${nextPrompt.stage}`);
         reporter.log("[PHASEDEV RUNNER] archived");
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
         return { status: "archived", iterations: iteration, logPath, reason: "Archive state was completed." };
+      }
+
+      if (blockedReason) {
+        reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
+        reporter.log(`[PHASEDEV RUNNER] reason: ${blockedReason}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
+        return { status: "blocked", iterations: iteration, logPath, reason: blockedReason };
       }
 
       if (!flowStateChanged && !hasReportedCodeChange(reportedChangedFiles)) {

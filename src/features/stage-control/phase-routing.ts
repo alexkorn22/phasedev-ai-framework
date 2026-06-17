@@ -43,9 +43,10 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
   });
 }
 
-function flowCheckCommand(projectPath: string, expectedRoute?: string): string {
+function flowCheckCommand(projectPath: string, expectedRoute?: string, expectedStage?: Stage): string {
   const baseCommand = `phasedev check --project-path ${shellQuote(projectPath)}`;
-  return expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
+  const routeCommand = expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
+  return expectedStage ? `${routeCommand} --expect-stage ${expectedStage}` : routeCommand;
 }
 
 function flowValidationCheckCommand(projectPath: string, phaseId: number): string {
@@ -99,7 +100,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
     phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
-    self_check_command: flowCheckCommand(projectPath, "phase_validation"),
+    self_check_command: flowCheckCommand(projectPath, "phase", "phase_validation"),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,

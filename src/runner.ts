@@ -1,6 +1,7 @@
 import * as path from "path";
 import { RunnerDependencies, RunnerResult, loadConfig, resolveConfigPath, runRunner, resolveProjectLogDir } from "./features/runner";
-import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "./features/logger";
+import { createJsonFileLogger, createCompositeLogger, createCompositeReporter, createTelegramReporter } from "./features/logger";
+import type { FlushableReporter } from "./features/logger";
 import type { IterationLogger } from "./entities/iteration-log";
 import { isMainModule } from "./shared/cli/main-module";
 import { parseRalphArgs } from "./shared/cli/parse-ralph-args";
@@ -25,7 +26,22 @@ export async function runRunnerCli(args: string[], dependencies: RunnerCliDepend
   const resolvedConfigPath = resolveConfigPath(projectPath, configPath);
   const config = loadConfig(resolvedConfigPath);
   const env = resolveRunnerEnv(resolvedConfigPath, dependencies.env ?? process.env);
-  const reporter = dependencies.reporter ?? console;
+  const baseReporter = dependencies.reporter ?? console;
+  const reporterSinks: FlushableReporter[] = [baseReporter];
+  const tg = config.loop.notifications.telegram;
+  if (tg.enabled) {
+    const botToken = env[tg.botTokenEnv];
+    const chatId = env[tg.chatIdEnv];
+    if (botToken && chatId) {
+      reporterSinks.push(createTelegramReporter({
+        botToken,
+        chatId,
+        fetchImpl: dependencies.fetchImpl
+      }, baseReporter));
+    } else {
+      baseReporter.log(`[PHASEDEV RUNNER] Telegram notifications disabled: missing ${tg.botTokenEnv} or ${tg.chatIdEnv}`);
+    }
+  }
 
   let iterationLogger = dependencies.iterationLogger;
   if (!iterationLogger) {
@@ -34,25 +50,11 @@ export async function runRunnerCli(args: string[], dependencies: RunnerCliDepend
     const logPath = path.join(logDir, "ralph-log.jsonl");
 
     if (config.loop.enableLogs) {
-      loggers.push(createJsonFileLogger(logPath));
-    }
-
-    const tg = config.loop.notifications.telegram;
-    if (tg.enabled) {
-      const botToken = env[tg.botTokenEnv];
-      const chatId = env[tg.chatIdEnv];
-      if (botToken && chatId) {
-        loggers.push(createTelegramLogger({
-          botToken,
-          chatId,
-          fetchImpl: dependencies.fetchImpl
-        }, reporter));
-      } else {
-        reporter.log(`[PHASEDEV RUNNER] Telegram notifications disabled: missing ${tg.botTokenEnv} or ${tg.chatIdEnv}`);
-      }
+      loggers.push(createJsonFileLogger(logPath, baseReporter));
     }
     iterationLogger = createCompositeLogger(loggers);
   }
+  const reporter = createCompositeReporter(reporterSinks);
 
   try {
     const result = await runRunner(projectPath, config, {
@@ -67,6 +69,7 @@ export async function runRunnerCli(args: string[], dependencies: RunnerCliDepend
     reporter.log(`[PHASEDEV RUNNER] log: ${result.logPath}`);
     return result;
   } finally {
+    await reporter.flush();
     if (iterationLogger) {
       await iterationLogger.flush();
     }

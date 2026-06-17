@@ -1,5 +1,12 @@
 import * as fs from "fs";
+import * as path from "path";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import {
+  emptyTableCellsDiagnostic,
+  isMarkdownTableSeparatorRow,
+  parseMarkdownTableBlocks,
+  splitMarkdownTableRow
+} from "../../shared/markdown/table";
 import { CANONICAL_PHASE_HEADING_SYNTAX } from "./contract-messages";
 import { parsePlan } from "./parse-plan";
 import { validatePlanStructure } from "./validate-plan";
@@ -17,60 +24,12 @@ const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bto be decided\b/i, label: "to be decided" }
 ];
 
-interface MarkdownTableBlock {
-  start: number;
-  end: number;
-}
-
 function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
   const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
   if (!frontmatterMatch) {
     return { body: content, hasFrontmatter: false };
   }
   return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
-}
-
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
-}
-
-function parseTableBlocks(lines: string[]): MarkdownTableBlock[] {
-  const blocks: MarkdownTableBlock[] = [];
-  for (let index = 0; index < lines.length; index++) {
-    if (!lines[index].trim().startsWith("|")) continue;
-    const start = index;
-    while (index + 1 < lines.length && lines[index + 1].trim().startsWith("|")) {
-      index++;
-    }
-    blocks.push({ start, end: index });
-  }
-  return blocks;
 }
 
 function topLevelHeadingName(line: string): string | null {
@@ -91,7 +50,7 @@ function sectionLines(lines: string[], sectionName: string): string[] {
 }
 
 function validateTableShape(sectionName: string, lines: string[], headers: string[], issues: string[]): string[][] {
-  const blocks = parseTableBlocks(sectionLines(lines, sectionName));
+  const blocks = parseMarkdownTableBlocks(sectionLines(lines, sectionName));
   if (blocks.length === 0) {
     issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
     return [];
@@ -110,14 +69,14 @@ function validateTableShape(sectionName: string, lines: string[], headers: strin
   }
 
   const separatorIndex = block.start + 1;
-  if (separatorIndex > block.end || !isSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
+  if (separatorIndex > block.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
     issues.push(`${sectionName} must include a separator row immediately after the header.`);
   }
 
   const rows: string[][] = [];
   for (let rowIndex = separatorIndex + 1; rowIndex <= block.end; rowIndex++) {
     const cells = splitMarkdownTableRow(tableLines[rowIndex]);
-    if (isSeparatorRow(cells)) {
+    if (isMarkdownTableSeparatorRow(cells)) {
       issues.push(`${sectionName} row ${rowIndex + 1} contains an unexpected separator.`);
       continue;
     }
@@ -125,8 +84,9 @@ function validateTableShape(sectionName: string, lines: string[], headers: strin
       issues.push(`${sectionName} row ${rowIndex + 1} must have exactly ${headers.length} cells.`);
       continue;
     }
-    if (cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`${sectionName} row ${rowIndex + 1} must not contain empty cells.`);
+    const emptyCellsIssue = emptyTableCellsDiagnostic(sectionName, { rowNumber: rowIndex + 1, cells }, headers);
+    if (emptyCellsIssue) {
+      issues.push(emptyCellsIssue);
     }
     rows.push(cells);
   }
@@ -190,7 +150,7 @@ function extractDesignDecisionIds(designPath?: string): Set<string> {
   const { body } = bodyAfterFrontmatter(content);
   const lines = body.split("\n");
   const designSectionLines = sectionLines(lines, "Key Design Decisions");
-  const blocks = parseTableBlocks(designSectionLines);
+  const blocks = parseMarkdownTableBlocks(designSectionLines);
   const block = blocks[0];
   if (!block) {
     return new Set();
@@ -221,6 +181,17 @@ function validateDesignDecisionTraceability(body: string, designPath: string | u
   }
 }
 
+function expectedSurfaceBasePath(planPath: string): string {
+  const normalized = path.resolve(planPath);
+  const marker = `${path.sep}.phasedev${path.sep}changes${path.sep}`;
+  const markerIndex = normalized.indexOf(marker);
+  if (markerIndex !== -1) {
+    return normalized.slice(0, markerIndex);
+  }
+
+  return path.dirname(normalized);
+}
+
 export function validatePlanArtifact(filePath: string, prdPath?: string, designPath?: string): string[] {
   if (!fs.existsSync(filePath)) {
     return ["implementation_plan.md does not exist."];
@@ -247,7 +218,7 @@ export function validatePlanArtifact(filePath: string, prdPath?: string, designP
   validateApprovalSummary(lines, issues);
   validateTableShape("Generation Bundle", lines, GENERATION_BUNDLE_HEADERS, issues);
   validateTableShape("Phase Overview", lines, PHASE_OVERVIEW_HEADERS, issues);
-  issues.push(...validatePlanStructure(parsePlan(filePath), prdPath));
+  issues.push(...validatePlanStructure(parsePlan(filePath), prdPath, expectedSurfaceBasePath(filePath)));
   validateDesignDecisionTraceability(body, designPath, issues);
 
   return issues;

@@ -35,11 +35,13 @@ Decision flow:
 
 Research artifact requirements:
 - Include exactly the four sections from the embedded template.
+- Every table cell must be non-empty, including Notes.
 - In `## PRD Intent Trace`, include exactly `Change type`, `Why`, `Target state`, and `Risk boundaries`.
 - In `## Requirements & Success Criteria Trace`, include one row for each `R#` and each `SC#`; use code evidence for implementation status and spec context only in the `Spec Context` column.
 - In `## Source Facts`, include file paths and line numbers for every `F#` and `S#`. Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text only when they directly support a PRD target.
+- Source Facts Supports must use R#/SC#; do not use none/not_applicable. Every `F#` and `S#` fact must support at least one existing `R#` or `SC#`.
 - Include only spec facts that affect `Intent`, `R#`, `SC#`, evidence type, risk boundaries, or future spec-sync context. Do not copy large spec excerpts.
-- If `.phasedev/specs` is absent or irrelevant, use `none` or `not_applicable` instead of inventing spec context.
+- If `.phasedev/specs` is absent or irrelevant, use `none` or `not_applicable` only in the `Spec Context` column of `Requirements & Success Criteria Trace` instead of inventing spec context.
 - Use `## Research Gaps & Blockers` only for non-blocking residual gaps or for a concise blocker summary that names the affected PRD/rules fields or IDs.
 - Do not conclude that the project actually supports a capability only because it appears in specs.
 - Do not include architecture decisions, implementation proposals, or refactoring proposals.

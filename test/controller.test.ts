@@ -437,7 +437,7 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 4. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
-    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase_validation`);
+    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage phase_validation`);
   });
 
   test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {

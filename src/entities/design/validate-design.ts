@@ -2,6 +2,14 @@ import * as fs from "fs";
 import * as path from "path";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
+import {
+  emptyTableCellsDiagnostic,
+  isMarkdownTableSeparatorRow,
+  MarkdownTableBlock,
+  MarkdownTableRow,
+  parseMarkdownTableBlocks,
+  splitMarkdownTableRow
+} from "../../shared/markdown/table";
 import { extractPrdTraceability } from "../prd/traceability";
 
 const REQUIRED_SECTIONS = [
@@ -32,22 +40,12 @@ export interface ValidateDesignOptions {
   researchPath?: string;
 }
 
-interface MarkdownTableBlock {
-  start: number;
-  end: number;
-}
-
 interface PackageMapRow {
   rowNumber: number;
   file: string;
   purpose: string;
   visualContent: string;
   reviewPriority: string;
-}
-
-interface TableRow {
-  rowNumber: number;
-  cells: string[];
 }
 
 function headingName(line: string): string | null {
@@ -84,64 +82,9 @@ function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: 
   return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
 }
 
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") {
-    cells.shift();
-  }
-  if (cells[cells.length - 1] === "") {
-    cells.pop();
-  }
-
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
-}
-
-function parseTableBlocks(lines: string[]): MarkdownTableBlock[] {
-  const blocks: MarkdownTableBlock[] = [];
-
-  for (let index = 0; index < lines.length; index++) {
-    if (!lines[index].trim().startsWith("|")) {
-      continue;
-    }
-
-    const start = index;
-    while (index + 1 < lines.length && lines[index + 1].trim().startsWith("|")) {
-      index++;
-    }
-    blocks.push({ start, end: index });
-  }
-
-  return blocks;
-}
-
-function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): TableRow[] {
+function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
   const tableLines = sectionLines(lines, sectionName);
-  const tableBlocks = parseTableBlocks(tableLines);
+  const tableBlocks = parseMarkdownTableBlocks(tableLines);
   if (tableBlocks.length === 0) {
     issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
     return [];
@@ -161,15 +104,15 @@ function tableRowsForSection(lines: string[], sectionName: string, expectedHeade
   }
 
   const separatorIndex = tableBlock.start + 1;
-  if (separatorIndex > tableBlock.end || !isSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
+  if (separatorIndex > tableBlock.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
     issues.push(`${sectionName} must include a separator row immediately after the header.`);
   }
 
-  const rows: TableRow[] = [];
+  const rows: MarkdownTableRow[] = [];
   for (let rowIndex = separatorIndex + 1; rowIndex <= tableBlock.end; rowIndex++) {
     const cells = splitMarkdownTableRow(tableLines[rowIndex]);
     const rowNumber = rowIndex + 1;
-    if (isSeparatorRow(cells)) {
+    if (isMarkdownTableSeparatorRow(cells)) {
       issues.push(`${sectionName} row ${rowNumber} contains an unexpected separator.`);
       continue;
     }
@@ -177,10 +120,12 @@ function tableRowsForSection(lines: string[], sectionName: string, expectedHeade
       issues.push(`${sectionName} row ${rowNumber} must have exactly ${expectedHeaders.length} cells.`);
       continue;
     }
-    if (cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`${sectionName} row ${rowNumber} must not contain empty cells.`);
+    const row = { rowNumber, cells };
+    const emptyCellsIssue = emptyTableCellsDiagnostic(sectionName, row, expectedHeaders);
+    if (emptyCellsIssue) {
+      issues.push(emptyCellsIssue);
     }
-    rows.push({ rowNumber, cells });
+    rows.push(row);
   }
 
   return rows;
@@ -223,7 +168,7 @@ function hasVisualReviewSurfaceOutsidePackageMap(lines: string[]): boolean {
   });
 
   return linesOutsidePackageMap.some(line => line.trim().toLowerCase() === "```mermaid") ||
-    parseTableBlocks(linesOutsidePackageMap).length > 0;
+    parseMarkdownTableBlocks(linesOutsidePackageMap).length > 0;
 }
 
 function validatePackageMapTableShape(lines: string[], tableBlock: MarkdownTableBlock, issues: string[]): number {
@@ -233,7 +178,7 @@ function validatePackageMapTableShape(lines: string[], tableBlock: MarkdownTable
   }
 
   const separatorIndex = tableBlock.start + 1;
-  if (separatorIndex > tableBlock.end || !isSeparatorRow(splitMarkdownTableRow(lines[separatorIndex]))) {
+  if (separatorIndex > tableBlock.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(lines[separatorIndex]))) {
     issues.push("Architecture Package Map must include a separator row immediately after the header.");
   }
 
@@ -246,7 +191,7 @@ function parsePackageMapRows(lines: string[], tableBlock: MarkdownTableBlock, se
   for (let rowIndex = separatorIndex + 1; rowIndex <= tableBlock.end; rowIndex++) {
     const cells = splitMarkdownTableRow(lines[rowIndex]);
     const rowNumber = rowIndex + 1;
-    if (isSeparatorRow(cells)) {
+    if (isMarkdownTableSeparatorRow(cells)) {
       issues.push(`Architecture Package Map row ${rowNumber} contains an unexpected separator.`);
       continue;
     }
@@ -265,8 +210,9 @@ function parsePackageMapRows(lines: string[], tableBlock: MarkdownTableBlock, se
       reviewPriority: rawReviewPriority
     });
 
-    if (cells.some(cell => cell.trim().length === 0)) {
-      issues.push(`Architecture Package Map row ${rowNumber} must not contain empty cells.`);
+    const emptyCellsIssue = emptyTableCellsDiagnostic("Architecture Package Map", { rowNumber, cells }, PACKAGE_MAP_HEADERS);
+    if (emptyCellsIssue) {
+      issues.push(emptyCellsIssue);
     }
   }
 
@@ -323,7 +269,7 @@ function validateArchitectureFileCoverage(filePath: string, listedFiles: Set<str
 
 function validateArchitecturePackageMap(lines: string[], filePath: string, issues: string[]): void {
   const packageMapLines = sectionLines(lines, "Architecture Package Map");
-  const tableBlocks = parseTableBlocks(packageMapLines);
+  const tableBlocks = parseMarkdownTableBlocks(packageMapLines);
   if (tableBlocks.length === 0) {
     issues.push("Section `## Architecture Package Map` must contain a markdown table.");
   }
@@ -369,9 +315,9 @@ function collectResearchFactIds(researchPath: string | undefined): Set<string> {
   return factIds;
 }
 
-function collectDecisionRows(lines: string[], issues: string[]): Map<string, TableRow> {
+function collectDecisionRows(lines: string[], issues: string[]): Map<string, MarkdownTableRow> {
   const rows = tableRowsForSection(lines, "Key Design Decisions", DECISION_HEADERS, issues);
-  const decisionRows = new Map<string, TableRow>();
+  const decisionRows = new Map<string, MarkdownTableRow>();
 
   for (const row of rows) {
     const decisionId = row.cells[0] ?? "";

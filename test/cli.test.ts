@@ -278,6 +278,19 @@ function runCheck(args: string[] = []): { exitCode: number; output: string } {
   };
 }
 
+function runCheckWithProject(projectPath: string, args: string[] = []): { exitCode: number; output: string } {
+  const result = Bun.spawnSync({
+    cmd: ["bun", "run", cliPath, "check", "--project-path", projectPath, ...args],
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`
+  };
+}
+
 function runCheckValidation(args: string[] = []): { exitCode: number; output: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, "check-validation", "--project-path", testTmpDir, ...args],
@@ -626,6 +639,8 @@ codex:
     expect(output).toContain("Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded");
     expect(output).toContain("Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact");
     expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
+    expect(output).toContain("Every table cell must be non-empty, including Notes.");
+    expect(output).toContain("Source Facts Supports must use R#/SC#; do not use none/not_applicable.");
     expect(output).toContain("Replace every embedded template example row and example value with real stage-specific content.");
     expect(output).toContain("The final artifact must not contain these embedded template sample values: `Requested target from PRD.`, `Requested risk boundary from PRD.`, `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
@@ -768,7 +783,7 @@ codex:
     expect(implementationPrompt).toContain("if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope");
     expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the phase heading `[~]`");
     expect(implementationPrompt).toContain("do not substitute a different route check");
-    expect(implementationPrompt).toContain("--expect-route phase_validation");
+    expect(implementationPrompt).toContain("--expect-route phase --expect-stage phase_validation");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Phase 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("Artifact Build Contract");
@@ -890,6 +905,31 @@ codex:
     expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is setup_approval");
     expect(fail.exitCode).toBe(1);
     expect(fail.output).toContain("expected route research, got setup_approval");
+  });
+
+  test("check can assert the current stage separately from route kind", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+- [ ] 1.1 Implement endpoint
+`);
+
+    const pass = runCheck(["--expect-route", "phase", "--expect-stage", "implementation"]);
+    const fail = runCheck(["--expect-route", "phase", "--expect-stage", "phase_validation"]);
+
+    expect(pass.exitCode).toBe(0);
+    expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is phase (stage: implementation).");
+    expect(fail.exitCode).toBe(1);
+    expect(fail.output).toContain("expected stage phase_validation, got implementation");
+  });
+
+  test("check rejects unknown expected stages", () => {
+    const result = runCheckWithProject(testTmpDir, ["--expect-stage", "not_a_stage"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: unknown expected stage not_a_stage.");
+    expect(result.output).toContain("Known stages:");
   });
 
   test("check does not load stage config", () => {
@@ -1708,7 +1748,7 @@ No markdown finding table here.
 
     expect(output).toContain("Stage 4. Implementation.");
     expect(output).toContain("bun test unit");
-    expect(output).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase_validation`);
+    expect(output).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage phase_validation`);
     expect(output).toContain("finish only when the controller self-check passes or the current phase is honestly recorded as `blocked`");
     expect(output).toContain("do not mark the phase heading `[x]` at this stage");
     expect(output).not.toContain("change the phase status in the plan heading from `[~]`");

@@ -10,11 +10,13 @@ Authoring instructions for the research agent:
 - Do not add other ## sections.
 - Do not add ### or deeper headings.
 - Do not write TBD, TODO, unknown, clarify later, or to be decided.
+- Every table cell is required and must be non-empty, including Notes.
 - Code evidence is primary. Specs are context and cannot confirm actual implementation behavior by themselves.
 - `F#` is only for code, config, tests, or runtime wiring facts.
 - `S#` is only for facts from `.phasedev/specs`.
 - `prd-only` is allowed only in PRD Intent Trace Evidence for intent fields that are not repository facts.
 - If `.phasedev/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
+- Source Facts Supports must use R#/SC#; do not use none/not_applicable.
 - In Research Gaps & Blockers, explicitly declare any remaining unresolved gaps or disputed facts.
 -->
 
@@ -22,8 +24,8 @@ Authoring instructions for the research agent:
 
 | Field | PRD Value | Status | Evidence | Notes |
 |---|---|---|---|---|
-| Change type |  | not_applicable | prd-only |  |
-| Why |  | not_applicable | prd-only |  |
+| Change type |  | not_applicable | prd-only | Classification comes from PRD intent. |
+| Why |  | not_applicable | prd-only | Rationale comes from PRD intent. |
 | Target state | Requested target from PRD. | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
 | Risk boundaries | Requested risk boundary from PRD. | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
 

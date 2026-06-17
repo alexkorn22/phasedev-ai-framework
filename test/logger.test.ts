@@ -2,7 +2,13 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { createJsonFileLogger, createTelegramLogger, createCompositeLogger } from "../src/features/logger";
+import {
+  createCompositeLogger,
+  createCompositeReporter,
+  createJsonFileLogger,
+  createTelegramLogger,
+  createTelegramReporter
+} from "../src/features/logger";
 import type { IterationLogEntry } from "../src/entities/iteration-log";
 import type { FetchLike } from "../src/shared/telegram";
 
@@ -24,6 +30,8 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     flowStateChanged: true,
     allowlistViolations: [],
     outcome: "completed",
+    initPrompt: "Exact init prompt.",
+    agentPrompt: "Exact prompt sent to the agent.",
     agentResponse: "Done.",
     ...overrides
   };
@@ -68,11 +76,13 @@ describe("JsonFileLogger", () => {
   test("preserves all entry fields in JSON", () => {
     const logPath = path.join(tmpDir, "ralph-log.jsonl");
     const logger = createJsonFileLogger(logPath);
-    const entry = makeEntry({ iteration: 42, stage: "design", agentResponse: "my response" });
+    const entry = makeEntry({ iteration: 42, stage: "design", initPrompt: "my init prompt", agentPrompt: "my prompt", agentResponse: "my response" });
     logger.log(entry);
     const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
     expect(parsed.iteration).toBe(42);
     expect(parsed.stage).toBe("design");
+    expect(parsed.initPrompt).toBe("my init prompt");
+    expect(parsed.agentPrompt).toBe("my prompt");
     expect(parsed.agentResponse).toBe("my response");
     expect(parsed.usage).toBeDefined();
     expect(parsed.changedFiles).toBeDefined();
@@ -201,5 +211,46 @@ describe("CompositeLogger", () => {
     expect(received).toHaveLength(2);
     expect(received[0]).toBe(entry);
     expect(received[1]).toBe(entry);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reporter sinks
+// ---------------------------------------------------------------------------
+
+describe("Reporter sinks", () => {
+  test("composite reporter mirrors every message to every sink", async () => {
+    const a: string[] = [];
+    const b: string[] = [];
+    const reporter = createCompositeReporter([
+      { log: message => a.push(message) },
+      { log: message => b.push(message) }
+    ]);
+
+    reporter.log("first");
+    reporter.log("second");
+    await reporter.flush();
+
+    expect(a).toEqual(["first", "second"]);
+    expect(b).toEqual(["first", "second"]);
+  });
+
+  test("Telegram reporter sends each console line as a separate ordered message", async () => {
+    const sentMessages: string[] = [];
+    const mockFetch: FetchLike = async (_url, options) => {
+      const body = JSON.parse((options?.body ?? "") as string);
+      sentMessages.push(body.text as string);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+
+    const reporter = createTelegramReporter({ botToken: "bot", chatId: "chat", fetchImpl: mockFetch });
+    reporter.log("[PHASEDEV RUNNER] iteration 1/1");
+    reporter.log("[PHASEDEV RUNNER] running Codex stage with init bootstrap: implementation");
+    await reporter.flush();
+
+    expect(sentMessages).toEqual([
+      "[PHASEDEV RUNNER] iteration 1/1",
+      "[PHASEDEV RUNNER] running Codex stage with init bootstrap: implementation"
+    ]);
   });
 });
