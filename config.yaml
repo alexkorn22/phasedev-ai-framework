@@ -92,6 +92,12 @@ loop:
   enableLogs: true # включение/выключение JSON логов ответов агента
   runArchiveStage: true # true = Ralph выполняет Archive; false = остановиться перед Archive и потребовать ручной phasedev next
   autoApprove: false # true = runner автоматически ставит approved: true на валидных human approval artifacts
+  watchdog:
+    enabled: true # true = прерывать один зависший Codex stage turn; не лимитирует весь workflow
+    turnTimeoutMs: 3600000 # абсолютный лимит одного stage turn
+    inactivityTimeoutMs: 900000 # лимит без новых событий от Codex agent
+    statusIntervalMs: 60000 # как часто писать heartbeat о продолжающемся stage turn
+    abortGraceMs: 5000 # сколько ждать завершения после AbortSignal перед controlled timeout
   notifications:
     telegram:
       enabled: true # true = отправлять компактный саммари-отчет об итерации в Telegram

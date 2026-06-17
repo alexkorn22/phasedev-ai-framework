@@ -19,5 +19,6 @@ export type {
   StageConfig,
   StageModelConfig,
   StageSkillConfig,
-  TelegramNotificationConfig
+  TelegramNotificationConfig,
+  WatchdogConfig
 } from "../../entities/config/config";

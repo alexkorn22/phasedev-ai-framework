@@ -1323,7 +1323,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(parsed.agentResponse).toBe("stage streamed response");
   });
 
-  test("can disable Codex stream output and fall back to buffered run", async () => {
+  test("can disable Codex stream output while still using streamed transport", async () => {
     const projectPath = setupProject();
     const messages: string[] = [];
     const prompts: string[] = [];
@@ -1336,11 +1336,17 @@ Complete the fixture phase. Satisfies R1 and SC1.
         startThread: () => ({
           id: "thread-buffered",
           async run(prompt: string) {
-            prompts.push(prompt);
-            return { finalResponse: prompt.includes("FLOW NEXT PROMPT") ? "buffered stage response" : "buffered init response" };
+            throw new Error(`buffered run should not be used: ${prompt}`);
           },
-          async runStreamed() {
-            throw new Error("stream should be disabled");
+          async runStreamed(prompt: string) {
+            prompts.push(prompt);
+            return {
+              events: streamEvents([
+                { type: "turn.started" },
+                { type: "item.completed", item: { id: "msg-1", type: "agent_message", text: "silent streamed stage response" } },
+                { type: "turn.completed" }
+              ])
+            };
           }
         })
       }),
@@ -1362,7 +1368,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const parsed = JSON.parse(logContent);
     expect(parsed.initPrompt).toBe("init prompt");
     expect(parsed.agentPrompt).toBe(prompts[0]);
-    expect(parsed.agentResponse).toBe("buffered stage response");
+    expect(parsed.agentResponse).toBe("silent streamed stage response");
   });
 
   test("throws when streamed Codex turn fails", async () => {
@@ -1388,6 +1394,97 @@ Complete the fixture phase. Satisfies R1 and SC1.
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     })).rejects.toThrow("model failed");
+  });
+
+  test("blocks and logs structured failure when a Codex turn times out", async () => {
+    const projectPath = setupProject();
+    const messages: string[] = [];
+    const logDir = path.join(projectPath, ".phasedev", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
+    let startedTurns = 0;
+
+    const result = await runRunner(projectPath, makeConfig({
+      maxIterations: 2,
+      watchdog: { enabled: true, turnTimeoutMs: 200, inactivityTimeoutMs: 10, statusIntervalMs: 200, abortGraceMs: 5 }
+    }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-runner-timeout",
+          async runStreamed() {
+            startedTurns++;
+            return {
+              events: (async function* (): AsyncGenerator<unknown> {
+                yield { type: "turn.started" };
+                yield { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: "src/app.ts", kind: "update" }], status: "completed" } };
+                await new Promise(() => undefined);
+              })()
+            };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: message => messages.push(message) },
+      iterationLogger: jsonLogger,
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(1);
+    expect(result.reason).toContain("Codex turn timed out");
+    expect(startedTurns).toBe(1);
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: implementation");
+    expect(messages.some(message => message.includes("last event: item.completed file_change completed update src/app.ts"))).toBe(true);
+
+    const parsed = JSON.parse(fs.readFileSync(result.logPath, "utf-8").trim());
+    expect(parsed.outcome).toBe("blocked");
+    expect(parsed.failure.kind).toBe("codex_turn_timeout");
+    expect(parsed.failure.timeoutKind).toBe("inactivity");
+    expect(parsed.failure.threadId).toBe("thread-runner-timeout");
+    expect(parsed.changedFiles.modified).toContain("src/app.ts");
+    expect(parsed.agentResponse).toContain("Codex turn timed out");
+  });
+
+  test("reports allowlist violations as the primary reason after a timeout", async () => {
+    const projectPath = setupProject();
+    const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
+
+    const result = await runRunner(projectPath, makeConfig({
+      maxIterations: 1,
+      watchdog: { enabled: true, turnTimeoutMs: 200, inactivityTimeoutMs: 10, statusIntervalMs: 200, abortGraceMs: 5 }
+    }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-timeout-violation",
+          async runStreamed() {
+            return {
+              events: (async function* (): AsyncGenerator<unknown> {
+                yield { type: "turn.started" };
+                yield { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: "src/outside.ts", kind: "update" }], status: "completed" } };
+                await new Promise(() => undefined);
+              })()
+            };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "setup", "setup prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain("Artifact allowlist violation after Codex turn timeout");
+    expect(result.reason).toContain("src/outside.ts");
+
+    const parsed = JSON.parse(fs.readFileSync(result.logPath, "utf-8").trim());
+    expect(parsed.failure.kind).toBe("codex_turn_timeout");
+    expect(parsed.allowlistViolations).toContain("File 'src/outside.ts' modified during 'setup' stage is outside allowlist.");
   });
 
   test("uses per-stage model and reasoning overrides", async () => {

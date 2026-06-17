@@ -58,6 +58,13 @@ loop:
     expect(config.loop.enableLogs).toBe(true);
     expect(config.loop.runArchiveStage).toBe(true);
     expect(config.loop.autoApprove).toBe(false);
+    expect(config.loop.watchdog).toEqual({
+      enabled: true,
+      turnTimeoutMs: 3600000,
+      inactivityTimeoutMs: 900000,
+      statusIntervalMs: 60000,
+      abortGraceMs: 5000
+    });
     expect(config.loop.notifications.telegram).toEqual({
       enabled: false,
       botTokenEnv: "TELEGRAM_BOT_TOKEN",
@@ -218,6 +225,26 @@ loop:
     expect(config.loop.autoApprove).toBe(true);
   });
 
+  test("parses watchdog override", () => {
+    const config = parseConfig(`
+loop:
+  watchdog:
+    enabled: false
+    turnTimeoutMs: 1000
+    inactivityTimeoutMs: 200
+    statusIntervalMs: 50
+    abortGraceMs: 25
+`);
+
+    expect(config.loop.watchdog).toEqual({
+      enabled: false,
+      turnTimeoutMs: 1000,
+      inactivityTimeoutMs: 200,
+      statusIntervalMs: 50,
+      abortGraceMs: 25
+    });
+  });
+
   test("rejects invalid enableLogs type", () => {
     expect(() => parseConfig(`
 loop:
@@ -237,6 +264,14 @@ loop:
 loop:
   autoApprove: yes
 `)).toThrow("loop.autoApprove");
+  });
+
+  test("rejects invalid watchdog timeout", () => {
+    expect(() => parseConfig(`
+loop:
+  watchdog:
+    inactivityTimeoutMs: 0
+`)).toThrow("loop.watchdog.inactivityTimeoutMs");
   });
 
   test("parses telegram notification override", () => {

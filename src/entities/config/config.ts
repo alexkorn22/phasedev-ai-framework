@@ -33,6 +33,14 @@ export type NotificationConfig = {
   telegram: TelegramNotificationConfig;
 };
 
+export type WatchdogConfig = {
+  enabled: boolean;
+  turnTimeoutMs: number;
+  inactivityTimeoutMs: number;
+  statusIntervalMs: number;
+  abortGraceMs: number;
+};
+
 export interface Config {
   codex: {
     default: StageModelConfig;
@@ -48,6 +56,7 @@ export interface Config {
     enableLogs: boolean;
     runArchiveStage: boolean;
     autoApprove: boolean;
+    watchdog: WatchdogConfig;
     notifications: NotificationConfig;
   };
 }
@@ -76,6 +85,13 @@ export const DEFAULT_CONFIG: Config = {
     enableLogs: true,
     runArchiveStage: true,
     autoApprove: false,
+    watchdog: {
+      enabled: true,
+      turnTimeoutMs: 3600000,
+      inactivityTimeoutMs: 900000,
+      statusIntervalMs: 60000,
+      abortGraceMs: 5000
+    },
     notifications: {
       telegram: {
         enabled: false,
@@ -233,6 +249,17 @@ function parseNotificationConfig(value: unknown, fallback: NotificationConfig, k
   };
 }
 
+function parseWatchdogConfig(value: unknown, fallback: WatchdogConfig, key: string): WatchdogConfig {
+  const watchdog = asRecord(value, key);
+  return {
+    enabled: readBoolean(watchdog.enabled, fallback.enabled, `${key}.enabled`),
+    turnTimeoutMs: readPositiveInteger(watchdog.turnTimeoutMs, fallback.turnTimeoutMs, `${key}.turnTimeoutMs`),
+    inactivityTimeoutMs: readPositiveInteger(watchdog.inactivityTimeoutMs, fallback.inactivityTimeoutMs, `${key}.inactivityTimeoutMs`),
+    statusIntervalMs: readPositiveInteger(watchdog.statusIntervalMs, fallback.statusIntervalMs, `${key}.statusIntervalMs`),
+    abortGraceMs: readPositiveInteger(watchdog.abortGraceMs, fallback.abortGraceMs, `${key}.abortGraceMs`)
+  };
+}
+
 export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
@@ -266,6 +293,7 @@ export function parseConfig(content: string): Config {
       enableLogs: readBoolean(loop.enableLogs, DEFAULT_CONFIG.loop.enableLogs, "loop.enableLogs"),
       runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
       autoApprove: readBoolean(loop.autoApprove, DEFAULT_CONFIG.loop.autoApprove, "loop.autoApprove"),
+      watchdog: parseWatchdogConfig(loop.watchdog, DEFAULT_CONFIG.loop.watchdog, "loop.watchdog"),
       notifications: parseNotificationConfig(loop.notifications, DEFAULT_CONFIG.loop.notifications, "loop.notifications")
     }
   };

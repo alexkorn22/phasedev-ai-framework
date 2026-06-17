@@ -16,6 +16,19 @@ function formatFiles(entry: IterationLogEntry): string {
   return `+${added.length}/~${modified.length}/-${deleted.length} files`;
 }
 
+function formatFailure(entry: IterationLogEntry): string | null {
+  if (!entry.failure) {
+    return null;
+  }
+
+  if (entry.failure.kind === "codex_turn_timeout") {
+    const lastEvent = entry.failure.lastEventSummary ? ` last=${entry.failure.lastEventSummary}` : "";
+    return `Failure: codex_turn_timeout (${entry.failure.timeoutKind}, ${Math.round(entry.failure.elapsedMs / 1000)}s/${Math.round(entry.failure.timeoutMs / 1000)}s)${lastEvent}`;
+  }
+
+  return null;
+}
+
 /**
  * Formats a compact one-shot Telegram summary for a completed iteration.
  * Telegram-only: not written to any log file.
@@ -29,5 +42,5 @@ export function formatIterationSummary(entry: IterationLogEntry): string {
   const header = `Iteration ${entry.iteration} | ${entry.stage} | ${entry.model} (${entry.reasoningEffort})`;
   const metrics = `${formatDuration(entry.durationMs)} | ${formatUsage(entry)} | ${formatFiles(entry)}`;
   const outcome = `Outcome: ${entry.outcome}`;
-  return [header, metrics, outcome].join("\n");
+  return [header, metrics, outcome, formatFailure(entry)].filter(Boolean).join("\n");
 }

@@ -4,12 +4,12 @@ import { createHash } from "crypto";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { readArchiveState } from "../../entities/change/archive-state";
 import { archiveRootPath } from "../../entities/change/paths";
-import type { IterationLogger, IterationLogEntry, IterationOutcome, IterationUsage } from "../../entities/iteration-log";
+import type { IterationFailure, IterationLogger, IterationLogEntry, IterationOutcome, IterationUsage } from "../../entities/iteration-log";
 import { Prompt } from "../../entities/stage/types";
 import { getInitPrompt, getNextPrompt } from "../stage-control";
 import { resolveRoute } from "../stage-control/flow-route";
 import { autoApproveCurrentRoute } from "./auto-approve";
-import { CodexFileChange, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
+import { CodexFileChange, CodexTurnTimeoutError, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
 import { Config, getStageModelConfig, resolveProjectLogDir } from "./config";
 
 export interface RunnerDependencies {
@@ -426,7 +426,8 @@ function buildIterationLogEntry(
   initPrompt: string | null,
   agentPrompt: string | null,
   agentResponse: string,
-  now: () => Date
+  now: () => Date,
+  failure: IterationFailure | null = null
 ): IterationLogEntry {
   return {
     timestamp: now().toISOString(),
@@ -443,7 +444,8 @@ function buildIterationLogEntry(
     outcome,
     initPrompt,
     agentPrompt,
-    agentResponse
+    agentResponse,
+    failure
   };
 }
 
@@ -556,13 +558,57 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       const initPrompt = getInit(resolvedProjectPath, config);
       const agentPrompt = wrapStagePrompt(initPrompt, nextPrompt);
       const startMs = Date.now();
-      const turn = await runCodexTurn(
-        thread,
-        agentPrompt,
-        nextPrompt.stage,
-        reporter,
-        config.codex.streamAgentOutput
-      );
+      let turn: Awaited<ReturnType<typeof runCodexTurn>>;
+      try {
+        turn = await runCodexTurn(
+          thread,
+          agentPrompt,
+          nextPrompt.stage,
+          reporter,
+          config.codex.streamAgentOutput,
+          { watchdog: config.loop.watchdog }
+        );
+      } catch (error) {
+        if (!(error instanceof CodexTurnTimeoutError)) {
+          throw error;
+        }
+
+        const durationMs = Date.now() - startMs;
+        const afterTimeoutSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
+        const beforeHash = computeCombinedHash(beforeStageSnapshot);
+        const afterHash = computeCombinedHash(afterTimeoutSnapshot);
+        const flowChangedFiles = getChangedFiles(beforeStageSnapshot, afterTimeoutSnapshot);
+        const reportedChangedFiles = changedFilesFromReportedFileChanges(resolvedProjectPath, error.fileChanges);
+        const changedFiles = mergeChangedFiles(flowChangedFiles, reportedChangedFiles);
+        const activeChangeDir = nextPrompt.stage === "archive"
+          ? beforeActiveChange
+          : findActive(resolvedProjectPath);
+        const allowlistViolations = validateStageAllowlist(
+          nextPrompt.stage,
+          resolvedProjectPath,
+          relativeLogDir,
+          activeChangeDir,
+          changedFiles
+        );
+        const flowStateChanged = beforeHash !== afterHash;
+        const timeoutReason = error.failure.message;
+        const reason = allowlistViolations.length > 0
+          ? `Artifact allowlist violation after Codex turn timeout: ${allowlistViolations.join("; ")}`
+          : timeoutReason;
+
+        reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
+        reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
+        reporter.log(`[PHASEDEV RUNNER] last event: ${error.failure.lastEventSummary ?? "none"}`);
+        reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
+
+        logRunnerEvent(iterationLogger, buildIterationLogEntry(
+          iteration, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+          beforeActiveChange, durationMs, null, changedFiles, flowStateChanged,
+          allowlistViolations, "blocked", initPrompt.prompt, agentPrompt, timeoutReason, now, error.failure
+        ));
+
+        return { status: "blocked", iterations: iteration, logPath, reason };
+      }
       const durationMs = Date.now() - startMs;
 
       const afterStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);

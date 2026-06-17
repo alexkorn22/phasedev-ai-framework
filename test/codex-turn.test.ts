@@ -1,11 +1,15 @@
 import { describe, test, expect } from "bun:test";
-import { runCodexTurn } from "../src/features/runner/codex-turn";
+import { CodexTurnTimeoutError, runCodexTurn } from "../src/features/runner/codex-turn";
 import type { CodexStreamEvent } from "../src/features/runner/codex-stream-reporter";
 
 async function* streamEvents(events: CodexStreamEvent[]): AsyncGenerator<CodexStreamEvent> {
   for (const event of events) {
     yield event;
   }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, ms));
 }
 
 describe("runCodexTurn", () => {
@@ -97,5 +101,113 @@ describe("runCodexTurn", () => {
     const result = await runCodexTurn(thread, "test prompt", "test", { log: () => {} }, true);
 
     expect(result.finalResponse).toBe("my final response");
+  });
+
+  test("passes AbortSignal to streamed turns", async () => {
+    let receivedSignal: AbortSignal | undefined;
+    const thread = {
+      id: "thread-signal",
+      async runStreamed(_prompt: string, options?: { signal?: AbortSignal }) {
+        receivedSignal = options?.signal;
+        return {
+          events: streamEvents([
+            { type: "turn.started" as const },
+            { type: "turn.completed" as const }
+          ])
+        };
+      }
+    };
+
+    await runCodexTurn(thread, "test prompt", "test", { log: () => {} }, true, {
+      watchdog: { enabled: true, turnTimeoutMs: 100, inactivityTimeoutMs: 100, statusIntervalMs: 100, abortGraceMs: 10 }
+    });
+
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("times out when a streamed turn becomes inactive", async () => {
+    let aborted = false;
+    const thread = {
+      id: "thread-inactive",
+      async runStreamed(_prompt: string, options?: { signal?: AbortSignal }) {
+        options?.signal?.addEventListener("abort", () => { aborted = true; });
+        return {
+          events: (async function* (): AsyncGenerator<CodexStreamEvent> {
+            yield { type: "turn.started" };
+            await new Promise(() => undefined);
+          })()
+        };
+      }
+    };
+
+    try {
+      await runCodexTurn(thread, "test prompt", "test", { log: () => {} }, true, {
+        watchdog: { enabled: true, turnTimeoutMs: 200, inactivityTimeoutMs: 10, statusIntervalMs: 200, abortGraceMs: 5 }
+      });
+      throw new Error("expected timeout");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CodexTurnTimeoutError);
+      const timeout = error as CodexTurnTimeoutError;
+      expect(timeout.failure.timeoutKind).toBe("inactivity");
+      expect(timeout.failure.lastEventSummary).toBe("turn.started");
+      expect(timeout.failure.threadId).toBe("thread-inactive");
+      expect(aborted).toBe(true);
+    }
+  });
+
+  test("times out when a streamed turn exceeds the absolute turn limit", async () => {
+    const thread = {
+      id: "thread-turn-timeout",
+      async runStreamed(_prompt: string) {
+        return {
+          events: (async function* (): AsyncGenerator<CodexStreamEvent> {
+            while (true) {
+              yield { type: "turn.started" };
+              await sleep(2);
+            }
+          })()
+        };
+      }
+    };
+
+    try {
+      await runCodexTurn(thread, "test prompt", "test", { log: () => {} }, true, {
+        watchdog: { enabled: true, turnTimeoutMs: 10, inactivityTimeoutMs: 100, statusIntervalMs: 100, abortGraceMs: 5 }
+      });
+      throw new Error("expected timeout");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CodexTurnTimeoutError);
+      expect((error as CodexTurnTimeoutError).failure.timeoutKind).toBe("turn");
+    }
+  });
+
+  test("uses streamed transport without printing Codex events when stream output is disabled", async () => {
+    const messages: string[] = [];
+    let streamed = false;
+    let buffered = false;
+    const thread = {
+      id: "thread-silent-stream",
+      async runStreamed(_prompt: string) {
+        streamed = true;
+        return {
+          events: streamEvents([
+            { type: "turn.started" as const },
+            { type: "item.completed" as const, item: { id: "msg-1", type: "agent_message", text: "streamed response" } },
+            { type: "turn.completed" as const }
+          ])
+        };
+      },
+      async run(_prompt: string) {
+        buffered = true;
+        return { finalResponse: "buffered response" };
+      }
+    };
+
+    const result = await runCodexTurn(thread, "test prompt", "test", { log: message => messages.push(message) }, false);
+
+    expect(streamed).toBe(true);
+    expect(buffered).toBe(false);
+    expect(result.finalResponse).toBe("streamed response");
+    expect(messages.some(message => message.startsWith("[CODEX "))).toBe(false);
   });
 });

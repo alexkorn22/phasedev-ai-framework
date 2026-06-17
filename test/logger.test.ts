@@ -33,6 +33,7 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     initPrompt: "Exact init prompt.",
     agentPrompt: "Exact prompt sent to the agent.",
     agentResponse: "Done.",
+    failure: null,
     ...overrides
   };
 }
@@ -89,6 +90,36 @@ describe("JsonFileLogger", () => {
     expect(parsed.durationMs).toBe(5000);
   });
 
+  test("preserves structured timeout failure details in JSON", () => {
+    const logPath = path.join(tmpDir, "ralph-log.jsonl");
+    const logger = createJsonFileLogger(logPath);
+    logger.log(makeEntry({
+      outcome: "blocked",
+      failure: {
+        kind: "codex_turn_timeout",
+        timeoutKind: "turn",
+        message: "Codex turn timed out after 1000ms.",
+        elapsedMs: 1010,
+        timeoutMs: 1000,
+        lastEventAt: null,
+        lastEventSummary: null,
+        threadId: "thread-timeout"
+      }
+    }));
+
+    const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
+    expect(parsed.failure).toEqual({
+      kind: "codex_turn_timeout",
+      timeoutKind: "turn",
+      message: "Codex turn timed out after 1000ms.",
+      elapsedMs: 1010,
+      timeoutMs: 1000,
+      lastEventAt: null,
+      lastEventSummary: null,
+      threadId: "thread-timeout"
+    });
+  });
+
   test("appends entries without overwriting previous ones", () => {
     const logPath = path.join(tmpDir, "ralph-log.jsonl");
     const logger = createJsonFileLogger(logPath);
@@ -141,6 +172,38 @@ describe("TelegramLogger", () => {
     expect(combined).toContain("design");
     // summary must not include the full raw agentResponse
     expect(combined).not.toContain(longResponse);
+  });
+
+  test("sends compact timeout failure summary to Telegram without raw agentResponse", async () => {
+    const sentMessages: string[] = [];
+    const mockFetch: FetchLike = async (_url, options) => {
+      const body = JSON.parse((options?.body ?? "") as string);
+      sentMessages.push(body.text as string);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+
+    const logger = createTelegramLogger({ botToken: "bot", chatId: "chat", fetchImpl: mockFetch });
+    const rawResponse = "RAW TIMEOUT RESPONSE ".repeat(200);
+    logger.log(makeEntry({
+      outcome: "blocked",
+      agentResponse: rawResponse,
+      failure: {
+        kind: "codex_turn_timeout",
+        timeoutKind: "inactivity",
+        message: "Codex turn timed out after 900000ms without stream activity.",
+        elapsedMs: 901000,
+        timeoutMs: 900000,
+        lastEventAt: "2026-05-29T10:14:00.000Z",
+        lastEventSummary: "turn.started",
+        threadId: "thread-timeout"
+      }
+    }));
+    await logger.flush();
+
+    const combined = sentMessages.join("\n");
+    expect(combined).toContain("Failure: codex_turn_timeout");
+    expect(combined).toContain("inactivity");
+    expect(combined).not.toContain(rawResponse);
   });
 
   test("flush awaits pending Telegram requests", async () => {

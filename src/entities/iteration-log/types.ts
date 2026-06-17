@@ -19,6 +19,18 @@ export interface IterationChangedFiles {
   deleted: string[];
 }
 
+export type IterationFailure =
+  | {
+      kind: "codex_turn_timeout";
+      timeoutKind: "turn" | "inactivity" | "abort_grace";
+      message: string;
+      elapsedMs: number;
+      timeoutMs: number;
+      lastEventAt: string | null;
+      lastEventSummary: string | null;
+      threadId: string | null;
+    };
+
 export interface IterationLogEntry {
   timestamp: string;
   iteration: number;
@@ -35,4 +47,5 @@ export interface IterationLogEntry {
   initPrompt: string | null;
   agentPrompt: string | null;
   agentResponse: string;
+  failure?: IterationFailure | null;
 }

@@ -28,6 +28,7 @@ function makeEntry(overrides: Partial<IterationLogEntry> = {}): IterationLogEntr
     initPrompt: "SECRET INIT PROMPT",
     agentPrompt: "SECRET FLOW PROMPT",
     agentResponse: "Stage done.",
+    failure: null,
     ...overrides
   };
 }
@@ -100,6 +101,28 @@ describe("formatIterationSummary", () => {
 
   test("does not include the raw init prompt", () => {
     const summary = formatIterationSummary(makeEntry({ initPrompt: "SECRET INIT PROMPT" }));
+    expect(summary).not.toContain("SECRET INIT PROMPT");
+  });
+
+  test("includes compact timeout failure details without raw prompts", () => {
+    const summary = formatIterationSummary(makeEntry({
+      outcome: "blocked",
+      failure: {
+        kind: "codex_turn_timeout",
+        timeoutKind: "inactivity",
+        message: "Codex turn timed out after 900000ms without stream activity.",
+        elapsedMs: 901000,
+        timeoutMs: 900000,
+        lastEventAt: "2026-05-29T10:14:00.000Z",
+        lastEventSummary: "item.completed command_execution running bun test",
+        threadId: "thread-timeout"
+      }
+    }));
+
+    expect(summary).toContain("Failure: codex_turn_timeout");
+    expect(summary).toContain("inactivity");
+    expect(summary).toContain("item.completed command_execution running bun test");
+    expect(summary).not.toContain("SECRET FLOW PROMPT");
     expect(summary).not.toContain("SECRET INIT PROMPT");
   });
 });
