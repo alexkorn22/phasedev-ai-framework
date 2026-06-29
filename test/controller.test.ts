@@ -551,6 +551,102 @@ Complete API work.
     expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
   });
 
+  test("completed tasks with blocked check evidence stay in implementation", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | blocked | command unavailable in current sandbox | rerun when environment is available |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("implementation");
+    expect(result.prompt).toContain("Stage 4. Implementation.");
+    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+  });
+
+  test("current phase implementation prompt uses required phase check commands", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [ ] 1.1 Implement endpoint
+
+### Checks
+
+- full: \`bun test full\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| full | \`bun test full\` | pending |  |  |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("implementation");
+    expect(result.prompt).toContain("- full: `bun test full`");
+    expect(result.prompt).not.toContain("- unit: `bun test unit`");
+  });
+
+  test("completed tasks with stale required check command evidence stay in implementation", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- phase: \`bun test phase\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| phase | \`bun test unit\` | passed | unit passed but phase gate did not run | wrong command |
+`);
+
+    const result = getNextPrompt(testTmpDir);
+
+    expect(result.stage).toBe("implementation");
+    expect(result.prompt).toContain("Stage 4. Implementation.");
+    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+  });
+
   test("validated single-phase route reports final validation stage", () => {
     setupChange(`
 # Plan

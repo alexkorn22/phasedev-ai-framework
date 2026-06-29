@@ -287,6 +287,10 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
     if (!ALLOWED_CLASSES.has(className)) {
       issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Class \`${rawClassName}\`.`);
     }
+    const securitySeverityMismatch = ALLOWED_CLASSES.has(className) && className === "security" && severity !== "MUST-FIX";
+    if (securitySeverityMismatch) {
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has Class \`security\`; security findings must use Severity \`MUST-FIX\`.`);
+    }
     if (phase.length === 0) {
       issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Phase.`);
     }
@@ -302,6 +306,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
       ALLOWED_STATUSES.has(status) &&
       ALLOWED_SEVERITIES.has(severity) &&
       ALLOWED_CLASSES.has(className) &&
+      !securitySeverityMismatch &&
       phase.length > 0 &&
       finding.length > 0 &&
       requiredFix.length > 0

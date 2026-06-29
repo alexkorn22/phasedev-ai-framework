@@ -96,7 +96,7 @@ loop:
     enabled: true # true = прерывать один зависший Codex stage turn; не лимитирует весь workflow
     turnTimeoutMs: 3600000 # абсолютный лимит одного stage turn
     inactivityTimeoutMs: 900000 # лимит без новых событий от Codex agent
-    statusIntervalMs: 60000 # как часто писать heartbeat о продолжающемся stage turn
+    statusIntervalMs: 300000 # как часто писать heartbeat о продолжающемся stage turn
     abortGraceMs: 5000 # сколько ждать завершения после AbortSignal перед controlled timeout
   notifications:
     telegram:

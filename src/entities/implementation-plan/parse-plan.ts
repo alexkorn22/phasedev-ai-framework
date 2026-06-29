@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
-import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
+import { CheckEvidenceRow, GenerationBundleRow, Phase, RequiredCheck, Task } from "./types";
 
 function taskStatusFor(statusChar: string): Task["status"] {
   const normalized = statusChar.toLowerCase();
@@ -79,6 +79,52 @@ function parseAdditionalChecks(lines: string[]): string[] {
     }
 
     checks.push(bulletMatch[1].trim());
+  }
+
+  return checks;
+}
+
+function stripInlineCode(value: string): string {
+  return value.trim().replace(/^`(.+)`$/, "$1").trim();
+}
+
+function parseRequiredChecks(lines: string[]): RequiredCheck[] {
+  const checks: RequiredCheck[] = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^###\s+Checks\s*$/i.test(trimmed)) {
+      inSection = true;
+      continue;
+    }
+
+    if (!inSection) {
+      continue;
+    }
+
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      break;
+    }
+
+    if (/^(?:\*\*)?Additional checks(?:\*\*)?:\s*$/i.test(trimmed)) {
+      break;
+    }
+
+    if (trimmed.length === 0) {
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^-\s+([^:]+):\s*(.+)$/);
+    if (!bulletMatch || bulletMatch[1] === undefined || bulletMatch[2] === undefined) {
+      continue;
+    }
+
+    const check = bulletMatch[1].trim().toLowerCase();
+    const command = stripInlineCode(bulletMatch[2]);
+    if (check.length > 0 && command.length > 0) {
+      checks.push({ check, command });
+    }
   }
 
   return checks;
@@ -182,6 +228,7 @@ function phaseFor(meta: { id: number; name: string; status: Phase["status"] }, h
     ...meta,
     tasks: parseTasks(lines),
     additionalChecks: parseAdditionalChecks(lines),
+    requiredChecks: parseRequiredChecks(lines),
     generationBundle,
     checkEvidence: parseCheckEvidence(lines),
     rawContent: [heading, ...lines].join("\n").trim()

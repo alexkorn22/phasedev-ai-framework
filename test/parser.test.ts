@@ -177,6 +177,9 @@ Additional checks:
     expect(phases[0].tasks).toHaveLength(2);
     expect(phases[0].tasks.map(task => task.id)).toEqual(["1.1", "1.2"]);
     expect(phases[0].additionalChecks).toEqual(["`npm run typecheck`"]);
+    expect(phases[0].requiredChecks).toEqual([
+      { check: "unit", command: "bun test test/parser.test.ts" }
+    ]);
     expect(phases[0].generationBundle?.map(row => row.area)).toEqual([
       "Production code",
       "Tests",
@@ -189,6 +192,40 @@ Additional checks:
     expect(phases[0].checkEvidence).toEqual([
       { check: "unit", commandOrMethod: "`bun test test/parser.test.ts`", result: "passed", evidence: "12 tests passed", notes: "none" },
       { check: "additional", commandOrMethod: "`npm run typecheck`", result: "pending", evidence: "", notes: "" }
+    ]);
+  });
+
+  test("parsePlan extracts multiple required phase checks from the Checks section", () => {
+    const planFile = path.join(testTmpDir, "plan_required_checks.md");
+    fs.writeFileSync(planFile, `
+# Plan
+
+## Phase 1: Validation Gates [~]
+
+### Tasks
+
+- [x] 1.1 Complete work
+
+### Checks
+
+- unit: \`bun test unit\`
+- phase: \`bun test phase\`
+- full: \`npm run typecheck\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | passed | unit passed | none |
+| phase | \`bun test phase\` | pending |  |  |
+`, "utf-8");
+
+    const phases = parsePlan(planFile);
+
+    expect(phases[0].requiredChecks).toEqual([
+      { check: "unit", command: "bun test unit" },
+      { check: "phase", command: "bun test phase" },
+      { check: "full", command: "npm run typecheck" }
     ]);
   });
 
@@ -1946,6 +1983,26 @@ date: 2026-05-30
 
     expect(artifact.issues).toEqual([]);
     expect(artifact.openBlockingRows.map(row => row.className)).toEqual(["security", "code_review"]);
+  });
+
+  test("parseValidationFindingsArtifact requires every security finding to be MUST-FIX", () => {
+    const findingsFile = path.join(testTmpDir, "security_not_must_fix.md");
+    fs.writeFileSync(findingsFile, `---
+verdict: ready_with_risks
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | RECOMMENDED | security | Final | State-changing endpoint has a defense-in-depth auth concern. | Harden authorization. |
+| F2 | resolved | NIT | security | Final | Resolved secret handling note was classified as a nit. | Keep resolved security rows classified as MUST-FIX. |
+`, "utf-8");
+
+    const issues = parseValidationFindingsArtifact(findingsFile).issues;
+
+    expect(issues).toContain("Finding F1 has Class `security`; security findings must use Severity `MUST-FIX`.");
+    expect(issues).toContain("Finding F2 has Class `security`; security findings must use Severity `MUST-FIX`.");
   });
 
   test("parseValidationFindingsArtifact validates verdict consistency from severity", () => {

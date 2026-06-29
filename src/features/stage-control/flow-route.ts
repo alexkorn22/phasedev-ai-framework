@@ -5,7 +5,7 @@ import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, Invalid
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
-import { hasPendingOrFailedEvidence, isPhaseReadyForValidation } from "../../entities/implementation-plan/phase-readiness";
+import { isPhaseReadyForValidation, phaseValidationBlockers } from "../../entities/implementation-plan/phase-readiness";
 import { validatePlanArtifact } from "../../entities/implementation-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateRulesArtifact } from "../../entities/rules/validate-rules";
@@ -153,8 +153,8 @@ export function resolveRoute(projectPath: string): Route {
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");
   if (finalReady) {
     const allPhasesCompleted = planPhases.length > 0 && planPhases.every(phase => phase.status === "completed");
-    const hasAnyPendingOrFailed = planPhases.some(hasPendingOrFailedEvidence);
-    if (!allPhasesCompleted || hasAnyPendingOrFailed) {
+    const hasAnyReadinessBlockers = planPhases.some(phase => phaseValidationBlockers(phase).length > 0);
+    if (!allPhasesCompleted || hasAnyReadinessBlockers) {
       return { kind: "archive_readiness_blocked", stage: "archive", paths, activeChangePath: changeDir };
     }
 

@@ -23,6 +23,22 @@ export function formatPhaseExcerpt(phase: Phase): string {
   return phase.rawContent?.trim() || `## Phase ${phase.id}: ${phase.name}\n${formatTaskList(phase)}`;
 }
 
+export function formatPlanMap(phases: Phase[], currentPhaseId: number): string {
+  if (phases.length === 0) {
+    return "No phases parsed from the approved plan.";
+  }
+
+  return phases.map(phase => {
+    const status = phase.status === "completed" ? "[x]" : phase.status === "in_progress" ? "[~]" : "[ ]";
+    const marker = phase.id === currentPhaseId ? "current" : "orientation only";
+    const taskIds = phase.tasks.map(task => task.id).filter(Boolean).join(", ") || "no task ids parsed";
+    const requiredChecks = phase.requiredChecks && phase.requiredChecks.length > 0
+      ? phase.requiredChecks.map(check => check.check).join(", ")
+      : "unit";
+    return `- Phase ${phase.id}: ${phase.name} ${status} (${marker}); tasks: ${taskIds}; required checks: ${requiredChecks}`;
+  }).join("\n");
+}
+
 export function formatAdditionalChecks(phase: Phase | null): string {
   if (!phase || phase.additionalChecks.length === 0) {
     return "  * No additional checks for the current phase.";

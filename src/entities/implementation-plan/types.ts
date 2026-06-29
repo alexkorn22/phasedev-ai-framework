@@ -19,12 +19,18 @@ export interface CheckEvidenceRow {
   notes: string;
 }
 
+export interface RequiredCheck {
+  check: string;
+  command: string;
+}
+
 export interface Phase {
   id: number;
   name: string;
   status: "completed" | "in_progress" | "not_started";
   tasks: Task[];
   additionalChecks: string[];
+  requiredChecks?: RequiredCheck[];
   generationBundle?: GenerationBundleRow[];
   checkEvidence?: CheckEvidenceRow[];
   rawContent?: string;

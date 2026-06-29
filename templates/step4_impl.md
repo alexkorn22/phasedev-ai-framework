@@ -8,7 +8,10 @@ Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [rules.md]({{rules_path}})
 - Approved design: [design.md]({{design_path}})
-- Implementation plan: [implementation_plan.md]({{plan_path}})
+- Implementation plan write-back path: [implementation_plan.md]({{plan_path}}); use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface.
+
+Full-plan orientation:
+{{plan_map}}
 
 Current phase:
 {{phase_id}}
@@ -17,14 +20,18 @@ Current phase from approved plan:
 {{phase_excerpt}}
 
 Ordered workflow:
-1. Read this stage prompt, then the linked artifacts in this order: [prd.md]({{prd_path}}), [rules.md]({{rules_path}}), [design.md]({{design_path}}), and the current phase excerpt from [implementation_plan.md]({{plan_path}}).
-2. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, and approved `Risk boundaries`.
-3. Read configured Priority 1 router skills first when available because they may select method skills; load main, additional, or router-selected method skills only when they apply to current phase evidence, and adapt useful method guidance back into this stage contract.
-4. Inspect repository files only after the linked artifacts are understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
-5. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
+1. Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first; open the full [implementation_plan.md]({{plan_path}}) only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory.
+2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
+3. Read [prd.md]({{prd_path}}), [rules.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
+4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
+5. Read configured Priority 1 router skills first when available because they may select method skills; load main, additional, or router-selected method skills only when they apply to current phase evidence, and adapt useful method guidance back into this stage contract.
+6. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
+7. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 
 Context budget and stop condition:
-- Treat the linked artifacts and current phase excerpt as the first retrieval layer.
+- Treat the embedded full-plan orientation plus current phase excerpt as the primary retrieval layer; do not load the full implementation plan unless the write-back or ambiguity exception above applies.
+- Keep future phases as boundary context only. They can stop accidental overreach, but they do not authorize implementation or broad repository inspection.
+- For PRD/design/rules evidence, retrieve only the rows or sections referenced by current-phase `R#`, `SC#`, `D#`, checks, and risk boundaries.
 - For repository evidence, start with the paths/patterns named in the current `Expected Change Surface`; use broad searches only when a named surface needs path discovery, and keep them minimal.
 - Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.
 - Do not inspect unrelated repository areas or future phases to improve confidence after the stop condition is met.
@@ -48,12 +55,13 @@ Path resolution rule:
 Completion checklist:
 - complete the current phase tasks within the approved `prd.md`, approved design, and approved plan;
 - update only current-phase task checkboxes in [implementation_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
-- execute the gate command or record why it cannot be executed: `{{test_command}}`;
+- execute every required check command below or record why it cannot be executed:
+{{test_command}}
 - execute additional checks from the current phase, if any, or record why they cannot be executed;
 - update `### Check Evidence` for the current phase in [implementation_plan.md]({{plan_path}});
 - keep `Check Evidence` concise but concrete: command or method, result, what was verified, and blocker reason when blocked;
 - use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
-- advance toward validation only after current-phase `Check Evidence` has no `pending` or `failed` rows;
+- advance toward validation only after current-phase `Check Evidence` has every required check recorded as `passed` and has no `pending`, `failed`, or `blocked` rows;
 - if checks fail and the failure is causally related to the current phase change set, fix only inside the approved current-phase surface and repeat the affected checks;
 - if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope; record `Result = blocked` when it prevents verification, otherwise record the remaining risk with exact evidence;
 - if an external blocker prevents completion, record `Result = blocked`, include a short concrete reason in `Evidence` or `Notes`, and explain the blocker in the final response;

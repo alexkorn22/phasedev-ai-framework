@@ -5,7 +5,7 @@ import { isPhaseReadyForValidation } from "../../entities/implementation-plan/ph
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { Phase } from "../../entities/implementation-plan/types";
 import { updatePhaseStatus } from "../../entities/implementation-plan/update-phase-status";
-import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
+import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { Prompt, Stage } from "../../entities/stage/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
@@ -13,7 +13,7 @@ import { shellQuote } from "../../shared/shell/shell-quote";
 import { renderArtifactContract } from "./artifact-contract";
 import { renderChangedFileInventory } from "./changed-file-inventory";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
-import { formatPhaseExcerpt, toFileUrl } from "./prompt-formatters";
+import { formatPhaseExcerpt, formatPlanMap, toFileUrl } from "./prompt-formatters";
 import { renderSkillPolicy } from "./skill-policy";
 import { renderValidationCommonContract } from "./validation-common-contract";
 
@@ -26,9 +26,31 @@ export interface Urls {
   findings_path: string;
 }
 
-function getRequiredTestCommand(stage: Stage, testCommands: TestCommands, key: keyof TestCommands, rulesPath: string): string | Prompt {
-  const command = testCommands[key];
-  return command ?? testCommandBlocker(stage, rulesPath, [key]);
+function isKnownTestCommandKey(check: string): check is keyof TestCommands {
+  return check === "unit" || check === "phase" || check === "full";
+}
+
+function requiredCheckKeys(currentPhase: Phase): Array<keyof TestCommands> {
+  const keys = (currentPhase.requiredChecks ?? [])
+    .map(check => check.check.trim().toLowerCase())
+    .filter(isKnownTestCommandKey);
+  return keys.length > 0 ? Array.from(new Set(keys)) : ["unit"];
+}
+
+function renderRequiredCheckCommands(currentPhase: Phase, testCommands: TestCommands, rulesPath: string): string | Prompt {
+  const requiredChecks = currentPhase.requiredChecks ?? [];
+  const checks = requiredChecks.length > 0
+    ? requiredChecks
+    : [{ check: "unit", command: testCommands.unit ?? "" }];
+  const missingKnownKeys = requiredCheckKeys(currentPhase).filter(key => testCommands[key] === undefined);
+  if (missingKnownKeys.length > 0) {
+    return testCommandBlocker("implementation", rulesPath, missingKnownKeys);
+  }
+
+  return checks.map(check => {
+    const normalizedCheck = check.check.trim().toLowerCase();
+    return `- ${normalizedCheck}: \`${check.command}\``;
+  }).join("\n");
 }
 
 function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string, variables: Record<string, string>, config: Config): string {
@@ -68,10 +90,14 @@ function validationFindingsContract(findingsPath: string, projectPath: string, p
 
 export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, testCommands: TestCommands, rulesPath: string, config: Config, projectPath = path.resolve(path.dirname(planPath), "..", "..", "..")): Prompt {
   let currentPhase = activePhase;
+  let planPhases = parsePlan(planPath);
 
   if (activePhase.status === "not_started") {
     updatePhaseStatus(planPath, activePhase.id, "in_progress");
-    currentPhase = parsePlan(planPath).find(phase => phase.id === activePhase.id) ?? { ...activePhase, status: "in_progress" };
+    planPhases = parsePlan(planPath);
+    currentPhase = planPhases.find(phase => phase.id === activePhase.id) ?? { ...activePhase, status: "in_progress" };
+  } else {
+    currentPhase = planPhases.find(phase => phase.id === activePhase.id) ?? activePhase;
   }
 
   if (isPhaseReadyForValidation(currentPhase)) {
@@ -83,21 +109,17 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
       plan_path: urls.plan_path,
       findings_path: urls.findings_path,
       date: new Date().toISOString().split("T")[0],
-      controller_changed_files_inventory: renderChangedFileInventory(projectPath),
+      controller_changed_files_inventory: renderChangedFileInventory(projectPath, { phase: currentPhase }),
       validation_findings_artifact_contract: validationFindingsContract(path.join(path.dirname(planPath), "validation_findings.md"), projectPath, currentPhase.id)
     }, config));
   }
 
-  const parsed = parseTestCommands(rulesPath);
-  if (parsed.missing.length > 0) {
-    return testCommandBlocker("implementation", rulesPath, parsed.missing);
-  }
-
-  const testCommand = getRequiredTestCommand("implementation", testCommands, "unit", rulesPath);
+  const testCommand = renderRequiredCheckCommands(currentPhase, testCommands, rulesPath);
   if (typeof testCommand !== "string") return testCommand;
 
   return prompt("next", "implementation", renderStageTemplate("implementation", "step4_impl", {
     phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
+    plan_map: formatPlanMap(planPhases, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
     self_check_command: flowCheckCommand(projectPath, "phase", "phase_validation"),

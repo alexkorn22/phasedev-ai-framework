@@ -1163,7 +1163,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(fs.existsSync(linkedDesignPath)).toBe(true);
   });
 
-  test("blocks repair stage from updating project flow config", async () => {
+  test("blocks unreported project flow config changes without counting them as progress", async () => {
     const projectPath = setupProject();
     const configPath = path.join(projectPath, ".phasedev", "config.yaml");
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -1191,6 +1191,102 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(result.status).toBe("blocked");
     expect(result.reason).toContain(".phasedev/config.yaml");
     expect(result.reason).toContain("outside allowlist");
+  });
+
+  test("blocks reported Codex changes to project flow config", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(projectPath, ".phasedev", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n", "utf-8");
+
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-repair-reported-config",
+          async runStreamed() {
+            return {
+              events: streamEvents([
+                { type: "turn.started" },
+                {
+                  type: "item.completed",
+                  item: {
+                    id: "file-config",
+                    type: "file_change",
+                    changes: [{ path: ".phasedev/config.yaml", kind: "update" }],
+                    status: "completed"
+                  }
+                },
+                { type: "item.completed", item: { id: "msg-1", type: "agent_message", text: "updated config" } },
+                { type: "turn.completed" }
+              ])
+            };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain(".phasedev/config.yaml");
+    expect(result.reason).toContain("outside allowlist");
+  });
+
+  test("normalizes logged changed files to one final status per path", async () => {
+    const projectPath = setupProject();
+    const logDir = path.join(projectPath, ".phasedev", "logs");
+    const logPath = path.join(logDir, "ralph-log.jsonl");
+    const jsonLogger = createJsonFileLogger(logPath);
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-normalized-changes",
+          async runStreamed(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.writeFileSync(planPath, "updated plan\n", "utf-8");
+            }
+            return {
+              events: streamEvents([
+                { type: "turn.started" },
+                {
+                  type: "item.completed",
+                  item: {
+                    id: "file-plan",
+                    type: "file_change",
+                    changes: [{ path: ".phasedev/changes/sample-change/implementation_plan.md", kind: "create" }],
+                    status: "completed"
+                  }
+                },
+                { type: "item.completed", item: { id: "msg-1", type: "agent_message", text: "updated plan" } },
+                { type: "turn.completed" }
+              ])
+            };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "implementation prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      iterationLogger: jsonLogger,
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("max_iterations");
+    const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
+    const changedBuckets = [
+      parsed.changedFiles.added,
+      parsed.changedFiles.modified,
+      parsed.changedFiles.deleted
+    ].filter((bucket: string[]) => bucket.includes(".phasedev/changes/sample-change/implementation_plan.md"));
+    expect(changedBuckets).toHaveLength(1);
+    expect(parsed.changedFiles.added).toContain(".phasedev/changes/sample-change/implementation_plan.md");
+    expect(parsed.changedFiles.modified).not.toContain(".phasedev/changes/sample-change/implementation_plan.md");
   });
 
   test("stops at maxIterations", async () => {

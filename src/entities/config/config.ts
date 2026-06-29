@@ -89,7 +89,7 @@ export const DEFAULT_CONFIG: Config = {
       enabled: true,
       turnTimeoutMs: 3600000,
       inactivityTimeoutMs: 900000,
-      statusIntervalMs: 60000,
+      statusIntervalMs: 300000,
       abortGraceMs: 5000
     },
     notifications: {

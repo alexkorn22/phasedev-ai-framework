@@ -1,6 +1,7 @@
 import { Stage } from "../../entities/stage/types";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
+import { phaseValidationBlockers } from "../../entities/implementation-plan/phase-readiness";
 import { parsePlan } from "../../entities/implementation-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { Route, resolveRoute } from "./flow-route";
@@ -138,6 +139,11 @@ export function checkValidationCompletion(projectPath: string, options: Validati
         issues.push(`Phase ${options.phaseId} was not found in implementation_plan.md.`);
       } else if (phase.status !== "completed") {
         issues.push(readyPhaseIssue(findings.verdict, options.phaseId));
+      } else {
+        const blockers = phaseValidationBlockers(phase);
+        if (blockers.length > 0) {
+          issues.push(`\`verdict: ${findings.verdict}\` is valid only after Phase ${options.phaseId} has no validation readiness blockers: ${blockers.join("; ")}.`);
+        }
       }
     }
 

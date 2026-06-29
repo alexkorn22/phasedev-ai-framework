@@ -62,7 +62,7 @@ loop:
       enabled: true,
       turnTimeoutMs: 3600000,
       inactivityTimeoutMs: 900000,
-      statusIntervalMs: 60000,
+      statusIntervalMs: 300000,
       abortGraceMs: 5000
     });
     expect(config.loop.notifications.telegram).toEqual({

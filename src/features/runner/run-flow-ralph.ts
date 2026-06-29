@@ -38,6 +38,8 @@ interface ChangedFiles {
   deleted: string[];
 }
 
+const PROJECT_CONFIG_RELATIVE_PATH = ".phasedev/config.yaml";
+
 function wrapStagePrompt(initPrompt: Prompt, nextPrompt: Prompt): string {
   return [
     "Below is the exact output of the manual `phasedev init` command.",
@@ -129,7 +131,9 @@ function applyAutoApprovals(projectPath: string, reporter: Pick<typeof console, 
 }
 
 function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
-  return itemPath === logDir || itemPath.startsWith(`${logDir}${path.sep}`);
+  return itemPath === logDir ||
+    itemPath.startsWith(`${logDir}${path.sep}`) ||
+    itemPath.endsWith(PROJECT_CONFIG_RELATIVE_PATH.replace(/\//g, path.sep));
 }
 
 function snapshotFlowState(projectPath: string, logDir: string): Map<string, string> {
@@ -186,6 +190,47 @@ function snapshotFlowState(projectPath: string, logDir: string): Map<string, str
   if (fs.existsSync(flowRoot)) {
     visit(flowRoot);
   }
+  return snapshot;
+}
+
+function snapshotProtectedFlowFiles(projectPath: string): Map<string, string> {
+  const root = path.resolve(projectPath);
+  const snapshot = new Map<string, string>();
+
+  function hashProtectedPath(relativePath: string): void {
+    const itemPath = path.join(root, relativePath);
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(itemPath);
+    } catch {
+      return;
+    }
+
+    const hash = createHash("sha256").update(relativePath);
+    if (stat.isSymbolicLink()) {
+      hash.update("symlink");
+      try {
+        hash.update(fs.readlinkSync(itemPath));
+      } catch {
+        hash.update("unreadable");
+      }
+    } else if (stat.isDirectory()) {
+      hash.update("dir");
+    } else if (stat.isFile()) {
+      hash.update("file");
+      try {
+        hash.update(fs.readFileSync(itemPath));
+      } catch {
+        hash.update("unreadable");
+      }
+    } else {
+      hash.update("other");
+    }
+
+    snapshot.set(relativePath, hash.digest("hex"));
+  }
+
+  hashProtectedPath(PROJECT_CONFIG_RELATIVE_PATH);
   return snapshot;
 }
 
@@ -259,20 +304,30 @@ function changedFilesFromReportedFileChanges(projectPath: string, fileChanges: C
 }
 
 function mergeChangedFiles(...changes: ChangedFiles[]): ChangedFiles {
-  const added = new Set<string>();
-  const modified = new Set<string>();
-  const deleted = new Set<string>();
+  const statusByPath = new Map<string, keyof ChangedFiles>();
+  const precedence: Record<keyof ChangedFiles, number> = {
+    modified: 1,
+    added: 2,
+    deleted: 3
+  };
+
+  function record(file: string, status: keyof ChangedFiles): void {
+    const currentStatus = statusByPath.get(file);
+    if (!currentStatus || precedence[status] > precedence[currentStatus]) {
+      statusByPath.set(file, status);
+    }
+  }
 
   for (const change of changes) {
-    for (const file of change.added) added.add(file);
-    for (const file of change.modified) modified.add(file);
-    for (const file of change.deleted) deleted.add(file);
+    for (const file of change.modified) record(file, "modified");
+    for (const file of change.added) record(file, "added");
+    for (const file of change.deleted) record(file, "deleted");
   }
 
   return {
-    added: Array.from(added).sort(),
-    modified: Array.from(modified).sort(),
-    deleted: Array.from(deleted).sort()
+    added: Array.from(statusByPath.entries()).filter(([, status]) => status === "added").map(([file]) => file).sort(),
+    modified: Array.from(statusByPath.entries()).filter(([, status]) => status === "modified").map(([file]) => file).sort(),
+    deleted: Array.from(statusByPath.entries()).filter(([, status]) => status === "deleted").map(([file]) => file).sort()
   };
 }
 
@@ -553,6 +608,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       });
 
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
+      const beforeProtectedSnapshot = snapshotProtectedFlowFiles(resolvedProjectPath);
       reporter.log(`[PHASEDEV RUNNER] running Codex stage with init bootstrap: ${nextPrompt.stage}`);
 
       const initPrompt = getInit(resolvedProjectPath, config);
@@ -575,11 +631,13 @@ export async function runRunner(projectPath: string, config: Config, dependencie
 
         const durationMs = Date.now() - startMs;
         const afterTimeoutSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
+        const afterProtectedSnapshot = snapshotProtectedFlowFiles(resolvedProjectPath);
         const beforeHash = computeCombinedHash(beforeStageSnapshot);
         const afterHash = computeCombinedHash(afterTimeoutSnapshot);
         const flowChangedFiles = getChangedFiles(beforeStageSnapshot, afterTimeoutSnapshot);
+        const protectedChangedFiles = getChangedFiles(beforeProtectedSnapshot, afterProtectedSnapshot);
         const reportedChangedFiles = changedFilesFromReportedFileChanges(resolvedProjectPath, error.fileChanges);
-        const changedFiles = mergeChangedFiles(flowChangedFiles, reportedChangedFiles);
+        const changedFiles = mergeChangedFiles(flowChangedFiles, protectedChangedFiles, reportedChangedFiles);
         const activeChangeDir = nextPrompt.stage === "archive"
           ? beforeActiveChange
           : findActive(resolvedProjectPath);
@@ -612,13 +670,15 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       const durationMs = Date.now() - startMs;
 
       const afterStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
+      const afterProtectedSnapshot = snapshotProtectedFlowFiles(resolvedProjectPath);
 
       const beforeHash = computeCombinedHash(beforeStageSnapshot);
       const afterHash = computeCombinedHash(afterStageSnapshot);
 
       const flowChangedFiles = getChangedFiles(beforeStageSnapshot, afterStageSnapshot);
+      const protectedChangedFiles = getChangedFiles(beforeProtectedSnapshot, afterProtectedSnapshot);
       const reportedChangedFiles = changedFilesFromReportedFileChanges(resolvedProjectPath, turn.fileChanges);
-      const changedFiles = mergeChangedFiles(flowChangedFiles, reportedChangedFiles);
+      const changedFiles = mergeChangedFiles(flowChangedFiles, protectedChangedFiles, reportedChangedFiles);
       const activeChangeDir = nextPrompt.stage === "archive"
         ? beforeActiveChange
         : findActive(resolvedProjectPath);

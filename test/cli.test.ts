@@ -868,9 +868,20 @@ codex:
     expect(planPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(planPrompt).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(implementationPrompt).toContain("Ordered workflow:");
-    expect(implementationPrompt).toContain("Read this stage prompt, then the linked artifacts in this order");
-    expect(implementationPrompt).toContain("Inspect repository files only after the linked artifacts are understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.");
+    expect(implementationPrompt).toContain("use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface");
+    expect(implementationPrompt).toContain("Full-plan orientation:");
+    expect(implementationPrompt).toContain("Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first");
+    expect(implementationPrompt).toContain("open the full [implementation_plan.md]");
+    expect(implementationPrompt).toContain("only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory");
+    expect(implementationPrompt).toContain("Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries");
+    expect(implementationPrompt).toContain("do not implement future-phase tasks from the orientation alone");
+    expect(implementationPrompt).toContain("retrieve only the rows or sections referenced by current-phase `R#`, `SC#`, `D#`, checks, and risk boundaries");
+    expect(implementationPrompt).toContain("Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.");
+    expect(implementationPrompt).not.toContain("Read this stage prompt, then the linked artifacts in this order");
+    expect(implementationPrompt).not.toContain("Treat the linked artifacts and current phase excerpt as the first retrieval layer.");
     expect(implementationPrompt).toContain("Context budget and stop condition:");
+    expect(implementationPrompt).toContain("Treat the embedded full-plan orientation plus current phase excerpt as the primary retrieval layer");
+    expect(implementationPrompt).toContain("Keep future phases as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(implementationPrompt).toContain("Read configured Priority 1 router skills first when available because they may select method skills; load main, additional, or router-selected method skills only when they apply to current phase evidence");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
@@ -1156,6 +1167,35 @@ loop:
     expect(result.output).toContain("Final Validation declared ready, but route is archive_readiness_blocked.");
   });
 
+  test("check-validation final fails when ready findings leave blocked evidence before archive", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | blocked | command unavailable | retry later |
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const result = runCheckValidation(["--scope", "final"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Final Validation declared ready, but route is archive_readiness_blocked.");
+  });
+
   test("check-validation final passes when repair_required findings route to repair", () => {
     setupChange(`
 # Plan
@@ -1221,6 +1261,38 @@ loop:
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV VALIDATION CHECK] OK: phase validation is complete.");
+  });
+
+  test("check-validation phase fails when ready findings leave required check evidence stale", () => {
+    setupChange(`
+# Plan
+
+## Phase 1: API [x]
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- phase: \`bun test phase\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| phase | \`bun test unit\` | passed | unit passed | wrong command |
+
+## Phase 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "phase")
+    });
+
+    const result = runCheckValidation(["--scope", "phase", "--phase-id", "1"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("required check evidence is missing or stale: phase: bun test phase");
   });
 
   test("check-validation phase passes when repair_required findings route to repair", () => {
@@ -1894,7 +1966,7 @@ Additional checks:
     expect(output).toContain("Browser smoke for login flow");
   });
 
-  test("implementation prompt includes the full current phase excerpt", () => {
+  test("implementation prompt includes full current phase excerpt and bounded full-plan orientation", () => {
     setupChange(`
 # Plan
 
@@ -1917,11 +1989,15 @@ Implementation note:
     const output = runNext();
 
     expect(output).toContain("Current phase from approved plan:");
+    expect(output).toContain("Full-plan orientation:");
+    expect(output).toContain("- Phase 1: API [~] (current); tasks: 1.1; required checks: unit");
+    expect(output).toContain("- Phase 2: UI [ ] (orientation only); tasks: 2.1; required checks: unit");
     expect(output).toContain("Checks:");
     expect(output).toContain("Endpoint handles not found responses.");
     expect(output).toContain("Implementation note:");
     expect(output).toContain("Keep API contract unchanged.");
     expect(output).not.toContain("## Phase 2: UI");
+    expect(output).not.toContain("Build page");
   });
 
   test("implementation prompt uses refreshed phase excerpt after marking phase in progress", () => {
@@ -2124,6 +2200,7 @@ codex:
     expect(findingsTemplate).toContain("verdict: <set_after_review>");
     expect(findingsTemplate).toContain("Replace `<set_after_review>` with the verdict selected after evidence review");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened MUST-FIX finding exists.");
+    expect(findingsTemplate).toContain("Security rows must always use Severity: MUST-FIX, including resolved rows.");
     expect(findingsTemplate).toContain("type: phase");
     expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Phase | Finding | Required Fix |");
   });
@@ -2141,6 +2218,7 @@ codex:
     expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
+      expect(template).toContain("Class = security` and `Severity = MUST-FIX");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
     }

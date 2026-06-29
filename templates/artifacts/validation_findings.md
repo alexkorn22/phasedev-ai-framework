@@ -33,6 +33,7 @@ Table value contract:
 - Status: exactly one of open, reopened, resolved.
 - Severity: exactly one of MUST-FIX, RECOMMENDED, NIT.
 - Class: exactly one of implementation, test, plan, design, requirements, validation, security, code_review.
+- Security rows must always use Severity: MUST-FIX, including resolved rows.
 - Phase: current phase label, Final, or another concrete validation scope.
 - Finding: concrete self-contained finding with enough evidence to understand the issue.
 - Required Fix: concrete action required to resolve or mitigate the finding.
