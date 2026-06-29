@@ -5,6 +5,16 @@ description: Manual-only workflow initializer. Use this skill only when the user
 
 # PhaseDev Init
 
+## Help Lookup
+
+If you need PhaseDev framework command syntax, available controller flags, or route-check requirements before running the skill command, you may run:
+
+```bash
+phasedev --help
+```
+
+Use help output only as command reference. It does not replace the prompt printed by `phasedev init`.
+
 ## Action Steps
 
 1. Run the initialization command with the absolute path of the current project:

@@ -5,6 +5,16 @@ description: Manual-only workflow step runner. Use this skill only when the user
 
 # PhaseDev Next
 
+## Help Lookup
+
+If you need PhaseDev framework command syntax, available controller flags, or route-check requirements before running the skill command, you may run:
+
+```bash
+phasedev --help
+```
+
+Use help output only as command reference. It does not replace the executable stage contract printed by `phasedev next`.
+
 ## Action Steps
 
 1. Execute the next-step command with the absolute path of the current project:
