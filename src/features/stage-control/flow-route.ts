@@ -148,6 +148,24 @@ export function resolveRoute(projectPath: string): Route {
     }
   }
 
+  // After repair with `repaired` verdict and no open blocking rows,
+  // always route to phase_validation for re-validation. Do not route
+  // through phaseStage() which may return "implementation" due to
+  // stale Check Evidence that the repair resolved.
+  if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
+    const activePhase = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+    if (activePhase) {
+      return {
+        kind: "phase",
+        stage: "phase_validation",
+        paths,
+        activePhase,
+        activeChangePath: changeDir
+      };
+    }
+    return { kind: "final_validation", stage: "final_validation", paths, activeChangePath: changeDir };
+  }
+
   const finalReady = findings.exists &&
                      findings.type === "final" &&
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");

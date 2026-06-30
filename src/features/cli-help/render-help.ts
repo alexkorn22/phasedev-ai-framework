@@ -49,6 +49,11 @@ Commands:
       Validate completed archive state and optional delta specs.
       Side effects: none.
 
+  phasedev config [--project-path <path>] [--config <path>] <key>
+      Read a dot-notation config key from .phasedev/config.yaml and print its value.
+      E.g.: phasedev config loop.runArchiveStage
+      Side effects: none.
+
 Options:
   --project-path, -p <path>   Target project path. Defaults to the current directory.
   --config <path>             Explicit PhaseDev config path for next.

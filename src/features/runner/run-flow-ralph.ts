@@ -590,6 +590,22 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         return { status: "blocked", iterations: iteration - 1, logPath, reason };
       }
 
+      if (nextPrompt.stage === "implementation" || nextPrompt.stage === "repair") {
+        const blockedReason = implementationBlockedReason(resolvedProjectPath);
+        if (blockedReason) {
+          reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
+          reporter.log(`[PHASEDEV RUNNER] reason: ${blockedReason}`);
+          reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
+          const stageModel = getStageModelConfig(config, nextPrompt.stage);
+          logRunnerEvent(iterationLogger, buildIterationLogEntry(
+            iteration - 1, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+            beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
+            [], "blocked", null, null, blockedReason, now
+          ));
+          return { status: "blocked", iterations: iteration - 1, logPath, reason: blockedReason };
+        }
+      }
+
       const stageModel = getStageModelConfig(config, nextPrompt.stage);
       reporter.log(`[PHASEDEV RUNNER] iteration ${iteration}/${config.loop.maxIterations}`);
       reporter.log(`[PHASEDEV RUNNER] stage: ${nextPrompt.stage}`);
@@ -712,7 +728,9 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       const flowStateChanged = beforeHash !== afterHash;
 
       const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
-      const blockedReason = !archived && flowStateChanged && nextPrompt.stage === "implementation"
+      const blockedReason = !archived && flowStateChanged && (
+        nextPrompt.stage === "implementation" || nextPrompt.stage === "repair"
+      )
         ? implementationBlockedReason(resolvedProjectPath)
         : null;
       const outcome: IterationOutcome = archived ? "archived" : blockedReason ? "blocked" : flowStateChanged ? "completed" : "no_progress";

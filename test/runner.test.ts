@@ -843,6 +843,105 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: implementation");
   });
 
+  test("does not start implementation when existing check evidence is blocked", async () => {
+    const projectPath = setupProject();
+    const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApprovedArtifact(path.join(changeDir, "rules.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+`);
+    fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+    writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
+    writeArtifact(path.join(changeDir, "implementation_plan.md"), `
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the pre-existing blocked evidence path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit command. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Exercise the test fixture production path. |
+| Tests | yes | Use fixture commands from rules.md. |
+| Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
+| Migrations | not_applicable | No persistence changes are part of this fixture. |
+| Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
+| Observability | not_applicable | No observability changes are part of this fixture. |
+| Rollback path | not_applicable | Revert the fixture change if needed. |
+
+## Phase Overview
+
+| Phase | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Phase 1 | Complete fixture phase. | 1.1 | unit |
+
+## Phase 1: API [~]
+
+### Goal
+
+Complete the fixture phase. Satisfies R1 and SC1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/**\` | update | Fixture implementation area | R1, SC1, D1 |
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | blocked | unrelated lint failure outside approved surface | needs separate scope |
+`, true);
+
+    const messages: string[] = [];
+    let calls = 0;
+    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+      createCodex: () => ({
+        startThread: () => {
+          calls++;
+          return {
+            async run() {
+              throw new Error("implementation must not start");
+            }
+          };
+        }
+      }),
+      reporter: { log: message => messages.push(message) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.iterations).toBe(0);
+    expect(result.reason).toContain("Current implementation phase is blocked by Check Evidence.");
+    expect(calls).toBe(0);
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: implementation");
+    expect(messages).not.toContain("[PHASEDEV RUNNER] running Codex stage with init bootstrap: implementation");
+  });
+
   test("ignores broken symlinks outside flow state when checking progress", async () => {
     const projectPath = setupProject();
     const socketDir = path.join(projectPath, "ops", "environments", "development", "backend", "cache", "mysql", "data");

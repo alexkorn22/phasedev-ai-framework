@@ -1,4 +1,4 @@
-import { loadConfig, resolveConfigPath } from "./entities/config/config";
+import { getConfigValue, loadConfig, resolveConfigPath } from "./entities/config/config";
 import { checkArchiveCompletion } from "./features/stage-control/check-archive";
 import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, stageKinds, isStageKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
 import { Stage } from "./entities/stage/types";
@@ -138,6 +138,38 @@ function main(): void {
     const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
     const config = loadConfig(configPath);
     console.log(getNextPrompt(projectPath, config).prompt);
+    return;
+  }
+
+  if (command === "config") {
+    let key = "";
+    for (let i = 1; i < args.length; i++) {
+      const arg = args[i];
+      if (arg === "--project-path" || arg === "-p" || arg === "--config") {
+        i++; // skip flag value
+        continue;
+      }
+      if (arg.startsWith("--")) continue;
+      key = arg;
+      break;
+    }
+    if (!key) {
+      console.log("[PHASEDEV CONFIG] FAILED: config key is required.");
+      console.log("Usage: phasedev config [--project-path <path>] [--config <path>] <key>");
+      process.exitCode = 1;
+      return;
+    }
+
+    const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
+    const config = loadConfig(configPath);
+    const value = getConfigValue(config, key);
+    if (value === undefined) {
+      console.log(`[PHASEDEV CONFIG] FAILED: key not found: ${key}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log(value);
     return;
   }
 

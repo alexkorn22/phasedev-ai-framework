@@ -339,3 +339,25 @@ export function resolveProjectLogDir(projectPath: string, logDir: string): strin
 
   return resolved;
 }
+
+function getDeepValue(obj: Record<string, unknown>, segments: string[]): unknown | undefined {
+  let current: unknown = obj;
+  for (const segment of segments) {
+    if (typeof current !== "object" || current === null || Array.isArray(current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+    if (current === undefined) {
+      return undefined;
+    }
+  }
+  return current;
+}
+
+export function getConfigValue(config: Config, key: string): unknown | undefined {
+  const segments = key.split(".").filter(Boolean);
+  if (segments.length === 0) {
+    return undefined;
+  }
+  return getDeepValue(config as unknown as Record<string, unknown>, segments);
+}
