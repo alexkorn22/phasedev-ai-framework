@@ -12,7 +12,7 @@ The **PhaseDev Orchestrator** is a skill for the [PhaseDev AI Framework](https:/
 The orchestrator is intentionally **thin**:
 - It knows the PhaseDev flow model and uses `phasedev check` to determine the current route.
 - It spawns a sub-agent with a minimal prompt: "run `phasedev init`, then `phasedev next`, follow the stage contract, report completion."
-- It does **not** parse stage contracts, collect context, validate allowlists, log iterations, or pass artifact data between stages.
+- It does **not** parse stage contracts, collect context, validate stage artifacts, fix invalid artifacts, log iterations, or pass artifact data between stages. Artifact creation, self-validation, and self-repair belong to the owning sub-agent; the orchestrator only reads the resulting route via `phasedev check`.
 
 ```
 ┌──────────────────────────────────────┐
@@ -84,16 +84,18 @@ After `setup`, `design`, and `plan`, the flow pauses for human approval of the a
 
 ### 1. Initialization
 
+All `phasedev` commands (orchestrator and sub-agents) run from the **project root**, which is the current working directory. `phasedev` defaults to `process.cwd()`, so `--project-path` is omitted everywhere in this skill.
+
 Before any stage execution, read orchestrator-safe settings:
 
 ```bash
-phasedev config --project-path <absolute_cwd> loop.maxIterations
+phasedev config loop.maxIterations
 ```
 
 → Use the returned number as the safety iteration limit. Default to **10** if the CLI returns nothing or an invalid value. If the orchestrator loop reaches this limit, stop with "Max iterations reached" and report.
 
 ```bash
-phasedev config --project-path <absolute_cwd> loop.runArchiveStage
+phasedev config loop.runArchiveStage
 ```
 
 → Remember this value for the archive stage check below.
@@ -103,7 +105,7 @@ phasedev config --project-path <absolute_cwd> loop.runArchiveStage
 At the start of each loop iteration, resolve the current PhaseDev route:
 
 ```bash
-phasedev check --project-path <absolute_cwd>
+phasedev check
 ```
 
 Parse the route kind from the output:
@@ -136,24 +138,36 @@ For every executable stage, spawn a dedicated sub-agent via the `Agent` tool. Ne
 ```javascript
 Agent(
   description: "<stage-name>: execute stage contract",
-  prompt: `Execute a PhaseDev stage in project <absolute_cwd>.
+  prompt: `Execute the current PhaseDev stage (run from the project root).
 
-1. cd <absolute_cwd>
-2. Run: phasedev init
-3. Run: phasedev next
-4. Follow the stage contract from phasedev next exactly
-5. Do NOT run phasedev init or phasedev next again — one iteration only
-6. Report: which stage was completed, any blockers found`
+1. Run: phasedev init
+2. Run: phasedev next
+3. Follow the stage contract it prints exactly.
+4. Self-validate before completing (mandatory): the contract contains a "Self-check command" (a phasedev check ... call). Run it. If it fails, read the reported issues, fix the artifact you produced, and rerun the same command until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
+5. Do NOT report the stage as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
+6. Do NOT run phasedev init or phasedev next again — they advance flow state. Only the Self-check command may be rerun.
+7. Report: the stage completed, the EXACT self-check command and its final result (PASS/FAIL), and any blockers.`
 )
 ```
 
 That is the entire prompt. No context collection, no artifact paths, no previous stage data. The sub-agent:
 1. Reads the state via `phasedev init` (acknowledges the handshake)
 2. Gets the executable contract via `phasedev next`
-3. Follows that contract — the contract itself contains artifact templates, allowlist, skill policy, and self-check commands
-4. Reports which stage was completed and any blockers
+3. Follows that contract — the contract itself contains artifact templates, allowlist, skill policy, and the mandatory self-check command
+4. Runs the self-check and self-heals (fix + rerun) until it passes — the sub-agent owns artifact validation, not the orchestrator
+5. Reports the stage, the exact self-check command and its final result, and any blockers
 
 **Important:** Do not embed the full `phasedev init` or `phasedev next` output in the sub-agent prompt. The sub-agent runs those commands itself. This is what keeps the orchestrator's context from bloating.
+
+**Self-validation is the sub-agent's duty, not the orchestrator's.** The orchestrator only reads the resulting route via `phasedev check`; it never inspects, judges, or fixes artifact content. If a sub-agent reports "complete" but `phasedev check` still reports an `invalid_*` route, that sub-agent skipped its self-check — handle it via the Invalid-artifact recovery policy below, not by silently re-spawning fix agents in a loop.
+
+### 4.1 Artifact Self-Validation Ownership
+
+Artifact validation belongs to the sub-agent that creates the artifact, never to the orchestrator:
+
+- Every executable stage contract embeds a **Self-check command** (a `phasedev check ...` or `phasedev check-validation ...` invocation). The sub-agent MUST run it and self-heal (fix + rerun) until it passes before reporting completion.
+- The sub-agent's final report MUST include the exact self-check command and its result (PASS/FAIL). A report that lacks a passing self-check result is treated as an incomplete stage.
+- The orchestrator does NOT open artifact files to judge validity, does NOT run the self-check on the sub-agent's behalf, and does NOT silently loop fix-sub-agents. It only reads the route via `phasedev check` and applies the Invalid-artifact recovery policy when an `invalid_*` route appears.
 
 ### 5. Error Handling
 
@@ -161,6 +175,7 @@ That is the entire prompt. No context collection, no artifact paths, no previous
 |-------|--------|
 | Sub-agent error / timeout / API error | Retry once. If it fails again, stop and report. |
 | Sub-agent reports a blocker | Run `phasedev check` to confirm. If still in same route → stop, report block reason. |
+| `invalid_*` route after sub-agent reported "complete" | Sub-agent skipped its self-check. Apply the Invalid-artifact recovery policy: one recovery spawn, then stop if the same `invalid_*` persists. |
 | Unrecognized route kind | Stop and report the unknown route. |
 
 ### 6. Termination Conditions
@@ -169,7 +184,7 @@ The orchestrator stops when any of these is met:
 
 - **Flow complete**: Archive stage was completed and `phasedev check` no longer returns an archive route.
 - **Blocked**: Route is an approval gate, blocker, or invalid state — stop and report reason.
-- **No progress**: After sub-agent completion, `phasedev check` returns the same route as before — warn and stop.
+- **No progress**: After sub-agent completion, `phasedev check` reports the same route kind AND stage as before with no phase advancement (e.g., still `phase (stage: implementation)` for the same phase), or an `invalid_*` route persists after one recovery spawn — warn and stop. See the note on the `phase` route below.
 - **Max iterations**: Safety limit from `loop.maxIterations` reached — stop.
 - **User interrupt**: User asks to stop.
 - **Unrecoverable error**: Sub-agent error after retry.
@@ -190,30 +205,47 @@ This is the reference table for every route kind from `phasedev check`. The orch
 | Route kind | Stage | Action | Notes |
 |------------|-------|--------|-------|
 | `setup` | setup | Spawn sub-agent | First run. No PRD/rules yet. |
-| `invalid_prd` | setup | Spawn sub-agent | Sub-agent will fix prd.md. |
-| `invalid_rules` | setup | Spawn sub-agent | Sub-agent will fix rules.md. |
+| `invalid_prd` | setup | Recovery spawn (once) | Owning sub-agent skipped self-check. See Invalid-artifact recovery. |
+| `invalid_rules` | setup | Recovery spawn (once) | Owning sub-agent skipped self-check. See Invalid-artifact recovery. |
 | `setup_approval` | setup | **STOP — ask user** | "Approve prd.md & rules.md, set approved: true" |
 | `research` | research | Spawn sub-agent | |
-| `invalid_research` | research | Spawn sub-agent | Sub-agent will fix research_facts.md. |
+| `invalid_research` | research | Recovery spawn (once) | Owning sub-agent skipped self-check. See Invalid-artifact recovery. |
 | `design` | design | Spawn sub-agent | |
-| `invalid_design` | design | Spawn sub-agent | Sub-agent will fix design.md. |
+| `invalid_design` | design | Recovery spawn (once) | Owning sub-agent skipped self-check. See Invalid-artifact recovery. |
 | `design_approval` | design | **STOP — ask user** | "Approve architecture/design.md, set approved: true" |
 | `plan` | plan | Spawn sub-agent | |
-| `invalid_plan` | plan | Spawn sub-agent | Sub-agent will fix implementation_plan.md. |
+| `invalid_plan` | plan | Recovery spawn (once) | Owning sub-agent skipped self-check. See Invalid-artifact recovery. |
 | `plan_approval` | plan | **STOP — ask user** | "Approve implementation_plan.md, set approved: true" |
 | `phase` | implementation / phase_validation | Spawn sub-agent | Impl or validation depending on current phase state. |
-| `invalid_findings` | repair | Spawn sub-agent | Sub-agent will fix validation_findings.md. |
+| `invalid_findings` | repair | Recovery spawn (once) | Structurally malformed validation_findings.md (not the same as a `repair_required` verdict). Created by a validation stage, fixed by a repair-stage agent. See Invalid-artifact recovery. |
 | `repair` | repair | Spawn sub-agent | |
 | `final_validation` | final_validation | Spawn sub-agent | |
 | `archive_readiness_blocked` | archive | **STOP — inform user** | "All phases must be [x]. Check implementation_plan.md" |
 | `archive_ready` / `pending_archive` | archive | Spawn sub-agent (if config allows) | Check loop.runArchiveStage first. |
 | `invalid_archive_state` | archive | **STOP — inform user** | Report the invalid archive state reason. |
 
-After every sub-agent, run `phasedev check` again to verify the route changed. If it didn't change, warn about no progress and stop.
+After every sub-agent, run `phasedev check` again to verify the route advanced. If the route did not advance, or it is still an `invalid_*` route after a recovery spawn, warn about no progress and stop (see Invalid-artifact recovery policy).
+
+**Note on the `phase` route (important for the repair/validation cycle):** the route kind `phase` legitimately repeats — `phasedev check` prints `route is phase (stage: implementation)` or `route is phase (stage: phase_validation)`. Compare BOTH the route kind and the stage, plus the active phase, not the kind alone:
+- `implementation → phase_validation` (same phase): stage changed → this is progress.
+- `phase_validation → implementation` (next phase, after a `ready`/`ready_with_risks` verdict): stage changed and phase advanced → this is progress.
+- `repair → phase` (re-validation after a `repaired` verdict): kind changed → progress.
+- `phase → repair` (phase_validation returned `repair_required`): kind changed → progress.
+- Still `phase (stage: implementation)` for the SAME phase after a sub-agent, or still `repair` after a repair sub-agent: no progress → stop and report.
+
+## Invalid-artifact recovery policy
+
+An `invalid_*` route means the owning stage's sub-agent reported completion without a passing self-check — or the state was already broken when the orchestrator resumed (human edit, crashed session). The orchestrator does NOT validate or fix the artifact itself; it gives the owning sub-agent exactly **one** recovery attempt:
+
+1. Spawn ONE sub-agent for the owning stage. Its `phasedev next` returns a fix contract listing the exact issues. The fix contract does **not** embed a self-check command, so instruct the sub-agent explicitly: fix the artifact, then run `phasedev check` and confirm the route is no longer `invalid_*` before reporting. The fix contract ends with "run 'phasedev next' again" — the recovery sub-agent must NOT do that; `phasedev next` would advance into the next stage's contract and re-bloat context. Verify with `phasedev check` only, then report back to the orchestrator.
+2. After the recovery sub-agent returns, run `phasedev check`:
+   - Route advanced beyond `invalid_*` → continue the loop.
+   - Same `invalid_*` route persists → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the route and the reported issues. Do not spawn again.
+3. This single recovery attempt also covers resume-from-broken-state and human-edited-artifact cases. Never turn it into a loop — the orchestrator is not the validation driver.
 
 ## Stage Contracts Reference
 
-The orchestrator does not execute stage contracts — sub-agents do. However, the orchestrator knows the expected shape of each stage to correctly match routes and understand the flow.
+The orchestrator does not execute stage contracts — sub-agents do. However, the orchestrator knows the expected shape of each stage to correctly match routes and understand the flow. Every executable contract embeds a mandatory Self-check command that the owning sub-agent must pass before reporting completion; the orchestrator never runs these checks itself.
 
 ### Setup Stage
 
@@ -306,9 +338,10 @@ Allowlist: archive dirs, .flow-archive.json, specs
 2. **NEVER run `phasedev init` or `phasedev next` yourself** — the sub-agent runs these.
 3. **ALWAYS use `phasedev check` to determine the current route** — do not read files under `.phasedev/` to infer the stage.
 4. **ALWAYS use `phasedev config` to read orchestrator settings** — do not read `config.yaml` directly.
-5. **ALWAYS verify after sub-agent** — run `phasedev check` again after sub-agent returns to confirm the route changed.
+5. **ALWAYS verify after sub-agent** — run `phasedev check` again after sub-agent returns to confirm the route advanced (not just changed).
 6. **NEVER pass context between stages** — sub-agents read artifact files from the project directly. Trust the filesystem as the durable state.
 7. **NEVER validate allowlists** — the stage contract inside `phasedev next` already restricts the sub-agent. If a sub-agent violates it, report as a blocker.
-8. **NEVER log iterations to `.phasedev/logs/`** — the orchestrator is ephemeral. Current state is visible in chat.
-9. **STOP on approval gates** — do not spawn a sub-agent for `setup_approval`, `design_approval`, or `plan_approval`. Tell the user to approve and wait.
-10. **Report clearly** — after each iteration, summarize what stage the sub-agent completed and what route `phasedev check` reports next.
+8. **NEVER validate or fix stage artifacts yourself** — the owning sub-agent creates, self-checks, and self-heals each artifact before reporting completion. The orchestrator only reads the route via `phasedev check`. An `invalid_*` route after a sub-agent reported completion is a self-check violation: apply the Invalid-artifact recovery policy (one recovery spawn, then stop).
+9. **NEVER log iterations to `.phasedev/logs/`** — the orchestrator is ephemeral. Current state is visible in chat.
+10. **STOP on approval gates** — do not spawn a sub-agent for `setup_approval`, `design_approval`, or `plan_approval`. Tell the user to approve and wait.
+11. **Report clearly** — after each iteration, summarize what stage the sub-agent completed, the self-check result the sub-agent reported, and what route `phasedev check` reports next.
