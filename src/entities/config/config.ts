@@ -309,5 +309,46 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
   if (segments.length === 0) {
     return undefined;
   }
+
+  // Legacy: codex.stages.<oldName>.<rest> → phases.<newName>.<rest>
+  if (segments.length >= 3 && segments[0] === "codex" && segments[1] === "stages") {
+    const oldName = segments[2];
+    const rest = segments.slice(3);
+    const newName = STAGE_NAME_MAP[oldName];
+    if (newName && STAGES.has(newName as Exclude<Stage, "init">)) {
+      const mappedSegments = ["phases", newName, ...rest];
+      console.warn(`[config] Deprecated key "${key}" — use "${mappedSegments.join(".")}" instead.`);
+      return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
+    }
+    console.warn(`[config] Deprecated key "${key}" — unknown legacy stage "${oldName}".`);
+    return undefined;
+  }
+
+  // Legacy: codex.default.* → runner config
+  if (segments[0] === "codex" && segments[1] === "default") {
+    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    return undefined;
+  }
+
+  // Legacy: codex.sandboxMode / codex.approvalPolicy → runner config
+  if (segments[0] === "codex" && (segments[1] === "sandboxMode" || segments[1] === "approvalPolicy")) {
+    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    return undefined;
+  }
+
+  // Legacy: loop.* runner fields
+  if (segments[0] === "loop") {
+    if (segments[1] === "runArchiveStage") {
+      console.warn(`[config] Deprecated key "${key}" — use "runArchiveStage" at root level instead.`);
+      return config.runArchiveStage;
+    }
+    if (segments[1] === "autoApprove") {
+      console.warn(`[config] Deprecated key "${key}" — use "autoApprove" at root level instead.`);
+      return config.autoApprove;
+    }
+    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    return undefined;
+  }
+
   return getDeepValue(config as unknown as Record<string, unknown>, segments);
 }

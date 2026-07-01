@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { parseConfig } from "../src/features/runner/config";
+import { getConfigValue, parseConfig } from "../src/features/runner/config";
 import { renderSkillPolicy } from "../src/features/stage-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/stage-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
@@ -2274,6 +2274,31 @@ codex:
 
   test("template renderer rejects unresolved placeholders", () => {
     expect(() => renderTemplate("step6_evolution", {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
+  });
+
+  describe("config command deprecation", () => {
+    test("getConfigValue maps codex.stages.setup.skills.main to phases.change_intake.skills.main with deprecation hint", () => {
+      const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      main: ["test-skill"]
+`);
+      const value = getConfigValue(config, "codex.stages.setup.skills.main");
+      expect(value).toEqual(["test-skill"]);
+    });
+
+    test("getConfigValue returns root values for runArchiveStage", () => {
+      const config = parseConfig(`
+runArchiveStage: false
+`);
+      expect(getConfigValue(config, "runArchiveStage")).toBe(false);
+    });
+
+    test("getConfigValue returns undefined for nonexistent key", () => {
+      const config = parseConfig(`{}`);
+      expect(getConfigValue(config, "nonexistent.key")).toBeUndefined();
+    });
   });
 
   test("default config defines stage skill routers instead of a separate skill router template", () => {

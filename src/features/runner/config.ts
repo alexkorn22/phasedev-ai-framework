@@ -286,6 +286,7 @@ export {
   DEFAULT_CONFIG,
   EMPTY_STAGE_SKILLS,
   defaultConfigPath,
+  getConfigValue,
   getStageSkillConfig,
   loadConfig,
   parseConfig,

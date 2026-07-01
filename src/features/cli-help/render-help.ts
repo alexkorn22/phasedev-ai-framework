@@ -91,7 +91,7 @@ Examples:
   phasedev init-project --project-path /absolute/path/to/project
   phasedev init --project-path /absolute/path/to/project
   phasedev next --project-path /absolute/path/to/project
-  phasedev check --project-path /absolute/path/to/project --expect-route setup
+  phasedev check --project-path /absolute/path/to/project --expect-route change_intake
   phasedev check-validation --project-path /absolute/path/to/project --scope final
   phasedev check-archive --archive-path /absolute/path/to/project/.phasedev/changes/archive/2026-06-17-my-change
 `;
