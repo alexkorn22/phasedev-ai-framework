@@ -66,11 +66,11 @@ export async function runRunnerCli(args: string[], dependencies: RunnerCliDepend
   const reporter = createCompositeReporter(reporterSinks);
 
   try {
-    const result = await runRunner(projectPath, config, {
+    const result = await runRunner(projectPath, config, runnerConfig, {
       createCodex: dependencies.createCodex,
       reporter,
       iterationLogger
-    }, runnerConfig);
+    });
 
     reporter.log(`[PHASEDEV RUNNER] status: ${result.status}`);
     reporter.log(`[PHASEDEV RUNNER] iterations: ${result.iterations}`);

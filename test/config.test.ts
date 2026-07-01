@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   defaultConfigPath,
+  getConfigValue,
   getStageSkillConfig,
   loadConfig,
   parseConfig,
@@ -10,16 +11,9 @@ import {
   resolveConfigPath,
   resolveProjectLogDir
 } from "../src/features/runner/config";
-import { DEFAULT_RUNNER_CONFIG, parseRunnerConfig, projectRunnerConfigPath } from "../src/features/runner/config";
+import { parseRunnerConfig, projectRunnerConfigPath } from "../src/features/runner/config";
 import { initProject } from "../src/features/project-init/init-project";
-import type {
-  ApprovalPolicy,
-  Config,
-  ReasoningEffort,
-  SandboxMode,
-  StageConfig,
-  StageSkillConfig
-} from "../src/features/runner/config";
+import type { Config } from "../src/features/runner/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -39,339 +33,6 @@ function writeProjectConfig(projectPath: string, body: string): string {
   return configPath;
 }
 
-describe("logs config", () => {
-  beforeEach(() => setupTestDir());
-  afterEach(() => cleanupTestDir());
-
-  test("parses config with comments and defaults", () => {
-    const config = parseConfig(`
-codex:
-  default:
-    model: gpt-5.4-mini # variants are documented in config.yaml
-    reasoningEffort: medium
-  stages:
-    archive:
-      reasoningEffort: low
-
-loop:
-  maxIterations: 3
-`);
-
-    expect(config.codex.default.model).toBe("gpt-5.4-mini");
-    expect(config.codex.default.reasoningEffort).toBe("medium");
-    expect(config.codex.sandboxMode).toBe("workspace-write");
-    expect(config.codex.approvalPolicy).toBe("never");
-    expect(config.codex.streamAgentOutput).toBe(true);
-    expect(config.loop.maxIterations).toBe(3);
-    expect(config.loop.logDir).toBe(".phasedev/logs");
-    expect(config.loop.enableLogs).toBe(true);
-    expect(config.loop.runArchiveStage).toBe(true);
-    expect(config.loop.autoApprove).toBe(false);
-    expect(config.loop.watchdog).toEqual({
-      enabled: true,
-      turnTimeoutMs: 3600000,
-      inactivityTimeoutMs: 900000,
-      statusIntervalMs: 300000,
-      abortGraceMs: 5000
-    });
-    expect(config.loop.notifications.telegram).toEqual({
-      enabled: false,
-      botTokenEnv: "TELEGRAM_BOT_TOKEN",
-      chatIdEnv: "TELEGRAM_CHAT_ID"
-    });
-    expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
-  });
-
-  test("resolves explicit config before project config", () => {
-    const projectPath = path.join(testTmpDir, "project");
-    const explicitConfigPath = path.join(testTmpDir, "explicit-config.yaml");
-    writeProjectConfig(projectPath, `
-codex:
-  default:
-    model: project-model
-`);
-    fs.writeFileSync(explicitConfigPath, `
-codex:
-  default:
-    model: explicit-model
-`, "utf-8");
-
-    const resolvedPath = resolveConfigPath(projectPath, explicitConfigPath);
-
-    expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
-    expect(loadConfig(resolvedPath).codex.default.model).toBe("explicit-model");
-  });
-
-  test("resolves project flow config before root default config", () => {
-    const projectPath = path.join(testTmpDir, "project");
-    const projectConfig = writeProjectConfig(projectPath, `
-codex:
-  default:
-    model: project-model
-`);
-
-    const resolvedPath = resolveConfigPath(projectPath);
-
-    expect(resolvedPath).toBe(projectConfig);
-    expect(loadConfig(resolvedPath).codex.default.model).toBe("project-model");
-  });
-
-  test("resolves root default config when project config is missing", () => {
-    const projectPath = path.join(testTmpDir, "project-without-config");
-
-    expect(resolveConfigPath(projectPath)).toBe(defaultConfigPath());
-  });
-
-  test("parses stage skills without inheriting skills from default", () => {
-    const config = parseConfig(`
-codex:
-  default:
-    model: gpt-5.4-mini
-    reasoningEffort: medium
-  stages:
-    implementation:
-      skills:
-        routers:
-          - using-zuvo
-        main:
-          - dev-core
-          - test-driven-development
-        additional:
-          - api-and-interface-design
-          - security-and-hardening
-    archive:
-      model: gpt-5.4
-`);
-
-    expect(getStageSkillConfig(config, "implementation")).toEqual({
-      routers: ["using-zuvo"],
-      main: ["dev-core", "test-driven-development"],
-      additional: ["api-and-interface-design", "security-and-hardening"]
-    });
-    expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
-  });
-
-  test("allows stages with only main and additional skills", () => {
-    const config = parseConfig(`
-codex:
-  stages:
-    implementation:
-      skills:
-        main:
-          - dev-core
-        additional:
-          - frontend-ui-engineering
-`);
-
-    expect(getStageSkillConfig(config, "implementation")).toEqual({
-      routers: [],
-      main: ["dev-core"],
-      additional: ["frontend-ui-engineering"]
-    });
-  });
-
-  test("deduplicates stage skills by priority", () => {
-    const config = parseConfig(`
-codex:
-  stages:
-    implementation:
-      skills:
-        routers:
-          - using-zuvo
-          - using-zuvo
-        main:
-          - using-zuvo
-          - dev-core
-          - dev-core
-        additional:
-          - dev-core
-          - test-driven-development
-          - test-driven-development
-`);
-
-    expect(getStageSkillConfig(config, "implementation")).toEqual({
-      routers: ["using-zuvo"],
-      main: ["dev-core"],
-      additional: ["test-driven-development"]
-    });
-  });
-
-  test("parses streamAgentOutput override", () => {
-    const config = parseConfig(`
-codex:
-  streamAgentOutput: false
-`);
-
-    expect(config.codex.streamAgentOutput).toBe(false);
-  });
-
-  test("parses enableLogs override", () => {
-    const config = parseConfig(`
-loop:
-  enableLogs: false
-`);
-
-    expect(config.loop.enableLogs).toBe(false);
-  });
-
-  test("parses runArchiveStage override", () => {
-    const config = parseConfig(`
-loop:
-  runArchiveStage: false
-`);
-
-    expect(config.loop.runArchiveStage).toBe(false);
-  });
-
-  test("parses autoApprove override", () => {
-    const config = parseConfig(`
-loop:
-  autoApprove: true
-`);
-
-    expect(config.loop.autoApprove).toBe(true);
-  });
-
-  test("parses watchdog override", () => {
-    const config = parseConfig(`
-loop:
-  watchdog:
-    enabled: false
-    turnTimeoutMs: 1000
-    inactivityTimeoutMs: 200
-    statusIntervalMs: 50
-    abortGraceMs: 25
-`);
-
-    expect(config.loop.watchdog).toEqual({
-      enabled: false,
-      turnTimeoutMs: 1000,
-      inactivityTimeoutMs: 200,
-      statusIntervalMs: 50,
-      abortGraceMs: 25
-    });
-  });
-
-  test("rejects invalid enableLogs type", () => {
-    expect(() => parseConfig(`
-loop:
-  enableLogs: 123
-`)).toThrow("loop.enableLogs");
-  });
-
-  test("rejects invalid runArchiveStage type", () => {
-    expect(() => parseConfig(`
-loop:
-  runArchiveStage: 123
-`)).toThrow("loop.runArchiveStage");
-  });
-
-  test("rejects invalid autoApprove type", () => {
-    expect(() => parseConfig(`
-loop:
-  autoApprove: yes
-`)).toThrow("loop.autoApprove");
-  });
-
-  test("rejects invalid watchdog timeout", () => {
-    expect(() => parseConfig(`
-loop:
-  watchdog:
-    inactivityTimeoutMs: 0
-`)).toThrow("loop.watchdog.inactivityTimeoutMs");
-  });
-
-  test("parses telegram notification override", () => {
-    const config = parseConfig(`
-loop:
-  notifications:
-    telegram:
-      enabled: true
-      botTokenEnv: CUSTOM_BOT_TOKEN
-      chatIdEnv: CUSTOM_CHAT_ID
-`);
-
-    expect(config.loop.notifications.telegram).toEqual({
-      enabled: true,
-      botTokenEnv: "CUSTOM_BOT_TOKEN",
-      chatIdEnv: "CUSTOM_CHAT_ID"
-    });
-  });
-
-  test("rejects invalid telegram notification config", () => {
-    expect(() => parseConfig(`
-loop:
-  notifications:
-    telegram:
-      enabled: yes
-`)).toThrow("loop.notifications.telegram.enabled");
-
-    expect(() => parseConfig(`
-loop:
-  notifications:
-    telegram:
-      botTokenEnv: ""
-`)).toThrow("loop.notifications.telegram.botTokenEnv");
-  });
-
-  test("rejects invalid enum values", () => {
-    expect(() => parseConfig(`
-codex:
-  default:
-    reasoningEffort: huge
-`)).toThrow("codex.default.reasoningEffort");
-  });
-
-  test("rejects invalid skill config", () => {
-    expect(() => parseConfig(`
-codex:
-  stages:
-    implementation:
-      skills:
-        main: dev-core
-`)).toThrow("codex.stages.implementation.skills.main");
-
-    expect(() => parseConfig(`
-codex:
-  stages:
-    implementation:
-      skills:
-        additional:
-          - ""
-`)).toThrow("codex.stages.implementation.skills.additional[0]");
-  });
-
-  test("rejects invalid stage keys", () => {
-    expect(() => parseConfig(`
-codex:
-  stages:
-    unknown:
-      model: gpt-5.4
-`)).toThrow("not a valid flow stage");
-  });
-
-  test("rejects nonpositive maxIterations", () => {
-    expect(() => parseConfig(`
-loop:
-  maxIterations: 0
-`)).toThrow("loop.maxIterations");
-  });
-
-  test("resolves logDir under project path", () => {
-    const projectPath = path.resolve("/tmp/project");
-    expect(resolveProjectLogDir(projectPath, ".phasedev/logs")).toBe(path.join(projectPath, ".phasedev", "logs"));
-  });
-
-  test("rejects logDir outside project path", () => {
-    expect(() => resolveProjectLogDir("/tmp/project", "../outside")).toThrow("inside projectPath");
-    expect(() => resolveProjectLogDir("/tmp/project", "/tmp/outside")).toThrow("relative to projectPath");
-  });
-});
-
-// ============================================================================
-// NEW Config shape tests (Task 1 - Config Restructure)
-// ============================================================================
-
 function captureWarnings(fn: () => void): string[] {
   const warnings: string[] = [];
   const origWarn = console.warn;
@@ -386,21 +47,32 @@ function captureWarnings(fn: () => void): string[] {
   return warnings;
 }
 
-describe("new config shape", () => {
-  test("parses phases config with accessible change_intake", () => {
+// ============================================================================
+// parseConfig — all parsing tests
+// ============================================================================
+
+describe("parseConfig", () => {
+  test("parses phases config with skills", () => {
     const config = parseConfig(`
 phases:
   change_intake:
     skills:
-      routers: []
-      main: []
-      additional: []
+      routers: ["using-zuvo"]
+      main: ["dev-core"]
+      additional: ["security-and-hardening"]
+  implementation:
+    skills:
+      main: ["test-driven-development"]
 runArchiveStage: true
 autoApprove: false
 `);
-    expect(config.phases).toBeDefined();
     expect(config.phases.change_intake).toBeDefined();
-    expect(config.phases.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
+    expect(config.phases.change_intake?.skills).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core"],
+      additional: ["security-and-hardening"]
+    });
+    expect(config.phases.implementation?.skills.main).toEqual(["test-driven-development"]);
     expect(config.runArchiveStage).toBe(true);
     expect(config.autoApprove).toBe(false);
   });
@@ -419,7 +91,6 @@ phases:
     skills:
       main: ["test"]
 `);
-      // Must not throw — forward compatibility
       expect(config).toBeDefined();
       expect(config.phases.unknown_stage).toBeUndefined();
     });
@@ -427,6 +98,279 @@ phases:
     expect(warnings.some(w => w.includes("unknown_stage"))).toBe(true);
   });
 
+  test("parses empty/missing phases to empty object", () => {
+    const config = parseConfig(`{}`);
+    expect(config.phases).toEqual({});
+  });
+
+  test("parses phases with empty skills", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      routers: []
+      main: []
+      additional: []
+`);
+    expect(config.phases.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
+    expect(config.phases.implementation).toBeUndefined();
+  });
+
+  test("deduplicates stage skills by priority", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      routers:
+        - using-zuvo
+        - using-zuvo
+      main:
+        - using-zuvo
+        - dev-core
+        - dev-core
+      additional:
+        - dev-core
+        - test-driven-development
+        - test-driven-development
+`);
+    expect(config.phases.change_intake?.skills).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core"],
+      additional: ["test-driven-development"]
+    });
+  });
+
+  test("getStageSkillConfig returns correct skills for a phase", () => {
+    const config = parseConfig(`
+phases:
+  implementation:
+    skills:
+      routers: ["using-zuvo"]
+      main: ["dev-core"]
+      additional: ["security-and-hardening"]
+`);
+    expect(getStageSkillConfig(config, "implementation")).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core"],
+      additional: ["security-and-hardening"]
+    });
+  });
+
+  test("getStageSkillConfig returns empty for init stage", () => {
+    const config = parseConfig(`{}`);
+    expect(getStageSkillConfig(config, "init")).toEqual({ routers: [], main: [], additional: [] });
+  });
+
+  test("getStageSkillConfig returns empty for unconfigured phase", () => {
+    const config = parseConfig(`
+phases:
+  implementation:
+    skills:
+      main: ["dev-core"]
+`);
+    expect(getStageSkillConfig(config, "change_intake")).toEqual({ routers: [], main: [], additional: [] });
+  });
+});
+
+// ============================================================================
+// loadConfig — loading tests
+// ============================================================================
+
+describe("loadConfig", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("loads config from existing path", () => {
+    const configPath = writeProjectConfig(testTmpDir, `
+phases:
+  implementation:
+    skills:
+      main: ["dev-core"]
+`);
+    const config = loadConfig(configPath);
+    expect(config.phases.implementation?.skills.main).toEqual(["dev-core"]);
+    expect(config.runArchiveStage).toBe(true);
+    expect(config.autoApprove).toBe(false);
+  });
+
+  test("returns DEFAULT_CONFIG when config file does not exist", () => {
+    const config = loadConfig("/nonexistent/path/config.yaml");
+    expect(config.phases).toEqual({});
+    expect(config.runArchiveStage).toBe(true);
+    expect(config.autoApprove).toBe(false);
+  });
+});
+
+// ============================================================================
+// resolveConfigPath — path resolution
+// ============================================================================
+
+describe("resolveConfigPath", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("resolves explicit config before project config", () => {
+    const projectPath = path.join(testTmpDir, "project");
+    const explicitConfigPath = path.join(testTmpDir, "explicit-config.yaml");
+    writeProjectConfig(projectPath, `
+phases:
+  implementation:
+    skills:
+      main: ["project-skill"]
+`);
+    fs.writeFileSync(explicitConfigPath, `
+phases:
+  implementation:
+    skills:
+      main: ["explicit-skill"]
+`, "utf-8");
+
+    const resolvedPath = resolveConfigPath(projectPath, explicitConfigPath);
+    expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
+    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["explicit-skill"]);
+  });
+
+  test("resolves project flow config before root default config", () => {
+    const projectPath = path.join(testTmpDir, "project");
+    writeProjectConfig(projectPath, `
+phases:
+  implementation:
+    skills:
+      main: ["project-skill"]
+`);
+
+    const resolvedPath = resolveConfigPath(projectPath);
+    expect(resolvedPath).toBe(projectConfigPath(projectPath));
+    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["project-skill"]);
+  });
+
+  test("resolves root default config when project config is missing", () => {
+    const projectPath = path.join(testTmpDir, "project-without-config");
+    expect(resolveConfigPath(projectPath)).toBe(defaultConfigPath());
+  });
+});
+
+// ============================================================================
+// resolveProjectLogDir — log dir utility
+// ============================================================================
+
+describe("resolveProjectLogDir", () => {
+  test("resolves logDir under project path", () => {
+    const projectPath = path.resolve("/tmp/project");
+    expect(resolveProjectLogDir(projectPath, ".phasedev/logs")).toBe(
+      path.join(projectPath, ".phasedev", "logs")
+    );
+  });
+
+  test("rejects logDir outside project path", () => {
+    expect(() => resolveProjectLogDir("/tmp/project", "../outside")).toThrow("inside projectPath");
+    expect(() => resolveProjectLogDir("/tmp/project", "/tmp/outside")).toThrow(
+      "relative to projectPath"
+    );
+  });
+});
+
+// ============================================================================
+// getConfigValue — config value access
+// ============================================================================
+
+describe("getConfigValue", () => {
+  test("gets values from new config shape", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      main: ["dev-core"]
+runArchiveStage: false
+autoApprove: true
+`);
+    expect(getConfigValue(config, "runArchiveStage")).toBe(false);
+    expect(getConfigValue(config, "autoApprove")).toBe(true);
+  });
+
+  test("maps legacy codex.stages.setup to phases.change_intake", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      main: ["dev-core"]
+`);
+    const warnings = captureWarnings(() => {
+      const value = getConfigValue(config, "codex.stages.setup.skills.main");
+      expect(value).toEqual(["dev-core"]);
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("codex.stages.setup"))
+    ).toBe(true);
+  });
+
+  test("returns undefined for legacy codex.default.* keys", () => {
+    const config = parseConfig(`{}`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "codex.default.model")).toBeUndefined();
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("codex.default"))
+    ).toBe(true);
+  });
+
+  test("returns undefined for legacy codex.sandboxMode", () => {
+    const config = parseConfig(`{}`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "codex.sandboxMode")).toBeUndefined();
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("codex.sandboxMode"))
+    ).toBe(true);
+  });
+
+  test("returns undefined for legacy codex.approvalPolicy", () => {
+    const config = parseConfig(`{}`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "codex.approvalPolicy")).toBeUndefined();
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("codex.approvalPolicy"))
+    ).toBe(true);
+  });
+
+  test("maps legacy loop.runArchiveStage to config.runArchiveStage", () => {
+    const config = parseConfig(`runArchiveStage: false`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "loop.runArchiveStage")).toBe(false);
+    });
+    expect(warnings.some(w => w.includes("loop.runArchiveStage"))).toBe(true);
+  });
+
+  test("maps legacy loop.autoApprove to config.autoApprove", () => {
+    const config = parseConfig(`autoApprove: true`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "loop.autoApprove")).toBe(true);
+    });
+    expect(warnings.some(w => w.includes("loop.autoApprove"))).toBe(true);
+  });
+
+  test("returns undefined for other legacy loop.* keys", () => {
+    const config = parseConfig(`{}`);
+    const warnings = captureWarnings(() => {
+      expect(getConfigValue(config, "loop.maxIterations")).toBeUndefined();
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("loop"))
+    ).toBe(true);
+  });
+
+  test("returns undefined for malformed key", () => {
+    const config = parseConfig(`runArchiveStage: true`);
+    expect(getConfigValue(config, "")).toBeUndefined();
+  });
+});
+
+// ============================================================================
+// Legacy migration — codex.stages → phases mapping
+// ============================================================================
+
+describe("legacy migration", () => {
   test("parses legacy codex.stages.setup and maps to phases.change_intake", () => {
     const warnings = captureWarnings(() => {
       const config = parseConfig(`
@@ -447,7 +391,9 @@ codex:
       expect(config.runArchiveStage).toBe(true);
       expect(config.autoApprove).toBe(false);
     });
-    expect(warnings.some(w => w.toLowerCase().includes("deprecat") || w.toLowerCase().includes("legacy"))).toBe(true);
+    expect(
+      warnings.some(w => w.toLowerCase().includes("deprecat") || w.toLowerCase().includes("legacy"))
+    ).toBe(true);
   });
 
   test("emits per-stage WARNING for legacy model/effort override", () => {
@@ -466,7 +412,9 @@ codex:
 `);
       expect(config.phases.change_intake?.skills.main).toEqual(["test"]);
     });
-    expect(warnings.some(w => w.includes("model") || w.includes("reasoningEffort") || w.includes("setup"))).toBe(true);
+    expect(
+      warnings.some(w => w.includes("model") || w.includes("reasoningEffort") || w.includes("setup"))
+    ).toBe(true);
   });
 
   test("phases wins when both codex.stages and phases are present", () => {
@@ -491,19 +439,23 @@ phases:
   });
 });
 
+// ============================================================================
+// Dual-file init — initProject tests
+// ============================================================================
+
 describe("dual-file init", () => {
   test("initProject creates both config.yaml and runner.yaml", () => {
     const dir = createTempWorkspace("init-dual");
     try {
       const result = initProject(dir);
       expect(result.ok).toBe(true);
-      // config.yaml exists
+
       const configPath = projectConfigPath(dir);
       expect(fs.existsSync(configPath)).toBe(true);
-      // runner.yaml exists
+
       const runnerPath = projectRunnerConfigPath(dir);
       expect(fs.existsSync(runnerPath)).toBe(true);
-      // runner.yaml parses without errors
+
       const runnerContent = fs.readFileSync(runnerPath, "utf-8");
       expect(() => parseRunnerConfig(runnerContent)).not.toThrow();
     } finally {
@@ -518,7 +470,7 @@ describe("dual-file init", () => {
       initProject(dir);
       // Remove runner.yaml
       fs.unlinkSync(projectRunnerConfigPath(dir));
-      // Second init should only create runner.yaml
+      // Second init should only create runner.yaml (config.yaml already exists)
       initProject(dir);
       expect(fs.existsSync(projectRunnerConfigPath(dir))).toBe(true);
       expect(fs.existsSync(projectConfigPath(dir))).toBe(true);
@@ -528,17 +480,16 @@ describe("dual-file init", () => {
   });
 });
 
+// ============================================================================
+// Shared type exports
+// ============================================================================
+
 describe("shared type exports", () => {
-  test("ReasoningEffort, SandboxMode, ApprovalPolicy, StageSkillConfig, StageConfig, Config remain exported from direct import", () => {
-    // Types resolve at compile time — verify the module path works
+  test("Config, StageConfig, StageSkillConfig remain exported from direct import", () => {
     const mod = require("../src/features/runner/config");
-    // Runtime values for types are undefined (types only)
-    expect(mod.ReasoningEffort).toBeUndefined();
-    expect(mod.SandboxMode).toBeUndefined();
-    expect(mod.ApprovalPolicy).toBeUndefined();
+    // Types resolve at compile time — verify the module path works
     expect(mod.StageSkillConfig).toBeUndefined();
     expect(mod.StageConfig).toBeUndefined();
-    // Config is an interface (no runtime value)
     expect(mod.Config).toBeUndefined();
   });
 });

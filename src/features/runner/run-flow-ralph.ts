@@ -548,7 +548,7 @@ function validateSkillMdStageNames(skillMdPath: string): boolean {
   return true;
 }
 
-export async function runRunner(projectPath: string, config: Config, dependencies: RunnerDependencies = {}, runnerConfig: RunnerConfig = DEFAULT_RUNNER_CONFIG): Promise<RunnerResult> {
+export async function runRunner(projectPath: string, config: Config, runnerConfig: RunnerConfig = DEFAULT_RUNNER_CONFIG, dependencies: RunnerDependencies = {}): Promise<RunnerResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
 

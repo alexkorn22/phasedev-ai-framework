@@ -399,7 +399,7 @@ describe("logs runner", () => {
     let stageTurnCount = 0;
     let archived = false;
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => {
           const thread = { id: `thread-${threads.length + 1}`, prompts: [] as string[] };
@@ -470,7 +470,7 @@ describe("logs runner", () => {
     const jsonLogger = createJsonFileLogger(logPath);
     let createdCodex = false;
 
-    const result = await runRunner(projectPath, makeConfig(), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -486,7 +486,7 @@ describe("logs runner", () => {
     expect(result.status).toBe("blocked");
     expect(result.iterations).toBe(0);
     expect(createdCodex).toBe(false);
-    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: design");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: technical_design");
     const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
     expect(parsed.iteration).toBe(0);
     expect(parsed.stage).toBe("technical_design");
@@ -500,7 +500,7 @@ describe("logs runner", () => {
     const messages: string[] = [];
     const prompts: string[] = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-research-after-auto-approve",
@@ -517,7 +517,7 @@ describe("logs runner", () => {
     expect(result.status).toBe("no_progress");
     expect(result.iterations).toBe(1);
     expect(prompts).toHaveLength(1);
-    expect(prompts[0]).toContain("Stage 1. Research.");
+    expect(prompts[0]).toContain("Phase 2. Code Research.");
     expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: true");
     expect(fs.readFileSync(path.join(changeDir, "rules.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
     expect(messages.some(message => message.includes("auto-approved setup artifacts"))).toBe(true);
@@ -528,7 +528,7 @@ describe("logs runner", () => {
     const prompts: string[] = [];
     const messages: string[] = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-plan-after-auto-approve",
@@ -544,7 +544,7 @@ describe("logs runner", () => {
 
     expect(result.status).toBe("no_progress");
     expect(result.iterations).toBe(1);
-    expect(prompts[0]).toContain("Stage 3. Plan.");
+    expect(prompts[0]).toContain("Phase 4. Iteration Planning.");
     expect(fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
     expect(messages.some(message => message.includes("auto-approved design artifact"))).toBe(true);
   });
@@ -554,7 +554,7 @@ describe("logs runner", () => {
     const prompts: string[] = [];
     const messages: string[] = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, autoApprove: true }), {
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-implementation-after-auto-approve",
@@ -570,7 +570,7 @@ describe("logs runner", () => {
 
     expect(result.status).toBe("no_progress");
     expect(result.iterations).toBe(1);
-    expect(prompts[0]).toContain("Stage 4. Implementation.");
+    expect(prompts[0]).toContain("Phase 5. Implementation.");
     expect(fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
     expect(messages.some(message => message.includes("auto-approved plan artifact"))).toBe(true);
   });
@@ -592,7 +592,7 @@ describe("logs runner", () => {
 | full | \`bun test full\` |
 `, false);
 
-    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), {
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), makeRunnerConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -605,14 +605,14 @@ describe("logs runner", () => {
     expect(result.iterations).toBe(0);
     expect(createdCodex).toBe(false);
     expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: false");
-    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: setup");
+    expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: change_intake");
   });
 
   test("autoApprove does not bypass unrelated blocked prompts", async () => {
     const projectPath = setupProject();
     let createdCodex = false;
 
-    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), {
+    const result = await runRunner(projectPath, makeConfig({ autoApprove: true }), makeRunnerConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -635,7 +635,7 @@ describe("logs runner", () => {
     let createdCodex = false;
     let requestedNextPrompt = false;
 
-    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -672,7 +672,7 @@ describe("logs runner", () => {
       startedAt: "2026-05-29T10:00:00.000Z"
     }), "utf-8");
 
-    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig(), {
       createCodex: () => {
         createdCodex = true;
         return { startThread: () => { throw new Error("should not start"); } };
@@ -695,11 +695,9 @@ describe("logs runner", () => {
 
   test("passes loaded config into init and next prompt builders", async () => {
     const projectPath = setupProject();
-    const config = makeConfig({ maxIterations: 1 }, {
-      stages: {
+    const config = makeConfig({
+      phases: {
         implementation: {
-          model: "gpt-5.4",
-          reasoningEffort: "high",
           skills: {
             routers: [],
             main: ["dev-core"],
@@ -711,7 +709,7 @@ describe("logs runner", () => {
     const seenInitConfigs: Config[] = [];
     const seenNextConfigs: Config[] = [];
 
-    await runRunner(projectPath, config, {
+    await runRunner(projectPath, config, makeRunnerConfig(), {
       createCodex: () => ({
         startThread: () => ({
           async run() {
@@ -740,7 +738,7 @@ describe("logs runner", () => {
     const projectPath = setupProject();
     const threads: Array<{ prompts: string[] }> = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           const thread = { prompts: [] as string[] };
@@ -845,7 +843,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 
     const messages: string[] = [];
     let calls = 0;
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => ({
           async run() {
@@ -945,7 +943,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 
     const messages: string[] = [];
     let calls = 0;
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => {
           calls++;
@@ -974,7 +972,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.mkdirSync(socketDir, { recursive: true });
     fs.symlinkSync("/var/run/mysqld/definitely-missing.sock", path.join(socketDir, "mysql.sock"));
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-broken-symlink",
@@ -996,7 +994,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("treats streamed implementation file changes outside flow state as progress", async () => {
     const projectPath = setupProject();
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-code-progress",
@@ -1030,7 +1028,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("blocks streamed code changes during non-code stages", async () => {
     const projectPath = setupProject();
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-code-change",
@@ -1066,7 +1064,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const projectPath = setupProject();
     const linkedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "data-flow.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-linked-doc",
@@ -1097,7 +1095,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const deltaSpecPath = path.join(archiveDir, "specs", "flow-routing", "spec.md");
     const mainSpecPath = path.join(projectPath, ".phasedev", "specs", "flow-routing", "spec.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-archive-spec-sync",
@@ -1136,7 +1134,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const projectPath = setupProject();
     const archiveFilePath = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-old-change", "notes.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-archive-mutation",
@@ -1165,7 +1163,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const projectPath = setupProject();
     const nestedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "nested", "data-flow.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-design-nested-doc",
@@ -1194,7 +1192,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const projectPath = setupProject();
     const outsidePath = path.resolve(projectPath, "..", "outside.ts");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-outside-project-change",
@@ -1236,7 +1234,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     );
     let ranRepair = false;
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair",
@@ -1263,7 +1261,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const projectPath = setupProject();
     const linkedDesignPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "architecture", "runtime-layout.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair-linked-design",
@@ -1294,7 +1292,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n", "utf-8");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair-config",
@@ -1324,7 +1322,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, "loop:\n  maxIterations: 10\n", "utf-8");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repair-reported-config",
@@ -1367,7 +1365,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const jsonLogger = createJsonFileLogger(logPath);
     const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-normalized-changes",
@@ -1420,7 +1418,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     let promptCounter = 0;
     const threads: unknown[] = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => {
           threads.push({});
@@ -1454,7 +1452,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const jsonLogger = createJsonFileLogger(logPath);
     let sentPrompt = "";
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-1",
@@ -1493,7 +1491,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const jsonLogger = createJsonFileLogger(logPath);
     let sentPrompt = "";
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-stream",
@@ -1552,7 +1550,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }, { streamAgentOutput: false }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1, streamAgentOutput: false }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-buffered",
@@ -1595,7 +1593,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("throws when streamed Codex turn fails", async () => {
     const projectPath = setupProject();
 
-    await expect(runRunner(projectPath, makeConfig(), {
+    await expect(runRunner(projectPath, makeConfig(), makeRunnerConfig(), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-failed",
@@ -1625,7 +1623,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const jsonLogger = createJsonFileLogger(logPath);
     let startedTurns = 0;
 
-    const result = await runRunner(projectPath, makeConfig({
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({
       maxIterations: 2,
       watchdog: { enabled: true, turnTimeoutMs: 200, inactivityTimeoutMs: 10, statusIntervalMs: 200, abortGraceMs: 5 }
     }), {
@@ -1673,7 +1671,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runRunner(projectPath, makeConfig({
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({
       maxIterations: 1,
       watchdog: { enabled: true, turnTimeoutMs: 200, inactivityTimeoutMs: 10, statusIntervalMs: 200, abortGraceMs: 5 }
     }), {
@@ -1708,40 +1706,6 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(parsed.allowlistViolations).toContain("File 'src/outside.ts' modified during 'setup' stage is outside allowlist.");
   });
 
-  test("uses per-stage model and reasoning overrides", async () => {
-    const projectPath = setupProject();
-    const options: unknown[] = [];
-
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }, {
-      stages: {
-        implementation: { model: "gpt-5.3-codex", reasoningEffort: "medium" }
-      }
-    }), {
-      createCodex: () => ({
-        startThread: threadOptions => {
-          options.push(threadOptions);
-          return {
-            id: "thread-1",
-            async run() {
-              return { finalResponse: "done" };
-            }
-          };
-        }
-      }),
-      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
-      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
-      reporter: { log: () => undefined },
-      now: () => new Date("2026-05-29T10:00:00.000Z")
-    });
-
-    expect(result.status).toBe("no_progress");
-    expect(options).toContainEqual(expect.objectContaining({
-      model: "gpt-5.3-codex",
-      modelReasoningEffort: "medium"
-    }));
-  });
-
   test("continues when plan state changes even if stage and prompt are the same", async () => {
     const projectPath = setupProject();
     const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
@@ -1755,7 +1719,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     let nextPromptCount = 0;
     const threads: unknown[] = [];
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 5 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 5 }), {
       createCodex: () => ({
         startThread: () => {
           threads.push({});
@@ -1815,7 +1779,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const logPath = path.join(projectPath, ".phasedev", "logs", "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-repeat",
@@ -1862,7 +1826,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Final | API response omits required error handling. | Add error mapping. |", "final");
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-final-repeat",
@@ -1908,7 +1872,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -1955,7 +1919,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
 
     let stageTurns = 0;
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2 }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2 }), {
       createCodex: () => ({
         startThread: () => ({
           id: `thread-${stageTurns + 1}`,
@@ -1996,7 +1960,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 2, enableLogs: true }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 2, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-log-test",
@@ -2078,7 +2042,7 @@ codex:
     fs.mkdirSync(conflictPath, { recursive: true });
     const jsonLogger = createJsonFileLogger(conflictPath, { log: msg => messages.push(msg) });
 
-    const result = await runRunner(projectPath, makeConfig({ maxIterations: 1, enableLogs: true }), {
+    const result = await runRunner(projectPath, makeConfig(), makeRunnerConfig({ maxIterations: 1, enableLogs: true }), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-fs-error",
@@ -2386,7 +2350,7 @@ describe("RunnerConfig integration", () => {
     const runnerConfig = makeRunnerConfig({ model: "custom-model-v2", maxIterations: 1 });
     const optionsLog: Array<Record<string, unknown>> = [];
 
-    const result = await runRunner(projectPath, config, {
+    const result = await runRunner(projectPath, config, runnerConfig, {
       createCodex: () => ({
         startThread: (options: Record<string, unknown>) => {
           optionsLog.push(options);
@@ -2401,7 +2365,7 @@ describe("RunnerConfig integration", () => {
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
-    }, runnerConfig);
+    });
 
     expect(result.status).toBe("no_progress");
     expect(optionsLog[0].model).toBe("custom-model-v2");
@@ -2418,7 +2382,7 @@ describe("RunnerConfig integration", () => {
     });
     const optionsLog: Array<Record<string, unknown>> = [];
 
-    const result = await runRunner(projectPath, config, {
+    const result = await runRunner(projectPath, config, runnerConfig, {
       createCodex: () => ({
         startThread: (options: Record<string, unknown>) => {
           optionsLog.push(options);
@@ -2433,7 +2397,7 @@ describe("RunnerConfig integration", () => {
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
-    }, runnerConfig);
+    });
 
     expect(optionsLog[0].sandboxMode).toBe("danger-full-access");
     expect(optionsLog[0].approvalPolicy).toBe("on-request");
@@ -2446,7 +2410,7 @@ describe("RunnerConfig integration", () => {
     fs.mkdirSync(path.dirname(runnerConfigPath), { recursive: true });
     fs.writeFileSync(runnerConfigPath, "runner:\n  model: claude-sonnet-5\n", "utf-8");
 
-    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig(), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-runner-config-mod",
@@ -2476,7 +2440,7 @@ describe("RunnerConfig integration", () => {
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
 
-    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), makeRunnerConfig(), {
       createCodex: () => ({
         startThread: () => ({
           id: "thread-config-mod",
@@ -2506,7 +2470,7 @@ describe("RunnerConfig integration", () => {
     const runnerConfig = makeRunnerConfig({ reasoningEffort: "xhigh", maxIterations: 1 });
     const logMessages: string[] = [];
 
-    const result = await runRunner(projectPath, config, {
+    const result = await runRunner(projectPath, config, runnerConfig, {
       createCodex: () => ({
         startThread: () => ({
           id: "test-thread",
@@ -2518,7 +2482,7 @@ describe("RunnerConfig integration", () => {
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: msg => logMessages.push(msg) },
       now: () => new Date("2026-05-29T10:00:00.000Z")
-    }, runnerConfig);
+    });
 
     expect(logMessages).toContain("[PHASEDEV RUNNER] reasoning: xhigh");
   });
@@ -2530,7 +2494,7 @@ describe("RunnerConfig integration", () => {
     const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
     let promptCounter = 0;
 
-    const result = await runRunner(projectPath, config, {
+    const result = await runRunner(projectPath, config, runnerConfig, {
       createCodex: () => ({
         startThread: () => ({
           id: "test-thread",
@@ -2547,7 +2511,7 @@ describe("RunnerConfig integration", () => {
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
-    }, runnerConfig);
+    });
 
     expect(result.status).toBe("max_iterations");
     expect(result.iterations).toBe(3);
