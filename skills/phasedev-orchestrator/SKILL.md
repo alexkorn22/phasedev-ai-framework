@@ -61,6 +61,11 @@ phasedev config loop.runArchiveStage
 ```
 → Remember for the archive stage check below.
 
+```bash
+phasedev config loop.autoApprove
+```
+→ When `true`, automatically approve setup/design/plan artifacts at approval gates instead of stopping for user input. Default to `false` if empty/invalid. Remember for the Auto-Approval section below.
+
 ## The Loop
 
 Each iteration:
@@ -108,15 +113,15 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 | `setup` | setup | Spawn sub-agent | First run. No PRD/rules yet. |
 | `invalid_prd` | setup | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `invalid_rules` | setup | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `setup_approval` | setup | **STOP — ask user** | "Approve prd.md & rules.md, set approved: true" |
+| `setup_approval` | setup | **STOP — ask user**\* | "Approve prd.md & rules.md, set approved: true"\* |
 | `research` | research | Spawn sub-agent | |
 | `invalid_research` | research | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `design` | design | Spawn sub-agent | |
 | `invalid_design` | design | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `design_approval` | design | **STOP — ask user** | "Approve architecture/design.md, set approved: true" |
+| `design_approval` | design | **STOP — ask user**\* | "Approve architecture/design.md, set approved: true"\* |
 | `plan` | plan | Spawn sub-agent | |
 | `invalid_plan` | plan | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `plan_approval` | plan | **STOP — ask user** | "Approve implementation_plan.md, set approved: true" |
+| `plan_approval` | plan | **STOP — ask user**\* | "Approve implementation_plan.md, set approved: true"\* |
 | `phase` | implementation / phase_validation | Spawn sub-agent | Impl or validation depending on current phase state. See the phase-route note below. |
 | `invalid_findings` | repair | Recovery spawn (once) | Structurally malformed validation_findings.md (not a `repair_required` verdict). Created by validation, fixed by a repair-stage agent. |
 | `repair` | repair | Spawn sub-agent | |
@@ -125,10 +130,13 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 | `archive_ready` / `pending_archive` | archive | Spawn sub-agent (if config allows) | Check loop.runArchiveStage first. |
 | `invalid_archive_state` | archive | **STOP — inform user** | Report the invalid archive state reason. |
 
+\* When `loop.autoApprove` is `true` (from Initialization), instead of stopping and asking the user, follow the [Auto-Approval](#auto-approval) procedure below.
+
 **`phase` route progress (important for the repair/validation cycle):** the kind `phase` legitimately repeats; `phasedev check` prints `route is phase (stage: implementation)` or `(stage: phase_validation)`. Compare **both kind and stage**, not kind alone:
 - `implementation → phase_validation` (same phase), or `phase_validation → implementation` (next phase): stage changed → progress.
 - `repair → phase` (re-validation after `repaired`) or `phase → repair` (`repair_required`): kind changed → progress.
 - Same kind+stage for the same phase after a sub-agent (e.g. still `phase (stage: implementation)`, or still `repair`): no progress → stop.
+- **Implementation blocked detection:** If the route is `phase (stage: implementation)` and the current phase's `checkEvidence` has `blocked` or `failed` rows, the spawned sub-agent's `phasedev next` prompt will reflect blocked evidence. After the sub-agent returns, the "Same kind+stage" rule above catches no-progress — one iteration is consumed to discover the block. This is correct behavior, not a bug.
 
 ## Invalid-artifact recovery policy
 
@@ -140,11 +148,45 @@ One of the artifact-invalid routes (`invalid_prd`, `invalid_rules`, `invalid_res
    - Same `invalid_*` persists → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the route and issues. Do not spawn again.
 3. Never turn this into a loop — the orchestrator is not the validation driver.
 
+## Auto-Approval
+
+When `phasedev config loop.autoApprove` (from Initialization) is `true`, the orchestrator automatically approves setup, design, and plan artifacts at approval gates instead of stopping to ask the user.
+
+**How it works for each approval gate:**
+
+| Route kind | Auto-approve action |
+|------------|---------------------|
+| `setup_approval` | Spawn a sub-agent that: reads `prd.md` and `rules.md`, sets `approved: true` in their YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `setup_approval`. |
+| `design_approval` | Spawn a sub-agent that: reads `architecture/design.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `design_approval`. |
+| `plan_approval` | Spawn a sub-agent that: reads `implementation_plan.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `plan_approval`. |
+
+**Auto-approve sub-agent prompt (use for all three gates, replace `<artifact-paths>` with the actual paths):**
+
+```javascript
+Agent(
+  description: "auto-approve: set approved=true on artifacts",
+  prompt: `Auto-approve PhaseDev artifacts.
+
+phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, or bun run.
+
+1. Read each artifact file at: <artifact-paths>
+2. For each file, set \`approved: true\` and \`approved_by: "PhaseDev Orchestrator"\` in its YAML frontmatter.
+3. Run: phasedev check
+4. Confirm the route advanced beyond the approval gate. If not, report the current route as a blocker.
+5. Report: which files were approved and the final route.`
+)
+```
+
+**After the auto-approve sub-agent returns:**
+- Run `phasedev check` to confirm the route advanced beyond the approval gate.
+- **Advanced** → continue the main loop normally (the route is now `research`, `plan`, `phase`, or whatever comes next).
+- **Same approval gate persists** → **STOP**. Report "Auto-approve failed to advance route `<kind>` after updating artifacts." Do not loop.
+
 ## Termination
 
 Stop when any is met:
 - **Flow complete** — Archive is terminal. If you spawned an archive sub-agent this iteration (route was `archive_ready` or `pending_archive`) and the next `phasedev check` returns a **non**-archive route, the change was archived (it moved to `.phasedev/changes/archive/`, no active change remains, so the route fell back to `setup`). Treat the flow as complete: STOP and report success. Do **NOT** spawn a `setup` sub-agent for that `setup` route. (This mirrors how `runner.ts` detects completion via `hasCompletedArchivedChange`.)
-- **Blocked** — approval gate, blocker, or invalid state. Approval gates (`setup_approval`, `design_approval`, `plan_approval`): tell the user to approve and wait.
+- **Blocked** — approval gate, blocker, or invalid state. Approval gates (`setup_approval`, `design_approval`, `plan_approval`): when `loop.autoApprove` is true, follow [Auto-Approval](#auto-approval); otherwise tell the user to approve and wait.
 - **No progress** — after a sub-agent, the route kind+stage is unchanged (same phase), or `invalid_*` persists after one recovery spawn.
 - **Max iterations** — `loop.maxIterations` reached.
 - **Unrecoverable error** — sub-agent error after one retry.

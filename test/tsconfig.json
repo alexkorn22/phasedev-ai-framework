@@ -1,7 +1,8 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "rootDir": ".."
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
 }
