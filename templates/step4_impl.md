@@ -24,7 +24,7 @@ Ordered workflow:
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [rules.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
 4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
-5. Read configured Priority 1 router skills first when available because they may select method skills; load main, additional, or router-selected method skills only when they apply to current phase evidence, and adapt useful method guidance back into this stage contract.
+5. Read configured Priority 1 router skills first when available. Router-selected and main method skills must be evaluated against the current phase evidence and applied by default. For each main or router-selected skill: apply its method or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.
 6. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
 7. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 

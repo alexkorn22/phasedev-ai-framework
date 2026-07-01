@@ -29,16 +29,23 @@ function flowSkillBoundaryProtocol(): string[] {
     "- This prompt is the stage skill policy compiled from `config.yaml`.",
     "- Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.",
     "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.",
-    "- If a listed skill is unavailable, continue under this Flow stage contract and record it as skipped/unavailable in the final skill compliance note.",
+    "- If a listed skill is unavailable, continue under this Flow stage contract and report its per-skill status as `UNAVAILABLE` in the structured skill compliance section (see format below).",
     "- Stop for an unavailable skill only when this stage cannot be completed under the Flow stage contract without that skill's method.",
-    "- Use a selected skill's method, checklist, algorithm, or review logic when it applies to the stage evidence.",
+    "- Apply a selected skill's method, checklist, algorithm, or review logic by default; an evidence-specific reason and reference is required to skip.",
     "- Router skills listed as Priority 1 are read first when available because they may select method skills.",
-    "- Main, additional, and router-selected method skills are loaded only when they apply to the available stage evidence.",
-    "- Do not preload every configured method skill body; keep method skill loading minimal.",
+    "- Main and router-selected skills must be evaluated against every piece of stage evidence; apply by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.",
+    "- Do not eagerly load all skill bodies at once; still evaluate and apply each configured main skill per the mandate above.",
     "- Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
     "- Do not skip an applicable selected skill because its native output format differs; adapt useful output into the current Flow contract.",
     "- Convert useful skill output into the current artifact template, final response, or blocker. Do not invent extra Flow artifact structure.",
-    "- In the final response, include a short skill compliance note listing router skills used, router-selected skills used, main/additional skills used, and skipped/unavailable listed skills."
+    "- In the final response, include a structured skill compliance section using the exact format below.",
+    "",
+    "  For every configured main and router-selected skill, exactly one of:",
+    "  - `skill-name`: APPLIED(<what was produced or method applied>)",
+    "  - `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])",
+    "  - `skill-name`: UNAVAILABLE(<exact configured skill name, not found>)",
+    "",
+    "  Router and additional skills are reported only when used. Do not use prose in this section."
   ];
 }
 
@@ -75,22 +82,22 @@ function externalSkillArtifactRule(stage: Stage): string {
 
 function noMatchingSkillRule(stage: Stage): string {
   if (stage === "setup") {
-    return "- For setup, if no configured or router-selected skill fits the available post-intake evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
+    return "- For setup, for each configured main and router-selected skill that does not fit the available post-intake evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section. Stop only when needed stage work requires a skill outside the allowed external skill set.";
   }
 
-  return "- If no configured or router-selected skill fits the available stage evidence, continue under this Flow stage contract and record that no applicable configured skill was used. Stop only when needed stage work requires a skill outside the allowed external skill set.";
+  return "- For each configured main and router-selected skill that does not fit the stage evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section. Stop only when needed stage work requires a skill outside the allowed external skill set.";
 }
 
 function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
   if (stage === "setup") {
-    return "- Priority 1: after setup intake is available, read listed router skills first when they are available and help shape the setup artifacts.";
+    return "- Priority 1: after setup intake is available, read listed router skills first when they are available and help shape the setup artifacts.\n- Router-selected skills follow the apply-by-default mandate.";
   }
 
   if (stage === "research" && onlyRouters) {
-    return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.";
+    return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; if no router is available or applicable, continue under this Flow stage contract.\n- Router-selected skills follow the apply-by-default mandate.";
   }
 
-  return "- Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select method skills; then load only router-selected, main, or additional method skills that apply to the stage evidence.";
+  return "- Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select method skills; then load only router-selected, main, or additional method skills that apply to the stage evidence.\n- Router-selected skills follow the apply-by-default mandate.";
 }
 
 export function renderSkillPolicy(stage: Stage, config: Config): string {
@@ -101,18 +108,20 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
       routerPriorityRule(stage, onlyRouters),
       "- Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.",
       ...(skills.main.length > 0
-        ? ["- Priority 2: use listed main skills only when router skills and router-selected skills are insufficient for the stage evidence."]
+        ? ["- Priority 2: apply listed main skills by default; they are not gated by router availability. Router (P1) augments/selects; it does not gate main. When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>)."]
         : []),
       ...(skills.additional.length > 0
         ? ["- Priority 3: use listed additional skills only when Priority 1 and Priority 2 skills are insufficient or an additional skill is clearly better."]
         : []),
-      "- Allowed external skills: listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.",
+      "- Authorized external skills (boundary, do not exceed): listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.",
       noMatchingSkillRule(stage)
     ]
     : [
-      "- No routers are configured; use main skills first.",
+      ...(skills.main.length > 0
+        ? ["- No routers are configured; main skills apply by default."]
+        : ["- No routers or main skills configured for this stage. Additional skills: evaluate and apply when stage evidence fits."]),
       "- Use additional skills only when main skills are insufficient or an additional skill is clearly better.",
-      "- Allowed external skills: only the main and additional skills listed in this prompt.",
+      "- Authorized external skills (boundary, do not exceed): only the main and additional skills listed in this prompt.",
       noMatchingSkillRule(stage)
     ];
   const rules = [
@@ -174,6 +183,10 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
 
   return [
     "## Configured Skill Policy",
+    "",
+    "You MUST evaluate every configured router-selected and main skill against the stage evidence and APPLY its method by default. Skipping is allowed only with a concrete, evidence-specific reason and reference. Omitting this evaluation is a contract violation.",
+    "",
+    "When a router-selected skill and a main skill address the same evidence, the more specific (router-selected) method takes priority for that evidence. The main skill reports NOT_APPLICABLE(superseded by <router-selected-skill>) for that evidence and remains APPLY-BY-DEFAULT for any uncovered evidence.",
     "",
     ...flowSkillBoundaryProtocol(),
     "",

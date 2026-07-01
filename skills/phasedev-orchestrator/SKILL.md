@@ -87,10 +87,11 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 1. Run: phasedev init
 2. Run: phasedev next
 3. Follow the stage contract it prints exactly.
-4. Self-validate before completing (mandatory): the contract contains a "Self-check command" (a phasedev check ... call). Run it. If it fails, read the reported issues, fix the artifact you produced, and rerun the same command until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
-5. Do NOT report the stage as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
-6. Do NOT run phasedev init or phasedev next again — they advance flow state. Only the Self-check command may be rerun.
-7. Report: the stage completed, the EXACT self-check command and its final result (PASS/FAIL), and any blockers.`
+4. Treat the contract — including the Configured Skill Policy — as executable instructions, not optional guidelines. For each configured skill: apply its method or record a concrete evidence-based reason it doesn't apply. Never silently skip a configured skill.
+5. Self-validate before completing (mandatory): the contract contains a "Self-check command" (a phasedev check ... call). Run it. If it fails, read the reported issues, fix the artifact you produced, and rerun the same command until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
+6. Do NOT report the stage as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
+7. Do NOT run phasedev init or phasedev next again — they advance flow state. Only the Self-check command may be rerun.
+8. Report: the stage completed, the EXACT self-check command and its final result (PASS/FAIL), and any blockers.`
 )
 ```
 
