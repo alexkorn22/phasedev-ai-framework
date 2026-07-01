@@ -10,7 +10,7 @@ import { getInitPrompt, getNextPrompt } from "../stage-control";
 import { resolveRoute } from "../stage-control/flow-route";
 import { autoApproveCurrentRoute } from "./auto-approve";
 import { CodexFileChange, CodexTurnTimeoutError, createDefaultCodexFactory, CodexFactory, runCodexTurn } from "./codex-turn";
-import { Config, resolveProjectLogDir } from "./config";
+import { Config, RunnerConfig, DEFAULT_RUNNER_CONFIG, resolveProjectLogDir } from "./config";
 
 export interface RunnerDependencies {
   createCodex?: () => Promise<CodexFactory> | CodexFactory;
@@ -39,6 +39,7 @@ interface ChangedFiles {
 }
 
 const PROJECT_CONFIG_RELATIVE_PATH = ".phasedev/config.yaml";
+const RUNNER_CONFIG_RELATIVE_PATH = ".phasedev/runner.yaml";
 
 function wrapStagePrompt(initPrompt: Prompt, nextPrompt: Prompt): string {
   return [
@@ -133,7 +134,8 @@ function applyAutoApprovals(projectPath: string, reporter: Pick<typeof console, 
 function isIgnoredFlowSnapshotPath(itemPath: string, logDir: string): boolean {
   return itemPath === logDir ||
     itemPath.startsWith(`${logDir}${path.sep}`) ||
-    itemPath.endsWith(PROJECT_CONFIG_RELATIVE_PATH.replace(/\//g, path.sep));
+    itemPath.endsWith(PROJECT_CONFIG_RELATIVE_PATH.replace(/\//g, path.sep)) ||
+    itemPath.endsWith(RUNNER_CONFIG_RELATIVE_PATH.replace(/\//g, path.sep));
 }
 
 function snapshotFlowState(projectPath: string, logDir: string): Map<string, string> {
@@ -231,6 +233,7 @@ function snapshotProtectedFlowFiles(projectPath: string): Map<string, string> {
   }
 
   hashProtectedPath(PROJECT_CONFIG_RELATIVE_PATH);
+  hashProtectedPath(RUNNER_CONFIG_RELATIVE_PATH);
   return snapshot;
 }
 
@@ -524,7 +527,28 @@ function implementationBlockedReason(projectPath: string): string | null {
   return `Current implementation phase is blocked by Check Evidence. Phase ${route.activePhase.id}: ${route.activePhase.name}.`;
 }
 
-export async function runRunner(projectPath: string, config: Config, dependencies: RunnerDependencies = {}): Promise<RunnerResult> {
+const OLD_STAGE_PATTERNS = [
+  "setup", "setup_approval", "research", "invalid_research",
+  "design", "invalid_design", "plan", "invalid_plan",
+  "plan_approval", "phase_validation", "repair"
+];
+
+function validateSkillMdStageNames(skillMdPath: string): boolean {
+  if (!fs.existsSync(skillMdPath)) return true;
+  const content = fs.readFileSync(skillMdPath, "utf-8");
+  for (const pattern of OLD_STAGE_PATTERNS) {
+    const regex = new RegExp(`\\b${pattern}\\b`, "g");
+    if (regex.test(content)) {
+      throw new Error(
+        `SKILL.md contains deprecated stage name "${pattern}". ` +
+        `Run "phasedev next" with a migrated config.yaml that uses new phase names.`
+      );
+    }
+  }
+  return true;
+}
+
+export async function runRunner(projectPath: string, config: Config, dependencies: RunnerDependencies = {}, runnerConfig: RunnerConfig = DEFAULT_RUNNER_CONFIG): Promise<RunnerResult> {
   const resolvedProjectPath = path.resolve(projectPath);
   ensureGitRepo(resolvedProjectPath);
 
@@ -535,21 +559,24 @@ export async function runRunner(projectPath: string, config: Config, dependencie
   const iterationLogger = dependencies.iterationLogger ?? null;
   const createCodex = dependencies.createCodex ?? createDefaultCodexFactory;
   const now = dependencies.now ?? (() => new Date());
-  const logDir = resolveProjectLogDir(resolvedProjectPath, ".phasedev/logs");
+  const logDir = resolveProjectLogDir(resolvedProjectPath, runnerConfig.runner.logDir);
   const relativeLogDir = path.relative(resolvedProjectPath, logDir).replace(/\\/g, "/");
   const logPath = path.join(logDir, "ralph-log.jsonl");
+
+  const skillMdPath = path.join(resolvedProjectPath, "skills", "phasedev-orchestrator", "SKILL.md");
+  validateSkillMdStageNames(skillMdPath);
 
   try {
     let codex: CodexFactory | null = null;
 
-    for (let iteration = 1; iteration <= 10; iteration++) {
+    for (let iteration = 1; iteration <= runnerConfig.runner.maxIterations; iteration++) {
       if (config.autoApprove) {
         const autoApproveFailure = applyAutoApprovals(resolvedProjectPath, reporter);
         if (autoApproveFailure) {
           reporter.log("[PHASEDEV RUNNER] blocked at stage: approval");
           reporter.log(`[PHASEDEV RUNNER] reason: ${autoApproveFailure}`);
           reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-          const approvalStageModel = { model: "gpt-5.4", reasoningEffort: "high" as const };
+          const approvalStageModel = { model: runnerConfig.runner.model, reasoningEffort: runnerConfig.runner.reasoningEffort };
           logRunnerEvent(iterationLogger, buildIterationLogEntry(
             iteration - 1, "approval", approvalStageModel.model, approvalStageModel.reasoningEffort,
             findActive(resolvedProjectPath), 0, null, { added: [], modified: [], deleted: [] }, false,
@@ -565,7 +592,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         reporter.log("[PHASEDEV RUNNER] blocked at stage: archive");
         reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-        const stageModel = { model: "gpt-5.4", reasoningEffort: "high" as const };
+        const stageModel = { model: runnerConfig.runner.model, reasoningEffort: runnerConfig.runner.reasoningEffort };
         logRunnerEvent(iterationLogger, buildIterationLogEntry(
           iteration - 1, "archive", stageModel.model, stageModel.reasoningEffort,
           beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
@@ -581,9 +608,9 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
         reporter.log(`[PHASEDEV RUNNER] reason: ${reason}`);
         reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-        const stageModel = { model: "gpt-5.4", reasoningEffort: "high" as const };
+        const stageModel2 = { model: runnerConfig.runner.model, reasoningEffort: runnerConfig.runner.reasoningEffort };
         logRunnerEvent(iterationLogger, buildIterationLogEntry(
-          iteration - 1, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+          iteration - 1, nextPrompt.stage, stageModel2.model, stageModel2.reasoningEffort,
           beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
           [], "blocked", null, null, reason, now
         ));
@@ -596,9 +623,9 @@ export async function runRunner(projectPath: string, config: Config, dependencie
           reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
           reporter.log(`[PHASEDEV RUNNER] reason: ${blockedReason}`);
           reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-          const stageModel = { model: "gpt-5.4", reasoningEffort: "high" as const };
+          const stageModel3 = { model: runnerConfig.runner.model, reasoningEffort: runnerConfig.runner.reasoningEffort };
           logRunnerEvent(iterationLogger, buildIterationLogEntry(
-            iteration - 1, nextPrompt.stage, stageModel.model, stageModel.reasoningEffort,
+            iteration - 1, nextPrompt.stage, stageModel3.model, stageModel3.reasoningEffort,
             beforeActiveChange, 0, null, { added: [], modified: [], deleted: [] }, false,
             [], "blocked", null, null, blockedReason, now
           ));
@@ -606,8 +633,8 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         }
       }
 
-      const stageModel = { model: "gpt-5.4", reasoningEffort: "high" as const };
-      reporter.log(`[PHASEDEV RUNNER] iteration ${iteration}/10`);
+      const stageModel = { model: runnerConfig.runner.model, reasoningEffort: runnerConfig.runner.reasoningEffort };
+      reporter.log(`[PHASEDEV RUNNER] iteration ${iteration}/${runnerConfig.runner.maxIterations}`);
       reporter.log(`[PHASEDEV RUNNER] stage: ${nextPrompt.stage}`);
       reporter.log(`[PHASEDEV RUNNER] model: ${stageModel.model}`);
       reporter.log(`[PHASEDEV RUNNER] reasoning: ${stageModel.reasoningEffort}`);
@@ -618,9 +645,9 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         workingDirectory: resolvedProjectPath,
         model: stageModel.model,
         modelReasoningEffort: stageModel.reasoningEffort,
-        sandboxMode: "workspace-write" as const,
-        approvalPolicy: "never" as const,
-        networkAccessEnabled: false
+        sandboxMode: runnerConfig.runner.sandboxMode,
+        approvalPolicy: runnerConfig.runner.approvalPolicy,
+        networkAccessEnabled: runnerConfig.runner.networkAccessEnabled
       });
 
       const beforeStageSnapshot = snapshotFlowState(resolvedProjectPath, logDir);
@@ -638,7 +665,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
           nextPrompt.stage,
           reporter,
           true,
-          { watchdog: { enabled: true, turnTimeoutMs: 3600000, inactivityTimeoutMs: 900000, statusIntervalMs: 300000, abortGraceMs: 5000 } }
+          { watchdog: runnerConfig.runner.watchdog }
         );
       } catch (error) {
         if (!(error instanceof CodexTurnTimeoutError)) {
@@ -763,7 +790,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
       reporter.log(`[PHASEDEV RUNNER] stage completed: ${nextPrompt.stage}`);
     }
 
-    return { status: "max_iterations", iterations: 10, logPath, reason: "Reached loop.maxIterations." };
+    return { status: "max_iterations", iterations: runnerConfig.runner.maxIterations, logPath, reason: "Reached loop.maxIterations." };
   } finally {
     if (iterationLogger) {
       await iterationLogger.flush();

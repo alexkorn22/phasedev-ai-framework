@@ -25,31 +25,21 @@ function setupProject(): string {
   return testTmpDir;
 }
 
-function makeConfig(overrides: Partial<Config["loop"]> = {}, codexOverrides: Partial<Config["codex"]> = {}): Config {
+function makeConfig(overrides: Record<string, unknown> = {}): Config {
   return {
     ...DEFAULT_CONFIG,
-    codex: {
-      ...DEFAULT_CONFIG.codex,
-      ...codexOverrides
-    },
-    loop: {
-      ...DEFAULT_CONFIG.loop,
-      ...overrides
-    }
-  };
+    ...overrides
+  } as Config;
 }
 
-function makeTelegramConfig(overrides: Partial<Config["loop"]> = {}, codexOverrides: Partial<Config["codex"]> = {}): Config {
-  return makeConfig({
-    ...overrides,
-    notifications: {
-      telegram: {
-        enabled: true,
-        botTokenEnv: "TEST_TELEGRAM_BOT_TOKEN",
-        chatIdEnv: "TEST_TELEGRAM_CHAT_ID"
-      }
+function makeRunnerConfig(runnerOverrides: Partial<RunnerConfig["runner"]> = {}): RunnerConfig {
+  return {
+    ...DEFAULT_RUNNER_CONFIG,
+    runner: {
+      ...DEFAULT_RUNNER_CONFIG.runner,
+      ...runnerOverrides
     }
-  }, codexOverrides);
+  };
 }
 
 function flowPrompt(command: "init" | "next", stage: Stage, text: string, blocked = false): Prompt {
@@ -2383,5 +2373,183 @@ TELEGRAM_CHAT_ID=789
 
     expect(telegramMessages).toContain("[PHASEDEV RUNNER] iteration 1/1");
     expect(telegramMessages).toContain("[PHASEDEV RUNNER] status: no_progress");
+  });
+});
+
+describe("RunnerConfig integration", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("runRunner accepts RunnerConfig and uses runnerConfig.runner.model for Codex creation", async () => {
+    const projectPath = setupProject();
+    const config = makeConfig();
+    const runnerConfig = makeRunnerConfig({ model: "custom-model-v2", maxIterations: 1 });
+    const optionsLog: Array<Record<string, unknown>> = [];
+
+    const result = await runRunner(projectPath, config, {
+      createCodex: () => ({
+        startThread: (options: Record<string, unknown>) => {
+          optionsLog.push(options);
+          return {
+            id: "test-thread",
+            async run() { return { finalResponse: "done" }; }
+          };
+        }
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    }, runnerConfig);
+
+    expect(result.status).toBe("no_progress");
+    expect(optionsLog[0].model).toBe("custom-model-v2");
+  });
+
+  test("runner uses runnerConfig.runner.sandboxMode for turn config", async () => {
+    const projectPath = setupProject();
+    const config = makeConfig();
+    const runnerConfig = makeRunnerConfig({
+      sandboxMode: "danger-full-access",
+      approvalPolicy: "on-request",
+      networkAccessEnabled: true,
+      maxIterations: 1
+    });
+    const optionsLog: Array<Record<string, unknown>> = [];
+
+    const result = await runRunner(projectPath, config, {
+      createCodex: () => ({
+        startThread: (options: Record<string, unknown>) => {
+          optionsLog.push(options);
+          return {
+            id: "test-thread",
+            async run() { return { finalResponse: "done" }; }
+          };
+        }
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    }, runnerConfig);
+
+    expect(optionsLog[0].sandboxMode).toBe("danger-full-access");
+    expect(optionsLog[0].approvalPolicy).toBe("on-request");
+    expect(optionsLog[0].networkAccessEnabled).toBe(true);
+  });
+
+  test("blocks modifications to runner.yaml during non-archive stages via protected hash", async () => {
+    const projectPath = setupProject();
+    const runnerConfigPath = path.join(projectPath, ".phasedev", "runner.yaml");
+    fs.mkdirSync(path.dirname(runnerConfigPath), { recursive: true });
+    fs.writeFileSync(runnerConfigPath, "runner:\n  model: claude-sonnet-5\n", "utf-8");
+
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-runner-config-mod",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.writeFileSync(runnerConfigPath, "runner:\n  model: custom-model\n", "utf-8");
+            }
+            return { finalResponse: "updated runner config" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "finding_repair", "repair prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain(".phasedev/runner.yaml");
+    expect(result.reason).toContain("outside allowlist");
+  });
+
+  test("config.yaml modifications still blocked during non-archive stages", async () => {
+    const projectPath = setupProject();
+    const configPath = path.join(projectPath, ".phasedev", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
+
+    const result = await runRunner(projectPath, makeConfig({ runArchiveStage: false }), {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "thread-config-mod",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.writeFileSync(configPath, "runArchiveStage: false\n", "utf-8");
+            }
+            return { finalResponse: "updated project config" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "finding_repair", "repair prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toContain(".phasedev/config.yaml");
+    expect(result.reason).toContain("outside allowlist");
+  });
+
+  test("runner uses runnerConfig.runner.reasoningEffort in logging output", async () => {
+    const projectPath = setupProject();
+    const config = makeConfig();
+    const runnerConfig = makeRunnerConfig({ reasoningEffort: "xhigh", maxIterations: 1 });
+    const logMessages: string[] = [];
+
+    const result = await runRunner(projectPath, config, {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "test-thread",
+          async run() { return { finalResponse: "done" }; }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", "next prompt"),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: msg => logMessages.push(msg) },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    }, runnerConfig);
+
+    expect(logMessages).toContain("[PHASEDEV RUNNER] reasoning: xhigh");
+  });
+
+  test("runner uses runnerConfig.runner.maxIterations for loop limit", async () => {
+    const projectPath = setupProject();
+    const config = makeConfig();
+    const runnerConfig = makeRunnerConfig({ maxIterations: 3 });
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
+    let promptCounter = 0;
+
+    const result = await runRunner(projectPath, config, {
+      createCodex: () => ({
+        startThread: () => ({
+          id: "test-thread",
+          async run(prompt: string) {
+            if (prompt.includes("FLOW NEXT PROMPT")) {
+              fs.writeFileSync(planPath, `iteration ${promptCounter}\n`, "utf-8");
+            }
+            return { finalResponse: "done" };
+          }
+        })
+      }),
+      getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
+      getNextPrompt: () => flowPrompt("next", "implementation", `next prompt ${++promptCounter}`),
+      findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
+      reporter: { log: () => undefined },
+      now: () => new Date("2026-05-29T10:00:00.000Z")
+    }, runnerConfig);
+
+    expect(result.status).toBe("max_iterations");
+    expect(result.iterations).toBe(3);
   });
 });
