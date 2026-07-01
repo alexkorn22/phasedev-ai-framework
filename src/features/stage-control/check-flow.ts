@@ -28,20 +28,20 @@ export interface ValidationCheckResult {
 const ROUTE_KINDS = new Set<RouteKind>([
   "invalid_archive_state",
   "pending_archive",
-  "setup",
+  "change_intake",
   "invalid_prd",
-  "invalid_rules",
-  "setup_approval",
-  "research",
-  "invalid_research",
-  "design",
-  "invalid_design",
-  "design_approval",
-  "plan",
-  "plan_approval",
-  "invalid_plan",
+  "invalid_execution_contract",
+  "change_intake_approval",
+  "code_research",
+  "invalid_code_research",
+  "technical_design",
+  "invalid_technical_design",
+  "technical_design_approval",
+  "iteration_planning",
+  "iteration_planning_approval",
+  "invalid_iteration_planning",
   "invalid_findings",
-  "repair",
+  "finding_repair",
   "archive_readiness_blocked",
   "archive_ready",
   "phase",
@@ -50,14 +50,14 @@ const ROUTE_KINDS = new Set<RouteKind>([
 
 const STAGE_KINDS = new Set<Stage>([
   "init",
-  "setup",
-  "research",
-  "design",
-  "plan",
+  "change_intake",
+  "code_research",
+  "technical_design",
+  "iteration_planning",
   "implementation",
-  "phase_validation",
+  "iteration_validation",
   "final_validation",
-  "repair",
+  "finding_repair",
   "archive"
 ]);
 
@@ -87,7 +87,7 @@ function readyPhaseIssue(verdict: ValidationFindingsVerdict | "unknown", phaseId
 }
 
 function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: RouteKind): string {
-  return `\`verdict: repair_required\` is valid for ${scope} validation only when the current route is repair; got ${routeKind}.`;
+  return `\`verdict: repair_required\` is valid for ${scope} validation only when the current route is finding_repair; got ${routeKind}.`;
 }
 
 export function isRouteKind(value: string): value is RouteKind {
@@ -134,9 +134,9 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     }
 
     if (isReadyVerdict(findings.verdict)) {
-      const phase = paths ? parsePlan(paths.planPath).find(candidate => candidate.id === options.phaseId) : undefined;
+      const phase = paths ? parsePlan(paths.iterationPlanPath).find(candidate => candidate.id === options.phaseId) : undefined;
       if (!phase) {
-        issues.push(`Phase ${options.phaseId} was not found in implementation_plan.md.`);
+        issues.push(`Phase ${options.phaseId} was not found in iteration_plan.md.`);
       } else if (phase.status !== "completed") {
         issues.push(readyPhaseIssue(findings.verdict, options.phaseId));
       } else {
@@ -147,7 +147,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
       }
     }
 
-    if (findings.verdict === "repair_required" && route.kind !== "repair") {
+    if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("phase", route.kind));
     }
   }
@@ -169,7 +169,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
       }
     }
 
-    if (findings.verdict === "repair_required" && route.kind !== "repair") {
+    if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("final", route.kind));
     }
   }
