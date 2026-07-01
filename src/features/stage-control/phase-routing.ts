@@ -58,7 +58,7 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
     ...variables,
     prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
-    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/rules")),
+    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/execution_contract")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     validation_common_contract: renderValidationCommonContract(stage),
     skill_policy: renderSkillPolicy(stage, config)

@@ -123,7 +123,7 @@ function validateTestCommands(lines: string[], issues: string[]): void {
 
 export function validateRulesArtifact(filePath: string): string[] {
   if (!fs.existsSync(filePath)) {
-    return ["rules.md does not exist."];
+    return ["execution_contract.md does not exist."];
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
@@ -132,45 +132,45 @@ export function validateRulesArtifact(filePath: string): string[] {
   const issues: string[] = [];
 
   if (!hasFrontmatter) {
-    issues.push("rules.md must start with YAML frontmatter.");
+    issues.push("execution_contract.md must start with YAML frontmatter.");
   }
   if (/<!--[\s\S]*?-->/.test(content)) {
-    issues.push("rules.md must not contain HTML template comments.");
+    issues.push("execution_contract.md must not contain HTML template comments.");
   }
   for (const placeholder of BLOCKED_PLACEHOLDERS) {
     if (placeholder.pattern.test(body)) {
-      issues.push(`rules.md must not contain placeholder text: ${placeholder.label}.`);
+      issues.push(`execution_contract.md must not contain placeholder text: ${placeholder.label}.`);
     }
   }
 
   const topLevelHeadings = lines.map(topLevelHeadingName).filter((heading): heading is string => heading !== null);
   if (topLevelHeadings.length !== 1 || topLevelHeadings[0] !== "Rules") {
-    issues.push("rules.md must contain exactly one top-level heading: `# Rules`.");
+    issues.push("execution_contract.md must contain exactly one top-level heading: `# Rules`.");
   }
 
   for (const line of lines) {
     const deepHeading = deepHeadingName(line);
     if (deepHeading) {
-      issues.push(`rules.md must not contain headings deeper than \`##\`: \`${line.trim()}\`.`);
+      issues.push(`execution_contract.md must not contain headings deeper than \`##\`: \`${line.trim()}\`.`);
     }
   }
 
   const actualSections = lines.map(headingName).filter((section): section is string => section !== null);
   for (const section of REQUIRED_SECTIONS) {
     if (!actualSections.some(actual => actual.toLowerCase() === section.toLowerCase())) {
-      issues.push(`rules.md must contain section \`## ${section}\`.`);
+      issues.push(`execution_contract.md must contain section \`## ${section}\`.`);
     }
   }
   for (const section of actualSections) {
     if (!REQUIRED_SECTIONS.some(allowed => allowed.toLowerCase() === section.toLowerCase())) {
-      issues.push(`rules.md contains unexpected section \`## ${section}\`.`);
+      issues.push(`execution_contract.md contains unexpected section \`## ${section}\`.`);
     }
   }
   if (
     actualSections.length !== REQUIRED_SECTIONS.length ||
     actualSections.some((section, index) => section !== REQUIRED_SECTIONS[index])
   ) {
-    issues.push(`rules.md \`##\` sections must exactly match this order: ${REQUIRED_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
+    issues.push(`execution_contract.md \`##\` sections must exactly match this order: ${REQUIRED_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
   validateTestCommands(lines, issues);

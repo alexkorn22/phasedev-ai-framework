@@ -3,7 +3,7 @@ import { isApproved } from "../../shared/markdown/frontmatter";
 
 export function isSetupApproved(changeDir: string): { approved: boolean; missing: string[] } {
   const prdPath = path.join(changeDir, "prd.md");
-  const rulesPath = path.join(changeDir, "rules.md");
+  const rulesPath = path.join(changeDir, "execution_contract.md");
   const missing: string[] = [];
 
   if (!isApproved(prdPath)) {
