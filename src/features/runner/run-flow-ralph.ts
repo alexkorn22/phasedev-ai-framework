@@ -390,21 +390,21 @@ function validateStageAllowlist(
       continue;
     }
 
-    if (stage === "setup") {
+    if (stage === "change_intake") {
       const isAllowed = relativeChangeDir && (
         normalized === relativeChangeDir ||
         normalized === `${relativeChangeDir}/prd.md` ||
-        normalized === `${relativeChangeDir}/rules.md`
+        normalized === `${relativeChangeDir}/execution_contract.md`
       );
       if (!isAllowed) {
-        violations.push(`File '${normalized}' modified during 'setup' stage is outside allowlist.`);
+        violations.push(`File '${normalized}' modified during 'change_intake' stage is outside allowlist.`);
       }
-    } else if (stage === "research") {
+    } else if (stage === "code_research") {
       const isAllowed = relativeChangeDir && normalized === `${relativeChangeDir}/research_facts.md`;
       if (!isAllowed) {
-        violations.push(`File '${normalized}' modified during 'research' stage is outside allowlist.`);
+        violations.push(`File '${normalized}' modified during 'code_research' stage is outside allowlist.`);
       }
-    } else if (stage === "design") {
+    } else if (stage === "technical_design") {
       const isAllowed = relativeChangeDir &&
         (
           normalized === `${relativeChangeDir}/architecture` ||
@@ -414,29 +414,29 @@ function validateStageAllowlist(
           )
         );
       if (!isAllowed) {
-        violations.push(`File '${normalized}' modified during 'design' stage is outside allowlist.`);
+        violations.push(`File '${normalized}' modified during 'technical_design' stage is outside allowlist.`);
       }
-    } else if (stage === "plan") {
-      const isAllowed = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
+    } else if (stage === "iteration_planning") {
+      const isAllowed = relativeChangeDir && normalized === `${relativeChangeDir}/iteration_plan.md`;
       if (!isAllowed) {
-        violations.push(`File '${normalized}' modified during 'plan' stage is outside allowlist.`);
+        violations.push(`File '${normalized}' modified during 'iteration_planning' stage is outside allowlist.`);
       }
     } else if (stage === "implementation") {
-      const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
+      const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/iteration_plan.md`;
       const isOutsideFlowState = !normalized.startsWith(".phasedev/");
       if (!isPlan && !isOutsideFlowState) {
         violations.push(`File '${normalized}' modified during 'implementation' stage is outside allowlist.`);
       }
-    } else if (stage === "phase_validation" || stage === "final_validation") {
+    } else if (stage === "iteration_validation" || stage === "final_validation") {
       const isFindings = relativeChangeDir && normalized === `${relativeChangeDir}/validation_findings.md`;
-      const isPlan = stage === "phase_validation" && relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
+      const isPlan = stage === "iteration_validation" && relativeChangeDir && normalized === `${relativeChangeDir}/iteration_plan.md`;
       if (!isFindings && !isPlan) {
         violations.push(`File '${normalized}' modified during '${stage}' stage is outside allowlist.`);
       }
-    } else if (stage === "repair") {
+    } else if (stage === "finding_repair") {
       const isOutsideFlowState = !normalized.startsWith(".phasedev/");
       const isFindings = relativeChangeDir && normalized === `${relativeChangeDir}/validation_findings.md`;
-      const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/implementation_plan.md`;
+      const isPlan = relativeChangeDir && normalized === `${relativeChangeDir}/iteration_plan.md`;
       const isDesign = relativeChangeDir && (
         normalized === `${relativeChangeDir}/architecture` ||
         normalized === `${relativeChangeDir}/architecture/design.md` ||
@@ -451,7 +451,7 @@ function validateStageAllowlist(
         violations.push(`File '${normalized}' modified during 'repair' stage is outside allowlist.`);
       }
     } else if (stage === "archive") {
-      const isArchiveJson = normalized === ".flow-archive.json" || normalized.endsWith("/.flow-archive.json");
+      const isArchiveJson = normalized === ".phase-archive.json" || normalized.endsWith("/.phase-archive.json");
       const isArchiveRoot = normalized === ".phasedev/changes/archive";
       const isInCurrentArchiveDir = isCurrentArchivePath(normalized, relativeChangeDir);
       const isDeletedActiveChange = relativeChangeDir && normalized.startsWith(`${relativeChangeDir}/`);
@@ -549,7 +549,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
           reporter.log("[PHASEDEV RUNNER] blocked at stage: approval");
           reporter.log(`[PHASEDEV RUNNER] reason: ${autoApproveFailure}`);
           reporter.log(`[PHASEDEV RUNNER] log: ${logPath}`);
-          const approvalStageModel = getStageModelConfig(config, "setup");
+          const approvalStageModel = getStageModelConfig(config, "change_intake");
           logRunnerEvent(iterationLogger, buildIterationLogEntry(
             iteration - 1, "approval", approvalStageModel.model, approvalStageModel.reasoningEffort,
             findActive(resolvedProjectPath), 0, null, { added: [], modified: [], deleted: [] }, false,
@@ -590,7 +590,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
         return { status: "blocked", iterations: iteration - 1, logPath, reason };
       }
 
-      if (nextPrompt.stage === "implementation" || nextPrompt.stage === "repair") {
+      if (nextPrompt.stage === "implementation" || nextPrompt.stage === "finding_repair") {
         const blockedReason = implementationBlockedReason(resolvedProjectPath);
         if (blockedReason) {
           reporter.log(`[PHASEDEV RUNNER] blocked at stage: ${nextPrompt.stage}`);
@@ -729,7 +729,7 @@ export async function runRunner(projectPath: string, config: Config, dependencie
 
       const archived = hasCompletedArchivedChange(resolvedProjectPath, beforeActiveChange);
       const blockedReason = !archived && flowStateChanged && (
-        nextPrompt.stage === "implementation" || nextPrompt.stage === "repair"
+        nextPrompt.stage === "implementation" || nextPrompt.stage === "finding_repair"
       )
         ? implementationBlockedReason(resolvedProjectPath)
         : null;

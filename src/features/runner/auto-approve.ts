@@ -63,15 +63,15 @@ export function autoApproveCurrentRoute(projectPath: string): AutoApproveResult 
   let label: string;
   let files: string[];
 
-  if (route.kind === "setup_approval") {
+  if (route.kind === "change_intake_approval") {
     label = "setup artifacts";
-    files = [route.paths.prdPath, route.paths.rulesPath];
-  } else if (route.kind === "design_approval") {
+    files = [route.paths.prdPath, route.paths.executionContractPath];
+  } else if (route.kind === "technical_design_approval") {
     label = "design artifact";
     files = [route.paths.designPath];
-  } else if (route.kind === "plan_approval") {
+  } else if (route.kind === "iteration_planning_approval") {
     label = "plan artifact";
-    files = [route.paths.planPath];
+    files = [route.paths.iterationPlanPath];
   } else {
     return { approved: false, advanced: false };
   }
