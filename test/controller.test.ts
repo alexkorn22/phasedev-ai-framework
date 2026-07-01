@@ -342,7 +342,7 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route setup_approval` subcommand");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
-    expect(result.prompt).toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
+    expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
@@ -392,7 +392,8 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Do not loop indefinitely on unavailable commands or repeated non-actionable failures.");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
     expect(result.prompt).toContain("Final response must be compact and include");
-    expect(result.prompt).toContain("configured/router skills used, skipped, or unavailable");
+    expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("--expect-route design_approval");
   });
 

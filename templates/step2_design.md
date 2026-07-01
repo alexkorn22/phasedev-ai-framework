@@ -15,7 +15,7 @@ Use this bounded retrieval order before designing:
 1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
 2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized.
    If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
-3. If configured/router skills apply, use their method after the stage contract is understood and map their output back into the embedded design template only.
+3. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood; map relevant skill output back into the embedded design template only.
 4. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.
 
 Context budget and stop condition:
@@ -154,5 +154,5 @@ Stage completion:
   - artifact path: `architecture/design.md`;
   - linked architecture docs created, or `none`;
   - self-check command and result;
-  - configured/router skills used, skipped, or unavailable;
+  - `Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.`
   - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev next`.

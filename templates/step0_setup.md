@@ -92,6 +92,6 @@ Stage completion:
   - `Change slug: <slug>`
   - `Artifacts: <absolute-prd-path>; <absolute-rules-path>`
   - `Interpretation: <one-sentence final task interpretation>`
-  - `Skill compliance: <configured/router skills used; skipped/unavailable skills>`
+  - `Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.`
   - `Self-check: <exact command> -> <result>`
   - `Next: review the files, set approved: true, then run phasedev next`
