@@ -76,12 +76,12 @@ Generated files:
       Runner logs when loop logging is enabled.
 
 Stages:
-  setup             Create prd.md and rules.md for the active change.
-  research          Record source-grounded research_facts.md.
-  design            Produce architecture/design.md.
-  plan              Produce implementation_plan.md.
+  change_intake     Create prd.md and execution_contract.md for the active change.
+  code_research     Record source-grounded research_facts.md.
+  technical_design  Produce architecture/design.md.
+  iteration_planning Produce iteration_plan.md.
   implementation    Execute the current implementation phase.
-  phase_validation  Validate the completed phase.
+  iteration_validation Validate the completed iteration.
   final_validation  Validate the full change.
   repair            Fix validation findings.
   archive           Move completed flow state to archive and sync delta specs.

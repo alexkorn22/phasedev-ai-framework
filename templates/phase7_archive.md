@@ -25,7 +25,7 @@ Path resolution rule:
 - Short flow artifact names in this prompt (`prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) refer to files inside the archived change at `{{archive_path}}`, not paths from the project repository root.
 - Delta specs belong only under `{{archive_path}}/specs/<capability>/spec.md`.
 - Long-lived synced specs belong only under the project `.phasedev/specs` path linked below.
-- The archive state file is only [{{archive_state_path}}]({{archive_state_path}}); do not create or update a project-root `.flow-archive.json`.
+- The archive state file is only [{{archive_state_path}}]({{archive_state_path}}); do not create or update a project-root `.phase-archive.json`.
 
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
 Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the final response.
@@ -50,7 +50,7 @@ Work only with requirement-level changes derived from the archived change artifa
 2. Classify every `R#`.
 3. Create delta specs when needed.
 4. Sync `.phasedev/specs` when needed.
-5. Set `.flow-archive.json` to completed.
+5. Set `.phase-archive.json` to completed.
 6. Run the archive self-check.
 7. Report changed specs or skipped sync, then stop.
 
@@ -152,7 +152,7 @@ After creating delta specs, sync them into `.phasedev/specs`:
 
 ## Complete archive state
 
-After successful spec sync or an explicit skip, update `.flow-archive.json` in the archived change:
+After successful spec sync or an explicit skip, update `.phase-archive.json` in the archived change:
 - file: [{{archive_state_path}}]({{archive_state_path}})
 - set `status: "completed"`;
 - preserve `changeName`, `archivePath`, and `startedAt`;
@@ -160,7 +160,7 @@ After successful spec sync or an explicit skip, update `.flow-archive.json` in t
 
 ## Archive self-check
 
-After updating `.flow-archive.json`, run:
+After updating `.phase-archive.json`, run:
 
 ```bash
 phasedev check-archive --archive-path {{archive_path}}

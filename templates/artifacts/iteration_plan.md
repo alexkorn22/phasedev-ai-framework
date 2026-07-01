@@ -100,12 +100,12 @@ Check Evidence contract:
 | Observability |  |  |
 | Rollback path |  |  |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
 
-## Phase 1:  [ ]
+## Iteration 1:  [ ]
 
 ### Goal
 

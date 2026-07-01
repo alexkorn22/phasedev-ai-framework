@@ -10,7 +10,7 @@ export function isSetupApproved(changeDir: string): { approved: boolean; missing
     missing.push("prd.md");
   }
   if (!isApproved(rulesPath)) {
-    missing.push("rules.md");
+    missing.push("execution_contract.md");
   }
 
   return {

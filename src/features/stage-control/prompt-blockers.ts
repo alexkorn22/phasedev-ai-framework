@@ -67,7 +67,7 @@ export function invalidRulesBlocker(rulesPath: string, issues: string[]): Prompt
     `- Link: ${toFileUrl(rulesPath)}`,
     "Fix execution_contract.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
     "================================================================================"
-  ].join("\n"), true, "Invalid rules.md");
+  ].join("\n"), true, "Invalid execution_contract.md");
 }
 export function invalidResearchBlocker(researchPath: string, issues: string[]): Prompt {
   return prompt("next", "code_research", [
