@@ -3,7 +3,6 @@ export type { RunnerDependencies, RunnerResult, RunnerStatus } from "./run-flow-
 export {
   DEFAULT_CONFIG,
   defaultConfigPath,
-  getStageModelConfig,
   getStageSkillConfig,
   loadConfig,
   parseConfig,
@@ -14,12 +13,8 @@ export {
 export type {
   ApprovalPolicy,
   Config,
-  NotificationConfig,
   ReasoningEffort,
   SandboxMode,
   StageConfig,
-  StageModelConfig,
-  StageSkillConfig,
-  TelegramNotificationConfig,
-  WatchdogConfig
+  StageSkillConfig
 } from "./config";

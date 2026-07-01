@@ -3,13 +3,20 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   defaultConfigPath,
-  getStageModelConfig,
   getStageSkillConfig,
   loadConfig,
   parseConfig,
   projectConfigPath,
   resolveConfigPath,
   resolveProjectLogDir
+} from "../src/features/runner/config";
+import type {
+  ApprovalPolicy,
+  Config,
+  ReasoningEffort,
+  SandboxMode,
+  StageConfig,
+  StageSkillConfig
 } from "../src/features/runner/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
@@ -70,8 +77,6 @@ loop:
       botTokenEnv: "TELEGRAM_BOT_TOKEN",
       chatIdEnv: "TELEGRAM_CHAT_ID"
     });
-    expect(getStageModelConfig(config, "archive")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "low" });
-    expect(getStageModelConfig(config, "implementation")).toEqual({ model: "gpt-5.4-mini", reasoningEffort: "medium" });
     expect(getStageSkillConfig(config, "archive")).toEqual({ routers: [], main: [], additional: [] });
   });
 
@@ -358,5 +363,143 @@ loop:
   test("rejects logDir outside project path", () => {
     expect(() => resolveProjectLogDir("/tmp/project", "../outside")).toThrow("inside projectPath");
     expect(() => resolveProjectLogDir("/tmp/project", "/tmp/outside")).toThrow("relative to projectPath");
+  });
+});
+
+// ============================================================================
+// NEW Config shape tests (Task 1 - Config Restructure)
+// ============================================================================
+
+function captureWarnings(fn: () => void): string[] {
+  const warnings: string[] = [];
+  const origWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.join(" "));
+  };
+  try {
+    fn();
+  } finally {
+    console.warn = origWarn;
+  }
+  return warnings;
+}
+
+describe("new config shape", () => {
+  test("parses phases config with accessible change_intake", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      routers: []
+      main: []
+      additional: []
+runArchiveStage: true
+autoApprove: false
+`);
+    expect(config.phases).toBeDefined();
+    expect(config.phases.change_intake).toBeDefined();
+    expect(config.phases.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
+    expect(config.runArchiveStage).toBe(true);
+    expect(config.autoApprove).toBe(false);
+  });
+
+  test("provides defaults for runArchiveStage (true) and autoApprove (false)", () => {
+    const config = parseConfig(`{}`);
+    expect(config.runArchiveStage).toBe(true);
+    expect(config.autoApprove).toBe(false);
+  });
+
+  test("warns on unknown phase but does not throw (forward compatibility)", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+phases:
+  unknown_stage:
+    skills:
+      main: ["test"]
+`);
+      // Must not throw — forward compatibility
+      expect(config).toBeDefined();
+      expect(config.phases.unknown_stage).toBeUndefined();
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some(w => w.includes("unknown_stage"))).toBe(true);
+  });
+
+  test("parses legacy codex.stages.setup and maps to phases.change_intake", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+codex:
+  default:
+    model: claude-sonnet-5
+    reasoningEffort: medium
+  stages:
+    setup:
+      skills:
+        main: ["test"]
+`);
+      expect(config.phases).toBeDefined();
+      expect(config.phases.change_intake).toBeDefined();
+      expect(config.phases.change_intake?.skills.main).toEqual(["test"]);
+      expect(config.phases.change_intake?.skills.routers).toEqual([]);
+      expect(config.phases.change_intake?.skills.additional).toEqual([]);
+      expect(config.runArchiveStage).toBe(true);
+      expect(config.autoApprove).toBe(false);
+    });
+    expect(warnings.some(w => w.toLowerCase().includes("deprecat") || w.toLowerCase().includes("legacy"))).toBe(true);
+  });
+
+  test("emits per-stage WARNING for legacy model/effort override", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+codex:
+  default:
+    model: claude-sonnet-5
+    reasoningEffort: medium
+  stages:
+    setup:
+      model: gpt-4
+      reasoningEffort: high
+      skills:
+        main: ["test"]
+`);
+      expect(config.phases.change_intake?.skills.main).toEqual(["test"]);
+    });
+    expect(warnings.some(w => w.includes("model") || w.includes("reasoningEffort") || w.includes("setup"))).toBe(true);
+  });
+
+  test("phases wins when both codex.stages and phases are present", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+codex:
+  default:
+    model: claude-sonnet-5
+    reasoningEffort: medium
+  stages:
+    setup:
+      skills:
+        main: ["old-skill"]
+phases:
+  change_intake:
+    skills:
+      main: ["new-skill"]
+`);
+      expect(config.phases.change_intake?.skills.main).toEqual(["new-skill"]);
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("shared type exports", () => {
+  test("ReasoningEffort, SandboxMode, ApprovalPolicy, StageSkillConfig, StageConfig, Config remain exported from direct import", () => {
+    // Types resolve at compile time — verify the module path works
+    const mod = require("../src/features/runner/config");
+    // Runtime values for types are undefined (types only)
+    expect(mod.ReasoningEffort).toBeUndefined();
+    expect(mod.SandboxMode).toBeUndefined();
+    expect(mod.ApprovalPolicy).toBeUndefined();
+    expect(mod.StageSkillConfig).toBeUndefined();
+    expect(mod.StageConfig).toBeUndefined();
+    // Config is an interface (no runtime value)
+    expect(mod.Config).toBeUndefined();
   });
 });

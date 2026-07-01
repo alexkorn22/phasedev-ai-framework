@@ -14,51 +14,14 @@ export type StageSkillConfig = {
   additional: string[];
 };
 
-export type StageModelConfig = {
-  model: string;
-  reasoningEffort: ReasoningEffort;
-};
-
-export type StageConfig = StageModelConfig & {
+export type StageConfig = {
   skills: StageSkillConfig;
 };
 
-export type TelegramNotificationConfig = {
-  enabled: boolean;
-  botTokenEnv: string;
-  chatIdEnv: string;
-};
-
-export type NotificationConfig = {
-  telegram: TelegramNotificationConfig;
-};
-
-export type WatchdogConfig = {
-  enabled: boolean;
-  turnTimeoutMs: number;
-  inactivityTimeoutMs: number;
-  statusIntervalMs: number;
-  abortGraceMs: number;
-};
-
 export interface Config {
-  codex: {
-    default: StageModelConfig;
-    stages: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
-    sandboxMode: SandboxMode;
-    approvalPolicy: ApprovalPolicy;
-    networkAccessEnabled: boolean;
-    streamAgentOutput: boolean;
-  };
-  loop: {
-    maxIterations: number;
-    logDir: string;
-    enableLogs: boolean;
-    runArchiveStage: boolean;
-    autoApprove: boolean;
-    watchdog: WatchdogConfig;
-    notifications: NotificationConfig;
-  };
+  phases: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
+  runArchiveStage: boolean;
+  autoApprove: boolean;
 }
 
 export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
@@ -68,43 +31,33 @@ export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
 };
 
 export const DEFAULT_CONFIG: Config = {
-  codex: {
-    default: {
-      model: "gpt-5.4",
-      reasoningEffort: "high"
-    },
-    stages: {},
-    sandboxMode: "workspace-write",
-    approvalPolicy: "never",
-    networkAccessEnabled: false,
-    streamAgentOutput: true
-  },
-  loop: {
-    maxIterations: 10,
-    logDir: `${SYSTEM_DIR}/logs`,
-    enableLogs: true,
-    runArchiveStage: true,
-    autoApprove: false,
-    watchdog: {
-      enabled: true,
-      turnTimeoutMs: 3600000,
-      inactivityTimeoutMs: 900000,
-      statusIntervalMs: 300000,
-      abortGraceMs: 5000
-    },
-    notifications: {
-      telegram: {
-        enabled: false,
-        botTokenEnv: "TELEGRAM_BOT_TOKEN",
-        chatIdEnv: "TELEGRAM_CHAT_ID"
-      }
-    }
-  }
+  phases: {},
+  runArchiveStage: true,
+  autoApprove: false
 };
 
 const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
 const SANDBOX_MODES = new Set(["workspace-write", "danger-full-access"]);
 const APPROVAL_POLICIES = new Set(["never", "on-request", "on-failure", "untrusted"]);
+
+const STAGE_NAME_MAP: Record<string, string> = {
+  setup: "change_intake",
+  setup_approval: "change_intake_approval",
+  research: "code_research",
+  invalid_research: "invalid_code_research",
+  design: "technical_design",
+  invalid_design: "invalid_technical_design",
+  plan: "iteration_planning",
+  invalid_plan: "invalid_iteration_planning",
+  plan_approval: "iteration_planning_approval",
+  phase_validation: "iteration_validation",
+  repair: "finding_repair",
+  implementation: "implementation",
+  final_validation: "final_validation",
+  archive: "archive"
+};
+
+// Only stages that actually exist in the Stage union type
 const STAGES = new Set<Exclude<Stage, "init">>([
   "change_intake",
   "code_research",
@@ -217,86 +170,94 @@ function parseStageSkills(value: unknown, key: string): StageSkillConfig {
   return { routers, main, additional };
 }
 
-function parseStageModelConfig(value: unknown, fallback: StageModelConfig, key: string): StageModelConfig {
+function parseStageConfig(value: unknown, key: string): StageConfig {
   const stage = asRecord(value, key);
   return {
-    model: readString(stage.model, fallback.model, `${key}.model`),
-    reasoningEffort: readEnum(stage.reasoningEffort, fallback.reasoningEffort, `${key}.reasoningEffort`, REASONING_EFFORTS)
-  };
-}
-
-function parseStageConfig(value: unknown, fallback: StageModelConfig, key: string): StageConfig {
-  const stage = asRecord(value, key);
-  return {
-    ...parseStageModelConfig(stage, fallback, key),
     skills: parseStageSkills(stage.skills, `${key}.skills`)
   };
 }
 
-function parseTelegramNotificationConfig(value: unknown, fallback: TelegramNotificationConfig, key: string): TelegramNotificationConfig {
-  const telegram = asRecord(value, key);
-  return {
-    enabled: readBoolean(telegram.enabled, fallback.enabled, `${key}.enabled`),
-    botTokenEnv: readString(telegram.botTokenEnv, fallback.botTokenEnv, `${key}.botTokenEnv`),
-    chatIdEnv: readString(telegram.chatIdEnv, fallback.chatIdEnv, `${key}.chatIdEnv`)
-  };
-}
+/**
+ * Parse legacy codex.stages format and map to phases.
+ * Returns the parsed phases record.
+ */
+function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
+  const phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+  const rawStages = asRecord(codexRaw.stages, "codex.stages");
 
-function parseNotificationConfig(value: unknown, fallback: NotificationConfig, key: string): NotificationConfig {
-  const notifications = asRecord(value, key);
-  return {
-    telegram: parseTelegramNotificationConfig(notifications.telegram, fallback.telegram, `${key}.telegram`)
-  };
-}
+  for (const [oldName, value] of Object.entries(rawStages)) {
+    const newName = STAGE_NAME_MAP[oldName];
+    if (!newName) {
+      console.warn(`[config] Unknown legacy stage "${oldName}" in codex.stages. Skipping.`);
+      continue;
+    }
 
-function parseWatchdogConfig(value: unknown, fallback: WatchdogConfig, key: string): WatchdogConfig {
-  const watchdog = asRecord(value, key);
-  return {
-    enabled: readBoolean(watchdog.enabled, fallback.enabled, `${key}.enabled`),
-    turnTimeoutMs: readPositiveInteger(watchdog.turnTimeoutMs, fallback.turnTimeoutMs, `${key}.turnTimeoutMs`),
-    inactivityTimeoutMs: readPositiveInteger(watchdog.inactivityTimeoutMs, fallback.inactivityTimeoutMs, `${key}.inactivityTimeoutMs`),
-    statusIntervalMs: readPositiveInteger(watchdog.statusIntervalMs, fallback.statusIntervalMs, `${key}.statusIntervalMs`),
-    abortGraceMs: readPositiveInteger(watchdog.abortGraceMs, fallback.abortGraceMs, `${key}.abortGraceMs`)
-  };
+    // Check if the mapped name is a valid phase key
+    if (!STAGES.has(newName as Exclude<Stage, "init">)) {
+      console.warn(`[config] Legacy stage "${oldName}" maps to "${newName}", which is not yet a valid stage. Skipping.`);
+      continue;
+    }
+
+    const stage = asRecord(value, `codex.stages.${oldName}`);
+
+    // Warn about per-stage model/effort override (no longer supported)
+    if (stage.model !== undefined || stage.reasoningEffort !== undefined) {
+      console.warn(`[config] Legacy stage "${oldName}" has per-stage model/reasoningEffort override. These are no longer supported per stage and will be ignored.`);
+    }
+
+    phases[newName as Exclude<Stage, "init">] = parseStageConfig(value, `codex.stages.${oldName}`);
+  }
+
+  return phases;
 }
 
 export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
-  const codex = asRecord(root.codex, "codex");
-  const loop = asRecord(root.loop, "loop");
 
-  const defaultModel = parseStageModelConfig(codex.default, DEFAULT_CONFIG.codex.default, "codex.default");
-  const rawStages = asRecord(codex.stages, "codex.stages");
-  const stages: Config["codex"]["stages"] = {};
+  const phasesRaw = asRecord(root.phases, "phases");
+  const codexRaw = asRecord(root.codex, "codex");
 
-  for (const [stageName, value] of Object.entries(rawStages)) {
-    if (!STAGES.has(stageName as Exclude<Stage, "init">)) {
-      throw new Error(`Config key codex.stages.${stageName} is not a valid flow stage.`);
-    }
+  // Detect if legacy format is being used
+  const hasLegacyStages = Object.keys(asRecord(codexRaw.stages, "codex.stages")).length > 0;
+  const hasPhases = Object.keys(phasesRaw).length > 0;
 
-    stages[stageName as Exclude<Stage, "init">] = parseStageConfig(value, defaultModel, `codex.stages.${stageName}`);
+  let phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+
+  if (hasLegacyStages && hasPhases) {
+    // Both present: phases wins, warn
+    console.warn("[config] Both codex.stages and phases sections found. phases will take precedence.");
+    // Parse phases
+    phases = parsePhasesSection(phasesRaw);
+  } else if (hasLegacyStages) {
+    // Legacy mode
+    console.warn("[config] Deprecated codex.stages format detected. Please migrate to the new phases format. See config.yaml for reference.");
+    phases = parseLegacyCodexStages(codexRaw);
+  } else if (hasPhases) {
+    // New format - parse phases
+    phases = parsePhasesSection(phasesRaw);
   }
 
   return {
-    codex: {
-      default: defaultModel,
-      stages,
-      sandboxMode: readEnum(codex.sandboxMode, DEFAULT_CONFIG.codex.sandboxMode, "codex.sandboxMode", SANDBOX_MODES),
-      approvalPolicy: readEnum(codex.approvalPolicy, DEFAULT_CONFIG.codex.approvalPolicy, "codex.approvalPolicy", APPROVAL_POLICIES),
-      networkAccessEnabled: readBoolean(codex.networkAccessEnabled, DEFAULT_CONFIG.codex.networkAccessEnabled, "codex.networkAccessEnabled"),
-      streamAgentOutput: readBoolean(codex.streamAgentOutput, DEFAULT_CONFIG.codex.streamAgentOutput, "codex.streamAgentOutput")
-    },
-    loop: {
-      maxIterations: readPositiveInteger(loop.maxIterations, DEFAULT_CONFIG.loop.maxIterations, "loop.maxIterations"),
-      logDir: readString(loop.logDir, DEFAULT_CONFIG.loop.logDir, "loop.logDir"),
-      enableLogs: readBoolean(loop.enableLogs, DEFAULT_CONFIG.loop.enableLogs, "loop.enableLogs"),
-      runArchiveStage: readBoolean(loop.runArchiveStage, DEFAULT_CONFIG.loop.runArchiveStage, "loop.runArchiveStage"),
-      autoApprove: readBoolean(loop.autoApprove, DEFAULT_CONFIG.loop.autoApprove, "loop.autoApprove"),
-      watchdog: parseWatchdogConfig(loop.watchdog, DEFAULT_CONFIG.loop.watchdog, "loop.watchdog"),
-      notifications: parseNotificationConfig(loop.notifications, DEFAULT_CONFIG.loop.notifications, "loop.notifications")
-    }
+    phases,
+    runArchiveStage: readBoolean(root.runArchiveStage, DEFAULT_CONFIG.runArchiveStage, "runArchiveStage"),
+    autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove")
   };
+}
+
+function parsePhasesSection(phasesRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
+  const phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+
+  for (const [phaseName, value] of Object.entries(phasesRaw)) {
+    if (!STAGES.has(phaseName as Exclude<Stage, "init">)) {
+      console.warn(`[config] Unknown phase "${phaseName}" in phases section. Ignoring.`);
+      continue;
+    }
+
+    phases[phaseName as Exclude<Stage, "init">] = parseStageConfig(value, `phases.${phaseName}`);
+  }
+
+  return phases;
 }
 
 export function loadConfig(configPath = defaultConfigPath()): Config {
@@ -307,23 +268,12 @@ export function loadConfig(configPath = defaultConfigPath()): Config {
   return parseConfig(fs.readFileSync(configPath, "utf-8"));
 }
 
-export function getStageModelConfig(config: Config, stage: Stage): StageModelConfig {
-  if (stage === "init") {
-    return config.codex.default;
-  }
-
-  return {
-    model: config.codex.stages[stage]?.model ?? config.codex.default.model,
-    reasoningEffort: config.codex.stages[stage]?.reasoningEffort ?? config.codex.default.reasoningEffort
-  };
-}
-
 export function getStageSkillConfig(config: Config, stage: Stage): StageSkillConfig {
   if (stage === "init") {
     return EMPTY_STAGE_SKILLS;
   }
 
-  return config.codex.stages[stage]?.skills ?? EMPTY_STAGE_SKILLS;
+  return config.phases[stage]?.skills ?? EMPTY_STAGE_SKILLS;
 }
 
 export function resolveProjectLogDir(projectPath: string, logDir: string): string {

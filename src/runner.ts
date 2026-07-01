@@ -28,28 +28,15 @@ export async function runRunnerCli(args: string[], dependencies: RunnerCliDepend
   const env = resolveRunnerEnv(resolvedConfigPath, dependencies.env ?? process.env);
   const baseReporter = dependencies.reporter ?? console;
   const reporterSinks: FlushableReporter[] = [baseReporter];
-  const tg = config.loop.notifications.telegram;
-  if (tg.enabled) {
-    const botToken = env[tg.botTokenEnv];
-    const chatId = env[tg.chatIdEnv];
-    if (botToken && chatId) {
-      reporterSinks.push(createTelegramReporter({
-        botToken,
-        chatId,
-        fetchImpl: dependencies.fetchImpl
-      }, baseReporter));
-    } else {
-      baseReporter.log(`[PHASEDEV RUNNER] Telegram notifications disabled: missing ${tg.botTokenEnv} or ${tg.chatIdEnv}`);
-    }
-  }
+  // Telegram notifications temporarily disabled during config restructuring
 
   let iterationLogger = dependencies.iterationLogger;
   if (!iterationLogger) {
     const loggers: IterationLogger[] = [];
-    const logDir = resolveProjectLogDir(projectPath, config.loop.logDir);
+    const logDir = resolveProjectLogDir(projectPath, ".phasedev/logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
 
-    if (config.loop.enableLogs) {
+    if (true) {
       loggers.push(createJsonFileLogger(logPath, baseReporter));
     }
     iterationLogger = createCompositeLogger(loggers);
