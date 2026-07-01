@@ -10,6 +10,8 @@ import {
   resolveConfigPath,
   resolveProjectLogDir
 } from "../src/features/runner/config";
+import { DEFAULT_RUNNER_CONFIG, parseRunnerConfig, projectRunnerConfigPath } from "../src/features/runner/config";
+import { initProject } from "../src/features/project-init/init-project";
 import type {
   ApprovalPolicy,
   Config,
@@ -486,6 +488,43 @@ phases:
       expect(config.phases.change_intake?.skills.main).toEqual(["new-skill"]);
     });
     expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe("dual-file init", () => {
+  test("initProject creates both config.yaml and runner.yaml", () => {
+    const dir = createTempWorkspace("init-dual");
+    try {
+      const result = initProject(dir);
+      expect(result.ok).toBe(true);
+      // config.yaml exists
+      const configPath = projectConfigPath(dir);
+      expect(fs.existsSync(configPath)).toBe(true);
+      // runner.yaml exists
+      const runnerPath = projectRunnerConfigPath(dir);
+      expect(fs.existsSync(runnerPath)).toBe(true);
+      // runner.yaml parses without errors
+      const runnerContent = fs.readFileSync(runnerPath, "utf-8");
+      expect(() => parseRunnerConfig(runnerContent)).not.toThrow();
+    } finally {
+      cleanupTempWorkspace(dir);
+    }
+  });
+
+  test("existing project without runner.yaml only creates runner.yaml", () => {
+    const dir = createTempWorkspace("init-runner-only");
+    try {
+      // First init creates both
+      initProject(dir);
+      // Remove runner.yaml
+      fs.unlinkSync(projectRunnerConfigPath(dir));
+      // Second init should only create runner.yaml
+      initProject(dir);
+      expect(fs.existsSync(projectRunnerConfigPath(dir))).toBe(true);
+      expect(fs.existsSync(projectConfigPath(dir))).toBe(true);
+    } finally {
+      cleanupTempWorkspace(dir);
+    }
   });
 });
 

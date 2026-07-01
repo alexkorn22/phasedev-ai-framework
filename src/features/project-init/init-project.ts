@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { stringify as stringifyYaml } from "yaml";
 import { DEFAULT_CONFIG, defaultConfigPath, projectConfigPath } from "../../entities/config/config";
+import { DEFAULT_RUNNER_CONFIG, projectRunnerConfigPath } from "../runner/config";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 
 export interface InitProjectResult {
@@ -47,14 +48,23 @@ export function initProject(projectPath: string): InitProjectResult {
     fs.writeFileSync(configPath, readInitialConfig(), "utf-8");
   }
 
+  // Create runner.yaml if it doesn't exist
+  const runnerConfigPath = projectRunnerConfigPath(resolvedProjectPath);
+  const runnerConfigStatus = fs.existsSync(runnerConfigPath) ? "existing" : "created";
+  if (runnerConfigStatus === "created") {
+    fs.writeFileSync(runnerConfigPath, stringifyYaml(DEFAULT_RUNNER_CONFIG), "utf-8");
+  }
+
   return {
     ok: true,
     message: [
       `[PHASEDEV INIT-PROJECT] OK: initialized ${flowRoot}`,
       `config: ${configStatus}`,
+      `runner: ${runnerConfigStatus}`,
       "created/reused:",
       ...directories.map(directory => `- ${directory}`),
-      `- ${configPath}`
+      `- ${configPath}`,
+      `- ${runnerConfigPath}`
     ].join("\n")
   };
 }
