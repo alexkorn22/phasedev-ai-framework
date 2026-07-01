@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG, Config, runRunner } from "../src/features/runner";
 import { splitTelegramMessage } from "../src/shared/telegram";
 import { createJsonFileLogger } from "../src/features/logger";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { parseRunnerConfig, DEFAULT_RUNNER_CONFIG, RunnerConfig } from "../src/features/runner/config";
 
 let testTmpDir: string;
 
@@ -354,6 +355,41 @@ function setupUnapprovedPlanProject(): { projectPath: string; changeDir: string 
   fs.writeFileSync(path.join(changeDir, "iteration_plan.md"), plan, "utf-8");
   return { projectPath, changeDir };
 }
+
+describe("RunnerConfig", () => {
+  test("parseRunnerConfig returns valid RunnerConfig with defaults for missing optional fields", () => {
+    const result = parseRunnerConfig(`runner:
+  model: claude-sonnet-5
+  reasoningEffort: medium
+  sandboxMode: workspace-write
+  maxIterations: 10`);
+
+    expect(result.runner.model).toBe("claude-sonnet-5");
+    expect(result.runner.reasoningEffort).toBe("medium");
+    expect(result.runner.sandboxMode).toBe("workspace-write");
+    expect(result.runner.maxIterations).toBe(10);
+    expect(result.runner.approvalPolicy).toBe("never");
+    expect(result.runner.networkAccessEnabled).toBe(false);
+    expect(result.runner.streamAgentOutput).toBe(true);
+    expect(result.runner.logDir).toBe(".phasedev/logs");
+    expect(result.runner.enableLogs).toBe(true);
+  });
+
+  test("parseRunnerConfig({}) returns DEFAULT_RUNNER_CONFIG", () => {
+    const result = parseRunnerConfig("{}");
+    expect(result).toEqual(DEFAULT_RUNNER_CONFIG);
+  });
+
+  test("parseRunnerConfig with invalid model type throws", () => {
+    expect(() => parseRunnerConfig(`runner:
+  model: 123`)).toThrow();
+  });
+
+  test("parseRunnerConfig with invalid reasoningEffort throws", () => {
+    expect(() => parseRunnerConfig(`runner:
+  reasoningEffort: invalid`)).toThrow();
+  });
+});
 
 describe("logs runner", () => {
   beforeEach(() => setupTestDir());

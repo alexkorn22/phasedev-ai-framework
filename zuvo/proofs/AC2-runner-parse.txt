@@ -1,0 +1,12 @@
+AC2: parseRunnerConfig returns proper RunnerConfig with defaults
+
+Verification:
+- Input YAML:
+    runner:
+      model: claude-sonnet-5
+      reasoningEffort: medium
+      sandboxMode: workspace-write
+      maxIterations: 10
+- Output: RunnerConfig with supplied values preserved and defaults applied
+- All 11 checks PASSED
+- RunnerConfig type, DEFAULT_RUNNER_CONFIG, and parser are exported from src/features/runner/config.ts
