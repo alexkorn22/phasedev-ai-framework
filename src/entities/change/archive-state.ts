@@ -16,7 +16,7 @@ export interface InvalidArchiveState {
   reason: string;
 }
 
-export const FLOW_ARCHIVE_STATE_FILE = ".flow-archive.json";
+export const FLOW_ARCHIVE_STATE_FILE = ".phase-archive.json";
 
 export function archiveStatePath(archivePath: string): string {
   return path.join(archivePath, FLOW_ARCHIVE_STATE_FILE);
@@ -47,7 +47,7 @@ function parseArchiveState(archivePath: string): ArchiveStateParseResult {
       invalid: {
         archivePath,
         statePath,
-        reason: `.flow-archive.json is not valid JSON: ${message}`
+        reason: `.phase-archive.json is not valid JSON: ${message}`
       }
     };
   }
@@ -76,7 +76,7 @@ function parseArchiveState(archivePath: string): ArchiveStateParseResult {
     invalid: {
       archivePath,
       statePath,
-      reason: ".flow-archive.json must include status, changeName, archivePath, and startedAt with a valid status."
+      reason: ".phase-archive.json must include status, changeName, archivePath, and startedAt with a valid status."
     }
   };
 }

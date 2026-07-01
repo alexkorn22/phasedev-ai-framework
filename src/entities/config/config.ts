@@ -106,14 +106,14 @@ const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"])
 const SANDBOX_MODES = new Set(["workspace-write", "danger-full-access"]);
 const APPROVAL_POLICIES = new Set(["never", "on-request", "on-failure", "untrusted"]);
 const STAGES = new Set<Exclude<Stage, "init">>([
-  "setup",
-  "research",
-  "design",
-  "plan",
+  "change_intake",
+  "code_research",
+  "technical_design",
+  "iteration_planning",
   "implementation",
-  "phase_validation",
+  "iteration_validation",
   "final_validation",
-  "repair",
+  "finding_repair",
   "archive"
 ]);
 

@@ -1,13 +1,13 @@
 export type Stage =
   | "init"
-  | "setup"
-  | "research"
-  | "design"
-  | "plan"
+  | "change_intake"
+  | "code_research"
+  | "technical_design"
+  | "iteration_planning"
   | "implementation"
-  | "phase_validation"
+  | "iteration_validation"
   | "final_validation"
-  | "repair"
+  | "finding_repair"
   | "archive";
 
 export interface Prompt {
