@@ -72,12 +72,12 @@ Archive is part of `cli.ts next` (alias `phasedev next`); there is no separate a
 When final validation is ready and every phase is `[x]`, `next` must:
 
 1. Move `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>` before printing the Archive prompt.
-2. Create `.flow-archive.json` in the archived change with `status: "in_progress"`.
+2. Create `.phase-archive.json` in the archived change with `status: "in_progress"`.
 3. Print the Archive prompt with links to the archived change path.
-4. Resume the same Archive prompt if a later `next` finds pending `.flow-archive.json`.
-5. Treat Archive as completed only after `.flow-archive.json` has `status: "completed"`.
+4. Resume the same Archive prompt if a later `next` finds pending `.phase-archive.json`.
+5. Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`.
 
-Agents executing the Archive prompt must write delta specs under the archived change and then update `.flow-archive.json`; they must not call an archive script.
+Agents executing the Archive prompt must write delta specs under the archived change and then update `.phase-archive.json`; they must not call an archive script.
 
 ## Commands
 

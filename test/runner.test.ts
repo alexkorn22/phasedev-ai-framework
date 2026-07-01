@@ -282,7 +282,7 @@ function setupArchiveReadyProject(): string {
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
-  fs.writeFileSync(path.join(changeDir, "implementation_plan.md"), implementationPlanReadyForArchive(), "utf-8");
+  fs.writeFileSync(path.join(changeDir, "iteration_plan.md"), implementationPlanReadyForArchive(), "utf-8");
   writeValidationFindings(path.join(changeDir, "validation_findings.md"), "ready", "", "final");
   return projectPath;
 }
@@ -351,7 +351,7 @@ function setupUnapprovedPlanProject(): { projectPath: string; changeDir: string 
     .replace("## Phase 1: API [x]", "## Phase 1: API [ ]")
     .replace("- [x] 1.1 Implement endpoint", "- [ ] 1.1 Implement endpoint")
     .replace("| unit | `bun test unit` | passed | passed unit tests |  |", "| unit | `bun test unit` | pending | not run yet | none |");
-  fs.writeFileSync(path.join(changeDir, "implementation_plan.md"), plan, "utf-8");
+  fs.writeFileSync(path.join(changeDir, "iteration_plan.md"), plan, "utf-8");
   return { projectPath, changeDir };
 }
 
@@ -361,7 +361,7 @@ describe("logs runner", () => {
 
   test("creates a fresh Codex thread for every stage session and sends init bootstrap with next", async () => {
     const projectPath = setupProject();
-    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
     fs.writeFileSync(planPath, `
 # Plan
 
@@ -388,7 +388,7 @@ describe("logs runner", () => {
                   archived = true;
                   const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
                   fs.mkdirSync(archiveDir, { recursive: true });
-                  fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+                  fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
                     status: "completed",
                     changeName: "sample-change",
                     archivePath: archiveDir,
@@ -450,7 +450,7 @@ describe("logs runner", () => {
         return { startThread: () => { throw new Error("should not start"); } };
       },
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "[FLOW CONTROLLER] BLOCKED", true),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "[FLOW CONTROLLER] BLOCKED", true),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: message => messages.push(message) },
       iterationLogger: jsonLogger,
@@ -463,7 +463,7 @@ describe("logs runner", () => {
     expect(messages).toContain("[PHASEDEV RUNNER] blocked at stage: design");
     const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
     expect(parsed.iteration).toBe(0);
-    expect(parsed.stage).toBe("design");
+    expect(parsed.stage).toBe("technical_design");
     expect(parsed.outcome).toBe("blocked");
     expect(parsed.initPrompt).toBeNull();
     expect(parsed.agentPrompt).toBeNull();
@@ -545,7 +545,7 @@ describe("logs runner", () => {
     expect(result.status).toBe("no_progress");
     expect(result.iterations).toBe(1);
     expect(prompts[0]).toContain("Stage 4. Implementation.");
-    expect(fs.readFileSync(path.join(changeDir, "implementation_plan.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
+    expect(fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8")).toContain("approved_by: \"PhaseDev Runner\"");
     expect(messages.some(message => message.includes("auto-approved plan artifact"))).toBe(true);
   });
 
@@ -592,7 +592,7 @@ describe("logs runner", () => {
         return { startThread: () => { throw new Error("should not start"); } };
       },
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "[FLOW CONTROLLER] BLOCKED", true),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "[FLOW CONTROLLER] BLOCKED", true),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
     });
@@ -639,7 +639,7 @@ describe("logs runner", () => {
     let createdCodex = false;
     let requestedNextPrompt = false;
     fs.mkdirSync(archiveDir, { recursive: true });
-    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
       status: "in_progress",
       changeName: "sample-change",
       archivePath: archiveDir,
@@ -743,7 +743,7 @@ describe("logs runner", () => {
   test("stops as blocked when implementation records blocked check evidence without advancing", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
-    const planPath = path.join(changeDir, "implementation_plan.md");
+    const planPath = path.join(changeDir, "iteration_plan.md");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApprovedArtifact(path.join(changeDir, "prd.md"), validPrdBody());
     writeApprovedArtifact(path.join(changeDir, "rules.md"), `
@@ -860,7 +860,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 `);
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
-    writeArtifact(path.join(changeDir, "implementation_plan.md"), `
+    writeArtifact(path.join(changeDir, "iteration_plan.md"), `
 # Implementation Plan
 
 ## Approval Summary
@@ -958,7 +958,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "design prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1026,7 +1026,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "design prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1054,7 +1054,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "design prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1081,7 +1081,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
               fs.writeFileSync(deltaSpecPath, "## ADDED Requirements\n", "utf-8");
               fs.mkdirSync(path.dirname(mainSpecPath), { recursive: true });
               fs.writeFileSync(mainSpecPath, "## Requirements\n", "utf-8");
-              fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+              fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
                 status: "completed",
                 changeName: "sample-change",
                 archivePath: archiveDir,
@@ -1124,7 +1124,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "design prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1153,7 +1153,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "design", "design prompt"),
+      getNextPrompt: () => flowPrompt("next", "technical_design", "design prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1251,7 +1251,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      getNextPrompt: () => flowPrompt("next", "finding_repair", "repair prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1281,7 +1281,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      getNextPrompt: () => flowPrompt("next", "finding_repair", "repair prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1323,7 +1323,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "repair", "repair prompt"),
+      getNextPrompt: () => flowPrompt("next", "finding_repair", "repair prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       now: () => new Date("2026-05-29T10:00:00.000Z")
@@ -1339,7 +1339,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");
     const jsonLogger = createJsonFileLogger(logPath);
-    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
 
     const result = await runRunner(projectPath, makeConfig({ maxIterations: 1 }), {
       createCodex: () => ({
@@ -1357,7 +1357,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
                   item: {
                     id: "file-plan",
                     type: "file_change",
-                    changes: [{ path: ".phasedev/changes/sample-change/implementation_plan.md", kind: "create" }],
+                    changes: [{ path: ".phasedev/changes/sample-change/iteration_plan.md", kind: "create" }],
                     status: "completed"
                   }
                 },
@@ -1382,15 +1382,15 @@ Complete the fixture phase. Satisfies R1 and SC1.
       parsed.changedFiles.added,
       parsed.changedFiles.modified,
       parsed.changedFiles.deleted
-    ].filter((bucket: string[]) => bucket.includes(".phasedev/changes/sample-change/implementation_plan.md"));
+    ].filter((bucket: string[]) => bucket.includes(".phasedev/changes/sample-change/iteration_plan.md"));
     expect(changedBuckets).toHaveLength(1);
-    expect(parsed.changedFiles.added).toContain(".phasedev/changes/sample-change/implementation_plan.md");
-    expect(parsed.changedFiles.modified).not.toContain(".phasedev/changes/sample-change/implementation_plan.md");
+    expect(parsed.changedFiles.added).toContain(".phasedev/changes/sample-change/iteration_plan.md");
+    expect(parsed.changedFiles.modified).not.toContain(".phasedev/changes/sample-change/iteration_plan.md");
   });
 
   test("stops at maxIterations", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
     let promptCounter = 0;
     const threads: unknown[] = [];
 
@@ -1480,7 +1480,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
                 { type: "turn.started" },
                 { type: "item.completed", item: { id: "reasoning-1", type: "reasoning", text: "checking flow state" } },
                 { type: "item.completed", item: { id: "cmd-1", type: "command_execution", command: "bun test", aggregated_output: "tests passed", exit_code: 0, status: "completed" } },
-                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: ".phasedev/changes/sample-change/implementation_plan.md", kind: "update" }], status: "completed" } },
+                { type: "item.completed", item: { id: "file-1", type: "file_change", changes: [{ path: ".phasedev/changes/sample-change/iteration_plan.md", kind: "update" }], status: "completed" } },
                 { type: "item.completed", item: { id: "tool-1", type: "mcp_tool_call", server: "server", tool: "tool", arguments: { ok: true }, result: { content: [], structured_content: { done: true } }, status: "completed" } },
                 { type: "item.completed", item: { id: "search-1", type: "web_search", query: "query" } },
                 { type: "item.completed", item: { id: "todo-1", type: "todo_list", items: [{ text: "Validate", completed: true }] } },
@@ -1504,7 +1504,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     expect(messages).toContain("[CODEX implementation] reasoning: checking flow state");
     expect(messages).toContain("[CODEX implementation] command: bun test");
     expect(messages).toContain("[CODEX implementation] command output:\ntests passed");
-    expect(messages).toContain("[CODEX implementation] file_change: completed update .phasedev/changes/sample-change/implementation_plan.md");
+    expect(messages).toContain("[CODEX implementation] file_change: completed update .phasedev/changes/sample-change/iteration_plan.md");
     expect(messages).toContain("[CODEX implementation] mcp_tool_call: server/tool completed");
     expect(messages).toContain("[CODEX implementation] web_search: query");
     expect(messages).toContain("[CODEX implementation] todo_list:\n- [x] Validate");
@@ -1666,7 +1666,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
         })
       }),
       getInitPrompt: () => flowPrompt("init", "init", "init prompt"),
-      getNextPrompt: () => flowPrompt("next", "setup", "setup prompt"),
+      getNextPrompt: () => flowPrompt("next", "change_intake", "setup prompt"),
       findActiveChangeDir: () => path.join(projectPath, ".phasedev", "changes", "sample-change"),
       reporter: { log: () => undefined },
       iterationLogger: jsonLogger,
@@ -1718,7 +1718,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 
   test("continues when plan state changes even if stage and prompt are the same", async () => {
     const projectPath = setupProject();
-    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+    const planPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
     fs.writeFileSync(planPath, `
 # Plan
 
@@ -1748,7 +1748,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
                   archived = true;
                   const archiveDir = path.join(projectPath, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
                   fs.mkdirSync(archiveDir, { recursive: true });
-                  fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+                  fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
                     status: "completed",
                     changeName: "sample-change",
                     archivePath: archiveDir,
@@ -1776,7 +1776,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("continues when validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
-    const planPath = path.join(changeDir, "implementation_plan.md");
+    const planPath = path.join(changeDir, "iteration_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
 # Plan
@@ -1808,8 +1808,8 @@ Complete the fixture phase. Satisfies R1 and SC1.
       getNextPrompt: () => {
         const content = fs.readFileSync(findingsPath, "utf-8");
         return content.includes("verdict: repair_required")
-          ? flowPrompt("next", "repair", "repair prompt")
-          : flowPrompt("next", "phase_validation", "validation prompt");
+          ? flowPrompt("next", "finding_repair", "repair prompt")
+          : flowPrompt("next", "iteration_validation", "validation prompt");
       },
       findActiveChangeDir: () => changeDir,
       reporter: { log: () => undefined },
@@ -1826,7 +1826,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("continues when final validation reopens a blocking finding resolved by the prior repair", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
-    const planPath = path.join(changeDir, "implementation_plan.md");
+    const planPath = path.join(changeDir, "iteration_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
 # Plan
@@ -1855,7 +1855,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
       getNextPrompt: () => {
         const content = fs.readFileSync(findingsPath, "utf-8");
         return content.includes("verdict: repair_required")
-          ? flowPrompt("next", "repair", "repair prompt")
+          ? flowPrompt("next", "finding_repair", "repair prompt")
           : flowPrompt("next", "final_validation", "final validation prompt");
       },
       findActiveChangeDir: () => changeDir,
@@ -1871,7 +1871,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("continues when validation reports a different blocking finding after repair", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
-    const planPath = path.join(changeDir, "implementation_plan.md");
+    const planPath = path.join(changeDir, "iteration_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
 # Plan
@@ -1903,8 +1903,8 @@ Complete the fixture phase. Satisfies R1 and SC1.
       getNextPrompt: () => {
         const content = fs.readFileSync(findingsPath, "utf-8");
         return content.includes("verdict: repair_required")
-          ? flowPrompt("next", "repair", "repair prompt")
-          : flowPrompt("next", "phase_validation", "validation prompt");
+          ? flowPrompt("next", "finding_repair", "repair prompt")
+          : flowPrompt("next", "iteration_validation", "validation prompt");
       },
       findActiveChangeDir: () => changeDir,
       reporter: { log: () => undefined },
@@ -1918,7 +1918,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
   test("does not block when repeated finding is non-blocking", async () => {
     const projectPath = setupProject();
     const changeDir = path.join(projectPath, ".phasedev", "changes", "sample-change");
-    const planPath = path.join(changeDir, "implementation_plan.md");
+    const planPath = path.join(changeDir, "iteration_plan.md");
     const findingsPath = path.join(changeDir, "validation_findings.md");
     fs.writeFileSync(planPath, `
 # Plan
@@ -1950,8 +1950,8 @@ Complete the fixture phase. Satisfies R1 and SC1.
       getNextPrompt: () => {
         const content = fs.readFileSync(findingsPath, "utf-8");
         return content.includes("verdict: repair_required")
-          ? flowPrompt("next", "repair", "repair prompt")
-          : flowPrompt("next", "phase_validation", "validation prompt");
+          ? flowPrompt("next", "finding_repair", "repair prompt")
+          : flowPrompt("next", "iteration_validation", "validation prompt");
       },
       findActiveChangeDir: () => changeDir,
       reporter: { log: () => undefined },
@@ -1964,7 +1964,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 
   test("writes formatted agent response logs when enableLogs is true", async () => {
     const projectPath = setupProject();
-    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "implementation_plan.md");
+    const progressPath = path.join(projectPath, ".phasedev", "changes", "sample-change", "iteration_plan.md");
     let stageCounter = 0;
     const logDir = path.join(projectPath, ".phasedev", "logs");
     const logPath = path.join(logDir, "ralph-log.jsonl");

@@ -367,11 +367,11 @@ Unexpected section.
 `, "utf-8");
 
     const issues = validatePlanArtifact(invalidPlanFile);
-    expect(issues).toContain("implementation_plan.md must not contain HTML template comments.");
-    expect(issues).toContain("implementation_plan.md must not contain placeholder text: TODO.");
-    expect(issues).toContain("implementation_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
-    expect(issues).toContain("implementation_plan.md contains unexpected section `## Notes`.");
-    expect(issues).toContain("implementation_plan.md non-phase `##` sections must exactly match this order: `## Approval Summary`, `## Generation Bundle`, `## Phase Overview`.");
+    expect(issues).toContain("iteration_plan.md must not contain HTML template comments.");
+    expect(issues).toContain("iteration_plan.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("iteration_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
+    expect(issues).toContain("iteration_plan.md contains unexpected section `## Notes`.");
+    expect(issues).toContain("iteration_plan.md non-phase `##` sections must exactly match this order: `## Approval Summary`, `## Generation Bundle`, `## Phase Overview`.");
     expect(issues).toContain("Section `## Approval Summary` must contain a markdown table.");
     expect(issues).toContain("Section `## Phase Overview` must contain a markdown table.");
   });
@@ -420,8 +420,8 @@ Update API.
 
     const issues = validatePlanArtifact(invalidPlanFile);
 
-    expect(issues).toContain(`implementation_plan.md has invalid phase heading syntax: \`## Phase 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
-    expect(issues).toContain(`implementation_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`iteration_plan.md has invalid phase heading syntax: \`## Phase 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`iteration_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
   });
 
   test("validatePlanArtifact names empty cells in fixed tables and Expected Change Surface", () => {
@@ -675,7 +675,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
   });
 
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
-    expect(validatePlanStructure([])).toContain(`implementation_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(validatePlanStructure([])).toContain(`iteration_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
 
     const issues = validatePlanStructure([
       { id: 1, name: "API", status: "completed", tasks: [{ id: "1.1", name: "Implement endpoint", status: "not_started", children: [] }], additionalChecks: [] },

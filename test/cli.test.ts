@@ -234,7 +234,7 @@ function setupChange(planContent: string, options: { rules?: string; findings?: 
   writeApproved(path.join(changeDir, "rules.md"), options.rules ?? validRulesBody());
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
-  writeArtifact(path.join(changeDir, "implementation_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
+  writeArtifact(path.join(changeDir, "iteration_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
 
   if (options.findings) {
     fs.writeFileSync(path.join(changeDir, "validation_findings.md"), options.findings, "utf-8");
@@ -333,7 +333,7 @@ function runCheckArchive(args: string[] = []): { exitCode: number; output: strin
 function writeCompletedArchive(changeName = "sample-change"): string {
   const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `2026-05-29-${changeName}`);
   fs.mkdirSync(archiveDir, { recursive: true });
-  fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+  fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
     status: "completed",
     changeName,
     archivePath: archiveDir,
@@ -386,8 +386,8 @@ describe("flow-cli state machine", () => {
     for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
       expect(help.output).toContain(generatedPath);
     }
-    expect(help.output).toContain("setup");
-    expect(help.output).toContain("research");
+    expect(help.output).toContain("change_intake");
+    expect(help.output).toContain("code_research");
     expect(help.output).toContain("final_validation");
     expect(help.output).toContain("archive");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
@@ -814,14 +814,14 @@ codex:
 
     output = runNext();
     expect(output).toContain("Stage 3. Plan.");
-    expect(output).toContain("Artifact Build Contract: implementation_plan.md");
+    expect(output).toContain("Artifact Build Contract: iteration_plan.md");
     expect(output).toContain("# Implementation Plan");
     expect(output.match(/`- \[ \] <phase>\.<task> Task description`/g) ?? []).toHaveLength(1);
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--expect-route plan_approval");
     expect(output).toContain("Use this bounded retrieval order before planning");
-    expect(output).toContain("If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `implementation_plan.md`.");
+    expect(output).toContain("If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `iteration_plan.md`.");
     expect(output).toContain("Verify that `prd.md` and `design.md` have `approved: true`");
     expect(output).toContain("Context budget and stop condition:");
     expect(output).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
@@ -840,16 +840,16 @@ codex:
     expect(output).toContain("Examples of required planning blockers:");
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
-    expect(output).toContain("Do not use emoji in `implementation_plan.md`");
+    expect(output).toContain("Do not use emoji in `iteration_plan.md`");
     expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route plan_approval` subcommand");
     expect(output).toContain("local CLI invocation like `bun run src/cli.ts check --project-path ... --expect-route plan_approval` when package/source entrypoint evidence supports it");
     expect(output).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
-    expect(output).toContain("Plan ready: implementation_plan.md");
+    expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
     expect(output).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
-    expect(output).toContain("Next: review implementation_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev next.");
+    expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev next.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
     expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");
@@ -881,7 +881,7 @@ codex:
     const repairOutputPath = repairPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const repairCheckProjectPath = repairPrompt.match(/phasedev check --project-path "([^"]+)"/)?.[1];
 
-    expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"));
+    expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md"));
     expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
     expect(planPrompt).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
     expect(planPrompt).toContain("Examples of acceptable conservative planning assumptions:");
@@ -892,7 +892,7 @@ codex:
     expect(implementationPrompt).toContain("use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface");
     expect(implementationPrompt).toContain("Full-plan orientation:");
     expect(implementationPrompt).toContain("Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first");
-    expect(implementationPrompt).toContain("open the full [implementation_plan.md]");
+    expect(implementationPrompt).toContain("open the full [iteration_plan.md]");
     expect(implementationPrompt).toContain("only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory");
     expect(implementationPrompt).toContain("Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries");
     expect(implementationPrompt).toContain("do not implement future-phase tasks from the orientation alone");
@@ -947,13 +947,13 @@ codex:
       expect(fs.readFileSync(phaseFindingsPath, "utf-8")).not.toContain("type: final");
     }
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
-    expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md")}`);
+    expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md")}`);
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).toContain("Stage 5B. Final Validation.");
     expect(finalValidationPrompt).toContain("Retrieval order:");
     expect(finalValidationPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
     expect(finalValidationPrompt).toContain("scope = full change");
-    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `implementation_plan.md` all phases");
+    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `iteration_plan.md` all phases");
     expect(finalValidationPrompt).toContain("Build the validation scope from the full approved PRD `Intent`, every `R#`, every `SC#`");
     expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
     expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
@@ -973,7 +973,7 @@ codex:
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
     expect(finalValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `implementation_plan.md` current phase");
+    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current phase");
     expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
     expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     expect(finalValidationPrompt).not.toContain("current-phase artifacts, current-phase changed files");
@@ -987,7 +987,7 @@ codex:
     expect(repairPrompt).toContain("Repair class map:");
     expect(repairPrompt).toContain("`implementation`: change affected production/source/config/test files inside the current approved design and plan");
     expect(repairPrompt).toContain("`test`: change the affected tests, test fixtures, or test command evidence");
-    expect(repairPrompt).toContain("`plan`: update [implementation_plan.md]");
+    expect(repairPrompt).toContain("`plan`: update [iteration_plan.md]");
     expect(repairPrompt).toContain("`design`: update [design.md]");
     expect(repairPrompt).toContain("`requirements`: stop for user discussion before material approval-scope changes");
     expect(repairPrompt).toContain("`validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency");
@@ -1004,7 +1004,7 @@ codex:
     expect(repairPrompt).not.toContain(`phasedev check --project-path "${path.join(outDir, "sandbox-project")}"`);
     expect(repairPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(planPrompt).not.toContain("demo-sandbox");
-    expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "implementation_plan.md"))).toBe(true);
+    expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md"))).toBe(true);
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);
     expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
     expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
@@ -1016,7 +1016,7 @@ codex:
     writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n", false);
     writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
 
-    const result = runCheck(["--expect-route", "setup_approval"]);
+    const result = runCheck(["--expect-route", "change_intake_approval"]);
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_prd");
@@ -1030,8 +1030,8 @@ codex:
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
     writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
 
-    const pass = runCheck(["--expect-route", "setup_approval"]);
-    const fail = runCheck(["--expect-route", "research"]);
+    const pass = runCheck(["--expect-route", "change_intake_approval"]);
+    const fail = runCheck(["--expect-route", "code_research"]);
 
     expect(pass.exitCode).toBe(0);
     expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is setup_approval");
@@ -1064,7 +1064,7 @@ loop:
 `);
 
     const pass = runCheck(["--expect-route", "phase", "--expect-stage", "implementation"]);
-    const fail = runCheck(["--expect-route", "phase", "--expect-stage", "phase_validation"]);
+    const fail = runCheck(["--expect-route", "phase", "--expect-stage", "iteration_validation"]);
 
     expect(pass.exitCode).toBe(0);
     expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is phase (stage: implementation).");
@@ -1087,7 +1087,7 @@ loop:
     writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
     const configPath = writeConfig("codex: [");
 
-    const result = runCheck(["--expect-route", "setup_approval", "--config", configPath]);
+    const result = runCheck(["--expect-route", "change_intake_approval", "--config", configPath]);
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV CHECK] OK: current route is setup_approval");
@@ -1101,7 +1101,7 @@ loop:
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n\n## Executive Summary\n", false);
 
-    const result = runCheck(["--expect-route", "design_approval"]);
+    const result = runCheck(["--expect-route", "technical_design_approval"]);
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_design");
@@ -1115,7 +1115,7 @@ loop:
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
 
-    const result = runCheck(["--expect-route", "design_approval"]);
+    const result = runCheck(["--expect-route", "technical_design_approval"]);
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV CHECK] OK: current route is design_approval");
@@ -1353,13 +1353,13 @@ loop:
   test("check fails when archive state is malformed", () => {
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
-    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), "{ malformed json", "utf-8");
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), "{ malformed json", "utf-8");
 
     const result = runCheck();
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_archive_state (stage: archive)");
-    expect(result.output).toContain(".flow-archive.json is not valid JSON");
+    expect(result.output).toContain(".phase-archive.json is not valid JSON");
   });
 
   test("check-archive passes for completed archive with valid delta spec", () => {
@@ -1399,17 +1399,17 @@ The system SHALL route approved changes to Archive.
 
     const missingState = runCheckArchive(["--archive-path", archiveDir]);
     expect(missingState.exitCode).toBe(1);
-    expect(missingState.output).toContain(".flow-archive.json is missing.");
+    expect(missingState.output).toContain(".phase-archive.json is missing.");
 
-    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), "{ malformed json", "utf-8");
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), "{ malformed json", "utf-8");
     const malformedState = runCheckArchive(["--archive-path", archiveDir]);
     expect(malformedState.exitCode).toBe(1);
-    expect(malformedState.output).toContain(".flow-archive.json is not valid JSON");
+    expect(malformedState.output).toContain(".phase-archive.json is not valid JSON");
   });
 
   test("check-archive fails when completed state is incomplete", () => {
     const archiveDir = writeCompletedArchive();
-    fs.writeFileSync(path.join(archiveDir, ".flow-archive.json"), JSON.stringify({
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
       status: "in_progress",
       changeName: "sample-change",
       archivePath: archiveDir,
@@ -1530,7 +1530,7 @@ No phase headings yet.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
-    expect(output).toContain("implementation_plan.md must contain at least one phase heading. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
+    expect(output).toContain("iteration_plan.md must contain at least one phase heading. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
     expect(output).not.toContain("Stage 5B. Final Validation.");
   });
 
@@ -1545,7 +1545,7 @@ No phase headings yet.
     const result = runCheck(["--expect-route", "plan_approval"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("implementation_plan.md has invalid phase heading syntax: `## Phase 1: API`. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
+    expect(result.output).toContain("iteration_plan.md has invalid phase heading syntax: `## Phase 1: API`. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
   });
 
   test("blocks phase without tasks before implementation", () => {
@@ -1751,9 +1751,9 @@ No markdown finding table here.
     expect(output).toContain(`${archivedDir}/specs/<capability>/spec.md`);
     expect(output).toContain(`check-archive --archive-path ${archivedDir}`);
     expect(output).toContain("R# | Spec-level? | Capability | Operation | Target spec | Reason");
-    expect(output).toContain(".flow-archive.json");
+    expect(output).toContain(".phase-archive.json");
     expect(output).toContain(`archive path: \`${archivedDir}\``);
-    expect(fs.existsSync(path.join(archivedDir, ".flow-archive.json"))).toBe(true);
+    expect(fs.existsSync(path.join(archivedDir, ".phase-archive.json"))).toBe(true);
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes", "sample-change"))).toBe(false);
     expect(output).not.toContain("src/archive-change.ts");
     expect(output).not.toContain("[FLOW CONTROLLER] SUCCESS!");
@@ -1775,7 +1775,7 @@ No markdown finding table here.
 
     expect(first).toContain("Stage 6. Archive.");
     expect(second).toContain("Stage 6. Archive.");
-    expect(second).toContain(".flow-archive.json");
+    expect(second).toContain(".phase-archive.json");
     expect(second).not.toContain("Stage 0. AI Layer Setup.");
   });
 
@@ -1795,7 +1795,7 @@ No markdown finding table here.
 
     expect(output).toContain("Stage 6. Archive.");
     expect(output).toContain("Do not use `validation_findings.md` as a source of requirements");
-    expect(fs.existsSync(path.join(archivedDir, ".flow-archive.json"))).toBe(true);
+    expect(fs.existsSync(path.join(archivedDir, ".phase-archive.json"))).toBe(true);
   });
 
   test("final ready blocks archive if any phase is not completed", () => {
@@ -1811,7 +1811,7 @@ No markdown finding table here.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
-    expect(output).toContain("implementation_plan.md");
+    expect(output).toContain("iteration_plan.md");
     expect(output).not.toContain("Stage 6. Archive.");
     expect(output).not.toContain("Stage 5B. Final Validation.");
   });
@@ -1918,12 +1918,12 @@ No markdown finding table here.
 `, {
       planApproved: false
     });
-    fs.appendFileSync(path.join(changeDir, "implementation_plan.md"), "\n\n## Notes\nNot allowed before approval.\n", "utf-8");
+    fs.appendFileSync(path.join(changeDir, "iteration_plan.md"), "\n\n## Notes\nNot allowed before approval.\n", "utf-8");
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
-    expect(output).toContain("implementation_plan.md contains unexpected section `## Notes`.");
+    expect(output).toContain("iteration_plan.md contains unexpected section `## Notes`.");
     expect(output).not.toContain("[FLOW CONTROLLER] BLOCKED: Plan requires review");
   });
 
@@ -2104,7 +2104,7 @@ describe("flow templates", () => {
   }
 
   function readValidationTemplate(name: "step5a_val.md" | "step5b_val.md"): string {
-    const stage = name === "step5b_val.md" ? "final_validation" : "phase_validation";
+    const stage = name === "step5b_val.md" ? "final_validation" : "iteration_validation";
     return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage));
   }
 
@@ -2149,8 +2149,8 @@ codex:
 
     const implementationPolicy = renderSkillPolicy("implementation", config);
     const validationPolicy = renderSkillPolicy("final_validation", config);
-    const setupPolicy = renderSkillPolicy("setup", config);
-    const researchPolicy = renderSkillPolicy("research", parseConfig(`
+    const setupPolicy = renderSkillPolicy("change_intake", config);
+    const researchPolicy = renderSkillPolicy("code_research", parseConfig(`
 codex:
   stages:
     research:
@@ -2204,9 +2204,9 @@ codex:
       ["step0_setup.md", ["`prd.md`", "`rules.md`"]],
       ["step1_research.md", ["`research_facts.md`"]],
       ["step2_design.md", ["active change folder `architecture/design.md`", "linked files inside the active change folder `architecture/`"]],
-      ["step3_plan.md", ["`implementation_plan.md`"]],
-      ["step4_impl.md", ["production/test code", "`implementation_plan.md`"]],
-      ["step5a_val.md", ["`validation_findings.md`", "`implementation_plan.md`"]],
+      ["step3_plan.md", ["`iteration_plan.md`"]],
+      ["step4_impl.md", ["production/test code", "`iteration_plan.md`"]],
+      ["step5a_val.md", ["`validation_findings.md`", "`iteration_plan.md`"]],
       ["step5b_val.md", ["`validation_findings.md`"]],
       ["step5r_repair.md", ["affected production/test code", "`validation_findings.md`"]],
       ["step6_archive.md", ["Delta specs", "`.phasedev/specs`"]]
@@ -2223,7 +2223,7 @@ codex:
 
   test("artifact templates keep machine-readable flow contracts", () => {
     const prdTemplate = readTemplate("artifacts/prd.md");
-    const planTemplate = readTemplate("artifacts/implementation_plan.md");
+    const planTemplate = readTemplate("artifacts/iteration_plan.md");
     const findingsTemplate = readTemplate("artifacts/validation_findings.md");
 
     const prdSections = Array.from(prdTemplate.matchAll(/^##\s+(.+)$/gm)).map(match => match[1]);
@@ -2248,7 +2248,7 @@ codex:
     expect(finalTemplate).not.toContain("template default `type: phase`");
     expect(phaseTemplate).toContain("Build the validation scope from the current phase `Goal`");
     expect(finalTemplate).toContain("Build the validation scope from the full approved PRD `Intent`");
-    expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `implementation_plan.md` current phase");
+    expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current phase");
     expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
@@ -2265,7 +2265,7 @@ codex:
     expect(archiveTemplate).toContain("[rules.md]({{rules_path}})");
     expect(archiveTemplate).toContain("[research_facts.md]({{research_path}})");
     expect(archiveTemplate).toContain("[design.md]({{design_path}})");
-    expect(archiveTemplate).toContain("[implementation_plan.md]({{plan_path}})");
+    expect(archiveTemplate).toContain("[iteration_plan.md]({{plan_path}})");
     expect(archiveTemplate).toContain("{{archive_path}}/specs/<capability>/spec.md");
     expect(archiveTemplate).toContain("{{archive_state_path}}");
     expect(archiveTemplate).toContain("status: \"completed\"");

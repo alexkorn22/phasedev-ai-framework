@@ -77,11 +77,11 @@ describe("JsonFileLogger", () => {
   test("preserves all entry fields in JSON", () => {
     const logPath = path.join(tmpDir, "ralph-log.jsonl");
     const logger = createJsonFileLogger(logPath);
-    const entry = makeEntry({ iteration: 42, stage: "design", initPrompt: "my init prompt", agentPrompt: "my prompt", agentResponse: "my response" });
+    const entry = makeEntry({ iteration: 42, stage: "technical_design", initPrompt: "my init prompt", agentPrompt: "my prompt", agentResponse: "my response" });
     logger.log(entry);
     const parsed = JSON.parse(fs.readFileSync(logPath, "utf-8").trim());
     expect(parsed.iteration).toBe(42);
-    expect(parsed.stage).toBe("design");
+    expect(parsed.stage).toBe("technical_design");
     expect(parsed.initPrompt).toBe("my init prompt");
     expect(parsed.agentPrompt).toBe("my prompt");
     expect(parsed.agentResponse).toBe("my response");
@@ -164,12 +164,12 @@ describe("TelegramLogger", () => {
 
     const logger = createTelegramLogger({ botToken: "bot", chatId: "chat", fetchImpl: mockFetch });
     const longResponse = "A".repeat(5000);
-    logger.log(makeEntry({ agentResponse: longResponse, iteration: 3, stage: "design" }));
+    logger.log(makeEntry({ agentResponse: longResponse, iteration: 3, stage: "technical_design" }));
     await logger.flush();
 
     const combined = sentMessages.join("\n");
     expect(combined).toContain("3");
-    expect(combined).toContain("design");
+    expect(combined).toContain("technical_design");
     // summary must not include the full raw agentResponse
     expect(combined).not.toContain(longResponse);
   });

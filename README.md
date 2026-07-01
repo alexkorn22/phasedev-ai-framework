@@ -28,10 +28,10 @@ flowchart LR
 ```
 
 ### The Stages of PhaseDev:
-1. **0. AI Layer Setup**: Write `prd.md` (Product Requirements) & `rules.md` (Test commands). *Requires human approval.*
-2. **1. Research**: Automatically collect codebase facts into `research_facts.md`.
-3. **2. Design**: Propose technical architecture in `architecture/design.md`. *Requires human approval.*
-4. **3. Plan**: Break down implementation into atomic tasks in `implementation_plan.md`. *Requires human approval.*
+1. **1. Change Intake**: Write `prd.md` (Product Requirements) & `execution_contract.md` (Execution Contract). *Requires human approval.*
+2. **2. Code Research**: Automatically collect codebase facts into `research_facts.md`.
+3. **3. Technical Design**: Propose technical architecture in `architecture/design.md`. *Requires human approval.*
+4. **4. Iteration Planning**: Break down implementation into atomic tasks in `iteration_plan.md`. *Requires human approval.*
 5. **4. Implementation**: Code and run checks phase-by-phase.
 6. **5A. Phase Validation**: Review the code against phase-specific tests.
 7. **5B. Final Validation**: Verify the entire changeset against PRD success criteria.

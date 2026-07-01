@@ -209,7 +209,7 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
-  writeArtifact(path.join(changeDir, "implementation_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
+  writeArtifact(path.join(changeDir, "iteration_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
 
   if (options.findings) {
     fs.writeFileSync(path.join(changeDir, "validation_findings.md"), options.findings, "utf-8");
@@ -257,7 +257,7 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("setup");
+    expect(result.stage).toBe("change_intake");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid prd.md");
     expect(result.prompt).toContain("Intent field `Change type` must be present and non-empty.");
@@ -319,7 +319,7 @@ describe("flow controller typed stages", () => {
   test("missing active change routes to setup stage", () => {
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("setup");
+    expect(result.stage).toBe("change_intake");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
     expect(result.prompt).toContain(`current project repository at \`${testTmpDir}\``);
@@ -368,7 +368,7 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("design");
+    expect(result.stage).toBe("technical_design");
     expect(result.prompt).toContain("Artifact Build Contract: architecture/design.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(changeDir, "architecture", "design.md")}\``);
     expect(result.prompt).toContain("embedded template is the only artifact structure");
@@ -414,7 +414,7 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("research");
+    expect(result.stage).toBe("code_research");
     expect(result.prompt).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
     expect(result.prompt).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
     expect(result.prompt).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
@@ -467,7 +467,7 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("phase_validation");
+    expect(result.stage).toBe("iteration_validation");
     expect(result.prompt).toContain("Stage 5A. Phase Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
@@ -483,7 +483,7 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("phase_validation");
+    expect(result.stage).toBe("iteration_validation");
     expect(result.prompt).toContain("Stage 5A. Phase Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
@@ -682,7 +682,7 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("repair");
+    expect(result.stage).toBe("finding_repair");
     expect(result.prompt).toContain("Stage 5R. Repair Loop.");
   });
 
@@ -699,7 +699,7 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
     const today = new Date().toISOString().split("T")[0];
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
-    const statePath = path.join(archiveDir, ".flow-archive.json");
+    const statePath = path.join(archiveDir, ".phase-archive.json");
 
     expect(result.stage).toBe("archive");
     expect(result.prompt).toContain("Stage 6. Archive.");
@@ -727,13 +727,13 @@ Complete API work.
 
     expect(first.stage).toBe("archive");
     expect(second.stage).toBe("archive");
-    expect(second.prompt).toContain(".flow-archive.json");
+    expect(second.prompt).toContain(".phase-archive.json");
     expect(second.prompt).toContain(".phasedev/changes/archive");
   });
 
   test("malformed archive state blocks archive routing instead of falling through", () => {
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
-    const statePath = path.join(archiveDir, ".flow-archive.json");
+    const statePath = path.join(archiveDir, ".phase-archive.json");
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(statePath, "{ malformed json", "utf-8");
 
@@ -744,7 +744,7 @@ Complete API work.
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
     expect(result.prompt).toContain("Invalid archive state.");
     expect(result.prompt).toContain(statePath);
-    expect(result.prompt).toContain(".flow-archive.json is not valid JSON");
+    expect(result.prompt).toContain(".phase-archive.json is not valid JSON");
     expect(result.prompt).not.toContain("Stage 0. AI Layer Setup.");
   });
 
@@ -760,7 +760,7 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("design");
+    expect(result.stage).toBe("technical_design");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Design requires review");
   });
