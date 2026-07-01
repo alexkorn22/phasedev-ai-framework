@@ -19,10 +19,10 @@ import { resolveRoute } from "./flow-route";
 function urlsFor(paths: ReturnType<typeof buildChangePaths>): Urls {
   return {
     prd_path: toFileUrl(paths.prdPath),
-    rules_path: toFileUrl(paths.rulesPath),
+    rules_path: toFileUrl(paths.executionContractPath),
     research_path: toFileUrl(paths.researchPath),
     design_path: toFileUrl(paths.designPath),
-    plan_path: toFileUrl(paths.planPath),
+    plan_path: toFileUrl(paths.iterationPlanPath),
     findings_path: toFileUrl(paths.findingsPath)
   };
 }
@@ -59,22 +59,22 @@ function artifactContract(artifactId: string, resolvedOutputPath: string, templa
 }
 
 const IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES = [
-  "- `implementation_plan.md` is a human approval artifact and a downstream machine contract; keep prose concise and put review decisions inside existing template fields only.",
+  "- `iteration_plan.md` is a human approval artifact and a downstream machine contract; keep prose concise and put review decisions inside existing template fields only.",
   "- Keep `approved: false`; only the user can approve the plan.",
-  "- Keep exactly the non-phase `##` sections from the template, then sequential `## Phase N: Name [ ]` headings. Planning initializes every phase status as `[ ]`.",
+  "- Keep exactly the non-iteration `##` sections from the template, then sequential `## Iteration N: Name [ ]` headings. Planning initializes every iteration status as `[ ]`.",
   "- Fill `Approval Summary` as the compact review surface: scope, out-of-scope work, sequencing risk, and validation.",
-  "- Fill `Generation Bundle`, `Phase Overview`, each phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, and `Check Evidence` from approved PRD/design/rules only.",
-  "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete phase, task, check, evidence, or change-surface trace content.",
+  "- Fill `Generation Bundle`, `Overview`, each iteration `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, and `Check Evidence` from approved PRD/design/execution_contract only.",
+  "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete iteration, task, check, evidence, or change-surface trace content.",
   "- Do not use vague trace labels such as `all requirements`; reference concrete `R#`, `SC#`, and relevant `D#` IDs.",
   "- Use concise tables, grouped lists, and short paragraphs inside existing template sections when they improve review speed; do not add review-only sections or decorative content.",
-  "- Do not use emoji in `implementation_plan.md`; keep machine-sensitive approval artifacts plain text."
+  "- Do not use emoji in `iteration_plan.md`; keep machine-sensitive approval artifacts plain text."
 ];
 
 function implementationPlanArtifactContract(planPath: string, selfCheckCommand: string, date: string): string {
   return renderArtifactContract({
-    artifactId: "implementation_plan.md",
+    artifactId: "iteration_plan.md",
     resolvedOutputPath: planPath,
-    templateName: "artifacts/implementation_plan",
+    templateName: "artifacts/iteration_plan",
     selfCheckCommand,
     includeSelfCheck: false,
     canonicalFillRules: IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES,
@@ -148,99 +148,99 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       );
     case "pending_archive":
       return archivePrompt(projectPath, route.archiveState, config);
-    case "setup": {
+    case "change_intake": {
       let taskContext = "";
       const taskFile = process.env.FLOW_TASK_FILE;
       const date = new Date().toISOString().split("T")[0];
       const changeRoot = route.activeChangePath ?? path.join(projectPath, SYSTEM_DIR, "changes", "<derive-slug-from-final-task>");
-      const selfCheckCommand = flowCheckCommand(projectPath, "setup_approval");
+      const selfCheckCommand = flowCheckCommand(projectPath, "change_intake_approval");
       if (taskFile && fs.existsSync(taskFile)) {
         const content = fs.readFileSync(taskFile, "utf-8");
         taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
       }
-      const basePrompt = renderStageTemplate("setup", "step0_setup", {
+      const basePrompt = renderStageTemplate("change_intake", "phase1_change_intake", {
         date,
         project_path: projectPath,
         prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date, undefined, false),
-        rules_artifact_contract: artifactContract("rules.md", path.join(changeRoot, "rules.md"), "artifacts/rules", selfCheckCommand, date, undefined, false),
+        rules_artifact_contract: artifactContract("execution_contract.md", path.join(changeRoot, "execution_contract.md"), "artifacts/execution_contract", selfCheckCommand, date, undefined, false),
         self_check_command: selfCheckCommand
       }, config);
-      return prompt("next", "setup", basePrompt + taskContext);
+      return prompt("next", "change_intake", basePrompt + taskContext);
     }
     case "invalid_prd":
       return invalidPrdBlocker(route.paths.prdPath, route.issues);
-    case "invalid_rules":
-      return invalidRulesBlocker(route.paths.rulesPath, route.issues);
-    case "setup_approval":
-      return approvalBlocker("setup", "Setup incomplete", route.paths.prdPath, "prd.md & rules.md");
-    case "research": {
+    case "invalid_execution_contract":
+      return invalidRulesBlocker(route.paths.executionContractPath, route.issues);
+    case "change_intake_approval":
+      return approvalBlocker("change_intake", "Setup incomplete", route.paths.prdPath, "prd.md & execution_contract.md");
+    case "code_research": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "research", renderStageTemplate("research", "step1_research", {
+      return prompt("next", "code_research", renderStageTemplate("code_research", "phase2_code_research", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
         project_path: projectPath,
         research_path: urls.research_path,
         research_artifact_contract: researchArtifactContract(route.paths.researchPath, projectPath),
-        self_check_command: flowCheckCommand(projectPath, "design")
+        self_check_command: flowCheckCommand(projectPath, "technical_design")
       }, config));
     }
-    case "invalid_research":
+    case "invalid_code_research":
       return invalidResearchBlocker(route.paths.researchPath, route.issues);
-    case "design": {
+    case "technical_design": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "design", renderStageTemplate("design", "step2_design", {
+      return prompt("next", "technical_design", renderStageTemplate("technical_design", "phase3_technical_design", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         research_path: urls.research_path,
         design_path: urls.design_path,
         date: new Date().toISOString().split("T")[0],
-        design_artifact_contract: artifactContract("architecture/design.md", route.paths.designPath, "artifacts/design", flowCheckCommand(projectPath, "design_approval")),
-        self_check_command: flowCheckCommand(projectPath, "design_approval")
+        design_artifact_contract: artifactContract("architecture/design.md", route.paths.designPath, "artifacts/design", flowCheckCommand(projectPath, "technical_design_approval")),
+        self_check_command: flowCheckCommand(projectPath, "technical_design_approval")
       }, config));
     }
-    case "invalid_design":
+    case "invalid_technical_design":
       return invalidDesignBlocker(route.paths.designPath, route.issues);
-    case "design_approval":
-      return approvalBlocker("design", "Design requires review", route.paths.designPath, "architecture/design.md");
-    case "plan": {
+    case "technical_design_approval":
+      return approvalBlocker("technical_design", "Design requires review", route.paths.designPath, "architecture/design.md");
+    case "iteration_planning": {
       const urls = urlsFor(route.paths);
       const date = new Date().toISOString().split("T")[0];
-      const selfCheckCommand = flowCheckCommand(projectPath, "plan_approval");
-      return prompt("next", "plan", renderStageTemplate("plan", "step3_plan", {
+      const selfCheckCommand = flowCheckCommand(projectPath, "iteration_planning_approval");
+      return prompt("next", "iteration_planning", renderStageTemplate("iteration_planning", "phase4_iteration_planning", {
         prd_path: urls.prd_path,
         design_path: urls.design_path,
         rules_path: urls.rules_path,
         plan_path: urls.plan_path,
         date,
-        implementation_plan_artifact_contract: implementationPlanArtifactContract(route.paths.planPath, selfCheckCommand, date),
+        implementation_plan_artifact_contract: implementationPlanArtifactContract(route.paths.iterationPlanPath, selfCheckCommand, date),
         self_check_command: selfCheckCommand
       }, config));
     }
-    case "plan_approval":
-      return approvalBlocker("plan", "Plan requires review", route.paths.planPath, "implementation_plan.md");
-    case "invalid_plan":
-      return invalidPlanBlocker(route.paths.planPath, route.issues);
+    case "iteration_planning_approval":
+      return approvalBlocker("iteration_planning", "Plan requires review", route.paths.iterationPlanPath, "iteration_plan.md");
+    case "invalid_iteration_planning":
+      return invalidPlanBlocker(route.paths.iterationPlanPath, route.issues);
     case "invalid_findings":
       return validationFindingsBlocker(route.paths.findingsPath, route.issues);
-    case "repair":
+    case "finding_repair":
       return repairPrompt(urlsFor(route.paths), route.paths.findingsPath, config, projectPath);
     case "archive_readiness_blocked":
       return archiveReadinessBlocker(
         "All implementation phases must be marked [x] before archive.",
-        route.paths.planPath,
-        "Final validation is ready, but implementation_plan.md still has an incomplete phase."
+        route.paths.iterationPlanPath,
+        "Final validation is ready, but iteration_plan.md still has an incomplete phase."
       );
     case "archive_ready":
       return startArchiveStage(projectPath, route.activeChangePath, new Date(), config);
     case "phase": {
       const urls = urlsFor(route.paths);
-      const testCommands = parseTestCommands(route.paths.rulesPath).commands;
-      return handlePhase(route.paths.planPath, route.activePhase, urls, testCommands, route.paths.rulesPath, config, projectPath);
+      const testCommands = parseTestCommands(route.paths.executionContractPath).commands;
+      return handlePhase(route.paths.iterationPlanPath, route.activePhase, urls, testCommands, route.paths.executionContractPath, config, projectPath);
     }
     case "final_validation": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "final_validation", renderStageTemplate("final_validation", "step5b_val", {
+      return prompt("next", "final_validation", renderStageTemplate("final_validation", "phase6b_final_validation", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         design_path: urls.design_path,

@@ -22,10 +22,10 @@ interface ArchiveUrls {
 function archiveUrls(paths: ChangePaths): ArchiveUrls {
   return {
     prd_path: toFileUrl(paths.prdPath),
-    rules_path: toFileUrl(paths.rulesPath),
+    rules_path: toFileUrl(paths.executionContractPath),
     research_path: toFileUrl(paths.researchPath),
     design_path: toFileUrl(paths.designPath),
-    plan_path: toFileUrl(paths.planPath),
+    plan_path: toFileUrl(paths.iterationPlanPath),
     findings_path: toFileUrl(paths.findingsPath)
   };
 }
@@ -34,7 +34,7 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 
-  return prompt("next", "archive", renderTemplate("step6_archive", {
+  return prompt("next", "archive", renderTemplate("phase7_archive", {
     change_name: state.changeName,
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
@@ -44,7 +44,7 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
     findings_path: urls.findings_path,
     main_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
     change_specs_path: toFileUrl(path.join(state.archivePath, "specs")),
-    archive_state_path: toFileUrl(path.join(state.archivePath, ".flow-archive.json")),
+    archive_state_path: toFileUrl(path.join(state.archivePath, ".phase-archive.json")),
     archive_path: state.archivePath,
     skill_policy: renderSkillPolicy("archive", config)
   }));

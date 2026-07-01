@@ -83,7 +83,7 @@ function validationFindingsContract(findingsPath: string, projectPath: string, p
     selfCheckCommand: phaseId === undefined ? flowCheckCommand(projectPath) : flowValidationCheckCommand(projectPath, phaseId),
     selfCheckFailureGuidance: phaseId === undefined
       ? undefined
-      : "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md` and the current phase status in `implementation_plan.md` when allowed by the validation verdict, then rerun the same command.",
+      : "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md` and the current phase status in `iteration_plan.md` when allowed by the validation verdict, then rerun the same command.",
     date: new Date().toISOString().split("T")[0]
   });
 }
@@ -101,7 +101,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
   }
 
   if (isPhaseReadyForValidation(currentPhase)) {
-    return prompt("next", "phase_validation", renderStageTemplate("phase_validation", "step5a_val", {
+    return prompt("next", "iteration_validation", renderStageTemplate("iteration_validation", "phase6a_iteration_validation", {
       phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
       prd_path: urls.prd_path,
       rules_path: urls.rules_path,
@@ -117,12 +117,12 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
   const testCommand = renderRequiredCheckCommands(currentPhase, testCommands, rulesPath);
   if (typeof testCommand !== "string") return testCommand;
 
-  return prompt("next", "implementation", renderStageTemplate("implementation", "step4_impl", {
+  return prompt("next", "implementation", renderStageTemplate("implementation", "phase5_implementation", {
     phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
     plan_map: formatPlanMap(planPhases, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
-    self_check_command: flowCheckCommand(projectPath, "phase", "phase_validation"),
+    self_check_command: flowCheckCommand(projectPath, "phase", "iteration_validation"),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,
@@ -182,7 +182,7 @@ function formatRepairQueue(findingsPath: string): string {
 }
 
 export function repairPrompt(urls: Urls, findingsPath: string, config: Config, projectPath = path.resolve(path.dirname(findingsPath), "..", "..", "..")): Prompt {
-  return prompt("next", "repair", renderStageTemplate("repair", "step5r_repair", {
+  return prompt("next", "finding_repair", renderStageTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(findingsPath),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,

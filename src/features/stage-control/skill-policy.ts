@@ -74,7 +74,7 @@ function flowSkillBoundaryProtocolCompact(): string[] {
 }
 
 function stageSpecificRules(stage: Stage): string[] {
-  if (stage === "setup") {
+  if (stage === "change_intake") {
     return [
       "- Setup skills are post-intake only: do not load, read, route through, or apply any configured skill until the task/change description and task-specific rules or constraints are available.",
       "- If setup intake is missing, ignore the configured skill list for now, ask only for the missing intake, and stop.",
@@ -84,7 +84,7 @@ function stageSpecificRules(stage: Stage): string[] {
     ];
   }
 
-  if (stage !== "phase_validation" && stage !== "final_validation") {
+  if (stage !== "iteration_validation" && stage !== "final_validation") {
     return [];
   }
 
@@ -97,7 +97,7 @@ function stageSpecificRules(stage: Stage): string[] {
 }
 
 function externalSkillArtifactRule(stage: Stage): string {
-  if (stage === "phase_validation" || stage === "final_validation") {
+  if (stage === "iteration_validation" || stage === "final_validation") {
     return "- Skills may not create persistent files outside this stage allowlist; do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`.";
   }
 
@@ -105,7 +105,7 @@ function externalSkillArtifactRule(stage: Stage): string {
 }
 
 function noMatchingSkillRule(stage: Stage): string {
-  if (stage === "setup") {
+  if (stage === "change_intake") {
     return "- For setup, for each configured router, configured main, and router-selected skill that does not fit the available post-intake evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section. Stop only when needed stage work requires a skill outside the allowed external skill set.";
   }
 
@@ -113,11 +113,11 @@ function noMatchingSkillRule(stage: Stage): string {
 }
 
 function routerPriorityRule(stage: Stage, onlyRouters: boolean): string {
-  if (stage === "setup") {
+  if (stage === "change_intake") {
     return "- Priority 1: after setup intake is available, read listed router skills first when they are available and help shape the setup artifacts; fully execute any router-selected skill that applies to the setup evidence.\n- Router-selected skills follow the same mandatory execution contract as main skills.";
   }
 
-  if (stage === "research" && onlyRouters) {
+  if (stage === "code_research" && onlyRouters) {
     return "- Priority 1: read listed router skills first when they are available and help select a relevant research method; fully execute any router-selected skill that applies to the research evidence. If no router-selected method applies after the configured router is read, continue under this Flow stage contract.\n- Router-selected skills follow the same mandatory execution contract as main skills.";
   }
 

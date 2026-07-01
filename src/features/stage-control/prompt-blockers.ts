@@ -21,7 +21,7 @@ export function testCommandBlocker(stage: Stage, rulesPath: string, missing: Arr
   return prompt("next", stage, [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Missing test command",
-    "Please add the required command(s) to rules.md:",
+    "Please add the required command(s) to execution_contract.md:",
     `- Missing: ${missing.join(", ")}`,
     `- Link: ${toFileUrl(rulesPath)}`,
     "Expected section:",
@@ -36,18 +36,18 @@ export function testCommandBlocker(stage: Stage, rulesPath: string, missing: Arr
 }
 
 export function invalidPlanBlocker(planPath: string, issues: string[]): Prompt {
-  return prompt("next", "plan", [
+  return prompt("next", "iteration_planning", [
     "================================================================================",
-    "[FLOW CONTROLLER] BLOCKED: Invalid implementation plan",
+    "[FLOW CONTROLLER] BLOCKED: Invalid iteration plan",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(planPath)}`,
-    "Please update implementation_plan.md, then run 'phasedev next' again.",
+    "Please update iteration_plan.md, then run 'phasedev next' again.",
     "================================================================================"
-  ].join("\n"), true, "Invalid implementation plan");
+  ].join("\n"), true, "Invalid iteration plan");
 }
 
 export function invalidPrdBlocker(prdPath: string, issues: string[]): Prompt {
-  return prompt("next", "setup", [
+  return prompt("next", "change_intake", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid prd.md",
     "prd.md must follow the PRD artifact contract before this change can continue.",
@@ -59,18 +59,18 @@ export function invalidPrdBlocker(prdPath: string, issues: string[]): Prompt {
 }
 
 export function invalidRulesBlocker(rulesPath: string, issues: string[]): Prompt {
-  return prompt("next", "setup", [
+  return prompt("next", "change_intake", [
     "================================================================================",
-    "[FLOW CONTROLLER] BLOCKED: Invalid rules.md",
-    "rules.md must follow the Rules artifact contract before this change can continue.",
+    "[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md",
+    "execution_contract.md must follow the Execution Contract artifact contract before this change can continue.",
     ...issues.map(issue => `- ${issue}`),
     `- Link: ${toFileUrl(rulesPath)}`,
-    "Fix rules.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
+    "Fix execution_contract.md, reset approval if you changed an already approved artifact, then run 'phasedev next' again.",
     "================================================================================"
   ].join("\n"), true, "Invalid rules.md");
 }
 export function invalidResearchBlocker(researchPath: string, issues: string[]): Prompt {
-  return prompt("next", "research", [
+  return prompt("next", "code_research", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid research_facts.md",
     "research_facts.md must follow the Research Facts artifact contract before this change can continue.",
@@ -82,7 +82,7 @@ export function invalidResearchBlocker(researchPath: string, issues: string[]): 
 }
 
 export function invalidDesignBlocker(designPath: string, issues: string[]): Prompt {
-  return prompt("next", "design", [
+  return prompt("next", "technical_design", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid design.md",
     "design.md must follow the Design artifact contract before this change can continue.",
@@ -105,7 +105,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
 }
 
 export function validationFindingsBlocker(findingsPath: string, issues: string[]): Prompt {
-  return prompt("next", "repair", [
+  return prompt("next", "finding_repair", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md",
     "validation_findings.md must contain YAML frontmatter followed by exactly one strict findings table.",

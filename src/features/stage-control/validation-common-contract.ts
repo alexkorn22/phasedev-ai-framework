@@ -13,7 +13,7 @@ type ValidationCommonVariableKey =
 type ValidationCommonVariables = Record<ValidationCommonVariableKey, string>;
 
 const PHASE_VALIDATION_COMMON: ValidationCommonVariables = {
-  validation_artifact_read_order: "`implementation_plan.md` current phase, then `prd.md`, `architecture/design.md`, `rules.md`, and existing `validation_findings.md` if present",
+  validation_artifact_read_order: "`iteration_plan.md` current iteration, then `prd.md`, `architecture/design.md`, `execution_contract.md`, and existing `validation_findings.md` if present",
   validation_scope_sources: "the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, and approved risk/design boundaries",
   validation_changed_file_scope: "tied to the current phase",
   validation_budget_target: "current-phase artifacts, current-phase changed files, and narrow searches needed to prove completeness or a concrete finding",
@@ -23,7 +23,7 @@ const PHASE_VALIDATION_COMMON: ValidationCommonVariables = {
 };
 
 const FINAL_VALIDATION_COMMON: ValidationCommonVariables = {
-  validation_artifact_read_order: "`prd.md`, `architecture/design.md`, `implementation_plan.md` all phases including `Generation Bundle`, `Phase Overview`, `Expected Change Surface`, `Checks`, and `Check Evidence`, then `rules.md`, and existing `validation_findings.md` if present",
+  validation_artifact_read_order: "`prd.md`, `architecture/design.md`, `iteration_plan.md` all iterations including `Generation Bundle`, `Overview`, `Expected Change Surface`, `Checks`, and `Check Evidence`, then `execution_contract.md`, and existing `validation_findings.md` if present",
   validation_scope_sources: "the full approved PRD `Intent`, every `R#`, every `SC#`, approved design decisions and risk boundaries, all implementation plan phases, `Generation Bundle`, phase `Expected Change Surface` entries, and all Check Evidence rows",
   validation_changed_file_scope: "in the full change set",
   validation_budget_target: "full-change artifacts, all changed files outside `.phasedev/**`, and narrow searches needed to prove completeness or a concrete finding",
