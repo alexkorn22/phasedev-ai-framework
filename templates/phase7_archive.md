@@ -1,28 +1,28 @@
-Stage 6. Archive.
+Phase 7. Archive.
 
 Your task is to complete the already archived change: sync long-lived specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
 The controller has already checked the readiness gate:
-- `prd.md`, `rules.md`, `architecture/design.md`, and `implementation_plan.md` are approved;
-- all phases in `implementation_plan.md` have status `[x]`;
+- `prd.md`, `execution_contract.md`, `architecture/design.md`, and `iteration_plan.md` are approved;
+- all phases in `iteration_plan.md` have status `[x]`;
 - `validation_findings.md` is a valid strict registry, has `type: final`, `verdict: ready` or `ready_with_risks`, and contains no open/reopened blocking findings.
 - the active change has already been moved to archive path: `{{archive_path}}`.
 - the pending-state file has been created: [{{archive_state_path}}]({{archive_state_path}}).
 
 Input requirement and design artifacts (you must read them):
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 - Research facts: [research_facts.md]({{research_path}})
 - Approved design: [design.md]({{design_path}})
-- Implementation plan, including `Generation Bundle` and `Check Evidence`: [implementation_plan.md]({{plan_path}})
+- Implementation plan, including `Generation Bundle` and `Check Evidence`: [iteration_plan.md]({{plan_path}})
 
 Gate-status file:
 - Validation status: [validation_findings.md]({{findings_path}})
 
 Path resolution rule:
-- Short flow artifact names in this prompt (`prd.md`, `rules.md`, `research_facts.md`, `architecture/design.md`, `implementation_plan.md`, `validation_findings.md`) refer to files inside the archived change at `{{archive_path}}`, not paths from the project repository root.
+- Short flow artifact names in this prompt (`prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) refer to files inside the archived change at `{{archive_path}}`, not paths from the project repository root.
 - Delta specs belong only under `{{archive_path}}/specs/<capability>/spec.md`.
 - Long-lived synced specs belong only under the project `.phasedev/specs` path linked below.
 - The archive state file is only [{{archive_state_path}}]({{archive_state_path}}); do not create or update a project-root `.flow-archive.json`.
@@ -96,7 +96,7 @@ Do not add to specs:
 3. If there are changes, create delta specs in the archived change directory: [{{archive_path}}/specs]({{change_specs_path}}).
    - Capability spec path: `{{archive_path}}/specs/<capability>/spec.md`.
    - One spec file = one functional area.
-   - Before creating files, extract functional areas from `prd.md`, `rules.md`, `research_facts.md`, `architecture/design.md`, and `implementation_plan.md`.
+   - Before creating files, extract functional areas from `prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, and `iteration_plan.md`.
    - Do not create one large catch-all spec such as `specification`, `change`, `archive`, or `{{change_name}}`.
    - If the change affects multiple independent user scenarios, workflows, APIs/interfaces, modules, domains, roles, or integrations, create multiple capability directories.
    - Do not create a new capability when the change should update an existing capability.

@@ -1,4 +1,4 @@
-Stage 6. System Evolution.
+Phase Evolution.
 
 This stage is reserved for manual post-incident analysis and is not part of the normal `phasedev next` route.
 
@@ -13,7 +13,7 @@ Stage contract:
 - identify the root cause summary;
 - state which flow stage should have caught the incident;
 - propose a permanent preventer: a reusable rule/template change, regression check, backlog item, or flow change;
-- do not change one-off `rules.md` from a completed change unless the user explicitly asks;
+- do not change one-off `execution_contract.md` from a completed change unless the user explicitly asks;
 - apply changes only if the user explicitly asked.
 
 ## Artifact allowlist

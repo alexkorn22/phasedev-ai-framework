@@ -62,4 +62,4 @@ Validation coverage:
 Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.
 ```
 
-This coverage block is not a flow artifact: do not write it to `validation_findings.md`, do not create a new file for it, and do not expand `implementation_plan.md` with it.
+This coverage block is not a flow artifact: do not write it to `validation_findings.md`, do not create a new file for it, and do not expand `iteration_plan.md` with it.

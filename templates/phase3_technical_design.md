@@ -1,19 +1,19 @@
-Stage 2. Design.
+Phase 3. Technical Design.
 
-Stage contract: prepare an approvable visual-first architecture package based on requirements and research facts.
+Phase contract: prepare an approvable visual-first architecture package based on requirements and research facts.
 
 {{skill_policy}}
 
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 - Research results: [research_facts.md]({{research_path}})
 
 ## Context retrieval protocol
 
 Use this bounded retrieval order before designing:
 1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
-2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [rules.md]({{rules_path}}) completely when they are reasonably sized.
+2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized.
    If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
 3. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood; map relevant skill output back into the embedded design template only.
 4. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.

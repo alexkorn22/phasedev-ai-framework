@@ -1,6 +1,6 @@
-Stage 5B. Final Validation.
+Phase 6B. Final Validation.
 
-Stage contract: validate the implemented working code before Archive.
+Phase contract: validate the implemented working code before Archive.
 
 Validation mode: review-only stage. This stage checks completeness/correctness through review methods and is not a test execution gate.
 
@@ -8,9 +8,9 @@ Validation mode: review-only stage. This stage checks completeness/correctness t
 
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 - Approved design: [design.md]({{design_path}})
-- Implementation plan: [implementation_plan.md]({{plan_path}})
+- Implementation plan: [iteration_plan.md]({{plan_path}})
 
 {{controller_changed_files_inventory}}
 
@@ -21,7 +21,7 @@ Retrieval order:
 
 Required stage-contract checks:
 - scope = full change;
-- all phases in [implementation_plan.md]({{plan_path}}) have status `[x]`;
+- all phases in [iteration_plan.md]({{plan_path}}) have status `[x]`;
 - Final Validation does not mark phases as `[x]`;
 - change-set inventory gate: before deciding the verdict, identify the complete set of repository files changed outside `.phasedev/**` from available read-only repository evidence;
 - inspect every changed production/source/config/test file outside `.phasedev/**`, not only the flow artifacts, implementation plan, or `Check Evidence`;
@@ -35,10 +35,10 @@ Required stage-contract checks:
 - no behavior outside the positive PRD contract (`Target state`, `R#`, `SC#`, `Risk boundaries`) was implemented without approval;
 - `Target state` from `Intent` is covered by approved plan/design and the actual change set;
 - `Risk boundaries` from `Intent` are not violated; if risk acceptance is required, the finding must be `RECOMMENDED` or `MUST-FIX` by severity;
-- `Generation Bundle` in [implementation_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
-- `Expected Change Surface` in [implementation_plan.md]({{plan_path}}) is delivery scope context for comparing expected and actual changed areas; it is not a new requirements source and does not replace PRD-first validation or actual repo evidence;
+- `Generation Bundle` in [iteration_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
+- `Expected Change Surface` in [iteration_plan.md]({{plan_path}}) is delivery scope context for comparing expected and actual changed areas; it is not a new requirements source and does not replace PRD-first validation or actual repo evidence;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods without running tests;
-- `Check Evidence` across all phases in [implementation_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
+- `Check Evidence` across all phases in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
 - do not rerun `unit`, `phase`, `full`, or additional checks at this stage;
 - validation result is written to [validation_findings.md]({{findings_path}});
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});

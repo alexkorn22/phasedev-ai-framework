@@ -1,23 +1,23 @@
-Stage 5R. Repair Loop.
+Phase 6R. Finding Repair.
 
-Stage contract: process open validation findings and prepare the change for validation again.
+Phase contract: process open validation findings and prepare the change for validation again.
 
 {{skill_policy}}
 
 Input artifacts:
 - Validation report: [validation_findings.md]({{findings_path}})
-- Implementation plan: [implementation_plan.md]({{plan_path}})
+- Implementation plan: [iteration_plan.md]({{plan_path}})
 - Technical design: [design.md]({{design_path}})
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Research results: [research_facts.md]({{research_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 
 {{repair_queue}}
 
 Ordered workflow:
 1. Read the Current Repair Queue, then open the full findings registry only to preserve/update rows and confirm each queued ID still has latest status `open` or `reopened`.
 2. Read the embedded Artifact Build Contract before editing `validation_findings.md`.
-3. Read only the linked source-of-truth artifacts needed by the queued finding classes: `implementation_plan.md` first, then the specific `R#`/`SC#` or risk boundary in `prd.md`, then the specific design/research/rules evidence needed for the repair.
+3. Read only the linked source-of-truth artifacts needed by the queued finding classes: `iteration_plan.md` first, then the specific `R#`/`SC#` or risk boundary in `prd.md`, then the specific design/research/rules evidence needed for the repair.
 4. Inspect affected production/test/source/config files only after artifact context identifies the narrow change surface; prefer exact file paths from the finding, plan, check evidence, or changed-file evidence over broad repository searches.
 5. Patch the smallest required source files or active change artifacts for the finding class, run targeted checks that prove the repair when available, then update `Check Evidence` if it changed.
 6. Update only the existing finding rows for repaired queued IDs, preserve all other rows, set the verdict according to the rule below, run the self-check, and stop.
@@ -39,7 +39,7 @@ Finding handling rules:
 - do not delete finding rows;
 - record a fixed finding by changing the existing row `Status` to `resolved`;
 - do not change stable fields in an existing row unless needed to fix an explicit error in the row;
-- if repair reruns checks or changes evidence for the affected phase, update `Check Evidence` in [implementation_plan.md]({{plan_path}});
+- if repair reruns checks or changes evidence for the affected phase, update `Check Evidence` in [iteration_plan.md]({{plan_path}});
 - in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - do not leave relevant repair evidence as `pending` or `failed`, except for an external blocker recorded as `blocked` with a reason;
 - if a table cell needs a literal `|`, escape it as `\|`.
@@ -47,7 +47,7 @@ Finding handling rules:
 Repair class map:
 - `implementation`: change affected production/source/config/test files inside the current approved design and plan;
 - `test`: change the affected tests, test fixtures, or test command evidence; change production/source code only when the test exposes a real implementation defect inside the approved scope;
-- `plan`: update [implementation_plan.md]({{plan_path}}), then update the affected change set;
+- `plan`: update [iteration_plan.md]({{plan_path}}), then update the affected change set;
 - `design`: update [design.md]({{design_path}}) and related architecture files, then update the affected plan/change set;
 - `requirements`: stop for user discussion before material approval-scope changes; after approval, update [prd.md]({{prd_path}}), then affected design/plan/change set;
 - `validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency; do not change product behavior unless concrete evidence proves the blocker is a real product defect;
@@ -55,7 +55,7 @@ Repair class map:
 - `code_review`: change the exact files or active change artifacts identified by the review finding; if review evidence is stale or wrong, update only the finding row with precise evidence.
 
 Path resolution rule:
-- Flow artifact names in this prompt (`prd.md`, `architecture/design.md`, `implementation_plan.md`, `validation_findings.md`) refer to the linked files inside the active change folder, not paths from the project repository root.
+- Flow artifact names in this prompt (`prd.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) refer to the linked files inside the active change folder, not paths from the project repository root.
 - Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation`, `test`, `security`, or `code_review` repair finding.
 - Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create or update a project-root `architecture/` directory as a flow design artifact.
 - Write or update `validation_findings.md` only at the absolute Output path in the Artifact Build Contract below.
@@ -68,9 +68,9 @@ Verdict rule:
 - do not set `ready` or `ready_with_risks` during the Repair Loop stage.
 
 Human reapproval:
-- if repair changes an already approved `prd.md`, `architecture/design.md`, or `implementation_plan.md`, change that artifact's YAML frontmatter from `approved: true` to `approved: false` and clear `approved_by` if the field exists;
+- if repair changes an already approved `prd.md`, `architecture/design.md`, or `iteration_plan.md`, change that artifact's YAML frontmatter from `approved: true` to `approved: false` and clear `approved_by` if the field exists;
 - this is allowed only for artifacts that are actually changed in this repair;
-- updating only task checkboxes, phase status, or `Check Evidence` in `implementation_plan.md` does not count as changing approved plan content and does not require resetting approval;
+- updating only task checkboxes, phase status, or `Check Evidence` in `iteration_plan.md` does not count as changing approved plan content and does not require resetting approval;
 - for a pure `implementation` repair, do not change approval statuses for requirements, design, or plan.
 
 {{validation_findings_artifact_contract}}

@@ -27,7 +27,7 @@ may_reconstruct_stage_contract: false
 - No executable work is authorized by init.
 - Allowed persistent artifacts: none; do not create, read, edit, move, archive, approve, test, or validate files.
 - Do not run commands, use tools, inspect the repository, open project files, or read generated artifacts.
-- Do not start Stage 0 or any later stage.
+- Do not start Phase 1 or any later phase.
 - Do not infer, reconstruct, summarize, or execute a stage contract from memory, the flow model, nearby user text, or chat history.
 - `phasedev init` does not inject stage-specific skill policy. Skill policy appears only in executable `phasedev next` stage prompts.
 

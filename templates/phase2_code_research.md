@@ -1,12 +1,12 @@
-Stage 1. Research.
+Phase 2. Code Research.
 
-Stage contract: create the factual basis for the design stage.
+Phase contract: create the factual basis for the design phase.
 
 {{skill_policy}}
 
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 - Existing project specs: [.phasedev/specs]({{project_specs_path}})
 - Target project root for repository evidence: `{{project_path}}`
 
@@ -24,13 +24,13 @@ Use the Artifact Build Contract below as the only source of structure for `resea
 {{research_artifact_contract}}
 
 Decision flow:
-1. Read approved `prd.md` and `rules.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
+1. Read approved `prd.md` and `execution_contract.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
 2. Gather only enough repository evidence to trace those targets:
    - Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets, then `.phasedev/specs` if present, then focused follow-up searches for unresolved target-specific evidence gaps.
    - Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area such as package layout, source modules, tests, runtime/config, and specs, then focused `rg` queries and file reads for concrete identifiers, modules, commands, tests, and spec areas. Do not perform exhaustive repository or spec audits.
    - Stop condition: stop reading once every `Intent` field, `R#`, `SC#`, evidence type, and risk boundary can be recorded as `confirmed`, `limited`, `blocked`, or `not_applicable` with cited evidence, or once a material PRD blocker is identified.
 3. Fill `research_facts.md` from current-state evidence. Code, config, tests, and runtime wiring create `F#` facts. Existing specs create `S#` facts. PRD-only values are allowed only for intent fields that are not repository facts.
-4. Resolve conflicts by source priority: current code/config/tests/runtime wiring is implementation truth; `.phasedev/specs` is documented context; `prd.md` and `rules.md` define the requested change contract. If code and specs conflict, record code as current truth and the spec as stale or conflicting context.
+4. Resolve conflicts by source priority: current code/config/tests/runtime wiring is implementation truth; `.phasedev/specs` is documented context; `prd.md` and `execution_contract.md` define the requested change contract. If code and specs conflict, record code as current truth and the spec as stale or conflicting context.
 5. Use blockers only for material realignment needs. Current code lacking the target behavior is usually a `limited` or `blocked` current-state fact for the relevant `R#`/`SC#`, not a reason to stop. Stop and report a PRD blocker only when the approved PRD/rules are internally contradictory, infeasible against hard repository constraints, or cannot be truthfully traced after bounded retrieval without changing `Intent`, `Target state`, `Risk boundaries`, a specific `R#`, a specific `SC#`, or an evidence type.
 
 Research artifact requirements:

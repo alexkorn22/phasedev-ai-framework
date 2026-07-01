@@ -1,14 +1,14 @@
-Stage 4. Implementation.
+Phase 5. Implementation.
 
-Stage contract: complete only the current phase of the approved implementation plan.
+Phase contract: complete only the current phase of the approved implementation plan.
 
 {{skill_policy}}
 
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [rules.md]({{rules_path}})
+- Test command rules: [execution_contract.md]({{rules_path}})
 - Approved design: [design.md]({{design_path}})
-- Implementation plan write-back path: [implementation_plan.md]({{plan_path}}); use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface.
+- Implementation plan write-back path: [iteration_plan.md]({{plan_path}}); use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface.
 
 Full-plan orientation:
 {{plan_map}}
@@ -20,9 +20,9 @@ Current phase from approved plan:
 {{phase_excerpt}}
 
 Ordered workflow:
-1. Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first; open the full [implementation_plan.md]({{plan_path}}) only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory.
+1. Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first; open the full [iteration_plan.md]({{plan_path}}) only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory.
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
-3. Read [prd.md]({{prd_path}}), [rules.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
+3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
 4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
 5. Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.
 6. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
@@ -48,17 +48,17 @@ Scope rules:
 - do not mark the phase heading `[x]` at this stage. It must remain `[~]` until successful validation.
 
 Path resolution rule:
-- `implementation_plan.md` in this prompt is the active change folder plan at [implementation_plan.md]({{plan_path}}), not a path from the project repository root.
+- `iteration_plan.md` in this prompt is the active change folder plan at [iteration_plan.md]({{plan_path}}), not a path from the project repository root.
 - Only production/test/source/config changes from the current phase belong outside `.phasedev/**`.
-- Do not create or update project-root flow artifact files such as `prd.md`, `rules.md`, `research_facts.md`, `implementation_plan.md`, or `validation_findings.md`.
+- Do not create or update project-root flow artifact files such as `prd.md`, `execution_contract.md`, `research_facts.md`, `iteration_plan.md`, or `validation_findings.md`.
 
 Completion checklist:
 - complete the current phase tasks within the approved `prd.md`, approved design, and approved plan;
-- update only current-phase task checkboxes in [implementation_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
+- update only current-phase task checkboxes in [iteration_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
 - execute every required check command below or record why it cannot be executed:
 {{test_command}}
 - execute additional checks from the current phase, if any, or record why they cannot be executed;
-- update `### Check Evidence` for the current phase in [implementation_plan.md]({{plan_path}});
+- update `### Check Evidence` for the current phase in [iteration_plan.md]({{plan_path}});
 - keep `Check Evidence` concise but concrete: command or method, result, what was verified, and blocker reason when blocked;
 - use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - advance toward validation only after current-phase `Check Evidence` has every required check recorded as `passed` and has no `pending`, `failed`, or `blocked` rows;
@@ -82,8 +82,8 @@ Final response is allowed only after the self-check passes or the current phase 
 
 Allowed persistent artifacts for this stage:
 - production/test code needed for current phase
-- task checkboxes and `Check Evidence` rows in active change folder `implementation_plan.md`
+- task checkboxes and `Check Evidence` rows in active change folder `iteration_plan.md`
 
 Stage completion:
-- After updating the change set and `implementation_plan.md`, stop.
+- After updating the change set and `iteration_plan.md`, stop.
 - Tell the user that the current phase is ready for validation and the next transition is run through `phasedev next`.

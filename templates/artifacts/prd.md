@@ -26,7 +26,7 @@ Success Criteria contract:
 - Verifies must reference one or more existing R# IDs, separated by commas when needed.
 - Criterion states the observable proof target.
 - Evidence is the evidence type only, not the command. Use exactly one of: unit, phase, full, review, manual, smoke.
-- Concrete commands live only in rules.md.
+- Concrete commands live only in execution_contract.md.
 
 Positive contract rule:
 - If needed work does not follow from Target state, R#, SC#, or Risk boundaries, do not include it in the PRD.
