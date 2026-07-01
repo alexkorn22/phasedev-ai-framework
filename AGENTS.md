@@ -9,7 +9,7 @@ This file is the repo-local system prompt for agents working inside `PhaseDev AI
 Preserve these public entrypoints:
 
 - `src/cli.ts`: manual CLI for `init` and `next`.
-- `src/runner.ts`: automated loop runner.
+- `src/runner.ts`: automated loop runner. **(DEPRECATED — runner loop is no longer maintained; use `phasedev next` manually.)**
 
 Do not reintroduce separate root archive, parser, checker, template, controller, or config scripts.
 
@@ -18,7 +18,7 @@ Do not reintroduce separate root archive, parser, checker, template, controller,
 Root `src/` must stay thin. Put logic in:
 
 - `src/features/stage-control`: stage routing, prompt construction, blockers, archive stage orchestration.
-- `src/features/runner`: runner loop, Codex turns, streaming reporter, snapshots, logs.
+- `src/features/runner`: runner loop, Codex turns, streaming reporter, snapshots, logs. **(DEPRECATED — runner logic is no longer maintained; manual CLI handles all flow.)**
 - `src/entities`: stage types, change paths/state/approval, config parsing, implementation-plan parsing/validation, validation findings, test commands.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 

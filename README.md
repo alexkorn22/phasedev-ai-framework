@@ -73,7 +73,11 @@ phasedev next --project-path /absolute/path/to/your-project
 ---
 
 ## 🤖 Automated Loop: PhaseDev Runner
-The **PhaseDev Runner** (runner) automates the manual cycle by launching isolated agent runs, executing stage prompts, logging answers, and monitoring progress.
+
+> [!WARNING]
+> **Deprecated.** The automated runner (`npm run phasedev:run`) is no longer maintained. Use the manual `phasedev next` flow instead — it provides the same stage contracts with human oversight.
+
+The **PhaseDev Runner** (runner) automates the manual cycle by launching isolated agent runs, executing stage prompts, logging answers, and monitoring progress. This functionality is **deprecated** and may be removed in a future release.
 
 ### Run automation:
 ```bash
@@ -113,7 +117,7 @@ loop:
       enabled: false
 ```
 
-`loop.autoApprove: true` is only used by the automated runner. It sets `approved: true` and
+`loop.autoApprove: true` is only used by the automated runner (deprecated). It sets `approved: true` and
 `approved_by: "PhaseDev Runner"` on valid approval artifacts after controller validation has
 already routed to an approval gate. Manual `phasedev next` still stops for human review.
 
