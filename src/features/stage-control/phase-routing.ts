@@ -102,7 +102,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
 
   if (isPhaseReadyForValidation(currentPhase)) {
     return prompt("next", "iteration_validation", renderStageTemplate("iteration_validation", "phase6a_iteration_validation", {
-      phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
+      phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
       prd_path: urls.prd_path,
       rules_path: urls.rules_path,
       design_path: urls.design_path,
@@ -118,7 +118,7 @@ export function handlePhase(planPath: string, activePhase: Phase, urls: Urls, te
   if (typeof testCommand !== "string") return testCommand;
 
   return prompt("next", "implementation", renderStageTemplate("implementation", "phase5_implementation", {
-    phase_id: `Phase ${currentPhase.id}: ${currentPhase.name}`,
+    phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
     plan_map: formatPlanMap(planPhases, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,

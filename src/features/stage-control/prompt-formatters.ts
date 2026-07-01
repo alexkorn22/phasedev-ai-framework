@@ -20,7 +20,7 @@ export function formatTaskList(phase: Phase): string {
 }
 
 export function formatPhaseExcerpt(phase: Phase): string {
-  return phase.rawContent?.trim() || `## Phase ${phase.id}: ${phase.name}\n${formatTaskList(phase)}`;
+  return phase.rawContent?.trim() || `## Iteration ${phase.id}: ${phase.name}\n${formatTaskList(phase)}`;
 }
 
 export function formatPlanMap(phases: Phase[], currentPhaseId: number): string {
@@ -35,7 +35,7 @@ export function formatPlanMap(phases: Phase[], currentPhaseId: number): string {
     const requiredChecks = phase.requiredChecks && phase.requiredChecks.length > 0
       ? phase.requiredChecks.map(check => check.check).join(", ")
       : "unit";
-    return `- Phase ${phase.id}: ${phase.name} ${status} (${marker}); tasks: ${taskIds}; required checks: ${requiredChecks}`;
+    return `- Iteration ${phase.id}: ${phase.name} ${status} (${marker}); tasks: ${taskIds}; required checks: ${requiredChecks}`;
   }).join("\n");
 }
 

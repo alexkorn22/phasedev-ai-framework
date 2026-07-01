@@ -244,7 +244,7 @@ export function parsePlan(filePath: string): Phase[] {
   const lines = content.split("\n");
   const phases: Phase[] = [];
   const generationBundle = parseGenerationBundle(lines);
-  const phaseRegex = /^##\s*Phase\s*(\d+)\s*:\s*(.*?)\s*\[\s*(x|~| |\/)\s*\]/i;
+  const phaseRegex = /^##\s*Iteration\s*(\d+)\s*:\s*(.*?)\s*\[\s*(x|~| |\/)\s*\]/i;
 
   let currentPhaseLines: string[] = [];
   let currentPhaseHeading = "";

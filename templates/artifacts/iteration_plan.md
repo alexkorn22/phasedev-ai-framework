@@ -6,19 +6,19 @@ date: {{date}}
 
 <!--
 Authoring instructions for the planning agent:
-- Fill this template for implementation_plan.md.
-- Remove every HTML comment from the final implementation_plan.md.
+- Fill this template for iteration_plan.md.
+- Remove every HTML comment from the final iteration_plan.md.
 - Replace the title with the concrete change name.
 - Do not leave blank table cells, blank phase names, blank task descriptions, copied field descriptions, or placeholder-like prose in the final artifact.
 - Keep YAML frontmatter first.
 
 Phase status contract:
-- Keep phase headings machine-readable: ## Phase N: Name [status]
-- Phase numbers must be sequential starting at 1.
+- Keep iteration headings machine-readable: ## Iteration N: Name [status]
+- Iteration numbers must be sequential starting at 1.
 - Use [ ] for not started.
 - Use [~] for implementation done or in progress but validation not passed.
 - Use [x] only after validation passed.
-- Do not use other phase status values.
+- Do not use other iteration status values.
 
 Task contract:
 - Every executable checkbox item must be atomic and numbered.

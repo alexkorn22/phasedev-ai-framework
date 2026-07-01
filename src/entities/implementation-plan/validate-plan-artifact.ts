@@ -109,7 +109,7 @@ function validateApprovalSummary(lines: string[], issues: string[]): void {
 function validateTopLevelStructure(lines: string[], issues: string[]): void {
   const topLevelHeadings = lines.map(topLevelHeadingName).filter((heading): heading is string => heading !== null);
   if (topLevelHeadings.length !== 1 || topLevelHeadings[0] !== "Implementation Plan") {
-    issues.push("implementation_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
+    issues.push("iteration_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
   }
 
   const actualSections = lines.map(secondLevelHeadingName).filter((section): section is string => section !== null);
@@ -121,9 +121,9 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
     }
 
     if (/^Phase\b/i.test(section)) {
-      issues.push(`implementation_plan.md has invalid phase heading syntax: \`## ${section}\`. ${CANONICAL_PHASE_HEADING_SYNTAX}`);
+      issues.push(`iteration_plan.md has invalid phase heading syntax: \`## ${section}\`. ${CANONICAL_PHASE_HEADING_SYNTAX}`);
     } else {
-      issues.push(`implementation_plan.md contains unexpected section \`## ${section}\`.`);
+      issues.push(`iteration_plan.md contains unexpected section \`## ${section}\`.`);
     }
   }
 
@@ -132,12 +132,12 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
     nonPhaseSections.length !== REQUIRED_TOP_LEVEL_SECTIONS.length ||
     nonPhaseSections.some((section, index) => section !== REQUIRED_TOP_LEVEL_SECTIONS[index])
   ) {
-    issues.push(`implementation_plan.md non-phase \`##\` sections must exactly match this order: ${REQUIRED_TOP_LEVEL_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
+    issues.push(`iteration_plan.md non-phase \`##\` sections must exactly match this order: ${REQUIRED_TOP_LEVEL_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
   const phaseStartIndex = actualSections.findIndex(section => /^Phase \d+:/i.test(section));
   if (phaseStartIndex !== -1 && phaseStartIndex < REQUIRED_TOP_LEVEL_SECTIONS.length) {
-    issues.push("implementation_plan.md phase sections must appear after `## Phase Overview`.");
+    issues.push("iteration_plan.md phase sections must appear after `## Phase Overview`.");
   }
 }
 
@@ -194,7 +194,7 @@ function expectedSurfaceBasePath(planPath: string): string {
 
 export function validatePlanArtifact(filePath: string, prdPath?: string, designPath?: string): string[] {
   if (!fs.existsSync(filePath)) {
-    return ["implementation_plan.md does not exist."];
+    return ["iteration_plan.md does not exist."];
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
@@ -203,14 +203,14 @@ export function validatePlanArtifact(filePath: string, prdPath?: string, designP
   const issues: string[] = [];
 
   if (!hasFrontmatter) {
-    issues.push("implementation_plan.md must start with YAML frontmatter.");
+    issues.push("iteration_plan.md must start with YAML frontmatter.");
   }
   if (/<!--[\s\S]*?-->/.test(content)) {
-    issues.push("implementation_plan.md must not contain HTML template comments.");
+    issues.push("iteration_plan.md must not contain HTML template comments.");
   }
   for (const placeholder of BLOCKED_PLACEHOLDERS) {
     if (placeholder.pattern.test(body)) {
-      issues.push(`implementation_plan.md must not contain placeholder text: ${placeholder.label}.`);
+      issues.push(`iteration_plan.md must not contain placeholder text: ${placeholder.label}.`);
     }
   }
 

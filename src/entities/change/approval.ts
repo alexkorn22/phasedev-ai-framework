@@ -24,5 +24,5 @@ export function isDesignApproved(changeDir: string): boolean {
 }
 
 export function isPlanApproved(changeDir: string): boolean {
-  return isApproved(path.join(changeDir, "implementation_plan.md"));
+  return isApproved(path.join(changeDir, "iteration_plan.md"));
 }

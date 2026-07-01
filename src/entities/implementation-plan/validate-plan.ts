@@ -131,7 +131,7 @@ function validateExpectedChangeSurface(phase: Phase, issues: string[], basePath?
 
 function validateGenerationBundle(rows: GenerationBundleRow[], issues: string[]): void {
   if (rows.length === 0) {
-    issues.push("implementation_plan.md must contain a non-empty Generation Bundle table.");
+    issues.push("iteration_plan.md must contain a non-empty Generation Bundle table.");
     return;
   }
 
@@ -224,7 +224,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string, surface
   const taskIds = new Map<string, string>();
 
   if (phases.length === 0) {
-    return [`implementation_plan.md must contain at least one phase heading. ${CANONICAL_PHASE_HEADING_SYNTAX}`];
+    return [`iteration_plan.md must contain at least one phase heading. ${CANONICAL_PHASE_HEADING_SYNTAX}`];
   }
 
   const shouldValidateArtifactContract = hasParsedPlanContent(phases);
