@@ -1,0 +1,33 @@
+runner:
+  # модель для Codex agent
+  model: gpt-5.5
+  # усилия рассуждения: minimal, low, medium, high, xhigh
+  reasoningEffort: medium
+  # режим доступа: workspace-write, danger-full-access
+  sandboxMode: workspace-write
+  # политика подтверждений: never, on-request, on-failure, untrusted
+  approvalPolicy: never
+  # доступ к сети для Codex agent
+  networkAccessEnabled: false
+  # печатать полный streaming вывод Codex agent в консоль
+  streamAgentOutput: false
+
+  # лимиты цикла
+  maxIterations: 10
+  logDir: .phasedev/logs
+  enableLogs: true
+
+  # сторожевой таймер
+  watchdog:
+    enabled: true
+    turnTimeoutMs: 3600000
+    inactivityTimeoutMs: 900000
+    statusIntervalMs: 300000
+    abortGraceMs: 5000
+
+  # уведомления
+  notifications:
+    telegram:
+      enabled: false
+      botTokenEnv: TELEGRAM_BOT_TOKEN
+      chatIdEnv: TELEGRAM_CHAT_ID

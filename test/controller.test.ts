@@ -76,7 +76,7 @@ function withImplementationPlanContract(planContent: string): string {
 | Area | Required | Plan |
 |---|---|---|
 | Production code | yes | Exercise the test fixture production path. |
-| Tests | yes | Use fixture commands from rules.md. |
+| Tests | yes | Use fixture commands from execution_contract.md. |
 | Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
 | Migrations | not_applicable | No persistence changes are part of this fixture. |
 | Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
@@ -91,7 +91,7 @@ function withImplementationPlanContract(planContent: string): string {
 
 ${normalizedPlanContent}`;
 
-  return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
+  return withBundle.replace(/^## Iteration \d+:.*(?:\n(?!## Iteration \d+:).*)*/gm, section => {
     let nextSection = section;
     const hasIncompleteTask = /^-\s*\[\s*(?: |~|\/)\s*\]/im.test(section);
     const resultStatus = hasIncompleteTask ? "pending" : "passed";
@@ -197,7 +197,7 @@ function setupChange(planContent: string, options: { findings?: string; designAp
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
   writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
-  writeArtifact(path.join(changeDir, "rules.md"), `
+  writeArtifact(path.join(changeDir, "execution_contract.md"), `
 # Rules
 
 ## Test Commands
@@ -230,8 +230,8 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("## Init State");
     expect(result.prompt).toContain("command: init");
-    expect(result.prompt).toContain("current_stage: setup");
-    expect(result.prompt).toContain("route_kind: setup");
+    expect(result.prompt).toContain("current_stage: change_intake");
+    expect(result.prompt).toContain("route_kind: change_intake");
     expect(result.prompt).toContain("active_change: none");
     expect(result.prompt).toContain("may_modify_files: false");
     expect(result.prompt).toContain("Allowed persistent artifacts: none");
@@ -244,7 +244,7 @@ describe("flow controller typed stages", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n");
-    writeArtifact(path.join(changeDir, "rules.md"), `
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
 # Rules
 
 ## Test Commands
@@ -267,7 +267,7 @@ describe("flow controller typed stages", () => {
     const changeDir = setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 `);
 
@@ -284,7 +284,7 @@ describe("flow controller typed stages", () => {
     const changeDir = setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -321,32 +321,32 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("change_intake");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Stage 0. AI Layer Setup.");
+    expect(result.prompt).toContain("Phase 1. Change Intake.");
     expect(result.prompt).toContain(`current project repository at \`${testTmpDir}\``);
     expect(result.prompt).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
-    expect(result.prompt).toContain("Artifact Build Contract: rules.md");
+    expect(result.prompt).toContain("Artifact Build Contract: execution_contract.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md")}\``);
     expect(result.prompt).toContain("Before creating the change folder, prevent slug collisions");
     expect(result.prompt).toContain("derive the next non-conflicting slug by appending `-2`, then `-3`");
     expect(result.prompt).toContain("do not overwrite or reuse it");
     expect(result.prompt).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(result.prompt).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
-    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
+    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
     expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
-    expect(result.prompt).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route setup_approval` subcommand");
+    expect(result.prompt).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route change_intake_approval` subcommand");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
     expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
-    expect(result.prompt).toContain("# Rules");
+    expect(result.prompt).toContain("# Execution Contract");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
   });
 
@@ -354,7 +354,7 @@ describe("flow controller typed stages", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
-    writeArtifact(path.join(changeDir, "rules.md"), `
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
 # Rules
 
 ## Test Commands
@@ -394,14 +394,14 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Final response must be compact and include");
     expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
-    expect(result.prompt).toContain("--expect-route design_approval");
+    expect(result.prompt).toContain("--expect-route technical_design_approval");
   });
 
   test("research prompt constrains repository evidence to target project root", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
-    writeArtifact(path.join(changeDir, "rules.md"), `
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
 # Rules
 
 ## Test Commands
@@ -428,7 +428,7 @@ describe("flow controller typed stages", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 `);
 
@@ -436,16 +436,16 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("implementation");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Stage 4. Implementation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
-    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage phase_validation`);
+    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage iteration_validation`);
   });
 
   test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Tasks
 
@@ -461,14 +461,14 @@ describe("flow controller typed stages", () => {
 |---|---|---|---|---|
 | unit | \`bun test unit\` | passed | unit tests passed for API endpoint | none |
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `);
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
   });
@@ -477,14 +477,14 @@ describe("flow controller typed stages", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `);
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -492,7 +492,7 @@ describe("flow controller typed stages", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -516,15 +516,15 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 4. Implementation.");
-    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("completed tasks with failed check evidence stay in implementation", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -548,15 +548,15 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 4. Implementation.");
-    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("completed tasks with blocked check evidence stay in implementation", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -580,15 +580,15 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 4. Implementation.");
-    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("current phase implementation prompt uses required phase check commands", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -620,7 +620,7 @@ Complete API work.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -644,15 +644,15 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 4. Implementation.");
-    expect(result.prompt).not.toContain("Stage 5A. Phase Validation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("validated single-phase route reports final validation stage", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "phase")
@@ -661,7 +661,7 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("final_validation");
-    expect(result.prompt).toContain("Stage 5B. Final Validation.");
+    expect(result.prompt).toContain("Phase 6B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain(`phasedev check-validation --project-path "${testTmpDir}"`);
     expect(result.prompt).toContain("--scope final");
@@ -674,7 +674,7 @@ Complete API work.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repair_required", "phase", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
@@ -683,14 +683,14 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("finding_repair");
-    expect(result.prompt).toContain("Stage 5R. Repair Loop.");
+    expect(result.prompt).toContain("Phase 6R. Finding Repair.");
   });
 
   test("archive route reports archive stage and moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -702,7 +702,7 @@ Complete API work.
     const statePath = path.join(archiveDir, ".phase-archive.json");
 
     expect(result.stage).toBe("archive");
-    expect(result.prompt).toContain("Stage 6. Archive.");
+    expect(result.prompt).toContain("Phase 7. Archive.");
     expect(fs.existsSync(changeDir)).toBe(false);
     expect(fs.existsSync(statePath)).toBe(true);
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({
@@ -716,7 +716,7 @@ Complete API work.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -745,14 +745,14 @@ Complete API work.
     expect(result.prompt).toContain("Invalid archive state.");
     expect(result.prompt).toContain(statePath);
     expect(result.prompt).toContain(".phase-archive.json is not valid JSON");
-    expect(result.prompt).not.toContain("Stage 0. AI Layer Setup.");
+    expect(result.prompt).not.toContain("Phase 1. Change Intake.");
   });
 
   test("approval blocker reports blocked gate stage", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       designApproved: false

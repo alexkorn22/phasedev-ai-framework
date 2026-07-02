@@ -5,7 +5,7 @@ export function updatePhaseStatus(filePath: string, phaseId: number, status: "co
 
   let content = fs.readFileSync(filePath, "utf-8");
   const statusChar = status === "completed" ? "x" : status === "in_progress" ? "~" : " ";
-  const phaseRegex = new RegExp(`(##\\s*Phase\\s*${phaseId}\\s*:\\s*.*?\\s*\\[\\s*)(x|~| |\\/)\\s*(\\])`, "i");
+  const phaseRegex = new RegExp(`(##\\s*Iteration\\s*${phaseId}\\s*:\\s*.*?\\s*\\[\\s*)(x|~| |\\/)\\s*(\\])`, "i");
 
   if (phaseRegex.test(content)) {
     content = content.replace(phaseRegex, `$1${statusChar}$3`);

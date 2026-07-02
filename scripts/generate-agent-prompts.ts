@@ -24,9 +24,9 @@ const repoRoot = path.resolve(__dirname, "..");
 const generatedChangeName = "generated-agent-prompts";
 const flowArtifactRelativePaths = [
   "prd.md",
-  "rules.md",
+  "execution_contract.md",
   "research_facts.md",
-  "implementation_plan.md",
+  "iteration_plan.md",
   "validation_findings.md",
   path.join("architecture", "design.md")
 ];
@@ -111,7 +111,7 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
       .split(sourcePath).join(snapshotPath);
   }
 
-  if (stage === "phase_validation" || stage === "final_validation" || stage === "repair") {
+  if (stage === "iteration_validation" || stage === "final_validation" || stage === "finding_repair") {
     rewrittenPrompt = rewrittenPrompt
       .split(`--project-path ${shellQuote(workingProjectPath)}`)
       .join(`--project-path ${shellQuote(snapshotProjectPath)}`);
@@ -274,8 +274,8 @@ None.
 `;
 }
 
-function planBody(status: "implementation" | "phase_validation" | "final_validation" | "archive"): string {
-  const phaseStatus = status === "implementation" ? " " : status === "phase_validation" ? "~" : "x";
+function planBody(status: "implementation" | "iteration_validation" | "final_validation" | "archive"): string {
+  const phaseStatus = status === "implementation" ? " " : status === "iteration_validation" ? "~" : "x";
   const taskStatus = status === "implementation" ? " " : "x";
   const evidenceResult = status === "implementation" ? "pending" : "passed";
   const evidenceText = status === "implementation" ? "not run yet" : "prompt generation check passed";
@@ -289,7 +289,7 @@ function planBody(status: "implementation" | "phase_validation" | "final_validat
 | Approval scope | Generate all PhaseDev stage prompts from controller states. |
 | Out of scope | Mutating the source project. |
 | Sequencing risk | Low; scaffold state is isolated under the output directory. |
-| Validation | Use the configured full check command from rules.md. |
+| Validation | Use the configured full check command from execution_contract.md. |
 
 ## Generation Bundle
 
@@ -309,7 +309,7 @@ function planBody(status: "implementation" | "phase_validation" | "final_validat
 |---|---|---|---|
 | Phase 1 | Generate prompt files. | 1.1 | unit |
 
-## Phase 1: Prompt Generation [${phaseStatus}]
+## Iteration 1: Prompt Generation [${phaseStatus}]
 
 ### Goal
 
@@ -355,7 +355,7 @@ ${rows}`;
 
 function writeBaseArtifacts(paths: ChangePaths): void {
   writeFile(paths.prdPath, approvedArtifact(prdBody()));
-  writeFile(paths.rulesPath, approvedArtifact(rulesBody()));
+  writeFile(paths.executionContractPath, approvedArtifact(rulesBody()));
 }
 
 function writeResearch(paths: ChangePaths, projectPath: string): void {
@@ -369,8 +369,8 @@ function writeDesign(paths: ChangePaths): void {
   writeFile(paths.designPath, approvedArtifact(designBody()));
 }
 
-function writePlan(paths: ChangePaths, status: "implementation" | "phase_validation" | "final_validation" | "archive"): void {
-  writeFile(paths.planPath, approvedArtifact(planBody(status)));
+function writePlan(paths: ChangePaths, status: "implementation" | "iteration_validation" | "final_validation" | "archive"): void {
+  writeFile(paths.iterationPlanPath, approvedArtifact(planBody(status)));
 }
 
 function writeRepairFindings(paths: ChangePaths): void {
@@ -452,29 +452,29 @@ function main(): void {
   const initPrompt = getInitPrompt(workingProjectPath, config);
   manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.stage, initPrompt.prompt, options, workingProjectPath));
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-stage-0-setup.md", "setup", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-stage-0-setup.md", "change_intake", options, config));
   writeBaseArtifacts(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "02-stage-1-research.md", "research", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "02-stage-1-research.md", "code_research", options, config));
   writeResearch(paths, workingProjectPath);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "03-stage-2-design.md", "design", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "03-stage-2-design.md", "technical_design", options, config));
   writeDesign(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "04-stage-3-plan.md", "plan", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "04-stage-3-plan.md", "iteration_planning", options, config));
   writePlan(paths, "implementation");
 
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "05-stage-4-implementation.md", "implementation", options, config));
-  writePlan(paths, "phase_validation");
+  writePlan(paths, "iteration_validation");
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-stage-5a-phase-validation.md", "phase_validation", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-stage-5a-phase-validation.md", "iteration_validation", options, config));
   writePlan(paths, "final_validation");
   writePhaseReadyFindings(paths);
 
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "07-stage-5b-final-validation.md", "final_validation", options, config));
   writeRepairFindings(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-stage-5r-repair.md", "repair", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-stage-5r-repair.md", "finding_repair", options, config));
   writePlan(paths, "archive");
   writeFinalReadyFindings(paths);
 

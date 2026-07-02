@@ -1,105 +1,65 @@
-codex:
-  default:
-    model: gpt-5.5 # варианты: gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, gpt-5.2
-    reasoningEffort: medium # варианты: minimal, low, medium, high, xhigh
+# Stage config — skills per phase
+# Runner config moved to runner.yaml
+phases:
+  change_intake:
+    skills:
+      routers:
+        - using-ecc
+      main: []
+      additional: []
+  code_research:
+    skills:
+      routers:
+        - using-ecc
+      main: []
+      additional: []
+  technical_design:
+    skills:
+      routers:
+        - using-ecc
+      main:
+        - dev-core
+      additional: []
+  iteration_planning:
+    skills:
+      routers:
+        - using-ecc
+      main:
+        - dev-core
+      additional: []
+  implementation:
+    skills:
+      routers:
+        - using-ecc
+      main:
+        - dev-core
+      additional: []
+  iteration_validation:
+    skills:
+      routers:
+        - using-ecc
+      main: []
+      additional: []
+  final_validation:
+    skills:
+      routers:
+        - using-ecc
+      main: []
+      additional: []
+  finding_repair:
+    skills:
+      routers:
+        - using-ecc
+      main:
+        - dev-core
+      additional: []
+  archive:
+    skills:
+      routers:
+        - using-ecc
+      main: []
+      additional: []
 
-  stages:
-    setup:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main: []
-        additional: []
-    research:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main: []
-        additional: []
-    design:
-      model: gpt-5.5
-      reasoningEffort: high
-      skills:
-        routers:
-          - using-ecc
-        main:
-          - dev-core
-        additional: []
-    plan:
-      model: gpt-5.5
-      reasoningEffort: high
-      skills:
-        routers:
-          - using-ecc
-        main:
-          - dev-core
-        additional: []
-    implementation:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main:
-          - dev-core
-        additional: []
-    phase_validation:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main: []
-        additional: []
-    final_validation:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main: []
-        additional: []
-    repair:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main:
-          - dev-core
-        additional: []
-    archive:
-      model: gpt-5.5
-      reasoningEffort: medium
-      skills:
-        routers:
-          - using-ecc
-        main: []
-        additional: []
-
-  sandboxMode: workspace-write # варианты: workspace-write, danger-full-access; workspace-write = полный доступ на запись внутри проекта
-  approvalPolicy: never # варианты: never, on-request, on-failure, untrusted
-  networkAccessEnabled: false # варианты: true, false
-  streamAgentOutput: false # варианты: true, false; true = печатать полный streaming вывод Codex agent в консоль
-
-loop:
-  maxIterations: 10 # максимум сессий этапов за один запуск
-  logDir: .phasedev/logs # путь относительно projectPath
-  enableLogs: true # включение/выключение JSON логов ответов агента
-  runArchiveStage: true # true = Ralph выполняет Archive; false = остановиться перед Archive и потребовать ручной phasedev next
-  autoApprove: false # true = runner автоматически ставит approved: true на валидных human approval artifacts
-  watchdog:
-    enabled: true # true = прерывать один зависший Codex stage turn; не лимитирует весь workflow
-    turnTimeoutMs: 3600000 # абсолютный лимит одного stage turn
-    inactivityTimeoutMs: 900000 # лимит без новых событий от Codex agent
-    statusIntervalMs: 300000 # как часто писать heartbeat о продолжающемся stage turn
-    abortGraceMs: 5000 # сколько ждать завершения после AbortSignal перед controlled timeout
-  notifications:
-    telegram:
-      enabled: true # true = отправлять компактный саммари-отчет об итерации в Telegram
-      botTokenEnv: TELEGRAM_BOT_TOKEN # имя env var с токеном Telegram bot
-      chatIdEnv: TELEGRAM_CHAT_ID # имя env var с chat id получателя
+# Root-level flow flags
+runArchiveStage: true
+autoApprove: false

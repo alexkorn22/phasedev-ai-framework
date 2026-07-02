@@ -1,13 +1,13 @@
 ---
 name: phasedev-orchestrator
-description: PhaseDev AI Framework orchestrator. Thin loop controller that spawns dedicated sub-agents for each PhaseDev stage. No stage work is done by the main agent itself.
+description: PhaseDev AI Framework orchestrator. Thin loop controller that spawns dedicated sub-agents for each PhaseDev phase. No phase work is done by the main agent itself.
 ---
 
 # PhaseDev Orchestrator — AI Flow Controller for PhaseDev Framework
 
 ## Overview
 
-The **PhaseDev Orchestrator** transforms the main agent into a strict **flow controller** that delegates every PhaseDev stage — change_intake, code_research, technical_design, iteration_planning, implementation, validation, finding_repair, archive — to a dedicated sub-agent.
+The **PhaseDev Orchestrator** transforms the main agent into a strict **flow controller** that delegates every PhaseDev phase — change_intake, code_research, technical_design, iteration_planning, implementation, validation, finding_repair, archive — to a dedicated sub-agent.
 
 The orchestrator is intentionally **thin**:
 - It uses `phasedev check` to determine the current route and matches it to an action in the Route Action Table.
@@ -112,16 +112,16 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 |------------|-------|--------|-------|
 | `change_intake` | change_intake | Spawn sub-agent | First run. No PRD/rules yet. |
 | `invalid_prd` | change_intake | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `invalid_rules` | change_intake | Recovery spawn (once) | See Invalid-artifact recovery. |
+| `invalid_execution_contract` | change_intake | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `change_intake_approval` | change_intake | **STOP — ask user**\* | "Approve prd.md & rules.md, set approved: true"\* |
 | `code_research` | code_research | Spawn sub-agent | |
 | `invalid_code_research` | code_research | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `technical_design` | technical_design | Spawn sub-agent | |
 | `invalid_technical_design` | technical_design | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `design_approval` | technical_design | **STOP — ask user**\* | "Approve architecture/design.md, set approved: true"\* |
+| `technical_design_approval` | technical_design | **STOP — ask user**\* | "Approve architecture/design.md, set approved: true"\* |
 | `iteration_planning` | iteration_planning | Spawn sub-agent | |
 | `invalid_iteration_planning` | iteration_planning | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `iteration_planning_approval` | iteration_planning | **STOP — ask user**\* | "Approve implementation_plan.md, set approved: true"\* |
+| `iteration_planning_approval` | iteration_planning | **STOP — ask user**\* | "Approve iteration_plan.md, set approved: true"\* |
 | `phase` | implementation / iteration_validation | Spawn sub-agent | Impl or validation depending on current phase state. See the phase-route note below. |
 | `invalid_findings` | finding_repair | Recovery spawn (once) | Structurally malformed validation_findings.md (not a `repair_required` verdict). Created by validation, fixed by a finding_repair-stage agent. |
 | `finding_repair` | finding_repair | Spawn sub-agent | |
@@ -140,7 +140,7 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 
 ## Invalid-artifact recovery policy
 
-One of the artifact-invalid routes (`invalid_prd`, `invalid_rules`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning stage's sub-agent reported completion without a passing self-check (or the state was already broken on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
+One of the artifact-invalid routes (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning stage's sub-agent reported completion without a passing self-check (or the state was already broken on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
 1. Spawn ONE sub-agent for the owning stage. Its `phasedev next` returns a fix contract listing the issues (no self-check embedded). Instruct it: fix the artifact, then run `phasedev check` and confirm the route is no longer `invalid_*`. The fix contract says "run 'phasedev next' again" — the recovery sub-agent must NOT; `phasedev next` would advance into the next stage and re-bloat context. Verify with `phasedev check` only, then report back.
 2. After it returns, run `phasedev check`:
@@ -156,9 +156,9 @@ When `phasedev config loop.autoApprove` (from Initialization) is `true`, the orc
 
 | Route kind | Auto-approve action |
 |------------|---------------------|
-| `change_intake_approval` | Spawn a sub-agent that: reads `prd.md` and `rules.md`, sets `approved: true` in their YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `change_intake_approval`. |
-| `design_approval` | Spawn a sub-agent that: reads `architecture/design.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `design_approval`. |
-| `iteration_planning_approval` | Spawn a sub-agent that: reads `implementation_plan.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `iteration_planning_approval`. |
+| `change_intake_approval` | Spawn a sub-agent that: reads `prd.md` and `execution_contract.md`, sets `approved: true` in their YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `change_intake_approval`. |
+| `technical_design_approval` | Spawn a sub-agent that: reads `architecture/design.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `technical_design_approval`. |
+| `iteration_planning_approval` | Spawn a sub-agent that: reads `iteration_plan.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `iteration_planning_approval`. |
 
 **Auto-approve sub-agent prompt (use for all three gates, replace `<artifact-paths>` with the actual paths):**
 

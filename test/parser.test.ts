@@ -33,7 +33,7 @@ function cleanupTestDir() {
 const canonicalTaskSyntaxIssue =
   "Use exactly `- [ ] <phase>.<task> Task name` for top-level tasks and `  - [ ] <phase>.<task>.<subtask> Subtask name` for subtasks.";
 const canonicalPhaseHeadingSyntaxIssue =
-  "Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.";
+  "Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.";
 
 describe("Parser & Checker Utilities", () => {
   beforeAll(() => {
@@ -69,17 +69,17 @@ describe("Parser & Checker Utilities", () => {
     const planContent = `
 # Plan
 
-## Phase 1: Database Setup [x]
+## Iteration 1: Database Setup [x]
 - [x] 1.1 Create migration
 - [x] 1.2 Create user model
 
-## Phase 2: Core Auth APIs [~]
+## Iteration 2: Core Auth APIs [~]
 - [x] 2.1 Implement signup handler
   - [x] 2.1.1 Add validation
 - [ ] 2.2 Implement login handler
 - [ ] 2.3 Add JWT middleware
 
-## Phase 3: UI [ ]
+## Iteration 3: UI [ ]
 - [ ] 3.1 Layout
 `;
     fs.writeFileSync(planFile, planContent, "utf-8");
@@ -105,7 +105,7 @@ describe("Parser & Checker Utilities", () => {
     const planContent = `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
 Additional checks:
@@ -139,7 +139,7 @@ Checks:
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert prompt changes. |
 
-## Phase 1: Prompt Updates [~]
+## Iteration 1: Prompt Updates [~]
 
 ### Goal
 
@@ -200,7 +200,7 @@ Additional checks:
     fs.writeFileSync(planFile, `
 # Plan
 
-## Phase 1: Validation Gates [~]
+## Iteration 1: Validation Gates [~]
 
 ### Tasks
 
@@ -241,7 +241,7 @@ Additional checks:
 | Production code | maybe |  |
 | Tests | yes | Add tests. |
 
-## Phase 1: Prompt Updates [~]
+## Iteration 1: Prompt Updates [~]
 
 ### Goal
 
@@ -316,7 +316,7 @@ date: 2026-06-02
 |---|---|---|---|
 | Phase 1 | Update prompts. | 1.1 | unit |
 
-## Phase 1: Prompt Updates [~]
+## Iteration 1: Prompt Updates [~]
 
 ### Goal
 
@@ -362,7 +362,7 @@ date: 2026-06-02
 ## Notes
 Unexpected section.
 
-## Phase 1: Prompt Updates [~]
+## Iteration 1: Prompt Updates [~]
 - [x] 1.1 Update setup prompt
 `, "utf-8");
 
@@ -411,7 +411,7 @@ date: 2026-06-02
 |---|---|---|---|
 | Phase 1 | API | 1.1 | unit |
 
-## Phase 1: API
+## Iteration 1: API
 
 ### Goal
 
@@ -420,7 +420,7 @@ Update API.
 
     const issues = validatePlanArtifact(invalidPlanFile);
 
-    expect(issues).toContain(`iteration_plan.md has invalid phase heading syntax: \`## Phase 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`iteration_plan.md has invalid phase heading syntax: \`## Iteration 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
     expect(issues).toContain(`iteration_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
   });
 
@@ -461,7 +461,7 @@ date: 2026-06-02
 |---|---|---|---|
 | Phase 1 |  | 1.1 | unit |
 
-## Phase 1: Prompt Updates [~]
+## Iteration 1: Prompt Updates [~]
 
 ### Goal
 
@@ -562,7 +562,7 @@ date: 2026-06-02
 |---|---|---|---|
 | Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
 
-## Phase 1: Plan Surface [~]
+## Iteration 1: Plan Surface [~]
 
 ### Goal
 
@@ -638,7 +638,7 @@ date: 2026-06-02
 |---|---|---|---|
 | Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
 
-## Phase 1: Plan Surface [~]
+## Iteration 1: Plan Surface [~]
 
 ### Goal
 
@@ -813,7 +813,7 @@ date: 2026-06-02
     fs.writeFileSync(planFile, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1. Build endpoint
 - [ ] T1.1: Build tests
 - [ ] 1.1: Wire handler
@@ -2150,7 +2150,7 @@ date: 2026-05-30
   });
 
   test("parseTestCommands extracts unit, phase, and full commands from rules markdown", () => {
-    const rulesFile = path.join(testTmpDir, "rules.md");
+    const rulesFile = path.join(testTmpDir, "execution_contract.md");
     fs.writeFileSync(rulesFile, `
 # Rules
 
@@ -2193,7 +2193,7 @@ date: 2026-05-30
   });
 
   test("validateRulesArtifact enforces strict rules contract", () => {
-    const validRulesFile = path.join(testTmpDir, "valid_rules.md");
+    const validRulesFile = path.join(testTmpDir, "valid_execution_contract.md");
     cleanupTestDir();
     setupTestDir();
     fs.writeFileSync(validRulesFile, `---
@@ -2213,7 +2213,7 @@ date: 2026-06-02
 
     expect(validateRulesArtifact(validRulesFile)).toEqual([]);
 
-    const invalidRulesFile = path.join(testTmpDir, "invalid_rules.md");
+    const invalidRulesFile = path.join(testTmpDir, "invalid_execution_contract.md");
     fs.writeFileSync(invalidRulesFile, `# Rules
 
 <!-- leftover -->
@@ -2232,15 +2232,15 @@ Not allowed.
 `, "utf-8");
 
     const issues = validateRulesArtifact(invalidRulesFile);
-    expect(issues).toContain("rules.md must start with YAML frontmatter.");
-    expect(issues).toContain("rules.md must not contain HTML template comments.");
-    expect(issues).toContain("rules.md must not contain placeholder text: TODO.");
-    expect(issues).toContain("rules.md contains unexpected section `## Notes`.");
+    expect(issues).toContain("execution_contract.md must start with YAML frontmatter.");
+    expect(issues).toContain("execution_contract.md must not contain HTML template comments.");
+    expect(issues).toContain("execution_contract.md must not contain placeholder text: TODO.");
+    expect(issues).toContain("execution_contract.md contains unexpected section `## Notes`.");
     expect(issues).toContain("Test Commands must contain exactly these gates in order: `unit`, `phase`, `full`.");
     expect(issues).toContain("Test Commands command `phase` must be non-empty.");
     expect(issues).toContain("Test Commands gate `extra` is not allowed; expected unit, phase, or full.");
 
-    const extraTextRulesFile = path.join(testTmpDir, "extra_text_rules.md");
+    const extraTextRulesFile = path.join(testTmpDir, "extra_text_execution_contract.md");
     fs.writeFileSync(extraTextRulesFile, `---
 approved: true
 date: 2026-06-02

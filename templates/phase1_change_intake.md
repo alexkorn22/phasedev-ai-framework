@@ -66,7 +66,7 @@ After both artifacts exist, immediately validate the new artifacts before comple
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `prd.md` or `execution_contract.md` until this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route setup_approval` subcommand. Use it only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available, report the exact command failure as a blocker.
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route change_intake_approval` subcommand. Use it only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available, report the exact command failure as a blocker.
 
 ## Human Review Formatting Policy
 

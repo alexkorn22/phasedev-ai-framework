@@ -110,7 +110,7 @@ function withImplementationPlanContract(planContent: string): string {
 | Area | Required | Plan |
 |---|---|---|
 | Production code | yes | Exercise the test fixture production path. |
-| Tests | yes | Use fixture commands from rules.md. |
+| Tests | yes | Use fixture commands from execution_contract.md. |
 | Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
 | Migrations | not_applicable | No persistence changes are part of this fixture. |
 | Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
@@ -125,7 +125,7 @@ function withImplementationPlanContract(planContent: string): string {
 
 ${normalizedPlanContent}`;
 
-  return withBundle.replace(/^## Phase \d+:.*(?:\n(?!## Phase \d+:).*)*/gm, section => {
+  return withBundle.replace(/^## Iteration \d+:.*(?:\n(?!## Iteration \d+:).*)*/gm, section => {
     let nextSection = section;
     const hasIncompleteTask = /^-\s*\[\s*(?: |~|\/)\s*\]/im.test(section);
     const resultStatus = hasIncompleteTask ? "pending" : "passed";
@@ -231,7 +231,7 @@ function setupChange(planContent: string, options: { rules?: string; findings?: 
   fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
   writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-  writeApproved(path.join(changeDir, "rules.md"), options.rules ?? validRulesBody());
+  writeApproved(path.join(changeDir, "execution_contract.md"), options.rules ?? validRulesBody());
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
   writeArtifact(path.join(changeDir, "iteration_plan.md"), withImplementationPlanContract(planContent), options.planApproved ?? true);
@@ -418,8 +418,8 @@ describe("flow-cli state machine", () => {
     }
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("codex:");
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("loop:");
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("phases:");
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("runArchiveStage:");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
   });
 
@@ -511,7 +511,7 @@ phases:
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
@@ -574,7 +574,7 @@ phases:
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
     writeProjectConfig(`
@@ -595,7 +595,7 @@ phases:
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
 
     const output = runNext();
 
@@ -617,7 +617,7 @@ phases:
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
@@ -661,7 +661,7 @@ phases:
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
@@ -686,7 +686,7 @@ phases:
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeApproved(path.join(changeDir, "architecture", "design.md"), validDesignBody());
 
@@ -702,7 +702,7 @@ phases:
   test("artifact stage prompts include immediate self-check routes", () => {
     let output = runNext();
     expect(output).toContain("Artifact Build Contract: prd.md");
-    expect(output).toContain("Artifact Build Contract: rules.md");
+    expect(output).toContain("Artifact Build Contract: execution_contract.md");
     expect(output).toContain(`current project repository at \`${testTmpDir}\``);
     expect(output).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(output).toContain(path.join(testTmpDir, ".phasedev", "changes", "<derive-slug-from-final-task>", "prd.md"));
@@ -714,7 +714,7 @@ phases:
     expect(output).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
-    expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `rules.md` gates without material assumptions");
+    expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
     expect(output).toContain("manual: <named method supported by user/repo evidence>");
     expect(output).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
     expect(output).toContain("embedded template is the only artifact structure");
@@ -722,7 +722,7 @@ phases:
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(output).not.toContain("Strict fill rules:");
     expect(output).toContain("# PRD");
-    expect(output).toContain("# Rules");
+    expect(output).toContain("# Execution Contract");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
@@ -738,7 +738,7 @@ phases:
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
 
     output = runNext();
     expect(output).toContain("Phase 2. Code Research.");
@@ -795,7 +795,7 @@ phases:
     changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
 
     output = runNext();
@@ -832,7 +832,7 @@ phases:
     expect(output).toContain("If a detail is missing but does not change approval scope");
     expect(output).toContain("choose the smallest conservative planning assumption");
     expect(output).toContain("Examples of acceptable conservative planning assumptions:");
-    expect(output).toContain("Use the test command already listed in `rules.md` for the matching evidence type");
+    expect(output).toContain("Use the test command already listed in `execution_contract.md` for the matching evidence type");
     expect(output).toContain("Examples of required planning blockers:");
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
@@ -868,7 +868,7 @@ phases:
     const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-stage-5b-final-validation.md"), "utf-8");
     const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-stage-5r-repair.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
-    const phasePlanLink = phaseValidationPrompt.match(/\[implementation_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
+    const phasePlanLink = phaseValidationPrompt.match(/\[iteration_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseOutputPath = phaseValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const phaseCheckProjectPath = phaseValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope phase --phase-id 1/)?.[1];
@@ -913,7 +913,7 @@ phases:
     expect(implementationPrompt).toContain("do not substitute a different route check");
     expect(implementationPrompt).toContain("--expect-route phase --expect-stage iteration_validation");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
-    expect(implementationPrompt).toContain("Implementation ready: Phase 1: Prompt Generation");
+    expect(implementationPrompt).toContain("Implementation ready: Iteration 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("Artifact Build Contract");
     expect(phaseValidationPrompt).toContain("Retrieval order:");
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
@@ -933,8 +933,8 @@ phases:
     const phasePlanPath = phasePlanLink!.replace(/^file:\/\//, "");
     expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
     const phasePlanSnapshot = fs.readFileSync(phasePlanPath, "utf-8");
-    expect(phasePlanSnapshot).toContain("## Phase 1: Prompt Generation [~]");
-    expect(phasePlanSnapshot).not.toContain("## Phase 1: Prompt Generation [x]");
+    expect(phasePlanSnapshot).toContain("## Iteration 1: Prompt Generation [~]");
+    expect(phasePlanSnapshot).not.toContain("## Iteration 1: Prompt Generation [x]");
     expect(phaseFindingsLink).toBeTruthy();
     const phaseFindingsPath = phaseFindingsLink!.replace(/^file:\/\//, "");
     expect(phaseFindingsPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
@@ -949,7 +949,7 @@ phases:
     expect(finalValidationPrompt).toContain("Retrieval order:");
     expect(finalValidationPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
     expect(finalValidationPrompt).toContain("scope = full change");
-    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `iteration_plan.md` all phases");
+    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `iteration_plan.md` all iterations");
     expect(finalValidationPrompt).toContain("Build the validation scope from the full approved PRD `Intent`, every `R#`, every `SC#`");
     expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
     expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
@@ -1010,7 +1010,7 @@ phases:
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n", false);
-    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
 
     const result = runCheck(["--expect-route", "change_intake_approval"]);
 
@@ -1024,7 +1024,7 @@ phases:
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
-    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
 
     const pass = runCheck(["--expect-route", "change_intake_approval"]);
     const fail = runCheck(["--expect-route", "code_research"]);
@@ -1039,7 +1039,7 @@ phases:
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
-    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
     const configPath = writeConfig(`
 autoApprove: true
 `);
@@ -1054,7 +1054,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
 
@@ -1079,7 +1079,7 @@ autoApprove: true
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
-    writeArtifact(path.join(changeDir, "rules.md"), validRulesBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
     const configPath = writeConfig("phases: [");
 
     const result = runCheck(["--expect-route", "change_intake_approval", "--config", configPath]);
@@ -1092,21 +1092,21 @@ autoApprove: true
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n\n## Executive Summary\n", false);
 
     const result = runCheck(["--expect-route", "technical_design_approval"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_design");
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_technical_design");
   });
 
   test("check passes valid design at design approval route", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "rules.md"), validRulesBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
 
@@ -1120,7 +1120,7 @@ autoApprove: true
     const changeDir = setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -1140,7 +1140,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "phase")
@@ -1157,7 +1157,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -1173,7 +1173,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -1189,7 +1189,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 
 ### Tasks
 
@@ -1218,7 +1218,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | validation | Final | Review coverage incomplete. | Complete final validation coverage. |\n")
@@ -1234,7 +1234,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Review coverage was incomplete. | Keep final validation coverage complete. |\n")
@@ -1250,7 +1250,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "phase")
@@ -1266,10 +1266,10 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `, {
       findings: validationFindings("ready", "phase")
@@ -1285,7 +1285,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 
 ### Tasks
 
@@ -1301,7 +1301,7 @@ autoApprove: true
 |---|---|---|---|---|
 | phase | \`bun test unit\` | passed | unit passed | wrong command |
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `, {
       findings: validationFindings("ready", "phase")
@@ -1317,7 +1317,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repair_required", "phase", "| F1 | open | MUST-FIX | validation | Phase 1 | Review coverage incomplete. | Complete phase validation coverage. |\n")
@@ -1333,7 +1333,7 @@ autoApprove: true
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repaired", "phase", "| F1 | resolved | MUST-FIX | validation | Phase 1 | Review coverage was incomplete. | Keep phase validation coverage complete. |\n")
@@ -1477,17 +1477,17 @@ The system routes approved changes.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `);
 
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nPhase 1: API");
+    expect(output).toContain("Current phase:\nIteration 1: API");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("Check Evidence");
     expect(output).toContain("do not rerun tests or additional checks");
@@ -1498,16 +1498,16 @@ The system routes approved changes.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [~]
+## Iteration 2: UI [~]
 - [ ] 2.1 Build page
 `);
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Only one phase may have [~] status at a time; active phases: Phase 1: API, Phase 2: UI.");
     expect(output).toContain("Phase 1: API");
     expect(output).toContain("Phase 2: UI");
@@ -1524,8 +1524,8 @@ No phase headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
-    expect(output).toContain("iteration_plan.md must contain at least one phase heading. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
+    expect(output).toContain("iteration_plan.md must contain at least one phase heading. Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
@@ -1533,26 +1533,26 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API
+## Iteration 1: API
 - [ ] 1.1 Implement endpoint
 `);
 
     const result = runCheck(["--expect-route", "iteration_planning_approval"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("iteration_plan.md has invalid phase heading syntax: `## Phase 1: API`. Use exactly `## Phase <number>: <name> [ ]`, `## Phase <number>: <name> [~]`, or `## Phase <number>: <name> [x]`.");
+    expect(result.output).toContain("iteration_plan.md has invalid phase heading syntax: `## Iteration 1: API`. Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.");
   });
 
   test("blocks phase without tasks before implementation", () => {
     setupChange(`
 # Plan
 
-## Phase 1: Empty Phase [ ]
+## Iteration 1: Empty Phase [ ]
 `);
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Phase 1: Empty Phase must contain at least one task checkbox.");
     expect(output).not.toContain("Phase 5. Implementation.");
   });
@@ -1561,19 +1561,19 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 
-## Phase 1: UI [ ]
+## Iteration 1: UI [ ]
 - [ ] 2.1 Build page
 
-## Phase 3: Docs [ ]
+## Iteration 3: Docs [ ]
 - [ ] 3.1 Update docs
 `);
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Phase numbers must be unique; duplicate phase id(s): 1.");
     expect(output).toContain("Phase numbers must be sequential starting at 1.");
     expect(output).not.toContain("Phase 5. Implementation.");
@@ -1583,14 +1583,14 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 - [ ] 1.2 Add tests
 `);
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Phase 1: API is [x] but contains incomplete tasks.");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
@@ -1599,14 +1599,14 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: Complete Change [~]
+## Iteration 1: Complete Change [~]
 - [x] 1.1 Implement change
 `);
 
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nPhase 1: Complete Change");
+    expect(output).toContain("Current phase:\nIteration 1: Complete Change");
     expect(output).not.toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("do not rerun tests or additional checks");
@@ -1619,7 +1619,7 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: Complete Change [x]
+## Iteration 1: Complete Change [x]
 - [x] 1.1 Implement change
 `, {
       findings: validationFindings("ready", "phase")
@@ -1642,10 +1642,10 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `, {
       findings: validationFindings("repaired", "phase", "| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |\n")
@@ -1654,17 +1654,17 @@ No phase headings yet.
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nPhase 1: API");
+    expect(output).toContain("Current phase:\nIteration 1: API");
   });
 
   test("repaired final validation repeats final validation", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [x]
+## Iteration 2: UI [x]
 - [x] 2.1 Build page
 `, {
       findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | implementation | Final | API response omits required error handling. | Keep the error mapping fix. |\n")
@@ -1680,7 +1680,7 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("repair_required", "phase", [
@@ -1705,7 +1705,7 @@ No phase headings yet.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: `---
@@ -1729,10 +1729,10 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [x]
+## Iteration 2: UI [x]
 - [x] 2.1 Build page
 `, {
       findings: validationFindings("ready", "final")
@@ -1759,7 +1759,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -1778,7 +1778,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready_with_risks", "final", "| F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |\n")
@@ -1797,7 +1797,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready", "final")
@@ -1815,7 +1815,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       findings: validationFindings("ready_with_risks", "final", "| F1 | open | MUST-FIX | implementation | Final | Broken final check. | Repair the final check. |\n")
@@ -1832,7 +1832,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `, {
       rules: `# Rules
@@ -1847,7 +1847,7 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
     expect(output).toContain("unit");
     expect(output).toContain("Test Commands must contain exactly these gates in order");
     expect(output).not.toContain("run unit tests");
@@ -1857,10 +1857,10 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `, {
       rules: `# Rules
@@ -1875,7 +1875,7 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
     expect(output).toContain("phase");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
@@ -1884,7 +1884,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
       rules: `# Rules
@@ -1899,7 +1899,7 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid rules.md");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
     expect(output).toContain("full");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
@@ -1908,7 +1908,7 @@ No markdown finding table here.
     const changeDir = setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 `, {
       planApproved: false
@@ -1917,7 +1917,7 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid implementation plan");
+    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("iteration_plan.md contains unexpected section `## Notes`.");
     expect(output).not.toContain("[FLOW CONTROLLER] BLOCKED: Plan requires review");
   });
@@ -1926,7 +1926,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
       designApproved: false,
@@ -1944,7 +1944,7 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `);
 
@@ -1964,14 +1964,14 @@ No markdown finding table here.
     setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 
 Additional checks:
 - \`bun test:e2e auth\`
 - Browser smoke for login flow
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `);
 
@@ -1988,7 +1988,7 @@ Additional checks:
     setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 
 Checks:
@@ -2000,7 +2000,7 @@ Additional checks:
 Implementation note:
 - Keep API contract unchanged.
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `);
 
@@ -2008,13 +2008,13 @@ Implementation note:
 
     expect(output).toContain("Current phase from approved plan:");
     expect(output).toContain("Full-plan orientation:");
-    expect(output).toContain("- Phase 1: API [~] (current); tasks: 1.1; required checks: unit");
-    expect(output).toContain("- Phase 2: UI [ ] (orientation only); tasks: 2.1; required checks: unit");
+    expect(output).toContain("- Iteration 1: API [~] (current); tasks: 1.1; required checks: unit");
+    expect(output).toContain("- Iteration 2: UI [ ] (orientation only); tasks: 2.1; required checks: unit");
     expect(output).toContain("Checks:");
     expect(output).toContain("Endpoint handles not found responses.");
     expect(output).toContain("Implementation note:");
     expect(output).toContain("Keep API contract unchanged.");
-    expect(output).not.toContain("## Phase 2: UI");
+    expect(output).not.toContain("## Iteration 2: UI");
     expect(output).not.toContain("Build page");
   });
 
@@ -2022,7 +2022,7 @@ Implementation note:
     setupChange(`
 # Plan
 
-## Phase 1: API [ ]
+## Iteration 1: API [ ]
 - [ ] 1.1 Implement endpoint
 
 Checks:
@@ -2032,21 +2032,21 @@ Checks:
     const output = runNext();
 
     expect(output).toContain("Phase 5. Implementation.");
-    expect(output).toContain("## Phase 1: API [~]");
-    expect(output).not.toContain("## Phase 1: API [ ]");
+    expect(output).toContain("## Iteration 1: API [~]");
+    expect(output).not.toContain("## Iteration 1: API [ ]");
   });
 
   test("phase validation prompt does not include additional checks from implementation plan", () => {
     setupChange(`
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 
 Additional checks:
 - \`bun test:e2e auth\`
 
-## Phase 2: UI [ ]
+## Iteration 2: UI [ ]
 - [ ] 2.1 Build page
 `);
 
@@ -2062,7 +2062,7 @@ Additional checks:
     setupChange(`
 # Plan
 
-## Phase 1: Complete Change [x]
+## Iteration 1: Complete Change [x]
 - [x] 1.1 Implement change
 
 Additional checks:
@@ -2194,7 +2194,7 @@ phases:
 
   test("stage templates preserve executable artifact allowlists", () => {
     const expectations: Array<[string, string[]]> = [
-      ["phase1_change_intake.md", ["`prd.md`", "`rules.md`"]],
+      ["phase1_change_intake.md", ["`prd.md`", "`execution_contract.md`"]],
       ["phase2_code_research.md", ["`research_facts.md`"]],
       ["phase3_technical_design.md", ["active change folder `architecture/design.md`", "linked files inside the active change folder `architecture/`"]],
       ["phase4_iteration_planning.md", ["`iteration_plan.md`"]],
@@ -2255,7 +2255,7 @@ phases:
     const archiveTemplate = readTemplate("phase7_archive.md");
 
     expect(archiveTemplate).toContain("[prd.md]({{prd_path}})");
-    expect(archiveTemplate).toContain("[rules.md]({{rules_path}})");
+    expect(archiveTemplate).toContain("[execution_contract.md]({{rules_path}})");
     expect(archiveTemplate).toContain("[research_facts.md]({{research_path}})");
     expect(archiveTemplate).toContain("[design.md]({{design_path}})");
     expect(archiveTemplate).toContain("[iteration_plan.md]({{plan_path}})");
@@ -2302,7 +2302,7 @@ runArchiveStage: false
     expect(config).toContain("skills:");
     expect(config).toContain("- using-ecc");
     expect(config).toContain("- dev-core");
-    expect(config).toContain("phase_validation:");
+    expect(config).toContain("iteration_validation:");
     expect(config).toContain("final_validation:");
     expect(config).toContain("archive:");
   });

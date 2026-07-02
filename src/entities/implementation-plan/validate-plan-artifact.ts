@@ -114,20 +114,20 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
 
   const actualSections = lines.map(secondLevelHeadingName).filter((section): section is string => section !== null);
   const allowedFixedSectionPattern = /^(Approval Summary|Generation Bundle|Phase Overview)$/i;
-  const phaseSectionPattern = /^Phase \d+: .+ \[\s*(x|~| |\/)\s*\]$/i;
+  const phaseSectionPattern = /^Iteration \d+: .+ \[\s*(x|~| |\/)\s*\]$/i;
   for (const section of actualSections) {
     if (allowedFixedSectionPattern.test(section) || phaseSectionPattern.test(section)) {
       continue;
     }
 
-    if (/^Phase\b/i.test(section)) {
+    if (/^Iteration\b/i.test(section)) {
       issues.push(`iteration_plan.md has invalid phase heading syntax: \`## ${section}\`. ${CANONICAL_PHASE_HEADING_SYNTAX}`);
     } else {
       issues.push(`iteration_plan.md contains unexpected section \`## ${section}\`.`);
     }
   }
 
-  const nonPhaseSections = actualSections.filter(section => !/^Phase \d+:/i.test(section));
+  const nonPhaseSections = actualSections.filter(section => !/^Iteration \d+:/i.test(section));
   if (
     nonPhaseSections.length !== REQUIRED_TOP_LEVEL_SECTIONS.length ||
     nonPhaseSections.some((section, index) => section !== REQUIRED_TOP_LEVEL_SECTIONS[index])
@@ -135,7 +135,7 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
     issues.push(`iteration_plan.md non-phase \`##\` sections must exactly match this order: ${REQUIRED_TOP_LEVEL_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
-  const phaseStartIndex = actualSections.findIndex(section => /^Phase \d+:/i.test(section));
+  const phaseStartIndex = actualSections.findIndex(section => /^Iteration \d+:/i.test(section));
   if (phaseStartIndex !== -1 && phaseStartIndex < REQUIRED_TOP_LEVEL_SECTIONS.length) {
     issues.push("iteration_plan.md phase sections must appear after `## Phase Overview`.");
   }

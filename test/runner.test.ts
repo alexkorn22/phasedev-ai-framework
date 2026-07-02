@@ -229,7 +229,7 @@ function implementationPlanReadyForArchive(): string {
 |---|---|---|---|
 | Phase 1 | Complete fixture phase. | 1.1 | unit |
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 
 ### Goal
@@ -339,7 +339,7 @@ function setupUnapprovedPlanProject(): { projectPath: string; changeDir: string 
   writeApprovedArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
   const plan = implementationPlanReadyForArchive()
     .replace("approved: true", "approved: false\napproved_by: \"\"")
-    .replace("## Phase 1: API [x]", "## Phase 1: API [ ]")
+    .replace("## Iteration 1: API [x]", "## Iteration 1: API [ ]")
     .replace("- [x] 1.1 Implement endpoint", "- [ ] 1.1 Implement endpoint")
     .replace("| unit | `bun test unit` | passed | passed unit tests |  |", "| unit | `bun test unit` | pending | not run yet | none |");
   fs.writeFileSync(path.join(changeDir, "iteration_plan.md"), plan, "utf-8");
@@ -391,7 +391,7 @@ describe("logs runner", () => {
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `, "utf-8");
     const threads: Array<{ id: string; prompts: string[] }> = [];
@@ -425,7 +425,7 @@ describe("logs runner", () => {
                   fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
                 }
@@ -814,7 +814,7 @@ approved: true
 |---|---|---|---|
 | Phase 1 | Complete fixture phase. | 1.1 | unit |
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -914,7 +914,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
 |---|---|---|---|
 | Phase 1 | Complete fixture phase. | 1.1 | unit |
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 
 ### Goal
 
@@ -1712,7 +1712,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 `, "utf-8");
     let archived = false;
@@ -1731,7 +1731,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
                   fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
                 } else {
@@ -1771,7 +1771,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
@@ -1821,7 +1821,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [x]
+## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Final | API response omits required error handling. | Add error mapping. |", "final");
@@ -1866,7 +1866,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
@@ -1913,7 +1913,7 @@ Complete the fixture phase. Satisfies R1 and SC1.
     fs.writeFileSync(planPath, `
 # Plan
 
-## Phase 1: API [~]
+## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, "utf-8");
     writeValidationFindings(findingsPath, "repair_required", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |");
