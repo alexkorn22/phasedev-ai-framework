@@ -1,4 +1,0 @@
-interface:
-  display_name: "PhaseDev Init"
-  short_description: "Run the PhaseDev flow initialization command."
-  default_prompt: "$phasedev-init"
