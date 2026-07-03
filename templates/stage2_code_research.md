@@ -1,4 +1,4 @@
-Phase 2. Code Research.
+Stage 2. Code Research.
 
 Phase contract: create the factual basis for the design phase.
 

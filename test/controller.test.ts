@@ -45,14 +45,14 @@ function validPrdBody(): string {
 `;
 }
 
-function validationFindings(verdict: "ready" | "ready_with_risks" | "repair_required" | "repaired", type: "phase" | "final", rows = ""): string {
+function validationFindings(verdict: "ready" | "ready_with_risks" | "repair_required" | "repaired", type: "iteration" | "final", rows = ""): string {
   return `---
 verdict: ${verdict}
 type: ${type}
 date: 2026-05-29
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 ${rows}`;
 }
@@ -83,11 +83,11 @@ function withImplementationPlanContract(planContent: string): string {
 | Observability | not_applicable | No observability changes are part of this fixture. |
 | Rollback path | not_applicable | Revert the fixture change if needed. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | Complete fixture phase. | 1.1 | unit |
+| Iteration 1 | Complete fixture phase. | 1.1 | unit |
 
 ${normalizedPlanContent}`;
 
@@ -321,7 +321,7 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("change_intake");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Phase 1. Change Intake.");
+    expect(result.prompt).toContain("Stage 1. Change Intake.");
     expect(result.prompt).toContain(`current project repository at \`${testTmpDir}\``);
     expect(result.prompt).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
@@ -436,7 +436,7 @@ describe("flow controller typed stages", () => {
 
     expect(result.stage).toBe("implementation");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).toContain("Stage 5. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
     expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage iteration_validation`);
   });
@@ -468,7 +468,7 @@ describe("flow controller typed stages", () => {
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
   });
@@ -484,7 +484,7 @@ describe("flow controller typed stages", () => {
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 6A. Iteration Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -516,8 +516,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Phase 5. Implementation.");
-    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 5. Implementation.");
+    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
   });
 
   test("completed tasks with failed check evidence stay in implementation", () => {
@@ -548,8 +548,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Phase 5. Implementation.");
-    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 5. Implementation.");
+    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
   });
 
   test("completed tasks with blocked check evidence stay in implementation", () => {
@@ -580,8 +580,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Phase 5. Implementation.");
-    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 5. Implementation.");
+    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
   });
 
   test("current phase implementation prompt uses required phase check commands", () => {
@@ -644,8 +644,8 @@ Complete API work.
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Phase 5. Implementation.");
-    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    expect(result.prompt).toContain("Stage 5. Implementation.");
+    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
   });
 
   test("validated single-phase route reports final validation stage", () => {
@@ -655,13 +655,13 @@ Complete API work.
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, {
-      findings: validationFindings("ready", "phase")
+      findings: validationFindings("ready", "iteration")
     });
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("final_validation");
-    expect(result.prompt).toContain("Phase 6B. Final Validation.");
+    expect(result.prompt).toContain("Stage 6B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain(`phasedev check-validation --project-path "${testTmpDir}"`);
     expect(result.prompt).toContain("--scope final");
@@ -677,13 +677,13 @@ Complete API work.
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
 `, {
-      findings: validationFindings("repair_required", "phase", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
     });
 
     const result = getNextPrompt(testTmpDir);
 
     expect(result.stage).toBe("finding_repair");
-    expect(result.prompt).toContain("Phase 6R. Finding Repair.");
+    expect(result.prompt).toContain("Stage 6R. Finding Repair.");
   });
 
   test("archive route reports archive stage and moves active change to pending archive", () => {
@@ -702,7 +702,7 @@ Complete API work.
     const statePath = path.join(archiveDir, ".phase-archive.json");
 
     expect(result.stage).toBe("archive");
-    expect(result.prompt).toContain("Phase 7. Archive.");
+    expect(result.prompt).toContain("Stage 7. Archive.");
     expect(fs.existsSync(changeDir)).toBe(false);
     expect(fs.existsSync(statePath)).toBe(true);
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({
@@ -745,7 +745,7 @@ Complete API work.
     expect(result.prompt).toContain("Invalid archive state.");
     expect(result.prompt).toContain(statePath);
     expect(result.prompt).toContain(".phase-archive.json is not valid JSON");
-    expect(result.prompt).not.toContain("Phase 1. Change Intake.");
+    expect(result.prompt).not.toContain("Stage 1. Change Intake.");
   });
 
   test("approval blocker reports blocked gate stage", () => {

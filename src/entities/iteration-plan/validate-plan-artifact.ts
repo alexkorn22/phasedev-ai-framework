@@ -7,15 +7,15 @@ import {
   parseMarkdownTableBlocks,
   splitMarkdownTableRow
 } from "../../shared/markdown/table";
-import { CANONICAL_PHASE_HEADING_SYNTAX } from "./contract-messages";
+import { CANONICAL_ITERATION_HEADING_SYNTAX } from "./contract-messages";
 import { parsePlan } from "./parse-plan";
 import { validatePlanStructure } from "./validate-plan";
 
-const REQUIRED_TOP_LEVEL_SECTIONS = ["Approval Summary", "Generation Bundle", "Phase Overview"];
+const REQUIRED_TOP_LEVEL_SECTIONS = ["Approval Summary", "Generation Bundle", "Iteration Overview"];
 const APPROVAL_SUMMARY_HEADERS = ["Area", "Decision"];
 const APPROVAL_SUMMARY_AREAS = ["Approval scope", "Out of scope", "Sequencing risk", "Validation"];
 const GENERATION_BUNDLE_HEADERS = ["Area", "Required", "Plan"];
-const PHASE_OVERVIEW_HEADERS = ["Phase", "Goal", "Main work items", "Required checks"];
+const ITERATION_OVERVIEW_HEADERS = ["Iteration", "Goal", "Main work items", "Required checks"];
 const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bTBD\b/i, label: "TBD" },
   { pattern: /\bTODO\b/i, label: "TODO" },
@@ -113,7 +113,7 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
   }
 
   const actualSections = lines.map(secondLevelHeadingName).filter((section): section is string => section !== null);
-  const allowedFixedSectionPattern = /^(Approval Summary|Generation Bundle|Phase Overview)$/i;
+  const allowedFixedSectionPattern = /^(Approval Summary|Generation Bundle|Iteration Overview)$/i;
   const phaseSectionPattern = /^Iteration \d+: .+ \[\s*(x|~| |\/)\s*\]$/i;
   for (const section of actualSections) {
     if (allowedFixedSectionPattern.test(section) || phaseSectionPattern.test(section)) {
@@ -121,23 +121,23 @@ function validateTopLevelStructure(lines: string[], issues: string[]): void {
     }
 
     if (/^Iteration\b/i.test(section)) {
-      issues.push(`iteration_plan.md has invalid phase heading syntax: \`## ${section}\`. ${CANONICAL_PHASE_HEADING_SYNTAX}`);
+      issues.push(`iteration_plan.md has invalid iteration heading syntax: \`## ${section}\`. ${CANONICAL_ITERATION_HEADING_SYNTAX}`);
     } else {
       issues.push(`iteration_plan.md contains unexpected section \`## ${section}\`.`);
     }
   }
 
-  const nonPhaseSections = actualSections.filter(section => !/^Iteration \d+:/i.test(section));
+  const nonIterationSections = actualSections.filter(section => !/^Iteration \d+:/i.test(section));
   if (
-    nonPhaseSections.length !== REQUIRED_TOP_LEVEL_SECTIONS.length ||
-    nonPhaseSections.some((section, index) => section !== REQUIRED_TOP_LEVEL_SECTIONS[index])
+    nonIterationSections.length !== REQUIRED_TOP_LEVEL_SECTIONS.length ||
+    nonIterationSections.some((section, index) => section !== REQUIRED_TOP_LEVEL_SECTIONS[index])
   ) {
-    issues.push(`iteration_plan.md non-phase \`##\` sections must exactly match this order: ${REQUIRED_TOP_LEVEL_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
+    issues.push(`iteration_plan.md non-iteration \`##\` sections must exactly match this order: ${REQUIRED_TOP_LEVEL_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
-  const phaseStartIndex = actualSections.findIndex(section => /^Iteration \d+:/i.test(section));
-  if (phaseStartIndex !== -1 && phaseStartIndex < REQUIRED_TOP_LEVEL_SECTIONS.length) {
-    issues.push("iteration_plan.md phase sections must appear after `## Phase Overview`.");
+  const iterationStartIndex = actualSections.findIndex(section => /^Iteration \d+:/i.test(section));
+  if (iterationStartIndex !== -1 && iterationStartIndex < REQUIRED_TOP_LEVEL_SECTIONS.length) {
+    issues.push("iteration_plan.md iteration sections must appear after `## Iteration Overview`.");
   }
 }
 
@@ -217,7 +217,7 @@ export function validatePlanArtifact(filePath: string, prdPath?: string, designP
   validateTopLevelStructure(lines, issues);
   validateApprovalSummary(lines, issues);
   validateTableShape("Generation Bundle", lines, GENERATION_BUNDLE_HEADERS, issues);
-  validateTableShape("Phase Overview", lines, PHASE_OVERVIEW_HEADERS, issues);
+  validateTableShape("Iteration Overview", lines, ITERATION_OVERVIEW_HEADERS, issues);
   issues.push(...validatePlanStructure(parsePlan(filePath), prdPath, expectedSurfaceBasePath(filePath)));
   validateDesignDecisionTraceability(body, designPath, issues);
 

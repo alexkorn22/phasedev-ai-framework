@@ -1,9 +1,9 @@
 import { spawnSync } from "child_process";
-import { Phase } from "../../entities/implementation-plan/types";
+import { Iteration } from "../../entities/iteration-plan/types";
 import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface ChangedFileInventoryOptions {
-  phase?: Phase;
+  phase?: Iteration;
 }
 
 function escapeMarkdownTableCell(value: string): string {
@@ -42,7 +42,7 @@ function splitSurfacePatterns(value: string): string[] {
     .filter(pattern => pattern.length > 0);
 }
 
-function phaseExpectedSurfacePatterns(phase: Phase): string[] {
+function phaseExpectedSurfacePatterns(phase: Iteration): string[] {
   const lines = (phase.rawContent ?? "").split("\n");
   const headingIndex = lines.findIndex(line => /^###\s+Expected Change Surface\s*$/i.test(line.trim()));
   if (headingIndex === -1) {

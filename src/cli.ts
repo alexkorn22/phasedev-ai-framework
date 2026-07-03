@@ -43,21 +43,21 @@ function parseArchivePath(args: string[]): string | undefined {
 
 function parseValidationCheckOptions(args: string[]): { options?: ValidationCheckOptions; error?: string } {
   const scope = parseStringOption(args, "--scope");
-  if (scope !== "phase" && scope !== "final") {
-    return { error: "check-validation requires --scope phase|final." };
+  if (scope !== "iteration" && scope !== "final") {
+    return { error: "check-validation requires --scope iteration|final." };
   }
 
   if (scope === "final") {
     return { options: { scope } };
   }
 
-  const rawPhaseId = parseStringOption(args, "--phase-id");
-  const phaseId = rawPhaseId ? Number.parseInt(rawPhaseId, 10) : NaN;
-  if (!Number.isInteger(phaseId) || phaseId <= 0) {
-    return { error: "check-validation --scope phase requires --phase-id <N>." };
+  const rawIterationId = parseStringOption(args, "--iteration-id");
+  const iterationId = rawIterationId ? Number.parseInt(rawIterationId, 10) : NaN;
+  if (!Number.isInteger(iterationId) || iterationId <= 0) {
+    return { error: "check-validation --scope iteration requires --iteration-id <N>." };
   }
 
-  return { options: { scope, phaseId } };
+  return { options: { scope, iterationId } };
 }
 
 function main(): void {

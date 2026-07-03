@@ -34,7 +34,7 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 
-  return prompt("next", "archive", renderTemplate("phase7_archive", {
+  return prompt("next", "archive", renderTemplate("stage7_archive", {
     change_name: state.changeName,
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,

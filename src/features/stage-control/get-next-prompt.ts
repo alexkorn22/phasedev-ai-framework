@@ -11,7 +11,7 @@ import { archivePrompt, startArchiveStage } from "./archive-stage";
 import { renderChangedFileInventory } from "./changed-file-inventory";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
-import { handlePhase, repairPrompt, Urls } from "./phase-routing";
+import { handlePhase, repairPrompt, Urls } from "./iteration-routing";
 import { renderSkillPolicy } from "./skill-policy";
 import { renderValidationCommonContract } from "./validation-common-contract";
 import { resolveRoute } from "./flow-route";
@@ -158,7 +158,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
         const content = fs.readFileSync(taskFile, "utf-8");
         taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${content}\n================================`;
       }
-      const basePrompt = renderStageTemplate("change_intake", "phase1_change_intake", {
+      const basePrompt = renderStageTemplate("change_intake", "stage1_change_intake", {
         date,
         project_path: projectPath,
         prd_artifact_contract: artifactContract("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date, undefined, false),
@@ -175,7 +175,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       return approvalBlocker("change_intake", "Setup incomplete", route.paths.prdPath, "prd.md & execution_contract.md");
     case "code_research": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "code_research", renderStageTemplate("code_research", "phase2_code_research", {
+      return prompt("next", "code_research", renderStageTemplate("code_research", "stage2_code_research", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
@@ -189,7 +189,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       return invalidResearchBlocker(route.paths.researchPath, route.issues);
     case "technical_design": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "technical_design", renderStageTemplate("technical_design", "phase3_technical_design", {
+      return prompt("next", "technical_design", renderStageTemplate("technical_design", "stage3_technical_design", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         research_path: urls.research_path,
@@ -207,7 +207,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       const urls = urlsFor(route.paths);
       const date = new Date().toISOString().split("T")[0];
       const selfCheckCommand = flowCheckCommand(projectPath, "iteration_planning_approval");
-      return prompt("next", "iteration_planning", renderStageTemplate("iteration_planning", "phase4_iteration_planning", {
+      return prompt("next", "iteration_planning", renderStageTemplate("iteration_planning", "stage4_iteration_planning", {
         prd_path: urls.prd_path,
         design_path: urls.design_path,
         rules_path: urls.rules_path,
@@ -227,7 +227,7 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
       return repairPrompt(urlsFor(route.paths), route.paths.findingsPath, config, projectPath);
     case "archive_readiness_blocked":
       return archiveReadinessBlocker(
-        "All implementation phases must be marked [x] before archive.",
+        "All implementation iterations must be marked [x] before archive.",
         route.paths.iterationPlanPath,
         "Final validation is ready, but iteration_plan.md still has an incomplete phase."
       );
@@ -236,11 +236,11 @@ export function getNextPrompt(projectPath: string, config: Config = loadConfig()
     case "phase": {
       const urls = urlsFor(route.paths);
       const testCommands = parseTestCommands(route.paths.executionContractPath).commands;
-      return handlePhase(route.paths.iterationPlanPath, route.activePhase, urls, testCommands, route.paths.executionContractPath, config, projectPath);
+      return handlePhase(route.paths.iterationPlanPath, route.activeIteration, urls, testCommands, route.paths.executionContractPath, config, projectPath);
     }
     case "final_validation": {
       const urls = urlsFor(route.paths);
-      return prompt("next", "final_validation", renderStageTemplate("final_validation", "phase6b_final_validation", {
+      return prompt("next", "final_validation", renderStageTemplate("final_validation", "stage6b_final_validation", {
         prd_path: urls.prd_path,
         rules_path: urls.rules_path,
         design_path: urls.design_path,

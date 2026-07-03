@@ -19,9 +19,10 @@ export type StageConfig = {
 };
 
 export interface Config {
-  phases: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
+  stages: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
   runArchiveStage: boolean;
   autoApprove: boolean;
+  maxIterations: number;
 }
 
 export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
@@ -31,9 +32,10 @@ export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
 };
 
 export const DEFAULT_CONFIG: Config = {
-  phases: {},
+  stages: {},
   runArchiveStage: true,
-  autoApprove: false
+  autoApprove: false,
+  maxIterations: 10
 };
 
 const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
@@ -178,11 +180,11 @@ function parseStageConfig(value: unknown, key: string): StageConfig {
 }
 
 /**
- * Parse legacy codex.stages format and map to phases.
- * Returns the parsed phases record.
+ * Parse legacy codex.stages format and map to stages.
+ * Returns the parsed stages record.
  */
 function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
-  const phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+  const stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
   const rawStages = asRecord(codexRaw.stages, "codex.stages");
 
   for (const [oldName, value] of Object.entries(rawStages)) {
@@ -192,7 +194,7 @@ function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Reco
       continue;
     }
 
-    // Check if the mapped name is a valid phase key
+    // Check if the mapped name is a valid stage key
     if (!STAGES.has(newName as Exclude<Stage, "init">)) {
       console.warn(`[config] Legacy stage "${oldName}" maps to "${newName}", which is not yet a valid stage. Skipping.`);
       continue;
@@ -205,59 +207,60 @@ function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Reco
       console.warn(`[config] Legacy stage "${oldName}" has per-stage model/reasoningEffort override. These are no longer supported per stage and will be ignored.`);
     }
 
-    phases[newName as Exclude<Stage, "init">] = parseStageConfig(value, `codex.stages.${oldName}`);
+    stages[newName as Exclude<Stage, "init">] = parseStageConfig(value, `codex.stages.${oldName}`);
   }
 
-  return phases;
+  return stages;
 }
 
 export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
 
-  const phasesRaw = asRecord(root.phases, "phases");
+  const stagesRaw = asRecord(root.stages, "stages");
   const codexRaw = asRecord(root.codex, "codex");
 
   // Detect if legacy format is being used
   const hasLegacyStages = Object.keys(asRecord(codexRaw.stages, "codex.stages")).length > 0;
-  const hasPhases = Object.keys(phasesRaw).length > 0;
+  const hasStages = Object.keys(stagesRaw).length > 0;
 
-  let phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+  let stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
 
-  if (hasLegacyStages && hasPhases) {
-    // Both present: phases wins, warn
-    console.warn("[config] Both codex.stages and phases sections found. phases will take precedence.");
-    // Parse phases
-    phases = parsePhasesSection(phasesRaw);
+  if (hasLegacyStages && hasStages) {
+    // Both present: stages wins, warn
+    console.warn("[config] Both codex.stages and stages sections found. stages will take precedence.");
+    // Parse stages
+    stages = parseStagesSection(stagesRaw);
   } else if (hasLegacyStages) {
     // Legacy mode
-    console.warn("[config] Deprecated codex.stages format detected. Please migrate to the new phases format. See config.yaml for reference.");
-    phases = parseLegacyCodexStages(codexRaw);
-  } else if (hasPhases) {
-    // New format - parse phases
-    phases = parsePhasesSection(phasesRaw);
+    console.warn("[config] Deprecated codex.stages format detected. Please migrate to the new stages format. See config.yaml for reference.");
+    stages = parseLegacyCodexStages(codexRaw);
+  } else if (hasStages) {
+    // New format - parse stages
+    stages = parseStagesSection(stagesRaw);
   }
 
   return {
-    phases,
+    stages,
     runArchiveStage: readBoolean(root.runArchiveStage, DEFAULT_CONFIG.runArchiveStage, "runArchiveStage"),
-    autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove")
+    autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
+    maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations")
   };
 }
 
-function parsePhasesSection(phasesRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
-  const phases: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+function parseStagesSection(stagesRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
+  const stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
 
-  for (const [phaseName, value] of Object.entries(phasesRaw)) {
-    if (!STAGES.has(phaseName as Exclude<Stage, "init">)) {
-      console.warn(`[config] Unknown phase "${phaseName}" in phases section. Ignoring.`);
+  for (const [stageName, value] of Object.entries(stagesRaw)) {
+    if (!STAGES.has(stageName as Exclude<Stage, "init">)) {
+      console.warn(`[config] Unknown stage "${stageName}" in stages section. Ignoring.`);
       continue;
     }
 
-    phases[phaseName as Exclude<Stage, "init">] = parseStageConfig(value, `phases.${phaseName}`);
+    stages[stageName as Exclude<Stage, "init">] = parseStageConfig(value, `stages.${stageName}`);
   }
 
-  return phases;
+  return stages;
 }
 
 export function loadConfig(configPath = defaultConfigPath()): Config {
@@ -273,7 +276,7 @@ export function getStageSkillConfig(config: Config, stage: Stage): StageSkillCon
     return EMPTY_STAGE_SKILLS;
   }
 
-  return config.phases[stage]?.skills ?? EMPTY_STAGE_SKILLS;
+  return config.stages[stage]?.skills ?? EMPTY_STAGE_SKILLS;
 }
 
 export function resolveProjectLogDir(projectPath: string, logDir: string): string {
@@ -310,13 +313,13 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
     return undefined;
   }
 
-  // Legacy: codex.stages.<oldName>.<rest> → phases.<newName>.<rest>
+  // Legacy: codex.stages.<oldName>.<rest> → stages.<newName>.<rest>
   if (segments.length >= 3 && segments[0] === "codex" && segments[1] === "stages") {
     const oldName = segments[2];
     const rest = segments.slice(3);
     const newName = STAGE_NAME_MAP[oldName];
     if (newName && STAGES.has(newName as Exclude<Stage, "init">)) {
-      const mappedSegments = ["phases", newName, ...rest];
+      const mappedSegments = ["stages", newName, ...rest];
       console.warn(`[config] Deprecated key "${key}" — use "${mappedSegments.join(".")}" instead.`);
       return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
     }
@@ -326,13 +329,13 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
 
   // Legacy: codex.default.* → runner config
   if (segments[0] === "codex" && segments[1] === "default") {
-    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
     return undefined;
   }
 
   // Legacy: codex.sandboxMode / codex.approvalPolicy → runner config
   if (segments[0] === "codex" && (segments[1] === "sandboxMode" || segments[1] === "approvalPolicy")) {
-    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
     return undefined;
   }
 
@@ -346,7 +349,11 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
       console.warn(`[config] Deprecated key "${key}" — use "autoApprove" at root level instead.`);
       return config.autoApprove;
     }
-    console.warn(`[config] Deprecated key "${key}" — runner config keys belong in runner.yaml, not config.yaml.`);
+    if (segments[1] === "maxIterations") {
+      console.warn(`[config] Deprecated key "${key}" — use "maxIterations" at root level instead.`);
+      return config.maxIterations;
+    }
+    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
     return undefined;
   }
 

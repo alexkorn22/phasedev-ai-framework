@@ -1,4 +1,4 @@
-Phase 6R. Finding Repair.
+Stage 6R. Finding Repair.
 
 Phase contract: process open validation findings and prepare the change for validation again.
 
@@ -62,7 +62,7 @@ Path resolution rule:
 - in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead.
 
 Verdict rule:
-- preserve `type` in YAML frontmatter as the scope of the latest validation: `phase` for Phase Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `phase`;
+- preserve `type` in YAML frontmatter as the scope of the latest validation: `iteration` for Iteration Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `iteration`;
 - do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`;
 - when all current blocking findings have latest status `resolved`, set `verdict: repaired` and update the date;
 - do not set `ready` or `ready_with_risks` during the Repair Loop stage.

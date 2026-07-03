@@ -303,11 +303,11 @@ function planBody(status: "implementation" | "iteration_validation" | "final_val
 | Observability | not_applicable | Manifest output is sufficient for this scaffold. |
 | Rollback path | not_applicable | Delete the generated output directory. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | Generate prompt files. | 1.1 | unit |
+| Iteration 1 | Generate prompt files. | 1.1 | unit |
 
 ## Iteration 1: Prompt Generation [${phaseStatus}]
 
@@ -339,7 +339,7 @@ Generate all stage prompts from real controller calls. Satisfies R1, SC1, and D1
 
 function validationFindings(
   verdict: "ready" | "repair_required",
-  type: "phase" | "final",
+  type: "iteration" | "final",
   rows = ""
 ): string {
   return `---
@@ -348,7 +348,7 @@ type: ${type}
 date: 2026-06-14
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 ${rows}`;
 }
@@ -378,14 +378,14 @@ function writeRepairFindings(paths: ChangePaths): void {
     paths.findingsPath,
     validationFindings(
       "repair_required",
-      "phase",
+      "iteration",
       "| F1 | open | MUST-FIX | implementation | Phase 1 | Saved prompt manifest misses a stage. | Restore the missing generated prompt. |\n"
     )
   );
 }
 
 function writePhaseReadyFindings(paths: ChangePaths): void {
-  writeFile(paths.findingsPath, validationFindings("ready", "phase"));
+  writeFile(paths.findingsPath, validationFindings("ready", "iteration"));
 }
 
 function writeFinalReadyFindings(paths: ChangePaths): void {

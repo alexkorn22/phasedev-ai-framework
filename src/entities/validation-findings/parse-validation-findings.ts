@@ -30,7 +30,7 @@ export type ValidationFindingStatus = "open" | "reopened" | "resolved";
 export type ValidationFindingSeverity = "MUST-FIX" | "RECOMMENDED" | "NIT";
 export type ValidationFindingClass = "implementation" | "test" | "plan" | "design" | "requirements" | "validation" | "security" | "code_review";
 export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required";
-export type ValidationFindingsType = "phase" | "final";
+export type ValidationFindingsType = "iteration" | "final";
 
 export interface ValidationFindingRow {
   id: string;
@@ -55,7 +55,7 @@ export interface ValidationFindingsArtifact {
   openNonBlockingRows: ValidationFindingRow[];
 }
 
-const STRICT_HEADERS = ["id", "status", "severity", "class", "phase", "finding", "requiredfix"];
+const STRICT_HEADERS = ["id", "status", "severity", "class", "iteration", "finding", "requiredfix"];
 const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
 const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
 const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
@@ -69,9 +69,9 @@ export function parseValidationVerdict(filePath: string): "ready" | "ready_with_
   return "unknown";
 }
 
-export function parseValidationVerdictType(filePath: string): "phase" | "final" | "unknown" {
+export function parseValidationVerdictType(filePath: string): "iteration" | "final" | "unknown" {
   const type = readFrontmatterValue(filePath, "type")?.toLowerCase();
-  if (type === "phase" || type === "final") {
+  if (type === "iteration" || type === "final") {
     return type;
   }
 
@@ -134,8 +134,8 @@ function canonicalFindingFor(value: string): string {
     .trim();
 }
 
-function validationTypeForPhase(phase: string): "phase" | "final" {
-  return normalizeSignaturePart(phase) === "final" ? "final" : "phase";
+function validationTypeForIteration(phase: string): "iteration" | "final" {
+  return normalizeSignaturePart(phase) === "final" ? "final" : "iteration";
 }
 
 function signatureFor(type: string, phase: string, className: string, finding: string): string {
@@ -221,7 +221,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
     issues.push("YAML field `verdict` must be one of: ready, ready_with_risks, repaired, repair_required.");
   }
   if (type === "unknown") {
-    issues.push("YAML field `type` must be one of: phase, final.");
+    issues.push("YAML field `type` must be one of: iteration, final.");
   }
 
   const tableBlocks = parseStrictTableBlocks(bodyLines);
@@ -245,7 +245,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   const headerCells = splitMarkdownTableRow(bodyLines[tableBlock.start]);
   const normalizedHeaders = headerCells.map(normalizeHeader);
   if (normalizedHeaders.length !== STRICT_HEADERS.length || !STRICT_HEADERS.every((header, index) => normalizedHeaders[index] === header)) {
-    issues.push("Findings table columns must be exactly: ID, Status, Severity, Class, Phase, Finding, Required Fix.");
+    issues.push("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix.");
   }
 
   const separatorIndex = tableBlock.start + 1;
@@ -292,7 +292,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
       issues.push(`Finding ${id || `row ${rowIndex + 1}`} has Class \`security\`; security findings must use Severity \`MUST-FIX\`.`);
     }
     if (phase.length === 0) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Phase.`);
+      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Iteration.`);
     }
     if (finding.length === 0) {
       issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Finding.`);
@@ -370,7 +370,7 @@ export function parseCurrentValidationFindings(filePath: string): ValidationFind
 
   return parseValidationFindingsArtifact(filePath).rows.map(row => {
     const canonicalFinding = canonicalFindingFor(row.finding);
-    const validationType = validationTypeForPhase(row.phase);
+    const validationType = validationTypeForIteration(row.phase);
 
     return {
       id: row.id,

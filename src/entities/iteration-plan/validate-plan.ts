@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { CheckEvidenceRow, GenerationBundleRow, Phase, Task } from "./types";
+import { CheckEvidenceRow, GenerationBundleRow, Iteration, Task } from "./types";
 import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
-import { CANONICAL_PHASE_HEADING_SYNTAX, CANONICAL_TASK_SYNTAX } from "./contract-messages";
+import { CANONICAL_ITERATION_HEADING_SYNTAX, CANONICAL_TASK_SYNTAX } from "./contract-messages";
 import { emptyTableCellsDiagnostic, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 const REQUIRED_GENERATION_BUNDLE_AREAS = [
@@ -33,11 +33,11 @@ function hasIncompleteChild(task: Task): boolean {
   return flattenTasks(task.children).some(child => child.status !== "completed");
 }
 
-function hasParsedPlanContent(phases: Phase[]): boolean {
-  return phases.some(phase => phase.rawContent !== undefined);
+function hasParsedPlanContent(iterations: Iteration[]): boolean {
+  return iterations.some(phase => phase.rawContent !== undefined);
 }
 
-function phaseHasSection(phase: Phase, sectionName: string): boolean {
+function iterationHasSection(phase: Iteration, sectionName: string): boolean {
   return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(phase.rawContent ?? "");
 }
 
@@ -46,7 +46,7 @@ function headingLevel(line: string): number | null {
   return match?.[1]?.length ?? null;
 }
 
-function phaseSectionLines(phase: Phase, sectionName: string): string[] {
+function iterationSectionLines(phase: Iteration, sectionName: string): string[] {
   const lines = (phase.rawContent ?? "").split("\n");
   const headingIndex = lines.findIndex(line => new RegExp(`^###\\s+${sectionName}\\s*$`, "i").test(line.trim()));
   if (headingIndex === -1) return [];
@@ -83,10 +83,10 @@ function validateExpectedSurfacePath(rowLabel: string, cells: string[], basePath
   }
 }
 
-function validateExpectedChangeSurface(phase: Phase, issues: string[], basePath?: string): void {
-  const rows = phaseSectionLines(phase, "Expected Change Surface").filter(line => line.trim().startsWith("|"));
+function validateExpectedChangeSurface(phase: Iteration, issues: string[], basePath?: string): void {
+  const rows = iterationSectionLines(phase, "Expected Change Surface").filter(line => line.trim().startsWith("|"));
   if (rows.length === 0) {
-    issues.push(`Phase ${phase.id}: ${phase.name} must contain a non-empty Expected Change Surface table.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} must contain a non-empty Expected Change Surface table.`);
     return;
   }
 
@@ -95,24 +95,24 @@ function validateExpectedChangeSurface(phase: Phase, issues: string[], basePath?
     headerCells.length !== EXPECTED_CHANGE_SURFACE_HEADERS.length ||
     headerCells.some((header, index) => header !== EXPECTED_CHANGE_SURFACE_HEADERS[index])
   ) {
-    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface columns must be exactly: ${EXPECTED_CHANGE_SURFACE_HEADERS.join(", ")}.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} Expected Change Surface columns must be exactly: ${EXPECTED_CHANGE_SURFACE_HEADERS.join(", ")}.`);
   }
 
   if (!rows[1] || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(rows[1]))) {
-    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface must include a separator row immediately after the header.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} Expected Change Surface must include a separator row immediately after the header.`);
   }
 
   const dataRows = rows.slice(2).filter(row => !isMarkdownTableSeparatorRow(splitMarkdownTableRow(row)));
   if (dataRows.length === 0) {
-    issues.push(`Phase ${phase.id}: ${phase.name} must contain at least one Expected Change Surface row.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} must contain at least one Expected Change Surface row.`);
   }
   if (dataRows.length > EXPECTED_CHANGE_SURFACE_MAX_ROWS) {
-    issues.push(`Phase ${phase.id}: ${phase.name} Expected Change Surface must contain at most ${EXPECTED_CHANGE_SURFACE_MAX_ROWS} rows.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} Expected Change Surface must contain at most ${EXPECTED_CHANGE_SURFACE_MAX_ROWS} rows.`);
   }
 
   for (const [index, row] of dataRows.entries()) {
     const cells = splitMarkdownTableRow(row);
-    const rowLabel = `Phase ${phase.id}: ${phase.name} Expected Change Surface row ${index + 1}`;
+    const rowLabel = `Iteration ${phase.id}: ${phase.name} Expected Change Surface row ${index + 1}`;
     if (cells.length !== EXPECTED_CHANGE_SURFACE_HEADERS.length) {
       issues.push(`${rowLabel} must have exactly ${EXPECTED_CHANGE_SURFACE_HEADERS.length} cells.`);
       continue;
@@ -162,14 +162,14 @@ function validateGenerationBundle(rows: GenerationBundleRow[], issues: string[])
   }
 }
 
-function validateCheckEvidenceRows(phase: Phase, rows: CheckEvidenceRow[], issues: string[]): void {
+function validateCheckEvidenceRows(phase: Iteration, rows: CheckEvidenceRow[], issues: string[]): void {
   if (rows.length === 0) {
-    issues.push(`Phase ${phase.id}: ${phase.name} must contain a non-empty Check Evidence table.`);
+    issues.push(`Iteration ${phase.id}: ${phase.name} must contain a non-empty Check Evidence table.`);
     return;
   }
 
   for (const [index, row] of rows.entries()) {
-    const rowLabel = `Phase ${phase.id}: ${phase.name} Check Evidence row ${index + 1}`;
+    const rowLabel = `Iteration ${phase.id}: ${phase.name} Check Evidence row ${index + 1}`;
     if (row.check.trim().length === 0) {
       issues.push(`${rowLabel} has an empty Check.`);
     }
@@ -185,7 +185,7 @@ function validateCheckEvidenceRows(phase: Phase, rows: CheckEvidenceRow[], issue
   }
 }
 
-function phaseStatusOrder(status: Phase["status"]): number {
+function iterationStatusOrder(status: Iteration["status"]): number {
   switch (status) {
     case "completed":
       return 0;
@@ -196,7 +196,7 @@ function phaseStatusOrder(status: Phase["status"]): number {
   }
 }
 
-function phaseStatusMarker(status: Phase["status"]): "[x]" | "[~]" | "[ ]" {
+function iterationStatusMarker(status: Iteration["status"]): "[x]" | "[~]" | "[ ]" {
   switch (status) {
     case "completed":
       return "[x]";
@@ -207,33 +207,33 @@ function phaseStatusMarker(status: Phase["status"]): "[x]" | "[~]" | "[ ]" {
   }
 }
 
-function validatePhaseStatusOrder(phases: Phase[], issues: string[]): void {
-  for (let index = 1; index < phases.length; index++) {
-    const previous = phases[index - 1];
-    const current = phases[index];
-    if (phaseStatusOrder(current.status) < phaseStatusOrder(previous.status)) {
+function validateIterationStatusOrder(iterations: Iteration[], issues: string[]): void {
+  for (let index = 1; index < iterations.length; index++) {
+    const previous = iterations[index - 1];
+    const current = iterations[index];
+    if (iterationStatusOrder(current.status) < iterationStatusOrder(previous.status)) {
       issues.push(
-        `Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase ${current.id}: ${current.name} ${phaseStatusMarker(current.status)} cannot appear after Phase ${previous.id}: ${previous.name} ${phaseStatusMarker(previous.status)}.`
+        `Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration ${current.id}: ${current.name} ${iterationStatusMarker(current.status)} cannot appear after Iteration ${previous.id}: ${previous.name} ${iterationStatusMarker(previous.status)}.`
       );
     }
   }
 }
 
-export function validatePlanStructure(phases: Phase[], prdPath?: string, surfaceBasePath?: string): string[] {
+export function validatePlanStructure(iterations: Iteration[], prdPath?: string, surfaceBasePath?: string): string[] {
   const issues: string[] = [];
   const taskIds = new Map<string, string>();
 
-  if (phases.length === 0) {
-    return [`iteration_plan.md must contain at least one phase heading. ${CANONICAL_PHASE_HEADING_SYNTAX}`];
+  if (iterations.length === 0) {
+    return [`iteration_plan.md must contain at least one iteration heading. ${CANONICAL_ITERATION_HEADING_SYNTAX}`];
   }
 
-  const shouldValidateArtifactContract = hasParsedPlanContent(phases);
+  const shouldValidateArtifactContract = hasParsedPlanContent(iterations);
   if (shouldValidateArtifactContract) {
-    validateGenerationBundle(phases[0].generationBundle ?? [], issues);
+    validateGenerationBundle(iterations[0].generationBundle ?? [], issues);
   }
 
   const phaseIdCounts = new Map<number, number>();
-  for (const phase of phases) {
+  for (const phase of iterations) {
     phaseIdCounts.set(phase.id, (phaseIdCounts.get(phase.id) ?? 0) + 1);
   }
 
@@ -243,60 +243,60 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string, surface
     .sort((a, b) => a - b);
 
   if (duplicateIds.length > 0) {
-    issues.push(`Phase numbers must be unique; duplicate phase id(s): ${duplicateIds.join(", ")}.`);
+    issues.push(`Iteration numbers must be unique; duplicate iteration id(s): ${duplicateIds.join(", ")}.`);
   }
 
-  const hasSequentialIds = phases.every((phase, index) => phase.id === index + 1);
+  const hasSequentialIds = iterations.every((phase, index) => phase.id === index + 1);
   if (!hasSequentialIds) {
-    issues.push("Phase numbers must be sequential starting at 1.");
+    issues.push("Iteration numbers must be sequential starting at 1.");
   }
 
-  const activePhases = phases.filter(phase => phase.status === "in_progress");
-  if (activePhases.length > 1) {
-    const activeList = activePhases.map(phase => `Phase ${phase.id}: ${phase.name}`).join(", ");
-    issues.push(`Only one phase may have [~] status at a time; active phases: ${activeList}.`);
+  const activeIterations = iterations.filter(phase => phase.status === "in_progress");
+  if (activeIterations.length > 1) {
+    const activeList = activeIterations.map(phase => `Iteration ${phase.id}: ${phase.name}`).join(", ");
+    issues.push(`Only one iteration may have [~] status at a time; active iterations: ${activeList}.`);
   }
 
-  validatePhaseStatusOrder(phases, issues);
+  validateIterationStatusOrder(iterations, issues);
 
-  for (const phase of phases) {
+  for (const phase of iterations) {
     if (phase.name.trim().length === 0) {
-      issues.push(`Phase ${phase.id} must have a non-empty name.`);
+      issues.push(`Iteration ${phase.id} must have a non-empty name.`);
     }
 
     if (shouldValidateArtifactContract) {
       for (const section of REQUIRED_PHASE_SECTIONS) {
-        if (!phaseHasSection(phase, section)) {
-          issues.push(`Phase ${phase.id}: ${phase.name} must contain section \`### ${section}\`.`);
+        if (!iterationHasSection(phase, section)) {
+          issues.push(`Iteration ${phase.id}: ${phase.name} must contain section \`### ${section}\`.`);
         }
       }
-      if (phaseHasSection(phase, "Expected Change Surface")) {
+      if (iterationHasSection(phase, "Expected Change Surface")) {
         validateExpectedChangeSurface(phase, issues, surfaceBasePath);
       }
       validateCheckEvidenceRows(phase, phase.checkEvidence ?? [], issues);
     }
 
     if (phase.tasks.length === 0) {
-      issues.push(`Phase ${phase.id}: ${phase.name} must contain at least one task checkbox.`);
+      issues.push(`Iteration ${phase.id}: ${phase.name} must contain at least one task checkbox.`);
     }
 
     const allTasks = flattenTasks(phase.tasks);
     for (const task of allTasks) {
       const taskLabel = task.id || task.name;
       if (task.id.length === 0) {
-        issues.push(`Phase ${phase.id}: ${phase.name} has a task with invalid task ID syntax: ${task.name}. ${CANONICAL_TASK_SYNTAX}`);
+        issues.push(`Iteration ${phase.id}: ${phase.name} has a task with invalid task ID syntax: ${task.name}. ${CANONICAL_TASK_SYNTAX}`);
         continue;
       }
 
       if (!task.id.startsWith(`${phase.id}.`)) {
-        issues.push(`Task ${task.id} must start with phase number ${phase.id}.`);
+        issues.push(`Task ${task.id} must start with iteration number ${phase.id}.`);
       }
 
       const existing = taskIds.get(task.id);
       if (existing) {
-        issues.push(`Task IDs must be unique; duplicate task id \`${task.id}\` in ${existing} and Phase ${phase.id}: ${phase.name}.`);
+        issues.push(`Task IDs must be unique; duplicate task id \`${task.id}\` in ${existing} and Iteration ${phase.id}: ${phase.name}.`);
       } else {
-        taskIds.set(task.id, `Phase ${phase.id}: ${phase.name}`);
+        taskIds.set(task.id, `Iteration ${phase.id}: ${phase.name}`);
       }
 
       if (task.status === "completed" && hasIncompleteChild(task)) {
@@ -305,14 +305,14 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string, surface
     }
 
     if (phase.status === "completed" && hasIncompleteTask(phase.tasks)) {
-      issues.push(`Phase ${phase.id}: ${phase.name} is [x] but contains incomplete tasks.`);
+      issues.push(`Iteration ${phase.id}: ${phase.name} is [x] but contains incomplete tasks.`);
     }
 
     // Invariant: not-started phase must not contain completed tasks/evidence
     if (phase.status === "not_started") {
       const completedTasks = allTasks.filter(task => task.status === "completed");
       if (completedTasks.length > 0) {
-        issues.push(`Phase ${phase.id}: ${phase.name} is not started [ ] but contains completed tasks: ${completedTasks.map(t => t.id).join(", ")}.`);
+        issues.push(`Iteration ${phase.id}: ${phase.name} is not started [ ] but contains completed tasks: ${completedTasks.map(t => t.id).join(", ")}.`);
       }
 
       if (shouldValidateArtifactContract && phase.checkEvidence) {
@@ -320,7 +320,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string, surface
           row => row.result !== "pending" && row.result !== "not_applicable"
         );
         if (nonPendingEvidence.length > 0) {
-          issues.push(`Phase ${phase.id}: ${phase.name} is not started [ ] but contains non-pending evidence results.`);
+          issues.push(`Iteration ${phase.id}: ${phase.name} is not started [ ] but contains non-pending evidence results.`);
         }
       }
     }
@@ -329,7 +329,7 @@ export function validatePlanStructure(phases: Phase[], prdPath?: string, surface
   // Traceability checks against PRD
   if (prdPath && fs.existsSync(prdPath)) {
     const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
-    const planText = phases.map(phase => phase.rawContent ?? "").join("\n");
+    const planText = iterations.map(phase => phase.rawContent ?? "").join("\n");
 
     for (const req of requirements) {
       const regex = new RegExp(`\\b${req}\\b`);

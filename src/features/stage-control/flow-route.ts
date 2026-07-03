@@ -3,10 +3,10 @@ import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entitie
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, InvalidArchiveState } from "../../entities/change/archive-state";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
-import { parsePlan } from "../../entities/implementation-plan/parse-plan";
-import { Phase } from "../../entities/implementation-plan/types";
-import { isPhaseReadyForValidation, phaseValidationBlockers } from "../../entities/implementation-plan/phase-readiness";
-import { validatePlanArtifact } from "../../entities/implementation-plan/validate-plan-artifact";
+import { parsePlan } from "../../entities/iteration-plan/parse-plan";
+import { Iteration } from "../../entities/iteration-plan/types";
+import { isIterationReadyForValidation, iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateRulesArtifact } from "../../entities/rules/validate-rules";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
@@ -32,11 +32,11 @@ export type Route =
   | { kind: "finding_repair"; stage: "finding_repair"; paths: ChangePaths; activeChangePath: string }
   | { kind: "archive_readiness_blocked"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
   | { kind: "archive_ready"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "phase"; stage: "implementation" | "iteration_validation"; paths: ChangePaths; activePhase: Phase; activeChangePath: string }
+  | { kind: "phase"; stage: "implementation" | "iteration_validation"; paths: ChangePaths; activeIteration: Iteration; activeChangePath: string }
   | { kind: "final_validation"; stage: "final_validation"; paths: ChangePaths; activeChangePath: string };
 
-function phaseStage(activePhase: Phase): "implementation" | "iteration_validation" {
-  return isPhaseReadyForValidation(activePhase) ? "iteration_validation" : "implementation";
+function iterationStage(activeIteration: Iteration): "implementation" | "iteration_validation" {
+  return isIterationReadyForValidation(activeIteration) ? "iteration_validation" : "implementation";
 }
 
 function isVerdictOnlyOpenBlockingIssue(issue: string): boolean {
@@ -150,16 +150,16 @@ export function resolveRoute(projectPath: string): Route {
 
   // After repair with `repaired` verdict and no open blocking rows,
   // always route to phase_validation for re-validation. Do not route
-  // through phaseStage() which may return "implementation" due to
+  // through iterationStage() which may return "implementation" due to
   // stale Check Evidence that the repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
-    const activePhase = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
-    if (activePhase) {
+    const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+    if (activeIteration) {
       return {
         kind: "phase",
         stage: "iteration_validation",
         paths,
-        activePhase,
+        activeIteration,
         activeChangePath: changeDir
       };
     }
@@ -171,7 +171,7 @@ export function resolveRoute(projectPath: string): Route {
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");
   if (finalReady) {
     const allPhasesCompleted = planPhases.length > 0 && planPhases.every(phase => phase.status === "completed");
-    const hasAnyReadinessBlockers = planPhases.some(phase => phaseValidationBlockers(phase).length > 0);
+    const hasAnyReadinessBlockers = planPhases.some(phase => iterationValidationBlockers(phase).length > 0);
     if (!allPhasesCompleted || hasAnyReadinessBlockers) {
       return { kind: "archive_readiness_blocked", stage: "archive", paths, activeChangePath: changeDir };
     }
@@ -179,13 +179,13 @@ export function resolveRoute(projectPath: string): Route {
     return { kind: "archive_ready", stage: "archive", paths, activeChangePath: changeDir };
   }
 
-  const activePhase = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
-  if (activePhase) {
+  const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+  if (activeIteration) {
     return {
       kind: "phase",
-      stage: phaseStage(activePhase),
+      stage: iterationStage(activeIteration),
       paths,
-      activePhase,
+      activeIteration,
       activeChangePath: changeDir
     };
   }

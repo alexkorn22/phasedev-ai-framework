@@ -1,4 +1,4 @@
-import { Phase, Task } from "../../entities/implementation-plan/types";
+import { Iteration, Task } from "../../entities/iteration-plan/types";
 
 export function toFileUrl(absolutePath: string): string {
   const normalized = absolutePath.replace(/\\/g, "/");
@@ -15,20 +15,20 @@ function formatTask(task: Task, depth: number): string[] {
   ];
 }
 
-export function formatTaskList(phase: Phase): string {
+export function formatTaskList(phase: Iteration): string {
   return phase.tasks.flatMap(task => formatTask(task, 0)).join("\n");
 }
 
-export function formatPhaseExcerpt(phase: Phase): string {
+export function formatPhaseExcerpt(phase: Iteration): string {
   return phase.rawContent?.trim() || `## Iteration ${phase.id}: ${phase.name}\n${formatTaskList(phase)}`;
 }
 
-export function formatPlanMap(phases: Phase[], currentPhaseId: number): string {
-  if (phases.length === 0) {
-    return "No phases parsed from the approved plan.";
+export function formatPlanMap(iterations: Iteration[], currentPhaseId: number): string {
+  if (iterations.length === 0) {
+    return "No iterations parsed from the approved plan.";
   }
 
-  return phases.map(phase => {
+  return iterations.map(phase => {
     const status = phase.status === "completed" ? "[x]" : phase.status === "in_progress" ? "[~]" : "[ ]";
     const marker = phase.id === currentPhaseId ? "current" : "orientation only";
     const taskIds = phase.tasks.map(task => task.id).filter(Boolean).join(", ") || "no task ids parsed";
@@ -39,7 +39,7 @@ export function formatPlanMap(phases: Phase[], currentPhaseId: number): string {
   }).join("\n");
 }
 
-export function formatAdditionalChecks(phase: Phase | null): string {
+export function formatAdditionalChecks(phase: Iteration | null): string {
   if (!phase || phase.additionalChecks.length === 0) {
     return "  * No additional checks for the current phase.";
   }

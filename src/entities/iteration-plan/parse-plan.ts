@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
-import { CheckEvidenceRow, GenerationBundleRow, Phase, RequiredCheck, Task } from "./types";
+import { CheckEvidenceRow, GenerationBundleRow, Iteration, RequiredCheck, Task } from "./types";
 
 function taskStatusFor(statusChar: string): Task["status"] {
   const normalized = statusChar.toLowerCase();
@@ -223,7 +223,7 @@ function parseCheckEvidence(lines: string[]): CheckEvidenceRow[] {
     }));
 }
 
-function phaseFor(meta: { id: number; name: string; status: Phase["status"] }, heading: string, lines: string[], generationBundle: GenerationBundleRow[]): Phase {
+function iterationFor(meta: { id: number; name: string; status: Iteration["status"] }, heading: string, lines: string[], generationBundle: GenerationBundleRow[]): Iteration {
   return {
     ...meta,
     tasks: parseTasks(lines),
@@ -235,26 +235,26 @@ function phaseFor(meta: { id: number; name: string; status: Phase["status"] }, h
   };
 }
 
-export function parsePlan(filePath: string): Phase[] {
+export function parsePlan(filePath: string): Iteration[] {
   if (!fs.existsSync(filePath)) {
     return [];
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
   const lines = content.split("\n");
-  const phases: Phase[] = [];
+  const iterations: Iteration[] = [];
   const generationBundle = parseGenerationBundle(lines);
   const phaseRegex = /^##\s*Iteration\s*(\d+)\s*:\s*(.*?)\s*\[\s*(x|~| |\/)\s*\]/i;
 
   let currentPhaseLines: string[] = [];
   let currentPhaseHeading = "";
-  let currentPhaseMeta: { id: number; name: string; status: Phase["status"] } | null = null;
+  let currentPhaseMeta: { id: number; name: string; status: Iteration["status"] } | null = null;
 
   for (const line of lines) {
     const match = line.match(phaseRegex);
     if (match && match[1] !== undefined && match[2] !== undefined && match[3] !== undefined) {
       if (currentPhaseMeta !== null) {
-        phases.push(phaseFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
+        iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
       }
 
       currentPhaseLines = [];
@@ -273,8 +273,8 @@ export function parsePlan(filePath: string): Phase[] {
   }
 
   if (currentPhaseMeta !== null) {
-    phases.push(phaseFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
+    iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
   }
 
-  return phases;
+  return iterations;
 }

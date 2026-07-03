@@ -6,19 +6,17 @@ This file is the repo-local system prompt for agents working inside `PhaseDev AI
 
 `PhaseDev AI Framework` is an Agentic Engineering Flow controller. It does not implement product changes itself; it prints stage contracts for another agent and keeps flow state in project files.
 
-Preserve these public entrypoints:
+Public entrypoint:
 
 - `src/cli.ts`: manual CLI for `init` and `next`.
-- `src/runner.ts`: automated loop runner. **(DEPRECATED — runner loop is no longer maintained; use `phasedev next` manually.)**
 
-Do not reintroduce separate root archive, parser, checker, template, controller, or config scripts.
+Do not reintroduce separate root archive, parser, checker, template, controller, runner, or config scripts.
 
 ## Architecture
 
 Root `src/` must stay thin. Put logic in:
 
 - `src/features/stage-control`: stage routing, prompt construction, blockers, archive stage orchestration.
-- `src/features/runner`: runner loop, Codex turns, streaming reporter, snapshots, logs. **(DEPRECATED — runner logic is no longer maintained; manual CLI handles all flow.)**
 - `src/entities`: stage types, change paths/state/approval, config parsing, implementation-plan parsing/validation, validation findings, test commands.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 
@@ -34,10 +32,9 @@ Dependency direction should be:
 Keep these contracts stable unless the user explicitly changes them:
 
 - Stage routing before Archive.
-- Phase heading format: `## Phase N: Name [x|~| |/]`.
+- Iteration heading format: `## Iteration N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`.
 - `config.yaml` shape, including per-stage `skills.routers`, `skills.main`, and `skills.additional`.
-- Runner loop result statuses: `archived`, `blocked`, `no_progress`, `max_iterations`.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
 
@@ -45,7 +42,7 @@ Keep these contracts stable unless the user explicitly changes them:
 
 Stage skill routing is configured in `config.yaml`, not in a separate `skill_router.md` template.
 
-For each `codex.stages.<stage>.skills`:
+For each `stages.<stage>.skills` (or legacy `codex.stages.<stage>.skills`):
 
 - `routers`: optional routing/control skills. If present, the generated stage prompt must tell the agent to read them first.
 - `main`: primary allowed method skills. These are not mandatory preloads; the agent should load them only when stage evidence requires them.
@@ -60,7 +57,7 @@ Keep these contracts stable:
 - PhaseDev owns artifact formats, stage transitions, approval state, validation verdicts, archive state, and allowed persistent files.
 - Skill-specific reports, headings, tables, lifecycle steps, approval changes, and state changes must be adapted into the current PhaseDev artifact contract, final response, or blocker instead of being copied into PhaseDev artifacts.
 - If a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent must stop and ask the user to update config/router or approve an exception.
-- Skills do not inherit from `codex.default`; they are explicit per stage.
+- Skills do not inherit from a default config; they are explicit per stage.
 - If `skills` is omitted or empty, the generated stage prompt must say no external skills are configured.
 - `phasedev init` must not include stage-specific skill policy; executable `phasedev next` prompts inject it.
 - Approval/blocker prompts stay policy-free because they are controller stop messages.
@@ -69,15 +66,15 @@ Keep these contracts stable:
 
 Archive is part of `cli.ts next` (alias `phasedev next`); there is no separate archive command.
 
-When final validation is ready and every phase is `[x]`, `next` must:
+When final validation is ready and every iteration is `[x]`, `next` must:
 
 1. Move `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>` before printing the Archive prompt.
-2. Create `.phase-archive.json` in the archived change with `status: "in_progress"`.
+2. Create `.stage-archive.json` in the archived change with `status: "in_progress"`.
 3. Print the Archive prompt with links to the archived change path.
-4. Resume the same Archive prompt if a later `next` finds pending `.phase-archive.json`.
-5. Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`.
+4. Resume the same Archive prompt if a later `next` finds pending `.stage-archive.json`.
+5. Treat Archive as completed only after `.stage-archive.json` has `status: "completed"`.
 
-Agents executing the Archive prompt must write delta specs under the archived change and then update `.phase-archive.json`; they must not call an archive script.
+Agents executing the Archive prompt must write delta specs under the archived change and then update `.stage-archive.json`; they must not call an archive script.
 
 ## Commands
 
@@ -92,7 +89,7 @@ Focused checks:
 
 ```bash
 bun test test/parser.test.ts test/controller.test.ts
-bun test test/cli.test.ts test/config.test.ts test/runner.test.ts
+bun test test/cli.test.ts test/config.test.ts
 ```
 
 CLI smoke:
@@ -101,8 +98,6 @@ CLI smoke:
 phasedev init --project-path /tmp/some-project
 phasedev next --project-path /tmp/some-project
 ```
-
-Do not run `npm run run` as a casual smoke test unless the user wants a real Codex SDK loop.
 
 ## Coding Rules
 

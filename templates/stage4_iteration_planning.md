@@ -1,4 +1,4 @@
-Phase 4. Iteration Planning.
+Stage 4. Iteration Planning.
 
 Your task is to decompose the approved technical design into a step-by-step implementation plan.
 
@@ -30,8 +30,8 @@ Planning instructions:
 2. Create the implementation plan file: [iteration_plan.md]({{plan_path}}), filling that template for the current change.
 3. Apply the contract's canonical fill rules for comments, placeholders, status values, trace IDs, review formatting, and machine-readable fields.
 4. Split implementation into sequential autonomous phases:
-   - every phase, including the only phase, goes through `Implementation -> Phase Validation`;
-   - after successful Phase Validation for all phases, the flow proceeds to `Final Validation`;
+   - every phase, including the only phase, goes through `Implementation -> Iteration Validation`;
+   - after successful Iteration Validation for all phases, the flow proceeds to `Final Validation`;
    - each phase must fit fully into one AI-agent working session without context overflow;
    - the optimal phase size is a 3-10 file change; do not artificially split a small change.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):

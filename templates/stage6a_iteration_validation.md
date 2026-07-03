@@ -1,4 +1,4 @@
-Phase 6A. Iteration Validation.
+Stage 6A. Iteration Validation.
 
 Phase contract: validate current iteration readiness against the implementation plan. This phase runs for every iteration, including the only iteration in a single-iteration plan.
 
@@ -36,7 +36,7 @@ Required stage-contract checks:
 - do not rerun tests or additional checks at this stage;
 - validation result is written to [validation_findings.md]({{findings_path}});
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
-- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: phase` for Phase Validation;
+- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: iteration` for Iteration Validation;
 - if the final verdict is `ready` or `ready_with_risks`, change the current phase status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;
 - if the final verdict is `repair_required`, keep the current phase status as `[~]`.
 

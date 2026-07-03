@@ -1,4 +1,4 @@
-Phase 1. Change Intake.
+Stage 1. Change Intake.
 
 Phase contract: prepare the initial change artifacts.
 

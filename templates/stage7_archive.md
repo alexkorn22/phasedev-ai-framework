@@ -1,4 +1,4 @@
-Phase 7. Archive.
+Stage 7. Archive.
 
 Your task is to complete the already archived change: sync long-lived specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
 

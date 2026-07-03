@@ -1,4 +1,4 @@
-Phase 3. Technical Design.
+Stage 3. Technical Design.
 
 Phase contract: prepare an approvable visual-first architecture package based on requirements and research facts.
 

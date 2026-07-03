@@ -1,6 +1,6 @@
-# Stage config — skills per phase
+# Stage config — skills per stage
 # Runner config moved to runner.yaml
-phases:
+stages:
   change_intake:
     skills:
       routers:
@@ -63,3 +63,4 @@ phases:
 # Root-level flow flags
 runArchiveStage: true
 autoApprove: false
+maxIterations: 10

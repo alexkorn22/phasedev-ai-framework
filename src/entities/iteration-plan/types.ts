@@ -24,7 +24,7 @@ export interface RequiredCheck {
   command: string;
 }
 
-export interface Phase {
+export interface Iteration {
   id: number;
   name: string;
   status: "completed" | "in_progress" | "not_started";

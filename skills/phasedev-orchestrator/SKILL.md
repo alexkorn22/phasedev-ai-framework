@@ -52,17 +52,17 @@ All commands run from the **project root** (the current working directory). `pha
 Before the loop, read orchestrator-safe settings:
 
 ```bash
-phasedev config loop.maxIterations
+phasedev config maxIterations
 ```
 → Safety iteration limit. Default to **10** if empty/invalid. Stop with "Max iterations reached" when reached.
 
 ```bash
-phasedev config loop.runArchiveStage
+phasedev config runArchiveStage
 ```
 → Remember for the archive stage check below.
 
 ```bash
-phasedev config loop.autoApprove
+phasedev config autoApprove
 ```
 → When `true`, automatically approve change_intake/technical_design/iteration_planning artifacts at approval gates instead of stopping for user input. Default to `false` if empty/invalid. Remember for the Auto-Approval section below.
 
@@ -127,10 +127,10 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 | `finding_repair` | finding_repair | Spawn sub-agent | |
 | `final_validation` | final_validation | Spawn sub-agent | |
 | `archive_readiness_blocked` | archive | **STOP — inform user** | "All phases must be [x]. Check implementation_plan.md" |
-| `archive_ready` / `pending_archive` | archive | Spawn sub-agent (if config allows) | Check loop.runArchiveStage first. |
+| `archive_ready` / `pending_archive` | archive | Spawn sub-agent (if config allows) | Check runArchiveStage first. |
 | `invalid_archive_state` | archive | **STOP — inform user** | Report the invalid archive state reason. |
 
-\* When `loop.autoApprove` is `true` (from Initialization), instead of stopping and asking the user, follow the [Auto-Approval](#auto-approval) procedure below.
+\* When `autoApprove` is `true` (from Initialization), instead of stopping and asking the user, follow the [Auto-Approval](#auto-approval) procedure below.
 
 **`phase` route progress (important for the finding_repair/validation cycle):** the kind `phase` legitimately repeats; `phasedev check` prints `route is phase (stage: implementation)` or `(stage: iteration_validation)`. Compare **both kind and stage**, not kind alone:
 - `implementation → iteration_validation` (same phase), or `iteration_validation → implementation` (next phase): stage changed → progress.
@@ -150,7 +150,7 @@ One of the artifact-invalid routes (`invalid_prd`, `invalid_execution_contract`,
 
 ## Auto-Approval
 
-When `phasedev config loop.autoApprove` (from Initialization) is `true`, the orchestrator automatically approves change_intake, technical_design, and iteration_planning artifacts at approval gates instead of stopping to ask the user.
+When `phasedev config autoApprove` (from Initialization) is `true`, the orchestrator automatically approves change_intake, technical_design, and iteration_planning artifacts at approval gates instead of stopping to ask the user.
 
 **How it works for each approval gate:**
 
@@ -185,19 +185,19 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 ## Termination
 
 Stop when any is met:
-- **Flow complete** — Archive is terminal. If you spawned an archive sub-agent this iteration (route was `archive_ready` or `pending_archive`) and the next `phasedev check` returns a **non**-archive route, the change was archived (it moved to `.phasedev/changes/archive/`, no active change remains, so the route fell back to `change_intake`). Treat the flow as complete: STOP and report success. Do **NOT** spawn a `change_intake` sub-agent for that `change_intake` route. (This mirrors how `runner.ts` detects completion via `hasCompletedArchivedChange`.)
-- **Blocked** — approval gate, blocker, or invalid state. Approval gates (`change_intake_approval`, `design_approval`, `iteration_planning_approval`): when `loop.autoApprove` is true, follow [Auto-Approval](#auto-approval); otherwise tell the user to approve and wait.
+- **Flow complete** — Archive is terminal. If you spawned an archive sub-agent this iteration (route was `archive_ready` or `pending_archive`) and the next `phasedev check` returns a **non**-archive route, the change was archived (it moved to `.phasedev/changes/archive/`, no active change remains, so the route fell back to `change_intake`). Treat the flow as complete: STOP and report success. Do **NOT** spawn a `change_intake` sub-agent for that `change_intake` route. (The flow controller detects completion via `hasCompletedArchivedChange`.)
+- **Blocked** — approval gate, blocker, or invalid state. Approval gates (`change_intake_approval`, `design_approval`, `iteration_planning_approval`): when `autoApprove` is true, follow [Auto-Approval](#auto-approval); otherwise tell the user to approve and wait.
 - **No progress** — after a sub-agent, the route kind+stage is unchanged (same phase), or `invalid_*` persists after one recovery spawn.
-- **Max iterations** — `loop.maxIterations` reached.
+- **Max iterations** — `maxIterations` reached.
 - **Unrecoverable error** — sub-agent error after one retry.
 - **User interrupt**.
 
 ## Archive Handling
 
 When `phasedev check` returns `archive_ready` (archive not started yet) or `pending_archive` (archive already started — resume of the same Archive prompt):
-1. Check the `loop.runArchiveStage` value from Initialization.
+1. Check the `runArchiveStage` value from Initialization.
 2. If `false`, do NOT spawn the archive sub-agent. Stop and report:
-   > "Archive execution is paused by config (loop.runArchiveStage=false). Run 'phasedev next' manually to start Archive, or set loop.runArchiveStage=true in config.yaml."
+   > "Archive execution is paused by config (runArchiveStage=false). Run 'phasedev next' manually to start Archive, or set runArchiveStage=true in config.yaml."
 3. If `true` (or absent), spawn the archive sub-agent normally.
 4. After the archive sub-agent returns, run `phasedev check` once:
    - **Non-archive route** → the change was archived → **flow complete** (see Termination) → STOP.

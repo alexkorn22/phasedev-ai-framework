@@ -40,7 +40,7 @@ Commands:
       Validate current controller route without rendering a stage prompt.
       Side effects: none.
 
-  phasedev check-validation --project-path <path> --scope phase --phase-id <N>
+  phasedev check-validation --project-path <path> --scope iteration --iteration-id <N>
   phasedev check-validation --project-path <path> --scope final
       Validate validation_findings.md completion semantics for phase or final validation.
       Side effects: none.
@@ -59,8 +59,8 @@ Options:
   --config <path>             Explicit PhaseDev config path for next.
   --expect-route <route>      Expected route for check.
   --expect-stage <stage>      Expected stage for check.
-  --scope phase|final         Validation scope for check-validation.
-  --phase-id <N>              Phase number for phase validation checks.
+  --scope iteration|final         Validation scope for check-validation.
+  --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
 
 Generated files:

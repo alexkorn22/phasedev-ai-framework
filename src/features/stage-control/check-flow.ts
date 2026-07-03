@@ -1,8 +1,8 @@
 import { Stage } from "../../entities/stage/types";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
-import { phaseValidationBlockers } from "../../entities/implementation-plan/phase-readiness";
-import { parsePlan } from "../../entities/implementation-plan/parse-plan";
+import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { Route, resolveRoute } from "./flow-route";
 
@@ -16,7 +16,7 @@ export interface FlowCheckResult {
 }
 
 export type ValidationCheckOptions =
-  | { scope: "phase"; phaseId: number }
+  | { scope: "iteration"; iterationId: number }
   | { scope: "final" };
 
 export interface ValidationCheckResult {
@@ -82,8 +82,8 @@ function isReadyVerdict(verdict: ValidationFindingsVerdict | "unknown"): boolean
   return verdict === "ready" || verdict === "ready_with_risks";
 }
 
-function readyPhaseIssue(verdict: ValidationFindingsVerdict | "unknown", phaseId: number): string {
-  return `\`verdict: ${verdict}\` is valid only after Phase ${phaseId} is marked [x].`;
+function readyIterationIssue(verdict: ValidationFindingsVerdict | "unknown", phaseId: number): string {
+  return `\`verdict: ${verdict}\` is valid only after Iteration ${phaseId} is marked [x].`;
 }
 
 function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: RouteKind): string {
@@ -124,31 +124,31 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     issues.push(...findings.issues);
   }
 
-  if (findings?.exists && options.scope === "phase") {
-    if (findings.type !== "phase") {
-      issues.push("YAML field `type` must be `phase` for Phase Validation.");
+  if (findings?.exists && options.scope === "iteration") {
+    if (findings.type !== "iteration") {
+      issues.push("YAML field `type` must be `iteration` for Iteration Validation.");
     }
 
     if (findings.verdict === "repaired") {
-      issues.push("`verdict: repaired` is not valid for Phase Validation stage output.");
+      issues.push("`verdict: repaired` is not valid for Iteration Validation stage output.");
     }
 
     if (isReadyVerdict(findings.verdict)) {
-      const phase = paths ? parsePlan(paths.iterationPlanPath).find(candidate => candidate.id === options.phaseId) : undefined;
-      if (!phase) {
-        issues.push(`Phase ${options.phaseId} was not found in iteration_plan.md.`);
-      } else if (phase.status !== "completed") {
-        issues.push(readyPhaseIssue(findings.verdict, options.phaseId));
+      const phaseIteration = paths ? parsePlan(paths.iterationPlanPath).find(candidate => candidate.id === options.iterationId) : undefined;
+      if (!phaseIteration) {
+        issues.push(`Iteration ${options.iterationId} was not found in iteration_plan.md.`);
+      } else if (phaseIteration.status !== "completed") {
+        issues.push(readyIterationIssue(findings.verdict, options.iterationId));
       } else {
-        const blockers = phaseValidationBlockers(phase);
+        const blockers = iterationValidationBlockers(phaseIteration);
         if (blockers.length > 0) {
-          issues.push(`\`verdict: ${findings.verdict}\` is valid only after Phase ${options.phaseId} has no validation readiness blockers: ${blockers.join("; ")}.`);
+          issues.push(`\`verdict: ${findings.verdict}\` is valid only after Iteration ${options.iterationId} has no validation readiness blockers: ${blockers.join("; ")}.`);
         }
       }
     }
 
     if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
-      issues.push(repairRequiredIssue("phase", route.kind));
+      issues.push(repairRequiredIssue("iteration", route.kind));
     }
   }
 

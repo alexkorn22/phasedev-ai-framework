@@ -1,6 +1,6 @@
 ---
 verdict: <set_after_review>
-type: phase
+type: iteration
 date: {{date}}
 ---
 
@@ -19,7 +19,7 @@ Authoring instructions for validation and repair agents:
 Frontmatter contract:
 - verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.
 - Replace `<set_after_review>` with the verdict selected after evidence review; never leave the placeholder in the final file.
-- type must be exactly one of: phase, final.
+- type must be exactly one of: iteration, final.
 - date must be an ISO date.
 
 Verdict contract:
@@ -34,10 +34,10 @@ Table value contract:
 - Severity: exactly one of MUST-FIX, RECOMMENDED, NIT.
 - Class: exactly one of implementation, test, plan, design, requirements, validation, security, code_review.
 - Security rows must always use Severity: MUST-FIX, including resolved rows.
-- Phase: current phase label, Final, or another concrete validation scope.
+- Iteration: current iteration label, Final, or another concrete validation scope.
 - Finding: concrete self-contained finding with enough evidence to understand the issue.
 - Required Fix: concrete action required to resolve or mitigate the finding.
 -->
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|

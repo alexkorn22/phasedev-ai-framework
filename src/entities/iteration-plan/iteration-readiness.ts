@@ -1,6 +1,6 @@
-import { Phase, Task } from "./types";
+import { Iteration, Task } from "./types";
 
-function allTopLevelTasksCompleted(phase: Phase): boolean {
+function allTopLevelTasksCompleted(phase: Iteration): boolean {
   return phase.tasks.length > 0 && phase.tasks.every(task => task.status === "completed");
 }
 
@@ -12,11 +12,11 @@ export function hasIncompleteTask(tasks: Task[]): boolean {
   return flattenTasks(tasks).some(task => task.status !== "completed");
 }
 
-export function hasPendingOrFailedEvidence(phase: Phase): boolean {
+export function hasPendingOrFailedEvidence(phase: Iteration): boolean {
   return hasUnreadyCheckEvidence(phase);
 }
 
-export function hasUnreadyCheckEvidence(phase: Phase): boolean {
+export function hasUnreadyCheckEvidence(phase: Iteration): boolean {
   return (phase.checkEvidence ?? []).some(row => ["pending", "failed", "blocked"].includes(row.result));
 }
 
@@ -24,7 +24,7 @@ function normalizeEvidenceCommand(value: string): string {
   return value.trim().replace(/^`(.+)`$/, "$1").replace(/\s+/g, " ").trim();
 }
 
-function hasPassedRequiredCheckEvidence(phase: Phase, requiredCheck: { check: string; command: string }): boolean {
+function hasPassedRequiredCheckEvidence(phase: Iteration, requiredCheck: { check: string; command: string }): boolean {
   const requiredCheckName = requiredCheck.check.trim().toLowerCase();
   const requiredCommand = normalizeEvidenceCommand(requiredCheck.command);
   return (phase.checkEvidence ?? []).some(row =>
@@ -34,7 +34,7 @@ function hasPassedRequiredCheckEvidence(phase: Phase, requiredCheck: { check: st
   );
 }
 
-export function hasMissingRequiredCheckEvidence(phase: Phase): boolean {
+export function hasMissingRequiredCheckEvidence(phase: Iteration): boolean {
   const requiredChecks = phase.requiredChecks ?? [];
   if (requiredChecks.length === 0) {
     return false;
@@ -43,7 +43,7 @@ export function hasMissingRequiredCheckEvidence(phase: Phase): boolean {
   return requiredChecks.some(required => !hasPassedRequiredCheckEvidence(phase, required));
 }
 
-export function phaseValidationBlockers(phase: Phase): string[] {
+export function iterationValidationBlockers(phase: Iteration): string[] {
   const blockers: string[] = [];
   if (!allTopLevelTasksCompleted(phase)) {
     blockers.push("top-level tasks are not all completed");
@@ -63,6 +63,6 @@ export function phaseValidationBlockers(phase: Phase): string[] {
   return blockers;
 }
 
-export function isPhaseReadyForValidation(phase: Phase): boolean {
-  return phaseValidationBlockers(phase).length === 0;
+export function isIterationReadyForValidation(phase: Iteration): boolean {
+  return iterationValidationBlockers(phase).length === 0;
 }

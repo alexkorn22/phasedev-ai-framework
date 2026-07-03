@@ -8,7 +8,7 @@
   <img src="https://raw.githubusercontent.com/your-username/phasedev/main/temp/docs/phasedev_banner.png" alt="PhaseDev Banner" width="100%">
 </p>
 
-**PhaseDev AI Framework** is a state-driven, gated framework for autonomous AI software engineering. It coordinates AI agents through strict, isolated development phases by saving the process state directly in your project workspace rather than relying on unstable LLM chat histories.
+**PhaseDev AI Framework** is a state-driven, gated framework for autonomous AI software engineering. It coordinates AI agents through strict, isolated development stages by saving the process state directly in your project workspace rather than relying on unstable LLM chat histories.
 
 > [!IMPORTANT]
 > **Take control of your AI Agents.** Long chat histories lead to *Context Drift* (agents forgetting instructions), *Token Bloat* (skyrocketing API costs), and code regression. PhaseDev AI Framework solves this by splitting work into atomic stages, resetting the agent's context window on every step, and using the workspace files as the single source of truth.
@@ -17,7 +17,7 @@
 
 ## ⚙️ How It Works
 
-PhaseDev implements a strict phase state machine. In each iteration, it analyzes the files inside the active change directory (`.phasedev/changes/<change-name>`) to determine the current stage, prints the exact contract/prompt for that stage, executes the agent in a clean session, and records the results.
+PhaseDev implements a strict stage state machine. In each iteration, it analyzes the files inside the active change directory (`.phasedev/changes/<change-name>`) to determine the current stage, prints the exact contract/prompt for that stage, executes the agent in a clean session, and records the results.
 
 ```mermaid
 flowchart LR
@@ -28,15 +28,15 @@ flowchart LR
 ```
 
 ### The Stages of PhaseDev:
-1. **1. Change Intake**: Write `prd.md` (Product Requirements) & `execution_contract.md` (Execution Contract). *Requires human approval.*
-2. **2. Code Research**: Automatically collect codebase facts into `research_facts.md`.
-3. **3. Technical Design**: Propose technical architecture in `architecture/design.md`. *Requires human approval.*
-4. **4. Iteration Planning**: Break down implementation into atomic tasks in `iteration_plan.md`. *Requires human approval.*
-5. **4. Implementation**: Code and run checks phase-by-phase.
-6. **5A. Phase Validation**: Review the code against phase-specific tests.
-7. **5B. Final Validation**: Verify the entire changeset against PRD success criteria.
-8. **5R. Repair Loop**: If validation fails, automatically fix findings until clean.
-9. **6. Archive**: Move changes to archive and generate delta specifications.
+1. **Stage 1. Change Intake**: Write `prd.md` (Product Requirements) & `execution_contract.md` (Execution Contract). *Requires human approval.*
+2. **Stage 2. Code Research**: Automatically collect codebase facts into `research_facts.md`.
+3. **Stage 3. Technical Design**: Propose technical architecture in `architecture/design.md`. *Requires human approval.*
+4. **Stage 4. Iteration Planning**: Break down implementation into atomic tasks in `iteration_plan.md`. *Requires human approval.*
+5. **Stage 5. Implementation**: Code and run checks iteration-by-iteration.
+6. **Stage 6A. Iteration Validation**: Review the code against iteration-specific tests.
+7. **Stage 6B. Final Validation**: Verify the entire changeset against PRD success criteria.
+8. **Stage 6R. Repair Loop**: If validation fails, automatically fix findings until clean.
+9. **Stage 7. Archive**: Move changes to archive and generate delta specifications.
 
 ---
 
@@ -92,32 +92,32 @@ TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-Configure `loop.notifications.telegram.enabled: true` in your `config.yaml`.
+Configure Telegram in `runner.yaml` under the `loop` section.
 
 ---
 
 ## 🛠️ Configuration
 
-Configure stages, model presets, sandbox security, and loop thresholds in `config.yaml`:
+Configure stages and flow flags in `config.yaml`:
 
 ```yaml
-codex:
-  default:
-    model: gpt-5.4
-    reasoningEffort: high
-  sandboxMode: workspace-write # options: workspace-write, danger-full-access
-  approvalPolicy: never
+stages:
+  change_intake:
+    skills:
+      routers: []
+      main: []
+      additional: []
+  # ... other stages
 
-loop:
-  maxIterations: 10
-  logDir: .phasedev/logs
-  autoApprove: false # runner-only: auto-approve valid PRD/design/plan approval gates
-  notifications:
-    telegram:
-      enabled: false
+# Root-level flow flags
+runArchiveStage: true
+autoApprove: false
+maxIterations: 10
 ```
 
-`loop.autoApprove: true` is only used by the automated runner (deprecated). It sets `approved: true` and
+Runner-specific settings (model, logging, Telegram) belong in `runner.yaml`. The runner is **deprecated** — use manual `phasedev next` flow instead.
+
+`autoApprove: true` is only used by the automated runner (deprecated). It sets `approved: true` and
 `approved_by: "PhaseDev Runner"` on valid approval artifacts after controller validation has
 already routed to an approval gate. Manual `phasedev next` still stops for human review.
 

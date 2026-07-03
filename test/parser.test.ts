@@ -2,9 +2,9 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { findActiveChangeDir } from "../src/entities/change/active-change";
-import { parsePlan } from "../src/entities/implementation-plan/parse-plan";
-import { validatePlanArtifact } from "../src/entities/implementation-plan/validate-plan-artifact";
-import { validatePlanStructure } from "../src/entities/implementation-plan/validate-plan";
+import { parsePlan } from "../src/entities/iteration-plan/parse-plan";
+import { validatePlanArtifact } from "../src/entities/iteration-plan/validate-plan-artifact";
+import { validatePlanStructure } from "../src/entities/iteration-plan/validate-plan";
 import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
 import { validateResearchFacts } from "../src/entities/research-facts/validate-research";
 import { validateRulesArtifact } from "../src/entities/rules/validate-rules";
@@ -31,7 +31,7 @@ function cleanupTestDir() {
 }
 
 const canonicalTaskSyntaxIssue =
-  "Use exactly `- [ ] <phase>.<task> Task name` for top-level tasks and `  - [ ] <phase>.<task>.<subtask> Subtask name` for subtasks.";
+  "Use exactly `- [ ] <iteration>.<task> Task name` for top-level tasks and `  - [ ] <iteration>.<task>.<subtask> Subtask name` for subtasks.";
 const canonicalPhaseHeadingSyntaxIssue =
   "Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.";
 
@@ -274,9 +274,9 @@ Update prompts.
     expect(issues).toContain("Generation Bundle area `Production code` has invalid Required value `maybe`; expected yes, no, or not_applicable.");
     expect(issues).toContain("Generation Bundle area `Production code` must have a non-empty Plan explanation.");
     expect(issues).toContain("Generation Bundle must include area `Docs/specs`.");
-    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 has an empty Command Or Method.");
-    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 1 with Result `passed` must have non-empty Evidence.");
-    expect(issues).toContain("Phase 1: Prompt Updates Check Evidence row 2 has invalid Result `unknown`; expected pending, passed, failed, blocked, or not_applicable.");
+    expect(issues).toContain("Iteration 1: Prompt Updates Check Evidence row 1 has an empty Command Or Method.");
+    expect(issues).toContain("Iteration 1: Prompt Updates Check Evidence row 1 with Result `passed` must have non-empty Evidence.");
+    expect(issues).toContain("Iteration 1: Prompt Updates Check Evidence row 2 has invalid Result `unknown`; expected pending, passed, failed, blocked, or not_applicable.");
   });
 
   test("validatePlanArtifact enforces top-level plan artifact contract", () => {
@@ -310,11 +310,11 @@ date: 2026-06-02
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert prompt changes. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | Update prompts. | 1.1 | unit |
+| Iteration 1 | Update prompts. | 1.1 | unit |
 
 ## Iteration 1: Prompt Updates [~]
 
@@ -371,12 +371,12 @@ Unexpected section.
     expect(issues).toContain("iteration_plan.md must not contain placeholder text: TODO.");
     expect(issues).toContain("iteration_plan.md must contain exactly one top-level heading: `# Implementation Plan`.");
     expect(issues).toContain("iteration_plan.md contains unexpected section `## Notes`.");
-    expect(issues).toContain("iteration_plan.md non-phase `##` sections must exactly match this order: `## Approval Summary`, `## Generation Bundle`, `## Phase Overview`.");
+    expect(issues).toContain("iteration_plan.md non-iteration `##` sections must exactly match this order: `## Approval Summary`, `## Generation Bundle`, `## Iteration Overview`.");
     expect(issues).toContain("Section `## Approval Summary` must contain a markdown table.");
-    expect(issues).toContain("Section `## Phase Overview` must contain a markdown table.");
+    expect(issues).toContain("Section `## Iteration Overview` must contain a markdown table.");
   });
 
-  test("validatePlanArtifact gives canonical guidance for malformed phase headings", () => {
+  test("validatePlanArtifact gives canonical guidance for malformed iteration headings", () => {
     const invalidPlanFile = path.join(testTmpDir, "malformed_phase_heading_plan.md");
     fs.writeFileSync(invalidPlanFile, `---
 approved: false
@@ -405,11 +405,11 @@ date: 2026-06-02
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert code. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | API | 1.1 | unit |
+| Iteration 1 | API | 1.1 | unit |
 
 ## Iteration 1: API
 
@@ -420,8 +420,8 @@ Update API.
 
     const issues = validatePlanArtifact(invalidPlanFile);
 
-    expect(issues).toContain(`iteration_plan.md has invalid phase heading syntax: \`## Iteration 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
-    expect(issues).toContain(`iteration_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`iteration_plan.md has invalid iteration heading syntax: \`## Iteration 1: API\`. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(issues).toContain(`iteration_plan.md must contain at least one iteration heading. ${canonicalPhaseHeadingSyntaxIssue}`);
   });
 
   test("validatePlanArtifact names empty cells in fixed tables and Expected Change Surface", () => {
@@ -455,11 +455,11 @@ date: 2026-06-02
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert prompt changes. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 |  | 1.1 | unit |
+| Iteration 1 |  | 1.1 | unit |
 
 ## Iteration 1: Prompt Updates [~]
 
@@ -491,12 +491,12 @@ Update prompts.
     const issues = validatePlanArtifact(invalidPlanFile);
     expect(issues).toContain("Approval Summary row 4 (Approval scope) has empty cell(s): Decision.");
     expect(issues).toContain("Generation Bundle row 4 (Production code) has empty cell(s): Plan.");
-    expect(issues).toContain("Phase Overview row 4 (Phase 1) has empty cell(s): Goal.");
-    expect(issues).toContain("Phase 1: Prompt Updates Expected Change Surface row 1 (`templates/step3_plan.md`) has empty cell(s): Ownership.");
+    expect(issues).toContain("Iteration Overview row 4 (Iteration 1) has empty cell(s): Goal.");
+    expect(issues).toContain("Iteration 1: Prompt Updates Expected Change Surface row 1 (`templates/step3_plan.md`) has empty cell(s): Ownership.");
     expect(issues).not.toContain("Approval Summary row 4 must not contain empty cells.");
     expect(issues).not.toContain("Generation Bundle row 4 must not contain empty cells.");
-    expect(issues).not.toContain("Phase Overview row 4 must not contain empty cells.");
-    expect(issues).not.toContain("Phase 1: Prompt Updates Expected Change Surface row 1 must not contain empty cells.");
+    expect(issues).not.toContain("Iteration Overview row 4 must not contain empty cells.");
+    expect(issues).not.toContain("Iteration 1: Prompt Updates Expected Change Surface row 1 must not contain empty cells.");
   });
 
   test("validatePlanArtifact accepts Expected Change Surface with globs and enforces design decision traceability", () => {
@@ -556,11 +556,11 @@ date: 2026-06-02
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert plan validator changes. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+| Iteration 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
 
 ## Iteration 1: Plan Surface [~]
 
@@ -572,7 +572,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
 
 | Area / Path Pattern | Change Type | Ownership | Trace |
 |---|---|---|---|
-| \`src/entities/implementation-plan/*.ts\` | update | Plan artifact validation | R1, SC1, D1 |
+| \`src/entities/iteration-plan/*.ts\` | update | Plan artifact validation | R1, SC1, D1 |
 | \`templates/**/*.md\` | update | Prompt contracts | R1, SC1, D1 |
 
 ### Tasks
@@ -595,7 +595,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
 
     expect(validatePlanArtifact(validPlanFile, prdFile, designFile)).toEqual([]);
     expect(validatePlanArtifact(missingDecisionPlanFile, prdFile, designFile)).toContain("Design decision `D1` is not mapped in the implementation plan.");
-    expect(validatePlanArtifact(vagueTracePlanFile, prdFile, designFile)).toContain("Phase 1: Plan Surface Expected Change Surface row 1 Trace must reference at least one `R#`, one `SC#`, and one `D#`.");
+    expect(validatePlanArtifact(vagueTracePlanFile, prdFile, designFile)).toContain("Iteration 1: Plan Surface Expected Change Surface row 1 Trace must reference at least one `R#`, one `SC#`, and one `D#`.");
     expect(validatePlanArtifact(validPlanFile, prdFile)).toEqual([]);
   });
 
@@ -632,11 +632,11 @@ date: 2026-06-02
 | Observability | not_applicable | No observability. |
 | Rollback path | not_applicable | Revert plan validator changes. |
 
-## Phase Overview
+## Iteration Overview
 
-| Phase | Goal | Main work items | Required checks |
+| Iteration | Goal | Main work items | Required checks |
 |---|---|---|---|
-| Phase 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+| Iteration 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
 
 ## Iteration 1: Plan Surface [~]
 
@@ -669,13 +669,13 @@ Add bounded expected change surfaces for R1, SC1, and D1.
 
     const issues = validatePlanArtifact(planFile);
 
-    expect(issues).toContain("Phase 1: Plan Surface Expected Change Surface row 1 references MODIFY path that does not exist: `src/entities/missing.ts`.");
-    expect(issues).not.toContain("Phase 1: Plan Surface Expected Change Surface row 2 references NEW path that does not exist: `src/new-file.ts`.");
-    expect(issues).not.toContain("Phase 1: Plan Surface Expected Change Surface row 3 references MODIFY path that does not exist: `src/entities/*.ts`.");
+    expect(issues).toContain("Iteration 1: Plan Surface Expected Change Surface row 1 references MODIFY path that does not exist: `src/entities/missing.ts`.");
+    expect(issues).not.toContain("Iteration 1: Plan Surface Expected Change Surface row 2 references NEW path that does not exist: `src/new-file.ts`.");
+    expect(issues).not.toContain("Iteration 1: Plan Surface Expected Change Surface row 3 references MODIFY path that does not exist: `src/entities/*.ts`.");
   });
 
   test("validatePlanStructure rejects empty and malformed phase plans", () => {
-    expect(validatePlanStructure([])).toContain(`iteration_plan.md must contain at least one phase heading. ${canonicalPhaseHeadingSyntaxIssue}`);
+    expect(validatePlanStructure([])).toContain(`iteration_plan.md must contain at least one iteration heading. ${canonicalPhaseHeadingSyntaxIssue}`);
 
     const issues = validatePlanStructure([
       { id: 1, name: "API", status: "completed", tasks: [{ id: "1.1", name: "Implement endpoint", status: "not_started", children: [] }], additionalChecks: [] },
@@ -683,11 +683,11 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       { id: 3, name: "Docs", status: "in_progress", tasks: [{ id: "3.1", name: "Update docs", status: "completed", children: [] }], additionalChecks: [] }
     ]);
 
-    expect(issues).toContain("Phase numbers must be unique; duplicate phase id(s): 1.");
-    expect(issues).toContain("Phase numbers must be sequential starting at 1.");
-    expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
-    expect(issues).toContain("Phase 1: UI must contain at least one task checkbox.");
-    expect(issues).toContain("Only one phase may have [~] status at a time; active phases: Phase 1: UI, Phase 3: Docs.");
+    expect(issues).toContain("Iteration numbers must be unique; duplicate iteration id(s): 1.");
+    expect(issues).toContain("Iteration numbers must be sequential starting at 1.");
+    expect(issues).toContain("Iteration 1: API is [x] but contains incomplete tasks.");
+    expect(issues).toContain("Iteration 1: UI must contain at least one task checkbox.");
+    expect(issues).toContain("Only one iteration may have [~] status at a time; active iterations: Iteration 1: UI, Iteration 3: Docs.");
   });
 
   test("validatePlanStructure rejects empty phase names", () => {
@@ -695,7 +695,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       { id: 1, name: "", status: "not_started", tasks: [{ id: "1.1", name: "Implement prompt", status: "not_started", children: [] }], additionalChecks: [] }
     ]);
 
-    expect(issues).toContain("Phase 1 must have a non-empty name.");
+    expect(issues).toContain("Iteration 1 must have a non-empty name.");
   });
 
   test("validatePlanStructure rejects unstarted phases containing completed tasks or non-pending evidence", () => {
@@ -715,8 +715,8 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       }
     ]);
 
-    expect(issues).toContain("Phase 1: API is not started [ ] but contains completed tasks: 1.1.");
-    expect(issues).toContain("Phase 1: API is not started [ ] but contains non-pending evidence results.");
+    expect(issues).toContain("Iteration 1: API is not started [ ] but contains completed tasks: 1.1.");
+    expect(issues).toContain("Iteration 1: API is not started [ ] but contains non-pending evidence results.");
   });
 
   test("validatePlanStructure enforces monotonic phase status order", () => {
@@ -725,25 +725,25 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 3, name: "Queued", status: "not_started", tasks: [{ id: "3.1", name: "Task 3", status: "not_started", children: [] }], additionalChecks: [] }
     ]);
-    expect(validIssues).not.toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Active [~] cannot appear after Phase 1: Done [x].");
+    expect(validIssues).not.toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Active [~] cannot appear after Iteration 1: Done [x].");
 
     const queuedBeforeActiveIssues = validatePlanStructure([
       { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] }
     ]);
-    expect(queuedBeforeActiveIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Active [~] cannot appear after Phase 1: Queued [ ].");
+    expect(queuedBeforeActiveIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Active [~] cannot appear after Iteration 1: Queued [ ].");
 
     const activeBeforeCompletedIssues = validatePlanStructure([
       { id: 1, name: "Active", status: "in_progress", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
     ]);
-    expect(activeBeforeCompletedIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Done [x] cannot appear after Phase 1: Active [~].");
+    expect(activeBeforeCompletedIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Done [x] cannot appear after Iteration 1: Active [~].");
 
     const queuedBeforeCompletedIssues = validatePlanStructure([
       { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
     ]);
-    expect(queuedBeforeCompletedIssues).toContain("Phase statuses must follow [x]* -> [~]? -> [ ]* order; Phase 2: Done [x] cannot appear after Phase 1: Queued [ ].");
+    expect(queuedBeforeCompletedIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Done [x] cannot appear after Iteration 1: Queued [ ].");
   });
 
   test("validatePlanStructure validates traceability of requirements and criteria from PRD", () => {
@@ -801,11 +801,11 @@ date: 2026-06-02
       }
     ]);
 
-    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: Missing task id. ${canonicalTaskSyntaxIssue}`);
-    expect(issues).toContain("Task 2.1 must start with phase number 1.");
+    expect(issues).toContain(`Iteration 1: API has a task with invalid task ID syntax: Missing task id. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain("Task 2.1 must start with iteration number 1.");
     expect(issues).toContain("Task 1.2 is [x] but contains incomplete subtasks.");
-    expect(issues).toContain("Task IDs must be unique; duplicate task id `1.2` in Phase 1: API and Phase 1: API.");
-    expect(issues).toContain("Phase 1: API is [x] but contains incomplete tasks.");
+    expect(issues).toContain("Task IDs must be unique; duplicate task id `1.2` in Iteration 1: API and Iteration 1: API.");
+    expect(issues).toContain("Iteration 1: API is [x] but contains incomplete tasks.");
   });
 
   test("validatePlanStructure gives positive canonical guidance for malformed task checkbox IDs", () => {
@@ -822,10 +822,10 @@ date: 2026-06-02
 
     const issues = validatePlanStructure(parsePlan(planFile));
 
-    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: 1. Build endpoint. ${canonicalTaskSyntaxIssue}`);
-    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: T1.1: Build tests. ${canonicalTaskSyntaxIssue}`);
-    expect(issues).toContain(`Phase 1: API has a task with invalid task ID syntax: 1.1: Wire handler. ${canonicalTaskSyntaxIssue}`);
-    expect(issues).not.toContain(`Phase 1: API has a task with invalid task ID syntax: 1.2 Wire route. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain(`Iteration 1: API has a task with invalid task ID syntax: 1. Build endpoint. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain(`Iteration 1: API has a task with invalid task ID syntax: T1.1: Build tests. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).toContain(`Iteration 1: API has a task with invalid task ID syntax: 1.1: Wire handler. ${canonicalTaskSyntaxIssue}`);
+    expect(issues).not.toContain(`Iteration 1: API has a task with invalid task ID syntax: 1.2 Wire route. ${canonicalTaskSyntaxIssue}`);
     expect(issues.join("\n")).not.toContain("do not use");
   });
 
@@ -1795,8 +1795,8 @@ ${validDesignBody().replace("| R1 | F1, S1 | D1 |", "| R1 | not_applicable | D1 
 
   test("parseValidationVerdictType extracts correct validation types", () => {
     const filePhase = path.join(testTmpDir, "phase_type.md");
-    fs.writeFileSync(filePhase, "---\nverdict: ready\ntype: phase\ndate: 2026-05-28\n---\n", "utf-8");
-    expect(parseValidationVerdictType(filePhase)).toBe("phase");
+    fs.writeFileSync(filePhase, "---\nverdict: ready\ntype: iteration\ndate: 2026-05-28\n---\n", "utf-8");
+    expect(parseValidationVerdictType(filePhase)).toBe("iteration");
 
     const fileFinal = path.join(testTmpDir, "final_type.md");
     fs.writeFileSync(fileFinal, "---\nverdict: ready\ntype: final\ndate: 2026-05-28\n---\n", "utf-8");
@@ -1814,13 +1814,13 @@ ${validDesignBody().replace("| R1 | F1, S1 | D1 |", "| R1 | not_applicable | D1 
     const findingsFile = path.join(testTmpDir, "findings_table.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+| F1 | open | MUST-FIX | implementation | Iteration 1 | API response omits required error handling. | Add error mapping. |
 | F2 | open | RECOMMENDED | implementation | Phase 1 | Non-blocking naming note. | Rename in a follow-up. |
 | F3 | resolved | MUST-FIX | design | Phase 2 | Design does not cover retry behavior. | Document retry behavior. |
 `, "utf-8");
@@ -1837,10 +1837,10 @@ date: 2026-05-30
         status: "open",
         severity: "MUST-FIX",
         className: "implementation",
-        phase: "Phase 1",
+        phase: "Iteration 1",
         finding: "API response omits required error handling.",
         requiredFix: "Add error mapping.",
-        signature: "phase|phase 1|implementation|api response omits required error handling"
+        signature: "iteration|iteration 1|implementation|api response omits required error handling"
       },
       {
         id: "F3",
@@ -1850,7 +1850,7 @@ date: 2026-05-30
         phase: "Phase 2",
         finding: "Design does not cover retry behavior.",
         requiredFix: "Document retry behavior.",
-        signature: "phase|phase 2|design|design does not cover retry behavior"
+        signature: "iteration|phase 2|design|design does not cover retry behavior"
       }
     ]);
   });
@@ -1863,7 +1863,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 `, "utf-8");
 
@@ -1878,7 +1878,7 @@ date: 2026-05-30
     const noTableFile = path.join(testTmpDir, "no_table.md");
     fs.writeFileSync(noTableFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
@@ -1888,15 +1888,15 @@ No markdown finding table here.
     const twoTablesFile = path.join(testTmpDir, "two_tables.md");
     fs.writeFileSync(twoTablesFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+| F1 | open | MUST-FIX | implementation | Iteration 1 | API response omits required error handling. | Add error mapping. |
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F2 | open | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |
 `, "utf-8");
@@ -1910,31 +1910,31 @@ date: 2026-05-30
     const invalidFile = path.join(testTmpDir, "invalid_table.md");
     fs.writeFileSync(invalidFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
 | ID | Signal | Status | Class | Blocks PR? | Phase | Description |
 |---|---|---|---|---|---|---|
-| F1 | red | open | implementation | Yes | Phase 1 | API response omits required error handling. |
+| F1 | red | open | implementation | Yes | Iteration 1 | API response omits required error handling. |
 `, "utf-8");
 
     const issues = parseValidationFindingsArtifact(invalidFile).issues;
 
-    expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Phase, Finding, Required Fix.");
+    expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix.");
   });
 
   test("parseValidationFindingsArtifact rejects duplicate IDs and invalid strict values", () => {
     const invalidFile = path.join(testTmpDir, "invalid_values.md");
     fs.writeFileSync(invalidFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | bad | bad | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |
+| F1 | bad | bad | implementation | Iteration 1 | API response omits required error handling. | Add error mapping. |
 | F1 | open | MUST-FIX | unknown | Phase 1 | Duplicate ID. | Fix duplicate. |
 `, "utf-8");
 
@@ -1954,7 +1954,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | MUST-FIX | validation | Final | Review evidence is insufficient to safely confirm the change set. | Repeat validation with concrete review evidence. |
 `, "utf-8");
@@ -1973,7 +1973,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | MUST-FIX | security | Final | State-changing endpoint lacks an authorization check. | Add authorization before mutation. |
 | F2 | open | MUST-FIX | code_review | Final | Error path can throw before returning the expected blocker prompt. | Handle the error path before returning. |
@@ -1993,7 +1993,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | RECOMMENDED | security | Final | State-changing endpoint has a defense-in-depth auth concern. | Harden authorization. |
 | F2 | resolved | NIT | security | Final | Resolved secret handling note was classified as a nit. | Keep resolved security rows classified as MUST-FIX. |
@@ -2013,7 +2013,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | MUST-FIX | implementation | Final | Broken final check. | Repair final check. |
 `, "utf-8");
@@ -2025,7 +2025,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |
 `, "utf-8");
@@ -2042,7 +2042,7 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F7 | reopened | MUST-FIX | implementation | Final | reopened/regression: API response omits required error handling!!! | Restore the error handling fix. |
 `, "utf-8");
@@ -2057,11 +2057,11 @@ date: 2026-05-30
     const findingsFile = path.join(testTmpDir, "hyphen_variants.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F7 | reopened | MUST-FIX | implementation | Phase 1 | reopened/regression: API-response omits required error-handling!!! | Restore the error handling fix. |
 `, "utf-8");
@@ -2069,18 +2069,18 @@ date: 2026-05-30
     const findings = parseBlockingValidationFindings(findingsFile);
 
     expect(findings).toHaveLength(1);
-    expect(findings[0].signature).toBe("phase|phase 1|implementation|api response omits required error handling");
+    expect(findings[0].signature).toBe("iteration|phase 1|implementation|api response omits required error handling");
   });
 
   test("parseBlockingValidationFindings keeps escaped pipes inside descriptions", () => {
     const findingsFile = path.join(testTmpDir, "escaped_pipe.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
-type: phase
+type: iteration
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | MUST-FIX | implementation | Phase 1 | Type guard misses \`A \\| B\` response. | Add union response coverage. |
 `, "utf-8");
@@ -2089,7 +2089,7 @@ date: 2026-05-30
 
     expect(findings).toHaveLength(1);
     expect(findings[0].finding).toBe("Type guard misses `A | B` response.");
-    expect(findings[0].signature).toBe("phase|phase 1|implementation|type guard misses a b response");
+    expect(findings[0].signature).toBe("iteration|phase 1|implementation|type guard misses a b response");
   });
 
   test("parseCurrentValidationFindings returns current strict registry rows", () => {
@@ -2100,9 +2100,9 @@ type: final
 date: 2026-05-30
 ---
 
-| ID | Status | Severity | Class | Phase | Finding | Required Fix |
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
-| F1 | resolved | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Keep the error mapping fix. |
+| F1 | resolved | MUST-FIX | implementation | Iteration 1 | API response omits required error handling. | Keep the error mapping fix. |
 | F2 | open | RECOMMENDED | implementation | Final | Non-blocking naming note. | Rename in a follow-up. |
 | F3 | reopened | MUST-FIX | test | Final | reopened/regression: Missing auth failure coverage!!! | Add auth failure coverage. |
 `, "utf-8");
@@ -2112,12 +2112,12 @@ date: 2026-05-30
     expect(findings).toEqual([
       {
         id: "F1",
-        signature: "phase|phase 1|implementation|api response omits required error handling",
+        signature: "iteration|iteration 1|implementation|api response omits required error handling",
         latestStatus: "resolved",
         severity: "MUST-FIX",
         className: "implementation",
         blocksPr: true,
-        phase: "Phase 1",
+        phase: "Iteration 1",
         canonicalFinding: "API response omits required error handling.",
         requiredFix: "Keep the error mapping fix.",
         latestEvidence: "API response omits required error handling."
