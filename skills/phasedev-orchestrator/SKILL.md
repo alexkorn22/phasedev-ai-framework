@@ -97,7 +97,7 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 1. Run: phasedev init
 2. Run: phasedev next
 3. Follow the stage contract it prints exactly.
-4. Treat the contract — including the Configured Skill Policy — as executable instructions, not optional guidelines. For each configured skill: apply its method or record a concrete evidence-based reason it doesn't apply. Never silently skip a configured skill.
+4. Follow the contract's skill policy. If specific skills are listed in the contract, apply each one or record why it doesn't apply. If no skills are configured, use your available tools, skills, and agents as needed — the framework does not restrict which skills you may use.
 5. Self-validate before completing (mandatory): the contract contains a "Self-check command" (a phasedev check ... call). Run it. If it fails, read the reported issues, fix the artifact you produced, and rerun the same command until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
 6. Do NOT report the stage as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
 7. Do NOT run phasedev init or phasedev next again — they advance flow state. Only the Self-check command may be rerun.
@@ -105,7 +105,7 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 )
 ```
 
-That is the entire prompt. No context collection, no artifact paths, no previous stage data — the contract from `phasedev next` already contains artifact templates, allowlist, skill policy, and the mandatory self-check. The sub-agent owns artifact validation, not the orchestrator. Do not embed the full `phasedev init` / `phasedev next` output into the sub-agent prompt — the sub-agent runs them itself; this keeps the orchestrator's context thin.
+That is the entire prompt. No context collection, no artifact paths, no previous stage data — the contract from `phasedev next` already contains artifact templates, allowlist, configured skill policy if present, and the mandatory self-check. The sub-agent owns artifact validation, not the orchestrator. Do not embed the full `phasedev init` / `phasedev next` output into the sub-agent prompt — the sub-agent runs them itself; this keeps the orchestrator's context thin.
 
 **Artifact self-validation is the sub-agent's duty.** The orchestrator only reads the resulting route via `phasedev check`; it never inspects, judges, or fixes artifact content. A report without a passing self-check result is an incomplete stage. If `phasedev check` reports an `invalid_*` route after a sub-agent reported "complete", that sub-agent skipped its self-check — apply the Invalid-artifact recovery policy, not a silent re-spawn loop.
 

@@ -12,7 +12,7 @@ import { renderChangedFileInventory } from "./changed-file-inventory";
 import { archiveReadinessBlocker, approvalBlocker, invalidPlanBlocker, invalidPrdBlocker, prompt, validationFindingsBlocker, invalidResearchBlocker, invalidDesignBlocker, invalidRulesBlocker } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { handlePhase, repairPrompt, Urls } from "./iteration-routing";
-import { renderSkillPolicy } from "./skill-policy";
+import { renderSkillComplianceLine, renderSkillPolicy, renderStageSkillNote, renderStageSkillStep } from "./skill-policy";
 import { renderValidationCommonContract } from "./validation-common-contract";
 import { resolveRoute } from "./flow-route";
 
@@ -41,8 +41,12 @@ function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string
     implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
     rules_template_path: toFileUrl(resolveTemplatePath("artifacts/execution_contract")),
     validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
-    validation_common_contract: renderValidationCommonContract(stage),
-    skill_policy: renderSkillPolicy(stage, config)
+    validation_common_contract: renderValidationCommonContract(stage, config),
+    skill_policy: renderSkillPolicy(stage, config),
+    skill_compliance_line: renderSkillComplianceLine(stage, config),
+    stage_skill_step: renderStageSkillStep(stage, config),
+    stage_skill_note: renderStageSkillNote(stage, config),
+    skill_policy_inline_ref: ""
   });
 }
 

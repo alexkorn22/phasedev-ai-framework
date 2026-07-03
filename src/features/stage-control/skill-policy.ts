@@ -156,17 +156,7 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
   ];
 
   if (!hasConfiguredSkills(skills)) {
-    return [
-      "## Configured Skill Policy",
-      "",
-      "No external skills are configured for this stage in `config.yaml`.",
-      "Do not use external skills unless the user updates `config.yaml` or explicitly approves an exception.",
-      "",
-      ...flowSkillBoundaryProtocolCompact(),
-      "",
-      "Follow the stage contract and artifact allowlist exactly.",
-      ...stageSpecificRules(stage)
-    ].join("\n");
+    return "";
   }
 
   const prioritySections = hasConfiguredRouters(skills)
@@ -219,4 +209,49 @@ export function renderSkillPolicy(stage: Stage, config: Config): string {
     "Rules:",
     ...rules
   ].join("\n");
+}
+
+export function renderSkillComplianceLine(stage: Stage, config: Config): string {
+  const skills = getStageSkillConfig(config, stage);
+  if (!hasConfiguredSkills(skills)) {
+    return "";
+  }
+  return "Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.";
+}
+
+export function renderStageSkillStep(stage: Stage, config: Config): string {
+  const skills = getStageSkillConfig(config, stage);
+  if (!hasConfiguredSkills(skills)) {
+    return "";
+  }
+
+  switch (stage) {
+    case "technical_design":
+      return "3. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood; map relevant skill output back into the embedded design template only.";
+    case "iteration_planning":
+      return "5. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood. Use only routing-relevant sections and applicable method guidance, then map useful output back into the embedded implementation plan template only. Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.";
+    case "implementation":
+      return "5. Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.";
+    default:
+      return "";
+  }
+}
+
+export function renderStageSkillNote(stage: Stage, config: Config): string {
+  if (stage !== "iteration_planning") {
+    return "";
+  }
+  const skills = getStageSkillConfig(config, stage);
+  if (!hasConfiguredSkills(skills)) {
+    return "";
+  }
+  return "- For repository evidence, use at most 2-4 broad file listings/searches total as a soft cap, then focused searches for concrete identifiers, modules, commands, or paths named by PRD/design/rules. Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.";
+}
+
+export function renderSkillPolicyInlineRef(stage: Stage, config: Config): string {
+  const skills = getStageSkillConfig(config, stage);
+  if (!hasConfiguredSkills(skills)) {
+    return "";
+  }
+  return " using the configured skill policy";
 }

@@ -4,7 +4,10 @@
       "Bash(rg *)",
       "Bash(npm run *)",
       "WebFetch(domain:github.com)",
-      "Bash(bun test *)"
+      "Bash(bun test *)",
+      "Bash(playwright --help)",
+      "Bash(npx playwright *)",
+      "Bash(node *)"
     ]
   }
 }

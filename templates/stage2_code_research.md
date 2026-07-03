@@ -72,7 +72,7 @@ Research ready: {{research_path}}
 Self-check: {{self_check_command}} -> <result>
 Route: design
 Next: phasedev next
-Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.
+{{skill_compliance_line}}
 ```
 
 - The only exception is unavailable self-check after the documented command lookup. In that case, do not use the `Research ready` template and add no extra sections; final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`.

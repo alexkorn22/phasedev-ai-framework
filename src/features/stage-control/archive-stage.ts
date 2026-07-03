@@ -8,7 +8,7 @@ import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
-import { renderSkillPolicy } from "./skill-policy";
+import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 
 interface ArchiveUrls {
   prd_path: string;
@@ -46,7 +46,8 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
     change_specs_path: toFileUrl(path.join(state.archivePath, "specs")),
     archive_state_path: toFileUrl(path.join(state.archivePath, ".phase-archive.json")),
     archive_path: state.archivePath,
-    skill_policy: renderSkillPolicy("archive", config)
+    skill_policy: renderSkillPolicy("archive", config),
+    skill_compliance_line: renderSkillComplianceLine("archive", config)
   }));
 }
 

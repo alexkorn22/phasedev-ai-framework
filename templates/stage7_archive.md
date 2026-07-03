@@ -172,7 +172,7 @@ Stage completion:
 - Stop after the archive self-check passes.
 - In the report, include the `R#` classification table and state which specs were created/updated or why sync was skipped.
 - Include the final archive path: `{{archive_path}}`.
-- Include `Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.`
+- Include {{skill_compliance_line}}
 - Do not suggest running the next flow stage.
 
 ## Artifact allowlist

@@ -17,8 +17,8 @@ Context budget and stop condition:
 
 - Add a `MUST-FIX` finding with `Class = validation` only when the changed-file inventory cannot be verified from concrete read-only evidence, or when controller/git evidence contradicts the {{validation_inventory_blocker_scope}} and the contradiction cannot be resolved.
 - Requirements conformance pass: {{validation_requirements_pass}}.
-- Code review pass: review every changed production/source/config/test file outside `.phasedev/**` using the configured skill policy, including, where applicable to changed files, correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
-- Security review pass: review every changed file outside `.phasedev/**` using the configured skill policy, including, where applicable to changed files, user/input handling, output encoding/XSS, injection risks, authorization/data isolation, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
+- Code review pass: review every changed production/source/config/test file outside `.phasedev/**`{{skill_policy_inline_ref}}, including, where applicable to changed files, correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
+- Security review pass: review every changed file outside `.phasedev/**`{{skill_policy_inline_ref}}, including, where applicable to changed files, user/input handling, output encoding/XSS, injection risks, authorization/data isolation, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
 - If the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`.
 - Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence, and a clear connection to the validation scope.
 - Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker. First try to independently verify the same scope through read-only repository evidence and changed-file review.
@@ -59,7 +59,7 @@ Validation coverage:
 - Security review pass: completed / incomplete
 - Check Evidence review: sufficient / insufficient
 - Evidence gaps: none / <short reason>
-Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.
+{{skill_compliance_line}}
 ```
 
 This coverage block is not a flow artifact: do not write it to `validation_findings.md`, do not create a new file for it, and do not expand `iteration_plan.md` with it.

@@ -657,7 +657,7 @@ stages:
     expect(output).toContain("Priority 3 - Additional:");
   });
 
-  test("implementation prompt disables external skills when stage skills are empty", () => {
+  test("implementation prompt has no skill content when stage skills are empty", () => {
     setupChange(`
 # Plan
 
@@ -671,15 +671,16 @@ stages:
 
     const output = runNext(["--config", configPath]);
 
-    expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
-    expect(output).toContain("No external skills are configured for this stage in `config.yaml`.");
-    expect(output).toContain("Do not use external skills unless the user updates `config.yaml` or explicitly approves an exception.");
+    // When skills are empty, no skill policy section should appear
+    expect(output).not.toContain("## Configured Skill Policy");
+    expect(output).not.toContain("## Flow Skill Boundary Protocol");
+    expect(output).not.toContain("No external skills are configured");
+    expect(output).not.toContain("Do not use external skills");
+    expect(output).not.toContain("Skill compliance final response entry");
     expect(output).not.toContain("Priority 1 - Routers:");
-    // No-skills branch must use compact protocol without execution ledger
+    // No-skills branch must not include execution contract or skill compliance
     expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this stage.");
     expect(output).not.toContain("APPLIED(source:");
-    expect(output).toContain("Skill compliance final response entry must be `Skill compliance: none configured`.");
   });
 
   test("plan prompt includes PRD intent input for downstream planning", () => {
@@ -2100,7 +2101,7 @@ describe("flow templates", () => {
 
   function readValidationTemplate(name: "stage6a_iteration_validation.md" | "stage6b_final_validation.md"): string {
     const stage = name === "stage6b_final_validation.md" ? "final_validation" : "iteration_validation";
-    return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage));
+    return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)));
   }
 
   test("stage templates receive generated config skill policy", () => {

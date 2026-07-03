@@ -16,12 +16,12 @@ Use this bounded retrieval order before planning:
 2. Confirm that [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) exist and are readable. If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `iteration_plan.md`.
 3. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `iteration_plan.md`.
 4. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
-5. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood. Use only routing-relevant sections and applicable method guidance, then map useful output back into the embedded implementation plan template only. Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.
+{{stage_skill_step}}
 6. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
 
 Context budget and stop condition:
 - Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
-- For repository evidence, use at most 2-4 broad file listings/searches total as a soft cap, then focused searches for concrete identifiers, modules, commands, or paths named by PRD/design/rules. Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.
+{{stage_skill_note}}
 - Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one phase, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
 - Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless an approved input explicitly requires that evidence.
 
@@ -79,7 +79,7 @@ Stage completion:
   - `Plan ready: iteration_plan.md`
   - `Plan path: {{plan_path}}`
   - `Self-check: <exact command> -> <result>`
-  - `Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.`
+  - {{skill_compliance_line}}
   - `Next: review iteration_plan.md, set approved: true and approved_by: "<your name>" only if accepted, then run phasedev next.`
 - For any blocker stop, do not use the `Plan ready` template and do not add extra sections. Use exactly one short plain blocker sentence or one compact line such as:
   - `Blocked: missing required input artifact (<exact linked path>)`

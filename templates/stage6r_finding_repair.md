@@ -92,7 +92,7 @@ Resolved findings: <F# list>
 Changed files/artifacts: <paths>
 Checks: <targeted checks and results>
 Self-check: <exact command> -> <result>
-Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.
+{{skill_compliance_line}}
 Next: run phasedev next.
 ```
 

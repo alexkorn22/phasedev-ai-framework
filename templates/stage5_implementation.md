@@ -24,7 +24,7 @@ Ordered workflow:
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
 4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
-5. Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.
+{{stage_skill_step}}
 6. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
 7. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 
@@ -75,7 +75,7 @@ Final response is allowed only after the self-check passes or the current phase 
 - `Change set: <1-3 bullets or one concise sentence>`
 - `Gate evidence: <check command/method -> result>`
 - `Self-check: <exact command> -> <result>`
-- `Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.`
+- {{skill_compliance_line}}
 - `Risks: <remaining current-phase risks or "none">`
 
 ## Artifact allowlist
