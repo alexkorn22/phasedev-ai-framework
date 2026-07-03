@@ -8,7 +8,7 @@ import { Iteration } from "../../entities/iteration-plan/types";
 import { isIterationReadyForValidation, iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
-import { validateRulesArtifact } from "../../entities/rules/validate-rules";
+import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
@@ -82,9 +82,9 @@ export function resolveRoute(projectPath: string): Route {
     return { kind: "invalid_prd", stage: "change_intake", paths, issues: prdIssues, activeChangePath: changeDir };
   }
 
-  const rulesIssues = validateRulesArtifact(paths.executionContractPath);
-  if (rulesIssues.length > 0) {
-    return { kind: "invalid_execution_contract", stage: "change_intake", paths, issues: rulesIssues, activeChangePath: changeDir };
+  const rulesResult = validateExecutionContract(paths.executionContractPath);
+  if (!rulesResult.valid) {
+    return { kind: "invalid_execution_contract", stage: "change_intake", paths, issues: rulesResult.issues, activeChangePath: changeDir };
   }
 
   if (!isSetupApproved(changeDir).approved) {

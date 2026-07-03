@@ -1,6 +1,6 @@
 {
   "name": "phasedev",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Autonomous Agentic Engineering Flow controller",
   "main": "src/cli.ts",
   "bin": {

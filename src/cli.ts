@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { getConfigValue, loadConfig, resolveConfigPath } from "./entities/config/config";
 import { checkArchiveCompletion } from "./features/stage-control/check-archive";
 import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, stageKinds, isStageKind, ValidationCheckOptions } from "./features/stage-control/check-flow";

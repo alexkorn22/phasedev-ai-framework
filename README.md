@@ -72,6 +72,51 @@ phasedev next --project-path /absolute/path/to/your-project
 
 ---
 
+## 📋 Commands
+
+### Project Setup
+| Command | Description |
+|---------|-------------|
+| `phasedev init-project [--project-path <path>]` | Create `.phasedev` workspace directories and `config.yaml` |
+| `phasedev init [--project-path <path>]` | Print the context-only handshake prompt (no file changes) |
+
+### Stage Flow
+| Command | Description |
+|---------|-------------|
+| `phasedev next [--project-path <path>] [--config <path>]` | Resolve current flow state and print the next stage contract |
+| `phasedev check [--project-path <path>] [--expect-route <route>] [--expect-stage <stage>]` | Validate current controller route |
+| `phasedev check-validation --project-path <path> --scope iteration --iteration-id <N>` | Validate iteration validation findings |
+| `phasedev check-validation --project-path <path> --scope final` | Validate final validation findings |
+| `phasedev check-archive --archive-path <path>` | Validate completed archive state and delta specs |
+
+### Artifact Management
+| Command | Description |
+|---------|-------------|
+| `phasedev approve <file> [--by <name>]` | Set `approved: true` in YAML frontmatter |
+| `phasedev validate-artifact <file>` | Validate an artifact file |
+| `phasedev set-iteration-status <id> <status> [--project-path <path>]` | Update iteration status (x/~/space) |
+| `phasedev add-finding <id> <title> <severity> [--class <class>] [--iteration <iteration>]` | Add a finding to `validation_findings.md` |
+| `phasedev resolve-finding <id>` | Mark a finding as resolved |
+
+### Flow Status & Info
+| Command | Description |
+|---------|-------------|
+| `phasedev status [--project-path <path>]` | Print current flow summary |
+| `phasedev changes [--project-path <path>]` | List all changes (active and archived) |
+| `phasedev list [--project-path <path>]` | Alias for `changes` |
+| `phasedev log [--project-path <path>] [--tail N]` | View flow log entries |
+| `phasedev config [--project-path <path>] <key>` | Read a config key |
+| `phasedev config set <key> <value> [--project-path <path>]` | Write a config key |
+
+### Meta
+| Command | Description |
+|---------|-------------|
+| `phasedev help` | Print this help (`--help`, `-h`) |
+| `phasedev version` | Print framework version (`--version`, `-V`) |
+| `phasedev reset-change [--project-path <path>] [--yes\|--force]` | Reset (move to `.trash`) the active change |
+
+---
+
 ## 🤖 Automated Loop: PhaseDev Runner
 
 > [!WARNING]

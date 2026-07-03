@@ -83,6 +83,8 @@ Each iteration:
 
 For every executable stage, spawn a dedicated sub-agent via the `Agent` tool. Never execute stage work in the main agent.
 
+**Agent type selection:** The orchestrator decides which agent type best suits each stage. Check the available agent types in the environment — if a custom user agent (e.g. a project-specific agent defined in `.claude/agents/` or listed in the available agent types) is a better fit for the current stage than the default general-purpose agent, pass its name as `subagent_type`. This lets project teams define specialized agents with their own system prompts, tools, and model preferences for each stage, while the orchestrator picks the right one per stage at runtime.
+
 **Minimal sub-agent prompt:**
 
 ```javascript
@@ -94,8 +96,8 @@ Agent(
 
 phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, bun run, or bun run src/cli.ts to launch it — just run "phasedev ...".
 
-1. Run: phasedev init
-2. Run: phasedev next
+1. Run command: phasedev init
+2. Run command: phasedev next
 3. Follow the stage contract it prints exactly.
 4. Follow the contract's skill policy. If specific skills are listed in the contract, apply each one or record why it doesn't apply. If no skills are configured, use your available tools, skills, and agents as needed — the framework does not restrict which skills you may use.
 5. Self-validate before completing (mandatory): the contract contains a "Self-check command" (a phasedev check ... call). Run it. If it fails, read the reported issues, fix the artifact you produced, and rerun the same command until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
@@ -118,7 +120,7 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 | `change_intake` | change_intake | Spawn sub-agent | First run. No PRD/rules yet. |
 | `invalid_prd` | change_intake | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `invalid_execution_contract` | change_intake | Recovery spawn (once) | See Invalid-artifact recovery. |
-| `change_intake_approval` | change_intake | **STOP — ask user**\* | "Approve prd.md & rules.md, set approved: true"\* |
+| `change_intake_approval` | change_intake | **STOP — ask user**\* | "Approve prd.md & execution_contract.md, set approved: true"\* |
 | `code_research` | code_research | Spawn sub-agent | |
 | `invalid_code_research` | code_research | Recovery spawn (once) | See Invalid-artifact recovery. |
 | `technical_design` | technical_design | Spawn sub-agent | |
@@ -142,6 +144,43 @@ This is the core reference. Match the route kind from `phasedev check` to the ac
 - `finding_repair → phase` (re-validation after `repaired`) or `phase → finding_repair` (`repair_required`): kind changed → progress.
 - Same kind+stage for the same phase after a sub-agent (e.g. still `phase (stage: implementation)`, or still `finding_repair`): no progress → stop.
 - **Implementation blocked detection:** If the route is `phase (stage: implementation)` and the current phase's `checkEvidence` has `blocked` or `failed` rows, the spawned sub-agent's `phasedev next` prompt will reflect blocked evidence. After the sub-agent returns, the "Same kind+stage" rule above catches no-progress — one iteration is consumed to discover the block. This is correct behavior, not a bug.
+
+## User Feedback Handling
+
+At any STOP point (approval gate, `archive_ready` with `runArchiveStage=false`, blocker, or after user interrupt), the user may give feedback — a correction, a new requirement, a bug report, or a rejection of the current output. The orchestrator does not classify or fix anything itself; it delegates to a sub-agent.
+
+**Procedure for processing feedback:**
+
+1. Spawn a dedicated sub-agent (general-purpose or the best-fit user agent) with this prompt:
+
+```javascript
+Agent(
+  description: "process user feedback on PhaseDev change",
+  prompt: `The user has feedback on the current PhaseDev change.
+
+Feedback: <user's full feedback text>
+
+Read the current PhaseDev artifacts (prd.md, execution_contract.md, research_facts.md, architecture/design.md, iteration_plan.md, validation_findings.md) and determine what needs to change.
+
+Decide based on the feedback:
+- **Feedback about implementation** (bugs, quality, incorrect behaviour) — add findings to validation_findings.md. Set verdict to repair_required and type to iteration (or final if it spans the whole change). Reference the relevant iteration in the finding row.
+- **Feedback about scope, design, or plan** (requirements change, different architecture, re-planning) — update the relevant artifacts directly (prd.md, execution_contract.md, architecture/design.md, iteration_plan.md). Set approved: false on any changed artifact so the flow re-enters approval. Do NOT write this type of feedback into validation_findings.md — it is not a repair finding, it is a change to the plan.
+- **Mixed feedback** — do both: write implementation feedback into validation_findings.md and update scope/design/plan artifacts directly.
+
+The default is to write implementation-related feedback into validation_findings.md. Only update other artifacts when the feedback genuinely changes the scope, design, or execution plan.
+
+Do NOT run phasedev init or phasedev next — the orchestrator continues the loop after you finish.
+After making changes, run: phasedev check
+Report: what you changed, which artifacts were modified and their approval status, and the route that phasedev check shows.`
+)
+```
+
+2. After the sub-agent returns, run `phasedev check` to get the new route.
+3. Continue the main loop from that route — `phasedev check` will guide the next action (e.g. `finding_repair` if findings were added, `change_intake_approval` if approvals were reset, `phase` if iterations changed, or `archive_ready`/`archive_readiness_blocked` if still in the archive zone).
+
+The same mechanism applies whether the orchestrator stopped at an approval gate, before archive, or after user interrupt. It also applies when a new session starts and the user says "I have feedback on this change" — the orchestrator checks the route, finds the orchestrator is not running (user just started one), detects the current route (whatever `phasedev check` returns), and spawns this feedback sub-agent instead of the normal stage spawn.
+
+**No special route needed.** The orchestrator intercepts user feedback at any STOP or at the start of a fresh invocation with feedback, spawns the feedback sub-agent, and continues the normal loop. The framework's existing routes handle the rest.
 
 ## Invalid-artifact recovery policy
 
