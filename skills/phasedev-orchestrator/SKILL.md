@@ -45,6 +45,11 @@ If a goal is provided, it is passed to the first `change_intake` sub-agent. Othe
 
 `phasedev` is a **globally installed CLI** on `PATH`. Always invoke it directly as `phasedev <command>` — e.g. `phasedev init`, `phasedev next`, `phasedev check`, `phasedev config <key>`. **NEVER** wrap it in `npx`, `bunx`, `npm exec`, `npm run`, `bun run`, or `bun run src/cli.ts`. There is nothing to resolve and no fallback to try. This applies to the orchestrator and to every sub-agent prompt.
 
+**New orchestrator commands:**
+- `phasedev status` — print a summary of the current flow state (active change, stage, route, artifacts, iteration statuses, validation findings). Use this instead of reading `.phasedev/` files to inspect flow state.
+- `phasedev approve <file>` — set `approved: true` and `approved_by` in an artifact's YAML frontmatter. Used for auto-approval (see [Auto-Approval](#auto-approval)).
+- `phasedev set-iteration-status <id> <status>` — update iteration status (x/~/space or completed/in_progress/not_started) in `iteration_plan.md`. Use this to mark phases complete instead of manually editing the file.
+
 All commands run from the **project root** (the current working directory). `phasedev` defaults to `process.cwd()`, so `--project-path` is omitted everywhere in this skill.
 
 ## Initialization
@@ -156,31 +161,16 @@ When `phasedev config autoApprove` (from Initialization) is `true`, the orchestr
 
 | Route kind | Auto-approve action |
 |------------|---------------------|
-| `change_intake_approval` | Spawn a sub-agent that: reads `prd.md` and `execution_contract.md`, sets `approved: true` in their YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `change_intake_approval`. |
-| `technical_design_approval` | Spawn a sub-agent that: reads `architecture/design.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `technical_design_approval`. |
-| `iteration_planning_approval` | Spawn a sub-agent that: reads `iteration_plan.md`, sets `approved: true` in its YAML frontmatter, then runs `phasedev check` to confirm the route advanced beyond `iteration_planning_approval`. |
+| `change_intake_approval` | Run `phasedev approve <prd.md> --by "PhaseDev Orchestrator"` and `phasedev approve <execution_contract.md> --by "PhaseDev Orchestrator"`, then run `phasedev check` to confirm the route advanced beyond `change_intake_approval`. |
+| `technical_design_approval` | Run `phasedev approve <design.md> --by "PhaseDev Orchestrator"`, then run `phasedev check` to confirm the route advanced beyond `technical_design_approval`. |
+| `iteration_planning_approval` | Run `phasedev approve <iteration_plan.md> --by "PhaseDev Orchestrator"`, then run `phasedev check` to confirm the route advanced beyond `iteration_planning_approval`. |
 
-**Auto-approve sub-agent prompt (use for all three gates, replace `<artifact-paths>` with the actual paths):**
+**Auto-approve procedure (use `phasedev approve` instead of spawning a sub-agent):**
 
-```javascript
-Agent(
-  description: "auto-approve: set approved=true on artifacts",
-  prompt: `Auto-approve PhaseDev artifacts.
-
-phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, or bun run.
-
-1. Read each artifact file at: <artifact-paths>
-2. For each file, set \`approved: true\` and \`approved_by: "PhaseDev Orchestrator"\` in its YAML frontmatter.
-3. Run: phasedev check
-4. Confirm the route advanced beyond the approval gate. If not, report the current route as a blocker.
-5. Report: which files were approved and the final route.`
-)
-```
-
-**After the auto-approve sub-agent returns:**
-- Run `phasedev check` to confirm the route advanced beyond the approval gate.
-- **Advanced** → continue the main loop normally (the route is now `code_research`, `iteration_planning`, `phase`, or whatever comes next).
-- **Same approval gate persists** → **STOP**. Report "Auto-approve failed to advance route `<kind>` after updating artifacts." Do not loop.
+1. Run `phasedev approve <file>` for each approval artifact (from the project root, paths relative to the change directory).
+2. Run `phasedev check` to confirm the route advanced beyond the approval gate.
+3. If the route advanced → continue the main loop normally.
+4. If the same approval gate persists → **STOP**. Report "Auto-approve failed to advance route `<kind>` after updating artifacts." Do not loop.
 
 ## Termination
 

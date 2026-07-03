@@ -54,14 +54,67 @@ Commands:
       E.g.: phasedev config loop.runArchiveStage
       Side effects: none.
 
+  phasedev config set <key> <value> [--project-path <path>] [--config <path>]
+      Write a dot-notation config key to .phasedev/config.yaml.
+      Side effects: modifies the config file.
+
+  phasedev status [--project-path <path>]
+      Print a summary of the current flow: active change, stage, route, artifacts,
+      iteration statuses, and validation findings.
+      Side effects: none.
+
+  phasedev approve <file> [--by <name>]
+      Set approved: true in the YAML frontmatter of an artifact file.
+      Side effects: modifies the target file.
+
+  phasedev set-iteration-status <id> <status> [--project-path <path>] [--file <path>]
+      Update iteration status (x/~/space or completed/in_progress/not_started).
+      Side effects: modifies iteration_plan.md.
+
+  phasedev validate-artifact <file>
+      Validate an artifact file without modifying flow state.
+      Side effects: none.
+
+  phasedev add-finding <id> <title> <severity> [--class <class>] [--iteration <iteration>] [--file <path>]
+      Add a finding row to validation_findings.md.
+      Side effects: modifies validation_findings.md.
+
+  phasedev resolve-finding <id> [--file <path>]
+      Mark a finding as resolved in validation_findings.md.
+      Side effects: modifies validation_findings.md.
+
+  phasedev version
+      Print the PhaseDev framework version.
+      Aliases: phasedev --version, phasedev -V.
+      Side effects: none.
+
+  phasedev changes [--project-path <path>]
+  phasedev list [--project-path <path>]
+      List all changes (active and archived) with their status.
+      Side effects: none.
+
+  phasedev log [--project-path <path>] [--tail N]
+      View .phasedev/logs/ralph-log.jsonl entries.
+      Side effects: none.
+
+  phasedev reset-change [--project-path <path>] [--yes|--force]
+      Reset (move to .trash) the current active change. Requires --yes to confirm.
+      Side effects: moves the active change directory to .trash.
+
 Options:
   --project-path, -p <path>   Target project path. Defaults to the current directory.
-  --config <path>             Explicit PhaseDev config path for next.
+  --config <path>             Explicit PhaseDev config path for next/config set.
   --expect-route <route>      Expected route for check.
   --expect-stage <stage>      Expected stage for check.
   --scope iteration|final         Validation scope for check-validation.
   --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
+  --by <name>                 Approver name for approve command.
+  --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding.
+  --class <class>             Finding class for add-finding.
+  --iteration <iteration>     Iteration label for add-finding.
+  --tail N                    Show last N log entries.
+  --yes, --force              Confirm destructive operations (reset-change).
 
 Generated files:
   .phasedev/config.yaml

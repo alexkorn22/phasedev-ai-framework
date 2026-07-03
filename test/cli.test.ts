@@ -2307,3 +2307,367 @@ runArchiveStage: false
     expect(config).toContain("archive:");
   });
 });
+
+describe("new CLI commands", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  // --- version ---
+
+  test("version prints package version", () => {
+    const result = runCli(["version"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test("--version prints package version", () => {
+    const result = runCli(["--version"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test("-V prints package version", () => {
+    const result = runCli(["-V"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  // --- status ---
+
+  test("status shows no active change when project is empty", () => {
+    const result = runCli(["status", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Active Change: none");
+  });
+
+  test("status shows active change details", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "test-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
+
+    const result = runCli(["status", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Active Change: test-change");
+    expect(result.output).toContain("Current Stage:");
+    expect(result.output).toContain("Route:");
+    expect(result.output).toContain("prd.md");
+    expect(result.output).toContain("execution_contract.md");
+  });
+
+  // --- approve ---
+
+  test("approve sets approved: true in file frontmatter", () => {
+    const filePath = path.join(testTmpDir, "test.md");
+    fs.writeFileSync(filePath, "---\napproved: false\n---\n\n# Test\n", "utf-8");
+
+    const result = runCli(["approve", filePath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV APPROVE] OK");
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    expect(content).toContain("approved: true");
+    expect(content).toContain("approved_by:");
+  });
+
+  test("approve fails when file does not exist", () => {
+    const result = runCli(["approve", "/nonexistent/file.md"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV APPROVE] FAILED");
+  });
+
+  test("approve fails when file has no frontmatter", () => {
+    const filePath = path.join(testTmpDir, "nofm.md");
+    fs.writeFileSync(filePath, "# No Frontmatter\n", "utf-8");
+
+    const result = runCli(["approve", filePath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("does not contain YAML frontmatter");
+  });
+
+  test("approve requires file argument", () => {
+    const result = runCli(["approve"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("<file> is required");
+  });
+
+  test("approve supports --by option", () => {
+    const filePath = path.join(testTmpDir, "test-by.md");
+    fs.writeFileSync(filePath, "---\napproved: false\n---\n\n# Test\n", "utf-8");
+
+    const result = runCli(["approve", filePath, "--by", "TestUser"]);
+    expect(result.exitCode).toBe(0);
+    const content = fs.readFileSync(filePath, "utf-8");
+    expect(content).toContain("approved_by: \"TestUser\"");
+  });
+
+  // --- set-iteration-status ---
+
+  test("set-iteration-status sets iteration to [x]", () => {
+    const planPath = path.join(testTmpDir, "iteration_plan.md");
+    fs.writeFileSync(planPath, `# Plan\n\n## Iteration 1: API [ ]\n- [ ] 1.1 Implement endpoint\n`, "utf-8");
+
+    const result = runCli(["set-iteration-status", "1", "x", "--file", planPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV SET-ITERATION-STATUS] OK");
+
+    const content = fs.readFileSync(planPath, "utf-8");
+    expect(content).toContain("## Iteration 1: API [x]");
+  });
+
+  test("set-iteration-status rejects invalid id", () => {
+    const result = runCli(["set-iteration-status", "abc", "x"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("must be a positive integer");
+  });
+
+  test("set-iteration-status rejects invalid status", () => {
+    const result = runCli(["set-iteration-status", "1", "invalid"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("invalid status");
+  });
+
+  test("set-iteration-status reports missing iteration", () => {
+    const planPath = path.join(testTmpDir, "iteration_plan.md");
+    fs.writeFileSync(planPath, `# Plan\n\n## Iteration 1: API [ ]\n- [ ] 1.1 Implement endpoint\n`, "utf-8");
+
+    const result = runCli(["set-iteration-status", "99", "x", "--file", planPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Iteration 99 not found");
+  });
+
+  // --- validate-artifact ---
+
+  test("validate-artifact validates prd.md", () => {
+    const filePath = path.join(testTmpDir, "prd.md");
+    writeApproved(filePath, validPrdBody());
+
+    const result = runCli(["validate-artifact", filePath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("validation passed");
+  });
+
+  test("validate-artifact validates execution_contract.md", () => {
+    const filePath = path.join(testTmpDir, "execution_contract.md");
+    writeApproved(filePath, validRulesBody());
+
+    const result = runCli(["validate-artifact", filePath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("validation passed");
+  });
+
+  test("validate-artifact fails for unknown artifact type", () => {
+    const filePath = path.join(testTmpDir, "unknown.md");
+    fs.writeFileSync(filePath, "# Unknown\n", "utf-8");
+
+    const result = runCli(["validate-artifact", filePath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Unknown artifact type");
+  });
+
+  test("validate-artifact fails for nonexistent file", () => {
+    const result = runCli(["validate-artifact", "/nonexistent/file.md"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("File not found");
+  });
+
+  test("validate-artifact requires file argument", () => {
+    const result = runCli(["validate-artifact"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("<file> is required");
+  });
+
+  // --- add-finding / resolve-finding ---
+
+  function writeValidationFindings(filePath: string, rows?: string): void {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const content = `---
+verdict: repair_required
+type: iteration
+date: 2026-07-01
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+${rows ?? ""}`;
+    fs.writeFileSync(filePath, content, "utf-8");
+  }
+
+  test("add-finding adds a row to validation_findings.md", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath);
+
+    const result = runCli(["add-finding", "F1", "Test finding", "MUST-FIX", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV ADD-FINDING] OK");
+
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    expect(content).toContain("F1");
+    expect(content).toContain("open");
+    expect(content).toContain("MUST-FIX");
+  });
+
+  test("add-finding rejects duplicate ID", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
+
+    const result = runCli(["add-finding", "F1", "Duplicate", "MUST-FIX", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("already exists");
+  });
+
+  test("resolve-finding sets finding status to resolved", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
+
+    const result = runCli(["resolve-finding", "F1", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV RESOLVE-FINDING] OK");
+
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    expect(content).toContain("F1");
+    expect(content).toContain("resolved");
+  });
+
+  test("resolve-finding fails for unknown ID", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath);
+
+    const result = runCli(["resolve-finding", "F99", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("not found");
+  });
+
+  // --- changes ---
+
+  test("changes shows no changes for empty project", () => {
+    const result = runCli(["changes", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("No changes found");
+  });
+
+  test("list alias works same as changes", () => {
+    const result = runCli(["list", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("No changes found");
+  });
+
+  test("changes shows active and archived changes", () => {
+    // Create active change
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "active-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
+
+    // Create archived change
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-01-archived-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({ status: "completed" }), "utf-8");
+
+    const result = runCli(["changes", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Active Changes");
+    expect(result.output).toContain("active-change");
+    expect(result.output).toContain("Archived Changes");
+    expect(result.output).toContain("archived-change");
+  });
+
+  // --- config set ---
+
+  test("config set writes a simple key", () => {
+    const configPath = path.join(testTmpDir, "config.yaml");
+    fs.writeFileSync(configPath, "runArchiveStage: true\nmaxIterations: 10\n", "utf-8");
+
+    const result = runCli(["config", "set", "maxIterations", "5", "--config", configPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV CONFIG SET] OK");
+
+    const content = fs.readFileSync(configPath, "utf-8");
+    expect(content).toContain("maxIterations: 5");
+  });
+
+  test("config set handles boolean values", () => {
+    const configPath = path.join(testTmpDir, "config.yaml");
+    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
+
+    const result = runCli(["config", "set", "runArchiveStage", "false", "--config", configPath]);
+    expect(result.exitCode).toBe(0);
+
+    const content = fs.readFileSync(configPath, "utf-8");
+    expect(content).toContain("runArchiveStage: false");
+  });
+
+  test("config set rejects missing args", () => {
+    const result = runCli(["config", "set"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("<key> and <value> are required");
+  });
+
+  // --- log ---
+
+  test("log shows no logs message when log file missing", () => {
+    const result = runCli(["log", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("No logs found");
+  });
+
+  test("log displays log entries", () => {
+    const logDir = path.join(testTmpDir, ".phasedev", "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.writeFileSync(path.join(logDir, "ralph-log.jsonl"),
+      '{"timestamp":"2026-07-01T10:00:00Z","level":"INFO","message":"Test log entry"}\n' +
+      '{"timestamp":"2026-07-01T10:01:00Z","level":"ERROR","message":"Test error entry"}\n',
+      "utf-8");
+
+    const result = runCli(["log", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Test log entry");
+    expect(result.output).toContain("Test error entry");
+  });
+
+  test("log respects --tail flag", () => {
+    const logDir = path.join(testTmpDir, ".phasedev", "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.writeFileSync(path.join(logDir, "ralph-log.jsonl"),
+      '{"timestamp":"2026-07-01T10:00:00Z","level":"INFO","message":"First entry"}\n' +
+      '{"timestamp":"2026-07-01T10:01:00Z","level":"INFO","message":"Second entry"}\n',
+      "utf-8");
+
+    const result = runCli(["log", "--project-path", testTmpDir, "--tail", "1"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Second entry");
+    expect(result.output).not.toContain("First entry");
+  });
+
+  // --- reset-change ---
+
+  test("reset-change warns without --yes flag", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "test-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+
+    const result = runCli(["reset-change", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("WARNING");
+    expect(result.output).toContain("--yes");
+    expect(fs.existsSync(changeDir)).toBe(true);
+  });
+
+  test("reset-change moves change to .trash with --yes", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "test-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+
+    const result = runCli(["reset-change", "--project-path", testTmpDir, "--yes"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV RESET-CHANGE] OK");
+    expect(result.output).toContain(".trash");
+    expect(fs.existsSync(changeDir)).toBe(false);
+  });
+
+  test("reset-change reports no active change when none exists", () => {
+    const result = runCli(["reset-change", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("No active change found");
+  });
+});
