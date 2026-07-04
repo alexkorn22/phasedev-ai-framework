@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 import { getConfigValue, loadConfig, resolveConfigPath } from "./entities/config/config";
-import { checkArchiveCompletion } from "./features/stage-control/check-archive";
-import { checkRoute, checkValidationCompletion, routeKinds, RouteKind, isRouteKind, stageKinds, isStageKind, ValidationCheckOptions } from "./features/stage-control/check-flow";
-import { Stage } from "./entities/stage/types";
-import { getInitPrompt, getNextPrompt } from "./features/stage-control";
+import { checkArchiveCompletion } from "./features/phase-control/check-archive";
+import { checkPhase, checkValidationCompletion, ValidationCheckOptions } from "./features/phase-control/check-flow";
+import { Phase } from "./entities/phase/types";
+import { getInitPrompt } from "./features/phase-control";
 import { renderHelp } from "./features/cli-help/render-help";
 import { initProject } from "./features/project-init/init-project";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
@@ -18,28 +18,11 @@ import { setConfigValue } from "./features/config-ops/set-config";
 import { resetChange } from "./features/flow-state/reset-change";
 import { findActiveChangeDir } from "./entities/change/active-change";
 import { buildChangePaths } from "./entities/change/paths";
+import { createChange } from "./features/phase-control/create-change";
+import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
+import { advanceFlow } from "./features/phase-control/advance-flow";
 import * as fs from "fs";
 import * as path from "path";
-
-function parseExpectedRoute(args: string[]): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--expect-route" && args[i + 1]) {
-      return args[i + 1];
-    }
-  }
-
-  return undefined;
-}
-
-function parseExpectedStage(args: string[]): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--expect-stage" && args[i + 1]) {
-      return args[i + 1];
-    }
-  }
-
-  return undefined;
-}
 
 function parseStringOption(args: string[], option: string): string | undefined {
   for (let i = 0; i < args.length; i++) {
@@ -360,31 +343,41 @@ function main(): void {
     return;
   }
 
-  if (command === "check") {
-    const expectedRoute = parseExpectedRoute(args);
-    const expectedStage = parseExpectedStage(args);
-    let expectedRouteKind: RouteKind | undefined;
-    let expectedStageKind: Stage | undefined;
-    if (expectedRoute) {
-      if (!isRouteKind(expectedRoute)) {
-        console.log(`[PHASEDEV CHECK] FAILED: unknown expected route ${expectedRoute}.`);
-        console.log(`Known routes: ${routeKinds().join(", ")}`);
-        process.exitCode = 1;
-        return;
-      }
-      expectedRouteKind = expectedRoute;
-    }
-    if (expectedStage) {
-      if (!isStageKind(expectedStage)) {
-        console.log(`[PHASEDEV CHECK] FAILED: unknown expected stage ${expectedStage}.`);
-        console.log(`Known stages: ${stageKinds().join(", ")}`);
-        process.exitCode = 1;
-        return;
-      }
-      expectedStageKind = expectedStage;
+  if (command === "create-change") {
+    const name = args[1];
+    if (!name || name.startsWith("--")) {
+      console.log("[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>]");
+      process.exitCode = 1;
+      return;
     }
 
-    const result = checkRoute(projectPath, expectedRouteKind, expectedStageKind);
+    const result = createChange(projectPath, name);
+    console.log(`[PHASEDEV CREATE-CHANGE] ${result.ok ? "OK" : "FAILED"}: ${result.message}`);
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
+
+  if (command === "phase") {
+    const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
+    const config = loadConfig(configPath);
+    const result = getPhasePrompt(projectPath, config);
+    console.log(result.prompt);
+    process.exitCode = result.blocked ? 1 : 0;
+    return;
+  }
+
+  if (command === "advance") {
+    const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
+    const config = loadConfig(configPath);
+    const result = advanceFlow(projectPath, config);
+    console.log(result.message);
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
+
+  if (command === "check") {
+    const phaseOverride = parseStringOption(args, "--phase");
+    const result = checkPhase(projectPath, phaseOverride);
     console.log(result.message);
     process.exitCode = result.ok ? 0 : 1;
     return;
@@ -412,9 +405,8 @@ function main(): void {
   }
 
   if (command === "next") {
-    const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
-    const config = loadConfig(configPath);
-    console.log(getNextPrompt(projectPath, config).prompt);
+    console.warn("[PHASEDEV] `phasedev next` is deprecated. Use `phasedev phase` or `phasedev advance` instead.");
+    process.exitCode = 1;
     return;
   }
 

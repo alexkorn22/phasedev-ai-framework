@@ -1,4 +1,4 @@
-Stage 6R. Finding Repair.
+Phase 6R. Finding Repair.
 
 Phase contract: process open validation findings and prepare the change for validation again.
 
@@ -59,13 +59,13 @@ Path resolution rule:
 - Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation`, `test`, `security`, or `code_review` repair finding.
 - Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create or update a project-root `architecture/` directory as a flow design artifact.
 - Write or update `validation_findings.md` only at the absolute Output path in the Artifact Build Contract below.
-- in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead.
+- in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead.
 
 Verdict rule:
 - preserve `type` in YAML frontmatter as the scope of the latest validation: `iteration` for Iteration Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `iteration`;
 - do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`;
 - when all current blocking findings have latest status `resolved`, set `verdict: repaired` and update the date;
-- do not set `ready` or `ready_with_risks` during the Repair Loop stage.
+- do not set `ready` or `ready_with_risks` during the Repair Loop phase.
 
 Human reapproval:
 - if repair changes an already approved `prd.md`, `architecture/design.md`, or `iteration_plan.md`, change that artifact's YAML frontmatter from `approved: true` to `approved: false` and clear `approved_by` if the field exists;
@@ -77,12 +77,12 @@ Human reapproval:
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - affected production/test code
 - affected active change folder flow artifacts required by finding class
 - active change folder `validation_findings.md` at the Artifact Build Contract Output path
 
-Stage completion:
+Phase completion:
 - After moving all current blocking findings to `resolved` and setting `verdict: repaired`, stop.
 - Success final response is allowed only after the self-check passes. Use this compact template and include no extra sections:
 
@@ -93,7 +93,7 @@ Changed files/artifacts: <paths>
 Checks: <targeted checks and results>
 Self-check: <exact command> -> <result>
 {{skill_compliance_line}}
-Next: run phasedev next.
+Next: run phasedev advance.
 ```
 
 - For a blocker, do not use the success template. State the blocked finding IDs, the missing material decision/evidence or external failure, targeted checks already attempted, self-check status if reached, and skill compliance in no more than five bullets.

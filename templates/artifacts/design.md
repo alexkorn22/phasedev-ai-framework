@@ -13,8 +13,10 @@ Authoring instructions for the design agent:
 - Remove every HTML comment from the final design.md.
 - Keep exactly one visible top-level title: # Design.
 - Do not write TBD, TODO, unknown, clarify later, or to be decided.
-- The final design.md may contain only the # Design title and the six ## sections shown below, in this exact order.
-- Do not add other ## sections.
+- The final design.md must contain the # Design title and all required ## sections defined by the design schema.
+- The base sections are the six ## sections shown below, in this exact order.
+- Specialist sections (e.g. API Specification, Data Model) may be added after the base sections when
+  required by the schema or when multi-agent composition is active.
 - Every design decision that affects implementation must have a stable D# ID.
 - Keep this file compact: use tables for approval, traceability, and decisions.
 - Use Executive Summary as the near-top visual review surface; do not add a separate visual-review section.

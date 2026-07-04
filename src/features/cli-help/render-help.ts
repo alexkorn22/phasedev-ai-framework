@@ -5,7 +5,7 @@ export function renderHelp(unknownCommand?: string): string {
 
 Overview:
   PhaseDev is a state-driven agentic engineering flow controller. It stores
-  workflow state in the target project under .phasedev/ and prints exact stage
+  workflow state in the target project under .phasedev/ and prints exact phase
   contracts for AI agents. The controller owns routing, artifact contracts,
   approval gates, validation verdicts, archive state, and allowed state files.
 
@@ -14,9 +14,15 @@ Workflow:
      Create the PhaseDev workspace structure and project config.
   2. phasedev init --project-path <path>
      Print the context-only handshake prompt. This command does not modify files.
-  3. phasedev next --project-path <path>
-     Print the executable stage contract for the current flow state.
-  4. Repeat phasedev next until the change is archived or blocked.
+  3. phasedev create-change --project-path <path> <name>
+     Create a new change with an initial state.json.
+  4. phasedev phase --project-path <path>
+     Print the executable phase contract for the active phase.
+  5. phasedev check --project-path <path>
+     Validate artifacts for the active phase.
+  6. phasedev advance --project-path <path>
+     Validate and transition to the next phase.
+  7. Repeat phasedev phase / check / advance until the change is archived.
 
 Commands:
   phasedev help
@@ -31,13 +37,28 @@ Commands:
       Print the PhaseDev init handshake prompt.
       Side effects: none. It must not create, read, edit, move, approve, test, or validate files.
 
-  phasedev next [--project-path <path>] [--config <path>]
-      Resolve current flow state and print the next executable stage prompt.
-      Side effects: may move an archive-ready change into .phasedev/changes/archive/
-      before printing the Archive prompt.
+  phasedev create-change <name> [--project-path <path>]
+      Create a new change directory with state.json (activePhase: change_intake).
+      Refuses if an active change already exists.
+      Side effects: creates .phasedev/changes/<name>/ and state.json.
 
-  phasedev check [--project-path <path>] [--expect-route <route>] [--expect-stage <stage>]
-      Validate current controller route without rendering a stage prompt.
+  phasedev phase [--project-path <path>] [--config <path>]
+      Print the contract for the active phase (read-only).
+      Idempotent: repeated calls (without advance) return the same contract.
+      Side effects: none.
+
+  phasedev check [--project-path <path>] [--phase <phase>]
+      Validate artifacts for the active phase (or --phase override).
+      Side effects: none.
+
+  phasedev advance [--project-path <path>] [--config <path>]
+      Validate the active phase and transition to the next phase.
+      Refuses if artifacts are invalid, require approval, or archives are blocked.
+      Side effects: updates state.json, flips iteration status, archives on archive_ready.
+
+  phasedev next [--project-path <path>] [--config <path>]
+      DEPRECATED. Prints a warning and exits.
+      Use phasedev phase and phasedev advance instead.
       Side effects: none.
 
   phasedev check-validation --project-path <path> --scope iteration --iteration-id <N>
@@ -51,7 +72,7 @@ Commands:
 
   phasedev config [--project-path <path>] [--config <path>] <key>
       Read a dot-notation config key from .phasedev/config.yaml and print its value.
-      E.g.: phasedev config loop.runArchiveStage
+      E.g.: phasedev config runArchiveStage
       Side effects: none.
 
   phasedev config set <key> <value> [--project-path <path>] [--config <path>]
@@ -59,7 +80,7 @@ Commands:
       Side effects: modifies the config file.
 
   phasedev status [--project-path <path>]
-      Print a summary of the current flow: active change, stage, route, artifacts,
+      Print a summary of the current flow: active change, phase, route, artifacts,
       iteration statuses, and validation findings.
       Side effects: none.
 
@@ -103,9 +124,8 @@ Commands:
 
 Options:
   --project-path, -p <path>   Target project path. Defaults to the current directory.
-  --config <path>             Explicit PhaseDev config path for next/config set.
-  --expect-route <route>      Expected route for check.
-  --expect-stage <stage>      Expected stage for check.
+  --config <path>             Explicit PhaseDev config path for phase/advance/config.
+  --phase <phase>             Phase override for check.
   --scope iteration|final         Validation scope for check-validation.
   --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
@@ -118,7 +138,7 @@ Options:
 
 Generated files:
   .phasedev/config.yaml
-      Project-local PhaseDev configuration. If absent, next falls back to the framework config.
+      Project-local PhaseDev configuration. If absent, falls back to the framework config.
   .phasedev/changes/
       Active change roots. At most one non-archive active change should exist.
   .phasedev/changes/archive/
@@ -128,23 +148,25 @@ Generated files:
   .phasedev/logs/
       Runner logs when loop logging is enabled.
 
-Stages:
-  change_intake     Create prd.md and execution_contract.md for the active change.
-  code_research     Record source-grounded research_facts.md.
-  technical_design  Produce architecture/design.md.
-  iteration_planning Produce iteration_plan.md.
-  implementation    Execute the current implementation phase.
+Phases:
+  change_intake        Create prd.md and execution_contract.md for the active change.
+  code_research        Record source-grounded research_facts.md.
+  technical_design     Produce architecture/design.md.
+  iteration_planning   Produce iteration_plan.md.
+  implementation       Execute the current implementation phase.
   iteration_validation Validate the completed iteration.
-  final_validation  Validate the full change.
-  repair            Fix validation findings.
-  archive           Move completed flow state to archive and sync delta specs.
+  final_validation     Validate the full change.
+  finding_repair       Fix validation findings.
+  archive              Move completed flow state to archive and sync delta specs.
 
 Examples:
   phasedev help
   phasedev init-project --project-path /absolute/path/to/project
   phasedev init --project-path /absolute/path/to/project
-  phasedev next --project-path /absolute/path/to/project
-  phasedev check --project-path /absolute/path/to/project --expect-route change_intake
+  phasedev create-change --project-path /absolute/path/to/project my-change
+  phasedev phase --project-path /absolute/path/to/project
+  phasedev check --project-path /absolute/path/to/project
+  phasedev advance --project-path /absolute/path/to/project
   phasedev check-validation --project-path /absolute/path/to/project --scope final
   phasedev check-archive --archive-path /absolute/path/to/project/.phasedev/changes/archive/2026-06-17-my-change
 `;

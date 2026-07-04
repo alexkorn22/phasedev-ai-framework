@@ -1,0 +1,19 @@
+artifact: design
+mode: partial
+sections:
+  Executive Summary:
+    required: true
+  Traceability Mapping:
+    required: true
+  Architecture Package Map:
+    required: true
+  Key Design Decisions:
+    required: true
+  API Specification:
+    required: false
+  Data Model:
+    required: false
+  Contracts, Interfaces & Boundaries:
+    required: true
+  Risks & Open Questions:
+    required: true

@@ -3,7 +3,7 @@ import * as path from "path";
 import { Config, loadConfig } from "../../entities/config/config";
 import { createArchiveState, findPendingArchiveState, ArchiveState } from "../../entities/change/archive-state";
 import { archiveRootPath, archiveTargetPath, buildChangePaths, ChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
-import { Prompt } from "../../entities/stage/types";
+import { Prompt } from "../../entities/phase/types";
 import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
@@ -34,7 +34,7 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
   const archivedPaths = buildChangePaths(state.archivePath);
   const urls = archiveUrls(archivedPaths);
 
-  return prompt("next", "archive", renderTemplate("stage7_archive", {
+  return prompt("next", "archive", renderTemplate("phase7_archive", {
     change_name: state.changeName,
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,

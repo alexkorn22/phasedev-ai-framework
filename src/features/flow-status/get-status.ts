@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { resolveCurrentState } from "../stage-control/current-flow-state";
+import { resolveCurrentState } from "../phase-control/current-flow-state";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
@@ -9,7 +9,7 @@ import { readFrontmatter } from "../../shared/markdown/frontmatter";
 
 export interface FlowStatus {
   activeChange: string | null;
-  stage: string;
+  phase: string;
   routeKind: string;
   artifacts: Array<{ name: string; exists: boolean; approved: boolean }>;
   iterations: Array<{ id: number; name: string; status: string }>;
@@ -62,7 +62,7 @@ export function getFlowStatus(projectPath: string): FlowStatus {
 
   return {
     activeChange: changeDir ? path.basename(changeDir) : null,
-    stage: state.stage,
+    phase: state.phase,
     routeKind: state.routeKind,
     artifacts,
     iterations,
@@ -75,7 +75,7 @@ export function renderFlowStatus(status: FlowStatus): string {
   lines.push("=== PhaseDev Flow Status ===");
   lines.push("");
   lines.push(`Active Change: ${status.activeChange ?? "none"}`);
-  lines.push(`Current Stage: ${status.stage}`);
+  lines.push(`Current Phase: ${status.phase}`);
   lines.push(`Route: ${status.routeKind}`);
   lines.push("");
 

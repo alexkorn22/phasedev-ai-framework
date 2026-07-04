@@ -14,28 +14,28 @@ import { validateResearchFacts } from "../../entities/research-facts/validate-re
 import { validateDesign } from "../../entities/design/validate-design";
 
 export type Route =
-  | { kind: "invalid_archive_state"; stage: "archive"; invalidArchiveState: InvalidArchiveState; issues: string[]; activeChangePath: string }
-  | { kind: "pending_archive"; stage: "archive"; archiveState: ArchiveState; activeChangePath: string }
-  | { kind: "change_intake"; stage: "change_intake"; activeChangePath: string | null }
-  | { kind: "invalid_prd"; stage: "change_intake"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "invalid_execution_contract"; stage: "change_intake"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "change_intake_approval"; stage: "change_intake"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "code_research"; stage: "code_research"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "invalid_code_research"; stage: "code_research"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "technical_design"; stage: "technical_design"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "invalid_technical_design"; stage: "technical_design"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "technical_design_approval"; stage: "technical_design"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "iteration_planning"; stage: "iteration_planning"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "iteration_planning_approval"; stage: "iteration_planning"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "invalid_iteration_planning"; stage: "iteration_planning"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "invalid_findings"; stage: "finding_repair"; paths: ChangePaths; issues: string[]; activeChangePath: string }
-  | { kind: "finding_repair"; stage: "finding_repair"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "archive_readiness_blocked"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "archive_ready"; stage: "archive"; paths: ChangePaths; activeChangePath: string }
-  | { kind: "phase"; stage: "implementation" | "iteration_validation"; paths: ChangePaths; activeIteration: Iteration; activeChangePath: string }
-  | { kind: "final_validation"; stage: "final_validation"; paths: ChangePaths; activeChangePath: string };
+  | { kind: "invalid_archive_state"; phase: "archive"; invalidArchiveState: InvalidArchiveState; issues: string[]; activeChangePath: string }
+  | { kind: "pending_archive"; phase: "archive"; archiveState: ArchiveState; activeChangePath: string }
+  | { kind: "change_intake"; phase: "change_intake"; activeChangePath: string | null }
+  | { kind: "invalid_prd"; phase: "change_intake"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "invalid_execution_contract"; phase: "change_intake"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "change_intake_approval"; phase: "change_intake"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "code_research"; phase: "code_research"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "invalid_code_research"; phase: "code_research"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "technical_design"; phase: "technical_design"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "invalid_technical_design"; phase: "technical_design"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "technical_design_approval"; phase: "technical_design"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "iteration_planning"; phase: "iteration_planning"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "iteration_planning_approval"; phase: "iteration_planning"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "invalid_iteration_planning"; phase: "iteration_planning"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "invalid_findings"; phase: "finding_repair"; paths: ChangePaths; issues: string[]; activeChangePath: string }
+  | { kind: "finding_repair"; phase: "finding_repair"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "archive_readiness_blocked"; phase: "archive"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "archive_ready"; phase: "archive"; paths: ChangePaths; activeChangePath: string }
+  | { kind: "iteration"; phase: "implementation" | "iteration_validation"; paths: ChangePaths; activeIteration: Iteration; activeChangePath: string }
+  | { kind: "final_validation"; phase: "final_validation"; paths: ChangePaths; activeChangePath: string };
 
-function iterationStage(activeIteration: Iteration): "implementation" | "iteration_validation" {
+function iterationPhase(activeIteration: Iteration): "implementation" | "iteration_validation" {
   return isIterationReadyForValidation(activeIteration) ? "iteration_validation" : "implementation";
 }
 
@@ -50,7 +50,7 @@ export function resolveRoute(projectPath: string): Route {
   if (invalidArchiveState) {
     return {
       kind: "invalid_archive_state",
-      stage: "archive",
+      phase: "archive",
       invalidArchiveState,
       issues: [invalidArchiveState.reason],
       activeChangePath: invalidArchiveState.archivePath
@@ -61,7 +61,7 @@ export function resolveRoute(projectPath: string): Route {
   if (pendingArchive) {
     return {
       kind: "pending_archive",
-      stage: "archive",
+      phase: "archive",
       archiveState: pendingArchive,
       activeChangePath: pendingArchive.archivePath
     };
@@ -69,39 +69,39 @@ export function resolveRoute(projectPath: string): Route {
 
   const changeDir = findActiveChangeDir(projectPath);
   if (!changeDir) {
-    return { kind: "change_intake", stage: "change_intake", activeChangePath: null };
+    return { kind: "change_intake", phase: "change_intake", activeChangePath: null };
   }
 
   const paths = buildChangePaths(changeDir);
   if (!fs.existsSync(paths.prdPath) || !fs.existsSync(paths.executionContractPath)) {
-    return { kind: "change_intake", stage: "change_intake", activeChangePath: changeDir };
+    return { kind: "change_intake", phase: "change_intake", activeChangePath: changeDir };
   }
 
   const prdIssues = validatePrdArtifact(paths.prdPath);
   if (prdIssues.length > 0) {
-    return { kind: "invalid_prd", stage: "change_intake", paths, issues: prdIssues, activeChangePath: changeDir };
+    return { kind: "invalid_prd", phase: "change_intake", paths, issues: prdIssues, activeChangePath: changeDir };
   }
 
   const rulesResult = validateExecutionContract(paths.executionContractPath);
   if (!rulesResult.valid) {
-    return { kind: "invalid_execution_contract", stage: "change_intake", paths, issues: rulesResult.issues, activeChangePath: changeDir };
+    return { kind: "invalid_execution_contract", phase: "change_intake", paths, issues: rulesResult.issues, activeChangePath: changeDir };
   }
 
   if (!isSetupApproved(changeDir).approved) {
-    return { kind: "change_intake_approval", stage: "change_intake", paths, activeChangePath: changeDir };
+    return { kind: "change_intake_approval", phase: "change_intake", paths, activeChangePath: changeDir };
   }
 
   if (!fs.existsSync(paths.researchPath)) {
-    return { kind: "code_research", stage: "code_research", paths, activeChangePath: changeDir };
+    return { kind: "code_research", phase: "code_research", paths, activeChangePath: changeDir };
   }
 
   const researchIssues = validateResearchFacts(paths.researchPath, paths.prdPath);
   if (researchIssues.length > 0) {
-    return { kind: "invalid_code_research", stage: "code_research", paths, issues: researchIssues, activeChangePath: changeDir };
+    return { kind: "invalid_code_research", phase: "code_research", paths, issues: researchIssues, activeChangePath: changeDir };
   }
 
   if (!fs.existsSync(paths.designPath)) {
-    return { kind: "technical_design", stage: "technical_design", paths, activeChangePath: changeDir };
+    return { kind: "technical_design", phase: "technical_design", paths, activeChangePath: changeDir };
   }
 
   const designIssues = validateDesign(paths.designPath, {
@@ -109,25 +109,25 @@ export function resolveRoute(projectPath: string): Route {
     researchPath: paths.researchPath
   });
   if (designIssues.length > 0) {
-    return { kind: "invalid_technical_design", stage: "technical_design", paths, issues: designIssues, activeChangePath: changeDir };
+    return { kind: "invalid_technical_design", phase: "technical_design", paths, issues: designIssues, activeChangePath: changeDir };
   }
 
   if (!isDesignApproved(changeDir)) {
-    return { kind: "technical_design_approval", stage: "technical_design", paths, activeChangePath: changeDir };
+    return { kind: "technical_design_approval", phase: "technical_design", paths, activeChangePath: changeDir };
   }
 
   if (!fs.existsSync(paths.iterationPlanPath)) {
-    return { kind: "iteration_planning", stage: "iteration_planning", paths, activeChangePath: changeDir };
+    return { kind: "iteration_planning", phase: "iteration_planning", paths, activeChangePath: changeDir };
   }
 
   const planPhases = parsePlan(paths.iterationPlanPath);
   const planIssues = validatePlanArtifact(paths.iterationPlanPath, paths.prdPath, paths.designPath);
   if (planIssues.length > 0) {
-    return { kind: "invalid_iteration_planning", stage: "iteration_planning", paths, issues: planIssues, activeChangePath: changeDir };
+    return { kind: "invalid_iteration_planning", phase: "iteration_planning", paths, issues: planIssues, activeChangePath: changeDir };
   }
 
   if (!isPlanApproved(changeDir)) {
-    return { kind: "iteration_planning_approval", stage: "iteration_planning", paths, activeChangePath: changeDir };
+    return { kind: "iteration_planning_approval", phase: "iteration_planning", paths, activeChangePath: changeDir };
   }
 
   const findings = parseValidationFindingsArtifact(paths.findingsPath);
@@ -136,34 +136,34 @@ export function resolveRoute(projectPath: string): Route {
                                                  findings.issues.length > 0 &&
                                                  findings.issues.every(isVerdictOnlyOpenBlockingIssue);
     if (findings.issues.length > 0 && !onlyVerdictCannotBypassOpenBlocking) {
-      return { kind: "invalid_findings", stage: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
+      return { kind: "invalid_findings", phase: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
     }
 
     if (findings.openBlockingRows.length > 0) {
-      return { kind: "finding_repair", stage: "finding_repair", paths, activeChangePath: changeDir };
+      return { kind: "finding_repair", phase: "finding_repair", paths, activeChangePath: changeDir };
     }
 
     if (findings.issues.length > 0) {
-      return { kind: "invalid_findings", stage: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
+      return { kind: "invalid_findings", phase: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
     }
   }
 
   // After repair with `repaired` verdict and no open blocking rows,
   // always route to phase_validation for re-validation. Do not route
-  // through iterationStage() which may return "implementation" due to
+  // through iterationPhase() which may return "implementation" due to
   // stale Check Evidence that the repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
     const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
     if (activeIteration) {
       return {
-        kind: "phase",
-        stage: "iteration_validation",
+        kind: "iteration",
+        phase: "iteration_validation",
         paths,
         activeIteration,
         activeChangePath: changeDir
       };
     }
-    return { kind: "final_validation", stage: "final_validation", paths, activeChangePath: changeDir };
+    return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };
   }
 
   const finalReady = findings.exists &&
@@ -173,22 +173,22 @@ export function resolveRoute(projectPath: string): Route {
     const allPhasesCompleted = planPhases.length > 0 && planPhases.every(phase => phase.status === "completed");
     const hasAnyReadinessBlockers = planPhases.some(phase => iterationValidationBlockers(phase).length > 0);
     if (!allPhasesCompleted || hasAnyReadinessBlockers) {
-      return { kind: "archive_readiness_blocked", stage: "archive", paths, activeChangePath: changeDir };
+      return { kind: "archive_readiness_blocked", phase: "archive", paths, activeChangePath: changeDir };
     }
 
-    return { kind: "archive_ready", stage: "archive", paths, activeChangePath: changeDir };
+    return { kind: "archive_ready", phase: "archive", paths, activeChangePath: changeDir };
   }
 
   const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
   if (activeIteration) {
     return {
-      kind: "phase",
-      stage: iterationStage(activeIteration),
+      kind: "iteration",
+      phase: iterationPhase(activeIteration),
       paths,
       activeIteration,
       activeChangePath: changeDir
     };
   }
 
-  return { kind: "final_validation", stage: "final_validation", paths, activeChangePath: changeDir };
+  return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };
 }

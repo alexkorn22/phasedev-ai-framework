@@ -1,38 +1,38 @@
 import * as fs from "fs";
 import * as path from "path";
 import { parse as parseYaml } from "yaml";
-import { Stage } from "../stage/types";
+import { Phase } from "../phase/types";
 import { SYSTEM_DIR } from "../change/paths";
 
 export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type SandboxMode = "workspace-write" | "danger-full-access";
 export type ApprovalPolicy = "never" | "on-request" | "on-failure" | "untrusted";
 
-export type StageSkillConfig = {
+export type PhaseSkillConfig = {
   routers: string[];
   main: string[];
   additional: string[];
 };
 
-export type StageConfig = {
-  skills: StageSkillConfig;
+export type PhaseConfig = {
+  skills: PhaseSkillConfig;
 };
 
 export interface Config {
-  stages: Partial<Record<Exclude<Stage, "init">, StageConfig>>;
+  phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>>;
   runArchiveStage: boolean;
   autoApprove: boolean;
   maxIterations: number;
 }
 
-export const EMPTY_STAGE_SKILLS: StageSkillConfig = {
+export const EMPTY_PHASE_SKILLS: PhaseSkillConfig = {
   routers: [],
   main: [],
   additional: []
 };
 
 export const DEFAULT_CONFIG: Config = {
-  stages: {},
+  phases: {},
   runArchiveStage: true,
   autoApprove: false,
   maxIterations: 10
@@ -42,7 +42,7 @@ const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"])
 const SANDBOX_MODES = new Set(["workspace-write", "danger-full-access"]);
 const APPROVAL_POLICIES = new Set(["never", "on-request", "on-failure", "untrusted"]);
 
-const STAGE_NAME_MAP: Record<string, string> = {
+const PHASE_NAME_MAP: Record<string, string> = {
   setup: "change_intake",
   setup_approval: "change_intake_approval",
   research: "code_research",
@@ -59,8 +59,8 @@ const STAGE_NAME_MAP: Record<string, string> = {
   archive: "archive"
 };
 
-// Only stages that actually exist in the Stage union type
-const STAGES = new Set<Exclude<Stage, "init">>([
+// Only phases that actually exist in the Phase union type
+const PHASES = new Set<Exclude<Phase, "init">>([
   "change_intake",
   "code_research",
   "technical_design",
@@ -161,7 +161,7 @@ function readSkillArray(value: unknown, key: string): string[] {
   return skills;
 }
 
-function parseStageSkills(value: unknown, key: string): StageSkillConfig {
+function parsePhaseSkills(value: unknown, key: string): PhaseSkillConfig {
   const skills = asRecord(value, key);
   const routers = readSkillArray(skills.routers, `${key}.routers`);
   const routerSet = new Set(routers);
@@ -172,95 +172,115 @@ function parseStageSkills(value: unknown, key: string): StageSkillConfig {
   return { routers, main, additional };
 }
 
-function parseStageConfig(value: unknown, key: string): StageConfig {
-  const stage = asRecord(value, key);
+function parsePhaseConfig(value: unknown, key: string): PhaseConfig {
+  const phase = asRecord(value, key);
   return {
-    skills: parseStageSkills(stage.skills, `${key}.skills`)
+    skills: parsePhaseSkills(phase.skills, `${key}.skills`)
   };
 }
 
 /**
- * Parse legacy codex.stages format and map to stages.
- * Returns the parsed stages record.
+ * Parse legacy codex.stages format and map to phases.
  */
-function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
-  const stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Record<Exclude<Phase, "init">, PhaseConfig>> {
+  const phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
   const rawStages = asRecord(codexRaw.stages, "codex.stages");
 
   for (const [oldName, value] of Object.entries(rawStages)) {
-    const newName = STAGE_NAME_MAP[oldName];
+    const newName = PHASE_NAME_MAP[oldName];
     if (!newName) {
       console.warn(`[config] Unknown legacy stage "${oldName}" in codex.stages. Skipping.`);
       continue;
     }
 
-    // Check if the mapped name is a valid stage key
-    if (!STAGES.has(newName as Exclude<Stage, "init">)) {
-      console.warn(`[config] Legacy stage "${oldName}" maps to "${newName}", which is not yet a valid stage. Skipping.`);
+    if (!PHASES.has(newName as Exclude<Phase, "init">)) {
+      console.warn(`[config] Legacy stage "${oldName}" maps to "${newName}", which is not yet a valid phase. Skipping.`);
       continue;
     }
 
     const stage = asRecord(value, `codex.stages.${oldName}`);
 
-    // Warn about per-stage model/effort override (no longer supported)
     if (stage.model !== undefined || stage.reasoningEffort !== undefined) {
       console.warn(`[config] Legacy stage "${oldName}" has per-stage model/reasoningEffort override. These are no longer supported per stage and will be ignored.`);
     }
 
-    stages[newName as Exclude<Stage, "init">] = parseStageConfig(value, `codex.stages.${oldName}`);
+    phases[newName as Exclude<Phase, "init">] = parsePhaseConfig(value, `codex.stages.${oldName}`);
   }
 
-  return stages;
+  return phases;
+}
+
+/**
+ * Parse the phases section of a config file.
+ */
+function parsePhasesSection(phasesRaw: Record<string, unknown>): Partial<Record<Exclude<Phase, "init">, PhaseConfig>> {
+  const phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
+
+  for (const [phaseName, value] of Object.entries(phasesRaw)) {
+    if (!PHASES.has(phaseName as Exclude<Phase, "init">)) {
+      console.warn(`[config] Unknown phase "${phaseName}" in phases section. Ignoring.`);
+      continue;
+    }
+
+    phases[phaseName as Exclude<Phase, "init">] = parsePhaseConfig(value, `phases.${phaseName}`);
+  }
+
+  return phases;
+}
+
+/**
+ * Parse the legacy stages: section (alias for phases:).
+ * Emits a deprecation warning.
+ */
+function parseLegacyStagesSection(stagesRaw: Record<string, unknown>): Partial<Record<Exclude<Phase, "init">, PhaseConfig>> {
+  console.warn("[config] Deprecated 'stages:' key — use 'phases:' instead.");
+  const phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
+
+  for (const [stageName, value] of Object.entries(stagesRaw)) {
+    if (!PHASES.has(stageName as Exclude<Phase, "init">)) {
+      console.warn(`[config] Unknown stage "${stageName}" in legacy stages section. Ignoring.`);
+      continue;
+    }
+
+    phases[stageName as Exclude<Phase, "init">] = parsePhaseConfig(value, `stages.${stageName}`);
+  }
+
+  return phases;
 }
 
 export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
 
+  const phasesRaw = asRecord(root.phases, "phases");
   const stagesRaw = asRecord(root.stages, "stages");
   const codexRaw = asRecord(root.codex, "codex");
 
-  // Detect if legacy format is being used
+  const hasPhases = Object.keys(phasesRaw).length > 0;
   const hasLegacyStages = Object.keys(asRecord(codexRaw.stages, "codex.stages")).length > 0;
   const hasStages = Object.keys(stagesRaw).length > 0;
 
-  let stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
+  let phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
 
-  if (hasLegacyStages && hasStages) {
-    // Both present: stages wins, warn
-    console.warn("[config] Both codex.stages and stages sections found. stages will take precedence.");
-    // Parse stages
-    stages = parseStagesSection(stagesRaw);
-  } else if (hasLegacyStages) {
-    // Legacy mode
-    console.warn("[config] Deprecated codex.stages format detected. Please migrate to the new stages format. See config.yaml for reference.");
-    stages = parseLegacyCodexStages(codexRaw);
+  // Priority: phases: > stages: > codex.stages:
+  if (hasPhases && hasStages) {
+    console.warn("[config] Both 'phases:' and 'stages:' found. 'phases:' takes precedence.");
+    phases = parsePhasesSection(phasesRaw);
+  } else if (hasPhases) {
+    phases = parsePhasesSection(phasesRaw);
   } else if (hasStages) {
-    // New format - parse stages
-    stages = parseStagesSection(stagesRaw);
+    phases = parseLegacyStagesSection(stagesRaw);
+  } else if (hasLegacyStages) {
+    console.warn("[config] Deprecated codex.stages format detected. Please migrate to the new 'phases:' format. See config.yaml for reference.");
+    phases = parseLegacyCodexStages(codexRaw);
   }
 
   return {
-    stages,
+    phases,
     runArchiveStage: readBoolean(root.runArchiveStage, DEFAULT_CONFIG.runArchiveStage, "runArchiveStage"),
     autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
     maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations")
   };
-}
-
-function parseStagesSection(stagesRaw: Record<string, unknown>): Partial<Record<Exclude<Stage, "init">, StageConfig>> {
-  const stages: Partial<Record<Exclude<Stage, "init">, StageConfig>> = {};
-
-  for (const [stageName, value] of Object.entries(stagesRaw)) {
-    if (!STAGES.has(stageName as Exclude<Stage, "init">)) {
-      console.warn(`[config] Unknown stage "${stageName}" in stages section. Ignoring.`);
-      continue;
-    }
-
-    stages[stageName as Exclude<Stage, "init">] = parseStageConfig(value, `stages.${stageName}`);
-  }
-
-  return stages;
 }
 
 export function loadConfig(configPath = defaultConfigPath()): Config {
@@ -271,12 +291,12 @@ export function loadConfig(configPath = defaultConfigPath()): Config {
   return parseConfig(fs.readFileSync(configPath, "utf-8"));
 }
 
-export function getStageSkillConfig(config: Config, stage: Stage): StageSkillConfig {
-  if (stage === "init") {
-    return EMPTY_STAGE_SKILLS;
+export function getPhaseSkillConfig(config: Config, phase: Phase): PhaseSkillConfig {
+  if (phase === "init") {
+    return EMPTY_PHASE_SKILLS;
   }
 
-  return config.stages[stage]?.skills ?? EMPTY_STAGE_SKILLS;
+  return config.phases[phase]?.skills ?? EMPTY_PHASE_SKILLS;
 }
 
 export function resolveProjectLogDir(projectPath: string, logDir: string): string {
@@ -313,13 +333,13 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
     return undefined;
   }
 
-  // Legacy: codex.stages.<oldName>.<rest> → stages.<newName>.<rest>
+  // Legacy: codex.stages.<oldName>.<rest> → phases.<newName>.<rest>
   if (segments.length >= 3 && segments[0] === "codex" && segments[1] === "stages") {
     const oldName = segments[2];
     const rest = segments.slice(3);
-    const newName = STAGE_NAME_MAP[oldName];
-    if (newName && STAGES.has(newName as Exclude<Stage, "init">)) {
-      const mappedSegments = ["stages", newName, ...rest];
+    const newName = PHASE_NAME_MAP[oldName];
+    if (newName && PHASES.has(newName as Exclude<Phase, "init">)) {
+      const mappedSegments = ["phases", newName, ...rest];
       console.warn(`[config] Deprecated key "${key}" — use "${mappedSegments.join(".")}" instead.`);
       return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
     }
@@ -327,15 +347,22 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
     return undefined;
   }
 
-  // Legacy: codex.default.* → runner config
+  // Legacy: stages.<name>.<rest> → phases.<name>.<rest>
+  if (segments[0] === "stages") {
+    const mappedSegments = ["phases", ...segments.slice(1)];
+    console.warn(`[config] Deprecated key "${key}" — use "${mappedSegments.join(".")}" instead.`);
+    return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
+  }
+
+  // Legacy: codex.default.* → runner config (removed)
   if (segments[0] === "codex" && segments[1] === "default") {
-    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
+    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
     return undefined;
   }
 
-  // Legacy: codex.sandboxMode / codex.approvalPolicy → runner config
+  // Legacy: codex.sandboxMode / codex.approvalPolicy → runner config (removed)
   if (segments[0] === "codex" && (segments[1] === "sandboxMode" || segments[1] === "approvalPolicy")) {
-    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
+    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
     return undefined;
   }
 
@@ -353,7 +380,7 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
       console.warn(`[config] Deprecated key "${key}" — use "maxIterations" at root level instead.`);
       return config.maxIterations;
     }
-    console.warn(`[config] Deprecated key "${key}" — runner was removed; use "phasedev next" manually.`);
+    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
     return undefined;
   }
 

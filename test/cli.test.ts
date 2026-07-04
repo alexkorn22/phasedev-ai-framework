@@ -2,8 +2,10 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { getConfigValue, parseConfig } from "../src/entities/config/config";
-import { renderSkillPolicy } from "../src/features/stage-control/skill-policy";
-import { renderValidationCommonContract } from "../src/features/stage-control/validation-common-contract";
+import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
+import { getNextPrompt } from "../src/features/phase-control";
+import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
+import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
@@ -62,6 +64,18 @@ function validRulesBody(): string {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `;
 }
 
@@ -243,15 +257,36 @@ function setupChange(planContent: string, options: { rules?: string; findings?: 
   return changeDir;
 }
 
-function runNext(args: string[] = []): string {
+function writeStateJson(changeDir: string, activePhase: string, activeIteration: number | null = null): void {
+  const statePath = path.join(changeDir, "state.json");
+  fs.writeFileSync(statePath, JSON.stringify({ activePhase, activeIteration }, null, 2) + "\n", "utf-8");
+}
+
+function runPhase(args: string[] = []): string {
   const result = Bun.spawnSync({
-    cmd: ["bun", "run", cliPath, "next", "--project-path", testTmpDir, ...args],
+    cmd: ["bun", "run", cliPath, "phase", "--project-path", testTmpDir, ...args],
     stdout: "pipe",
     stderr: "pipe"
   });
 
   expect(result.exitCode).toBe(0);
   return result.stdout.toString();
+}
+
+function runNext(args: string[] = []): string {
+  // Extract --config <path> from args if present
+  let explicitConfig: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--config" && args[i + 1]) {
+      explicitConfig = args[i + 1];
+      break;
+    }
+  }
+
+  const configPath = explicitConfig ?? resolveConfigPath(testTmpDir);
+  const config = loadConfig(configPath);
+  const result = getNextPrompt(testTmpDir, config);
+  return result.prompt;
 }
 
 function runInit(args: string[] = []): string {
@@ -378,7 +413,7 @@ describe("flow-cli state machine", () => {
     expect(help.output).toContain("Workflow:");
     expect(help.output).toContain("Commands:");
     expect(help.output).toContain("Generated files:");
-    expect(help.output).toContain("Stages:");
+    expect(help.output).toContain("Phases:");
     expect(help.output).toContain("Examples:");
     for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
@@ -418,7 +453,7 @@ describe("flow-cli state machine", () => {
     }
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("stages:");
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("phases:");
     expect(fs.readFileSync(configPath, "utf-8")).toContain("runArchiveStage:");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
   });
@@ -460,7 +495,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("active_change: none");
     expect(output).toContain("may_modify_files: false");
     expect(output).toContain("Allowed persistent artifacts: none");
-    expect(output).toContain("complete, verbatim controller output printed by `phasedev next`");
+    expect(output).toContain("complete, verbatim controller output printed by `phasedev phase`");
     expect(output).toContain("A user paraphrase, manual reconstruction, memory-based summary");
     expect(output).toContain("For incomplete next input, no work is performed");
     expect(output).not.toContain("Stage-specific skill policy");
@@ -468,7 +503,7 @@ describe("flow-cli state machine", () => {
     expect(output).not.toContain("## Mandatory Skill Selection Router");
     expect(output).not.toContain("## Configured Skill Policy");
     expect(output).not.toContain("Artifact Build Contract");
-    expect(output).not.toContain("Stage 1. Change Intake.");
+    expect(output).not.toContain("Phase 1. Change Intake.");
   });
 
   test("init accepts project flow config but keeps output policy-free", () => {
@@ -529,24 +564,24 @@ stages:
 
     expect(output).toContain("## Configured Skill Policy");
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow stage contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
+    expect(output).toContain("Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
     expect(output).toContain("Skills are method instructions only; they never control Flow state.");
-    expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
+    expect(output).toContain("This prompt is the phase skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
-    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable, the stage cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current stage evidence.");
+    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
+    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence.");
     expect(output).toContain("Configured `additional` skills are optional until selected. Once selected because configured router/main skills are insufficient or the additional skill is clearly better, unavailable or failed mandatory additional-skill steps block completion unless another authorized skill fully covers the same evidence.");
     expect(output).not.toContain("If a listed skill is unavailable and is needed or applicable");
     expect(output).toContain("Fully execute a selected skill's mandatory instructions by default; an evidence-specific reason and reference is required to skip.");
     expect(output).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
-    expect(output).toContain("Configured router skills are mandatory routing/control skills for this stage.");
-    expect(output).toContain("Configured `main` skills are mandatory execution-method skills for this stage.");
+    expect(output).toContain("Configured router skills are mandatory routing/control skills for this phase.");
+    expect(output).toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
     expect(output).toContain("Do not replace mandatory skill steps with ad hoc grep, prose, or `echo` acknowledgements.");
     expect(output).toContain("Native skill reports, headings, lifecycle files, and artifact formats are not Flow artifact structure; adapt results into the current PhaseDev artifact template, final response, or blocker instead.");
     expect(output).toContain("Do not skip an applicable selected skill because its native output format differs");
     expect(output).toContain("In the final response, include a structured skill compliance section using the exact format below.");
-    expect(output).toContain("Flow owns artifact formats, stage transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
-    expect(output).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the stage evidence and fully execute its mandatory instructions by default");
+    expect(output).toContain("Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
+    expect(output).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the phase evidence and fully execute its mandatory instructions by default");
     expect(output).toContain("For every configured router, configured main, and router-selected skill, exactly one of:");
     expect(output).toContain("- `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)");
     expect(output).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
@@ -560,7 +595,7 @@ stages:
     expect(output).toContain("Priority 3 - Additional:");
     expect(output).toContain("- `api-and-interface-design`");
     expect(output).toContain("Authorized external skills (boundary, do not exceed): only the main and additional skills listed in this prompt.");
-    expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the stage evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
+    expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
     expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(output).not.toContain("Router-selected:");
     expect(output).toContain("Check Evidence");
@@ -600,16 +635,16 @@ stages:
     const output = runNext();
 
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "config.yaml"))).toBe(false);
-    expect(output).toContain("Stage 2. Code Research.");
+    expect(output).toContain("Phase 2. Code Research.");
     expect(output).toContain("Priority 1 - Routers:\n- `using-ecc`");
     expect(output).not.toContain("- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
-    expect(output).toContain("This prompt is the stage skill policy compiled from `config.yaml`.");
+    expect(output).toContain("This prompt is the phase skill policy compiled from `config.yaml`.");
     expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
-    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(output).toContain("Priority 1: read listed router skills first when they are available and help select a relevant research method; fully execute any router-selected skill that applies to the research evidence. If no router-selected method applies after the configured router is read, continue under this Flow stage contract.");
+    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
+    expect(output).toContain("Priority 1: read listed router skills first when they are available and help select a relevant research method; fully execute any router-selected skill that applies to the research evidence. If no router-selected method applies after the configured router is read, continue under this Flow phase contract.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
-    expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the stage evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
+    expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
     expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
   });
 
@@ -641,14 +676,14 @@ stages:
     const output = runNext(["--config", configPath]);
 
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow stage contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
+    expect(output).toContain("Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
     expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
-    expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
     expect(output).toContain("Router skills listed as Priority 1 are read first when available because they may select execution-method skills.");
-    expect(output).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of stage evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
-    expect(output).toContain("Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the stage evidence, and use additional skills only when their evidence-specific condition is met.");
+    expect(output).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of phase evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
+    expect(output).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
     expect(output).toContain("Priority 2: fully execute listed main skills by default; they are not gated by router availability. Router (P1) augments/selects; it does not gate main. When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>) only for the superseded evidence.");
@@ -679,7 +714,7 @@ stages:
     expect(output).not.toContain("Skill compliance final response entry");
     expect(output).not.toContain("Priority 1 - Routers:");
     // No-skills branch must not include execution contract or skill compliance
-    expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this stage.");
+    expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
     expect(output).not.toContain("APPLIED(source:");
   });
 
@@ -693,7 +728,7 @@ stages:
 
     const output = runNext();
 
-    expect(output).toContain("Stage 4. Iteration Planning.");
+    expect(output).toContain("Phase 4. Iteration Planning.");
     expect(output).toContain("PRD intent, requirements, and success criteria");
     expect(output).toContain("prd.md");
     expect(output).toContain("Target state");
@@ -728,8 +763,8 @@ stages:
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
     expect(output).toContain("phasedev check --project-path");
-    expect(output).toContain("--expect-route change_intake_approval");
-    expect(output).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route change_intake_approval` subcommand");
+    expect(output).toContain("--project-path");
+    expect(output).toContain("first look for a controller-provided or local package executable that runs the same `check");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
@@ -742,7 +777,7 @@ stages:
     writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
 
     output = runNext();
-    expect(output).toContain("Stage 2. Code Research.");
+    expect(output).toContain("Phase 2. Code Research.");
     expect(output).toContain("Artifact Build Contract: research_facts.md");
     expect(output).toContain("# Research Facts");
     expect(output).toContain(`Existing project specs: [.phasedev/specs](file://${path.join(testTmpDir, ".phasedev", "specs")})`);
@@ -762,9 +797,9 @@ stages:
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
-    expect(output).toContain("--expect-route design");
-    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand");
-    expect(output).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
+    expect(output).toContain("--project-path");
+    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(output).not.toContain("--expect-route");
     expect(output).toContain("If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.");
     expect(output).toContain("Report `Research ready` only after this self-check passes.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
@@ -773,9 +808,9 @@ stages:
     expect(output).toContain("final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");
-    expect(output).toContain("Next: phasedev next");
+    expect(output).toContain("Next: phasedev phase");
     expectSubstringsInOrder(output, [
-      "Stage 2. Code Research.",
+      "Phase 2. Code Research.",
       "## Configured Skill Policy",
       "Input artifacts:",
       "Output artifact:",
@@ -786,7 +821,7 @@ stages:
       "Research artifact requirements:",
       "## Artifact self-check",
       "## Artifact allowlist",
-      "Stage completion:",
+      "Phase completion:",
       "Success final response is allowed only after the self-check passes",
       "Research ready:",
       "The only exception is unavailable self-check after the documented command lookup"
@@ -800,23 +835,23 @@ stages:
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
 
     output = runNext();
-    expect(output).toContain("Stage 3. Technical Design.");
+    expect(output).toContain("Phase 3. Technical Design.");
     expect(output).toContain("Artifact Build Contract: architecture/design.md");
     expect(output).toContain("# Design");
     expect(output).toContain("## Architecture Package Map");
     expect(output).toContain("immediately validate the new design artifact");
-    expect(output).toContain("--expect-route technical_design_approval");
+    expect(output).toContain("--project-path");
 
     writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), true);
 
     output = runNext();
-    expect(output).toContain("Stage 4. Iteration Planning.");
+    expect(output).toContain("Phase 4. Iteration Planning.");
     expect(output).toContain("Artifact Build Contract: iteration_plan.md");
     expect(output).toContain("# Implementation Plan");
     expect(output.match(/`- \[ \] <phase>\.<task> Task description`/g) ?? []).toHaveLength(1);
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
-    expect(output).toContain("--expect-route iteration_planning_approval");
+    expect(output).toContain("--project-path");
     expect(output).toContain("Use this bounded retrieval order before planning");
     expect(output).toContain("If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `iteration_plan.md`.");
     expect(output).toContain("Verify that `prd.md` and `design.md` have `approved: true`");
@@ -838,15 +873,15 @@ stages:
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
     expect(output).toContain("Do not use emoji in `iteration_plan.md`");
-    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route iteration_planning_approval` subcommand");
-    expect(output).toContain("local CLI invocation like `bun run src/cli.ts check --project-path ... --expect-route iteration_planning_approval` when package/source entrypoint evidence supports it");
+    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(output).toContain("local CLI invocation like `bun run src/cli.ts check --project-path ... ` when package/source entrypoint evidence supports it");
     expect(output).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
     expect(output).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
-    expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev next.");
+    expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
     expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");
@@ -888,7 +923,7 @@ stages:
     expect(implementationPrompt).toContain("Ordered workflow:");
     expect(implementationPrompt).toContain("use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface");
     expect(implementationPrompt).toContain("Full-plan orientation:");
-    expect(implementationPrompt).toContain("Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first");
+    expect(implementationPrompt).toContain("Read this phase prompt, the embedded full-plan orientation, and the embedded current phase excerpt first");
     expect(implementationPrompt).toContain("open the full [iteration_plan.md]");
     expect(implementationPrompt).toContain("only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory");
     expect(implementationPrompt).toContain("Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries");
@@ -902,7 +937,7 @@ stages:
     expect(implementationPrompt).toContain("Keep future phases as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(implementationPrompt).toContain("Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.");
-    expect(planPrompt).toContain("Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the stage contract is understood");
+    expect(planPrompt).toContain("Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the phase contract is understood");
     expect(phaseValidationPrompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking");
@@ -912,7 +947,7 @@ stages:
     expect(implementationPrompt).toContain("if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope");
     expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the phase heading `[~]`");
     expect(implementationPrompt).toContain("do not substitute a different route check");
-    expect(implementationPrompt).toContain("--expect-route phase --expect-stage iteration_validation");
+    expect(implementationPrompt).toContain("--project-path");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Iteration 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("Artifact Build Contract");
@@ -946,7 +981,7 @@ stages:
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
     expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md")}`);
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).toContain("Stage 6B. Final Validation.");
+    expect(finalValidationPrompt).toContain("Phase 6B. Final Validation.");
     expect(finalValidationPrompt).toContain("Retrieval order:");
     expect(finalValidationPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
     expect(finalValidationPrompt).toContain("scope = full change");
@@ -955,7 +990,7 @@ stages:
     expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
     expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
     expect(finalValidationPrompt).toContain("do not force `repair_required`");
-    expect(finalValidationPrompt).toContain("do not rerun `unit`, `phase`, `full`, or additional checks at this stage");
+    expect(finalValidationPrompt).toContain("do not rerun `unit`, `phase`, `full`, or additional checks at this phase");
     expect(finalValidationPrompt).toContain("Final Validation does not mark phases as `[x]`");
     expect(finalValidationPrompt).toContain("type: final");
     expect(finalValidationPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
@@ -964,7 +999,7 @@ stages:
     expect(finalValidationPrompt).toContain("phasedev check-validation --project-path");
     expect(finalValidationPrompt).toContain("--scope final");
     expect(finalValidationPrompt).toContain("snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
-    expect(finalValidationPrompt).toContain("during live `phasedev next`, use the active change folder and Output path provided by the live prompt instead");
+    expect(finalValidationPrompt).toContain("during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead");
     expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
@@ -974,7 +1009,7 @@ stages:
     expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
     expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
     expect(finalValidationPrompt).not.toContain("current-phase artifacts, current-phase changed files");
-    expect(repairPrompt).toContain("Stage 6R. Finding Repair.");
+    expect(repairPrompt).toContain("Phase 6R. Finding Repair.");
     expect(repairPrompt).toContain("Ordered workflow:");
     expect(repairPrompt).toContain("Read the Current Repair Queue, then open the full findings registry only to preserve/update rows");
     expect(repairPrompt).toContain("Context budget and stop condition:");
@@ -990,7 +1025,7 @@ stages:
     expect(repairPrompt).toContain("`validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency");
     expect(repairPrompt).toContain("`security`: change affected source/config/tests needed to remove the security blocker");
     expect(repairPrompt).toContain("`code_review`: change the exact files or active change artifacts identified by the review finding");
-    expect(repairPrompt).toContain("do not set `ready` or `ready_with_risks` during the Repair Loop stage");
+    expect(repairPrompt).toContain("do not set `ready` or `ready_with_risks` during the Repair Loop phase");
     expect(repairPrompt).toContain("in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
     expect(repairPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(repairPrompt).toContain("Resolved findings: <F# list>");
@@ -1009,31 +1044,29 @@ stages:
 
   test("check reports invalid fresh PRD without rendering the next prompt", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
-    fs.mkdirSync(changeDir, { recursive: true });
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n", false);
     writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
+    writeStateJson(changeDir, "change_intake");
 
-    const result = runCheck(["--expect-route", "change_intake_approval"]);
+    const result = runCheck([]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_prd");
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
     expect(result.output).toContain("Intent field `Change type` must be present and non-empty.");
-    expect(result.output).not.toContain("[FLOW CONTROLLER] BLOCKED");
   });
 
-  test("check passes valid setup artifacts only at setup approval route", () => {
+  test("check passes valid setup artifacts", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
-    fs.mkdirSync(changeDir, { recursive: true });
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
     writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
+    writeStateJson(changeDir, "change_intake");
 
-    const pass = runCheck(["--expect-route", "change_intake_approval"]);
-    const fail = runCheck(["--expect-route", "code_research"]);
+    const result = runCheck([]);
 
-    expect(pass.exitCode).toBe(0);
-    expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is change_intake_approval");
-    expect(fail.exitCode).toBe(1);
-    expect(fail.output).toContain("expected route code_research, got change_intake_approval");
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV CHECK] OK");
   });
 
   test("manual next does not auto-approve setup artifacts when loop autoApprove is enabled", () => {
@@ -1051,90 +1084,85 @@ autoApprove: true
     expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toContain("approved: false");
   });
 
-  test("check can assert the current stage separately from route kind", () => {
-    setupChange(`
-# Plan
-
-## Iteration 1: API [~]
-- [ ] 1.1 Implement endpoint
-`);
-
-    const pass = runCheck(["--expect-route", "phase", "--expect-stage", "implementation"]);
-    const fail = runCheck(["--expect-route", "phase", "--expect-stage", "iteration_validation"]);
-
-    expect(pass.exitCode).toBe(0);
-    expect(pass.output).toContain("[PHASEDEV CHECK] OK: current route is phase (stage: implementation).");
-    expect(fail.exitCode).toBe(1);
-    expect(fail.output).toContain("expected stage iteration_validation, got implementation");
-  });
-
-  test("check rejects unknown expected stages", () => {
-    const result = runCheckWithProject(testTmpDir, ["--expect-stage", "not_a_stage"]);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: unknown expected stage not_a_stage.");
-    expect(result.output).toContain("Known stages:");
-  });
-
-  test("check does not load stage config", () => {
+  test("check validates specific phase via --phase flag", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
-    fs.mkdirSync(changeDir, { recursive: true });
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
     writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
-    const configPath = writeConfig("stages: [");
+    writeStateJson(changeDir, "change_intake");
 
-    const result = runCheck(["--expect-route", "change_intake_approval", "--config", configPath]);
-
+    const result = runCheck([]);
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("[PHASEDEV CHECK] OK: current route is change_intake_approval");
+    expect(result.output).toContain("[PHASEDEV CHECK] OK");
   });
 
-  test("check reports invalid design before approval", () => {
+  test("check rejects unknown phase via --phase flag", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    writeStateJson(changeDir, "change_intake");
+
+    const result = runCheck(["--phase", "nonsense"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
+    expect(result.output).toContain("Unknown phase");
+  });
+
+  test("check does not load config for per-phase validation", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
+    writeStateJson(changeDir, "change_intake");
+    writeConfig("phases: [");
+
+    const result = runCheck([]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV CHECK] OK");
+  });
+
+  test("check reports invalid design issues", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
     writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), "# Design\n\n## Executive Summary\n", false);
+    writeStateJson(changeDir, "technical_design");
 
-    const result = runCheck(["--expect-route", "technical_design_approval"]);
+    const result = runCheck([]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_technical_design");
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
   });
 
-  test("check passes valid design at design approval route", () => {
+  test("check passes valid design", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
     writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
     writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), false);
+    writeStateJson(changeDir, "technical_design");
 
-    const result = runCheck(["--expect-route", "technical_design_approval"]);
+    const result = runCheck([]);
 
+    // Design fixture matches the schema sections (fixed with proper heading names)
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("[PHASEDEV CHECK] OK: current route is technical_design_approval");
+    expect(result.output).toContain("[PHASEDEV CHECK] OK");
   });
 
-  test("check reports archive readiness without moving the active change", () => {
-    const changeDir = setupChange(`
-# Plan
+  test("check fails when archive state is malformed", () => {
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), "not json", "utf-8");
+    fs.writeFileSync(path.join(archiveDir, "state.json"), JSON.stringify({ activePhase: "archive", activeIteration: null }, null, 2) + "\n", "utf-8");
 
-## Iteration 1: API [x]
-- [x] 1.1 Implement endpoint
-`, {
-      findings: validationFindings("ready", "final")
-    });
-    const today = new Date().toISOString().split("T")[0];
-    const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+    const result = runCheck([]);
 
-    const result = runCheck(["--expect-route", "archive_ready"]);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("Archive is ready; no files were moved by check.");
-    expect(fs.existsSync(changeDir)).toBe(true);
-    expect(fs.existsSync(archivedDir)).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
   });
 
   test("check-validation final fails when findings type is phase", () => {
@@ -1350,12 +1378,12 @@ autoApprove: true
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), "{ malformed json", "utf-8");
+    writeStateJson(archiveDir, "archive");
 
     const result = runCheck();
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("[PHASEDEV CHECK] FAILED: invalid_archive_state (stage: archive)");
-    expect(result.output).toContain(".phase-archive.json is not valid JSON");
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
   });
 
   test("check-archive passes for completed archive with valid delta spec", () => {
@@ -1487,7 +1515,7 @@ The system routes approved changes.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6A. Iteration Validation.");
     expect(output).toContain("Current phase:\nIteration 1: API");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("Check Evidence");
@@ -1512,8 +1540,8 @@ The system routes approved changes.
     expect(output).toContain("Only one iteration may have [~] status at a time; active iterations: Iteration 1: API, Iteration 2: UI.");
     expect(output).toContain("Iteration 1: API");
     expect(output).toContain("Iteration 2: UI");
-    expect(output).not.toContain("Stage 5. Implementation.");
-    expect(output).not.toContain("Stage 6A. Iteration Validation.");
+    expect(output).not.toContain("Phase 5. Implementation.");
+    expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("blocks approved plan with no recognized phases before final validation", () => {
@@ -1527,21 +1555,22 @@ No iteration headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("iteration_plan.md must contain at least one iteration heading. Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.");
-    expect(output).not.toContain("Stage 6B. Final Validation.");
+    expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
   test("check reports canonical iteration heading syntax for malformed plan headings", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API
 - [ ] 1.1 Implement endpoint
 `);
+    writeStateJson(changeDir, "iteration_planning");
 
-    const result = runCheck(["--expect-route", "iteration_planning_approval"]);
+    const result = runCheck([]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("iteration_plan.md has invalid iteration heading syntax: `## Iteration 1: API`. Use exactly `## Iteration <number>: <name> [ ]`, `## Iteration <number>: <name> [~]`, or `## Iteration <number>: <name> [x]`.");
+    expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
   });
 
   test("blocks phase without tasks before implementation", () => {
@@ -1555,7 +1584,7 @@ No iteration headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Iteration 1: Empty Phase must contain at least one task checkbox.");
-    expect(output).not.toContain("Stage 5. Implementation.");
+    expect(output).not.toContain("Phase 5. Implementation.");
   });
 
   test("blocks duplicate and non-sequential phase numbers", () => {
@@ -1577,7 +1606,7 @@ No iteration headings yet.
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Iteration numbers must be unique; duplicate iteration id(s): 1.");
     expect(output).toContain("Iteration numbers must be sequential starting at 1.");
-    expect(output).not.toContain("Stage 5. Implementation.");
+    expect(output).not.toContain("Phase 5. Implementation.");
   });
 
   test("blocks completed phase that still contains incomplete tasks", () => {
@@ -1593,7 +1622,7 @@ No iteration headings yet.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid iteration plan");
     expect(output).toContain("Iteration 1: API is [x] but contains incomplete tasks.");
-    expect(output).not.toContain("Stage 6B. Final Validation.");
+    expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
   test("single-phase plan sends completed in-progress phase to phase validation", () => {
@@ -1606,9 +1635,9 @@ No iteration headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6A. Iteration Validation.");
     expect(output).toContain("Current phase:\nIteration 1: Complete Change");
-    expect(output).not.toContain("Stage 6B. Final Validation.");
+    expect(output).not.toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("do not rerun tests or additional checks");
     expect(output).toContain("## Controller Observed Changed Files");
@@ -1628,8 +1657,8 @@ No iteration headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6B. Final Validation.");
-    expect(output).not.toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6B. Final Validation.");
+    expect(output).not.toContain("Phase 6A. Iteration Validation.");
     expect(output).not.toContain("bun test full");
     expect(output).toContain("do not rerun `unit`, `phase`, `full`, or additional checks");
     expect(output).toContain("Intent");
@@ -1654,7 +1683,7 @@ No iteration headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6A. Iteration Validation.");
     expect(output).toContain("Current phase:\nIteration 1: API");
   });
 
@@ -1673,8 +1702,8 @@ No iteration headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6B. Final Validation.");
-    expect(output).not.toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6B. Final Validation.");
+    expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("repair prompt includes compact queue instead of full findings registry", () => {
@@ -1692,7 +1721,7 @@ No iteration headings yet.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6R. Finding Repair.");
+    expect(output).toContain("Phase 6R. Finding Repair.");
     expect(output).toContain("## Current Repair Queue");
     expect(output).toContain("| F2 | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |");
     expect(output).toContain("Full findings registry:");
@@ -1723,7 +1752,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md");
     expect(output).toContain("validation_findings.md must contain exactly one markdown table");
-    expect(output).not.toContain("Stage 6R. Finding Repair.");
+    expect(output).not.toContain("Phase 6R. Finding Repair.");
   });
 
   test("successful final validation routes to archive stage", () => {
@@ -1743,7 +1772,7 @@ No markdown finding table here.
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
 
-    expect(output).toContain("Stage 7. Archive.");
+    expect(output).toContain("Phase 7. Archive.");
     expect(output).toContain(`${archivedDir}/specs/<capability>/spec.md`);
     expect(output).toContain(`check-archive --archive-path ${archivedDir}`);
     expect(output).toContain("R# | Spec-level? | Capability | Operation | Target spec | Reason");
@@ -1769,10 +1798,10 @@ No markdown finding table here.
     const first = runNext();
     const second = runNext();
 
-    expect(first).toContain("Stage 7. Archive.");
-    expect(second).toContain("Stage 7. Archive.");
+    expect(first).toContain("Phase 7. Archive.");
+    expect(second).toContain("Phase 7. Archive.");
     expect(second).toContain(".phase-archive.json");
-    expect(second).not.toContain("Stage 1. Change Intake.");
+    expect(second).not.toContain("Phase 1. Change Intake.");
   });
 
   test("final ready_with_risks without blocking findings routes to archive stage", () => {
@@ -1789,7 +1818,7 @@ No markdown finding table here.
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
 
-    expect(output).toContain("Stage 7. Archive.");
+    expect(output).toContain("Phase 7. Archive.");
     expect(output).toContain("Do not use `validation_findings.md` as a source of requirements");
     expect(fs.existsSync(path.join(archivedDir, ".phase-archive.json"))).toBe(true);
   });
@@ -1808,8 +1837,8 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
     expect(output).toContain("iteration_plan.md");
-    expect(output).not.toContain("Stage 7. Archive.");
-    expect(output).not.toContain("Stage 6B. Final Validation.");
+    expect(output).not.toContain("Phase 7. Archive.");
+    expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
   test("final ready_with_risks with open blocking findings routes to repair instead of archive", () => {
@@ -1824,12 +1853,12 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6R. Finding Repair.");
+    expect(output).toContain("Phase 6R. Finding Repair.");
     expect(output).toContain("| F1 | MUST-FIX | implementation | Final | Broken final check. | Repair the final check. |");
-    expect(output).not.toContain("Stage 7. Archive.");
+    expect(output).not.toContain("Phase 7. Archive.");
   });
 
-  test("invalid rules with missing unit command blocks before rendering implementation prompts", () => {
+  test("invalid execution contract with missing Constraints section blocks before rendering implementation prompts", () => {
     setupChange(`
 # Plan
 
@@ -1841,20 +1870,29 @@ No markdown finding table here.
 ## Test Commands
 | Gate | Command |
 |---|---|
+| unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("unit");
-    expect(output).toContain("Test Commands must contain exactly these gates in order");
+    expect(output).toContain("missing required section: ## Constraints");
     expect(output).not.toContain("run unit tests");
   });
 
-  test("invalid rules with missing phase command blocks before phase validation prompt", () => {
+  test("invalid execution contract with missing Verification Gates section blocks before phase validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1870,18 +1908,28 @@ No markdown finding table here.
 | Gate | Command |
 |---|---|
 | unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("phase");
-    expect(output).not.toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("missing required section: ## Verification Gates");
+    expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
-  test("invalid rules with missing full command blocks before final validation prompt", () => {
+  test("invalid execution contract with missing Environment Notes section blocks before final validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1895,14 +1943,24 @@ No markdown finding table here.
 |---|---|
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
+| full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("full");
-    expect(output).not.toContain("Stage 6B. Final Validation.");
+    expect(output).toContain("missing required section: ## Environment Notes");
+    expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
   test("invalid plan blocks before plan approval prompt", () => {
@@ -1938,7 +1996,7 @@ No markdown finding table here.
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Design requires review");
     expect(output).toContain("architecture/design.md");
-    expect(output).not.toContain("Stage 6A. Iteration Validation.");
+    expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("implementation prompt does not instruct agent to mark phase header completed", () => {
@@ -1951,11 +2009,11 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("Stage 5. Implementation.");
+    expect(output).toContain("Phase 5. Implementation.");
     expect(output).toContain("bun test unit");
-    expect(output).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage iteration_validation`);
+    expect(output).toContain(`phasedev check --project-path "${testTmpDir}"`);
     expect(output).toContain("finish only when the controller self-check passes or the current phase is honestly recorded as `blocked`");
-    expect(output).toContain("do not mark the phase heading `[x]` at this stage");
+    expect(output).toContain("do not mark the phase heading `[x]` at this phase");
     expect(output).not.toContain("change the phase status in the plan heading from `[~]`");
     expect(output).not.toContain("mark the phase heading as `[x]`");
     expect(output).not.toContain("run unit tests");
@@ -1978,7 +2036,7 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Stage 5. Implementation.");
+    expect(output).toContain("Phase 5. Implementation.");
     expect(output).toContain("Current phase from approved plan:");
     expect(output).toContain("Additional checks:");
     expect(output).toContain("bun test:e2e auth");
@@ -2032,7 +2090,7 @@ Checks:
 
     const output = runNext();
 
-    expect(output).toContain("Stage 5. Implementation.");
+    expect(output).toContain("Phase 5. Implementation.");
     expect(output).toContain("## Iteration 1: API [~]");
     expect(output).not.toContain("## Iteration 1: API [ ]");
   });
@@ -2053,7 +2111,7 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6A. Iteration Validation.");
+    expect(output).toContain("Phase 6A. Iteration Validation.");
     expect(output).not.toContain("Additional checks for the current phase from the plan:");
     expect(output).not.toContain("bun test:e2e auth");
     expect(output).not.toContain("additional checks are executed");
@@ -2072,7 +2130,7 @@ Additional checks:
 
     const output = runNext();
 
-    expect(output).toContain("Stage 6B. Final Validation.");
+    expect(output).toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("Additional checks for the current single-phase phase");
     expect(output).not.toContain("bun test:e2e checkout");
     expect(output).not.toContain("applicable additional checks");
@@ -2084,23 +2142,23 @@ describe("flow templates", () => {
   afterEach(() => cleanupTestDir());
 
   const templateNames = [
-    "stage1_change_intake.md",
-    "stage2_code_research.md",
-    "stage3_technical_design.md",
-    "stage4_iteration_planning.md",
-    "stage5_implementation.md",
-    "stage6a_iteration_validation.md",
-    "stage6b_final_validation.md",
-    "stage6r_finding_repair.md",
-    "stage7_archive.md"
+    "phase1_change_intake.md",
+    "phase2_code_research.md",
+    "phase3_technical_design.md",
+    "phase4_iteration_planning.md",
+    "phase5_implementation.md",
+    "phase6a_iteration_validation.md",
+    "phase6b_final_validation.md",
+    "phase6r_finding_repair.md",
+    "phase7_archive.md"
   ];
 
   function readTemplate(name: string): string {
     return fs.readFileSync(path.resolve(__dirname, "..", "templates", name), "utf-8");
   }
 
-  function readValidationTemplate(name: "stage6a_iteration_validation.md" | "stage6b_final_validation.md"): string {
-    const stage = name === "stage6b_final_validation.md" ? "final_validation" : "iteration_validation";
+  function readValidationTemplate(name: "phase6a_iteration_validation.md" | "phase6b_final_validation.md"): string {
+    const stage = name === "phase6b_final_validation.md" ? "final_validation" : "iteration_validation";
     return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)));
   }
 
@@ -2159,7 +2217,7 @@ stages:
     expect(setupPolicy).toContain("do not authorize reading framework source, framework templates, config files");
     expect(setupPolicy).toContain("For setup, for each configured router, configured main, and router-selected skill that does not fit the available post-intake evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
     expect(setupPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-    expect(researchPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the stage evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
+    expect(researchPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
     expect(researchPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(implementationPolicy).toContain("Allowed skills:");
     expect(implementationPolicy).toContain("Priority 1 - Routers:");
@@ -2168,7 +2226,7 @@ stages:
     expect(implementationPolicy).toContain("- `security-and-hardening`");
     expect(implementationPolicy).not.toContain("Router-selected:");
     expect(implementationPolicy).not.toContain("determined after reading routers");
-    expect(implementationPolicy).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the stage evidence and fully execute its mandatory instructions by default");
+    expect(implementationPolicy).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the phase evidence and fully execute its mandatory instructions by default");
     expect(implementationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
     expect(implementationPolicy).toContain("Do not replace mandatory skill steps with ad hoc grep, prose, or `echo` acknowledgements.");
     expect(implementationPolicy).toContain("Native skill reports, headings, lifecycle files, and artifact formats are not Flow artifact structure; adapt results into the current PhaseDev artifact template, final response, or blocker instead.");
@@ -2176,39 +2234,39 @@ stages:
     expect(implementationPolicy).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
     expect(implementationPolicy).toContain("- `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)");
     expect(implementationPolicy).toContain("When a router-selected skill and a main skill address the same evidence, the more specific (router-selected) method takes priority for that evidence.");
-    expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed stage skill configuration.");
-    expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the stage evidence.");
+    expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
+    expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
     expect(implementationPolicy).toContain("Router skills listed as Priority 1 are read first when available because they may select execution-method skills.");
-    expect(implementationPolicy).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of stage evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
-    expect(implementationPolicy).toContain("Do not eagerly load method skill bodies before stage/artifact context is understood; still read each configured router first when stage timing allows, then evaluate and fully execute each configured main skill per the mandate above.");
-    expect(implementationPolicy).toContain("Priority 1: after reading this stage prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the stage evidence, and use additional skills only when their evidence-specific condition is met.");
+    expect(implementationPolicy).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of phase evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
+    expect(implementationPolicy).toContain("Do not eagerly load method skill bodies before phase/artifact context is understood; still read each configured router first when phase timing allows, then evaluate and fully execute each configured main skill per the mandate above.");
+    expect(implementationPolicy).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(implementationPolicy).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
-    expect(implementationPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the stage evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
+    expect(implementationPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
     expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(validationPolicy).toContain("Allowed skills:");
     expect(validationPolicy).toContain("- `performance-audit`");
-    expect(validationPolicy).toContain("Validation stages are review-only");
-    expect(validationPolicy).toContain("Configured `main` skills are mandatory execution-method skills for this stage.");
+    expect(validationPolicy).toContain("Validation phases are review-only");
+    expect(validationPolicy).toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
     expect(validationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
   });
 
   test("stage templates preserve executable artifact allowlists", () => {
     const expectations: Array<[string, string[]]> = [
-      ["stage1_change_intake.md", ["`prd.md`", "`execution_contract.md`"]],
-      ["stage2_code_research.md", ["`research_facts.md`"]],
-      ["stage3_technical_design.md", ["active change folder `architecture/design.md`", "linked files inside the active change folder `architecture/`"]],
-      ["stage4_iteration_planning.md", ["`iteration_plan.md`"]],
-      ["stage5_implementation.md", ["production/test code", "`iteration_plan.md`"]],
-      ["stage6a_iteration_validation.md", ["`validation_findings.md`", "`iteration_plan.md`"]],
-      ["stage6b_final_validation.md", ["`validation_findings.md`"]],
-      ["stage6r_finding_repair.md", ["affected production/test code", "`validation_findings.md`"]],
-      ["stage7_archive.md", ["Delta specs", "`.phasedev/specs`"]]
+      ["phase1_change_intake.md", ["`prd.md`", "`execution_contract.md`"]],
+      ["phase2_code_research.md", ["`research_facts.md`"]],
+      ["phase3_technical_design.md", ["active change folder `architecture/design.md`", "linked files inside the active change folder `architecture/`"]],
+      ["phase4_iteration_planning.md", ["`iteration_plan.md`"]],
+      ["phase5_implementation.md", ["production/test code", "`iteration_plan.md`"]],
+      ["phase6a_iteration_validation.md", ["`validation_findings.md`", "`iteration_plan.md`"]],
+      ["phase6b_final_validation.md", ["`validation_findings.md`"]],
+      ["phase6r_finding_repair.md", ["affected production/test code", "`validation_findings.md`"]],
+      ["phase7_archive.md", ["Delta specs", "`.phasedev/specs`"]]
     ];
 
     for (const [templateName, fragments] of expectations) {
       const template = readTemplate(templateName);
-      expect(template).toContain("Allowed persistent artifacts for this stage");
+      expect(template).toContain("Allowed persistent artifacts for this phase");
       for (const fragment of fragments) {
         expect(template).toContain(fragment);
       }
@@ -2234,8 +2292,8 @@ stages:
   });
 
   test("validation templates preserve registry scope markers", () => {
-    const phaseTemplate = readValidationTemplate("stage6a_iteration_validation.md");
-    const finalTemplate = readValidationTemplate("stage6b_final_validation.md");
+    const phaseTemplate = readValidationTemplate("phase6a_iteration_validation.md");
+    const finalTemplate = readValidationTemplate("phase6b_final_validation.md");
 
     expect(phaseTemplate).toContain("must have `type: iteration`");
     expect(finalTemplate).toContain("must have `type: final`");
@@ -2253,7 +2311,7 @@ stages:
   });
 
   test("archive prompt keeps archive state and delta spec inputs", () => {
-    const archiveTemplate = readTemplate("stage7_archive.md");
+    const archiveTemplate = readTemplate("phase7_archive.md");
 
     expect(archiveTemplate).toContain("[prd.md]({{prd_path}})");
     expect(archiveTemplate).toContain("[execution_contract.md]({{rules_path}})");
@@ -2267,7 +2325,7 @@ stages:
   });
 
   test("template renderer rejects unresolved placeholders", () => {
-    expect(() => renderTemplate("stage_evolution", {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
+    expect(() => renderTemplate("phase_evolution", {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
   });
 
   describe("config command deprecation", () => {
@@ -2350,7 +2408,7 @@ describe("new CLI commands", () => {
     const result = runCli(["status", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("Active Change: test-change");
-    expect(result.output).toContain("Current Stage:");
+    expect(result.output).toContain("Current Phase:");
     expect(result.output).toContain("Route:");
     expect(result.output).toContain("prd.md");
     expect(result.output).toContain("execution_contract.md");

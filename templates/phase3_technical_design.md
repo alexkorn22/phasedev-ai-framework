@@ -1,4 +1,4 @@
-Stage 3. Technical Design.
+Phase 3. Technical Design.
 
 Phase contract: prepare an approvable visual-first architecture package based on requirements and research facts.
 
@@ -14,7 +14,7 @@ Input artifacts:
 Use this bounded retrieval order before designing:
 1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
 2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized.
-   If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
+   If a phase input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
 {{stage_skill_step}}
 4. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.
 
@@ -22,7 +22,7 @@ Context budget and stop condition:
 - Start with PRD, research facts, rules, and active change paths; do not broad-scan the repository by default.
 - For repository evidence, first run targeted searches for named files, APIs, modules, commands, or concepts from the PRD/research. If those searches identify no relevant surface, record the absence as a bounded risk instead of continuing an open-ended scan.
 - Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence, at least one `D#`, affected boundaries, and plan impact, and no material approval ambiguity remains.
-- Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless a stage input explicitly requires that evidence.
+- Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless a phase input explicitly requires that evidence.
 
 Required output artifact:
 - [architecture/design.md]({{design_path}}) inside the active change folder.
@@ -30,13 +30,13 @@ Required output artifact:
 Path resolution rule:
 - `architecture/design.md` and `architecture/*.md` in this prompt are design package paths relative to the active change folder, not paths from the project repository root.
 - Write the entrypoint only to the absolute Output path in the Artifact Build Contract below.
-- Do not create or update a project-root `architecture/` directory during this stage.
+- Do not create or update a project-root `architecture/` directory during this phase.
 
 Use the Artifact Build Contract below as the only source of structure for `architecture/design.md`.
 
 {{design_artifact_contract}}
 
-`architecture/design.md` is the required design-stage entry point, the only design approval gate, and the architecture package entrypoint/index.
+`architecture/design.md` is the required design-phase entry point, the only design approval gate, and the architecture package entrypoint/index.
 
 Additional architecture files inside `architecture/` are allowed and expected for any non-trivial design. Examples: `data-flow.md`, `api-contracts.md`, `ui-architecture.md`, `migration-plan.md`, `persistence.md`, `runtime-layout.md`, `validation.md`.
 
@@ -81,12 +81,12 @@ Visual review aids:
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - active change folder `architecture/design.md` at the Artifact Build Contract Output path
 - linked files inside the active change folder `architecture/`, only when they are referenced from `architecture/design.md`
 
 Constraints:
-- do not change production code at this stage;
+- do not change production code at this phase;
 - do not create or update project-root `architecture/` files;
 - the AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
@@ -122,7 +122,7 @@ Prefer a complete, approvable design when the available inputs support one:
 
 ## Completion self-check
 
-Before completing the stage, verify:
+Before completing the phase, verify:
 - `architecture/design.md` is not a huge design dump: the target size is respected or there is a clear reason to remain single-file.
 - If `architecture/design.md` approaches 180 lines, details have been moved to linked subdocuments.
 - All linked subdocuments are listed in `Architecture Package Map` and explicitly linked from `architecture/design.md`.
@@ -135,24 +135,24 @@ Before completing the stage, verify:
 - Every `D#` is defined exactly once and referenced by at least one traceability row.
 - Design does not diverge from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
 
-Then immediately validate the new design artifact before completing the stage:
+Then immediately validate the new design artifact before completing the phase:
 
 ```bash
 {{self_check_command}}
 ```
 
-If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `architecture/design.md` until this self-check passes.
+If the check fails, fix the reported artifact issues in this same phase, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `architecture/design.md` until this self-check passes.
 
 Bounded escape hatch:
 - If the same self-check command remains unavailable after checking for a controller-provided or local package executable, report a blocker with the exact command and output.
 - If the same non-actionable validator failure repeats after one concrete artifact fix attempt and rerun, stop and report a blocker with the exact command, output, and fix attempted.
 - Do not loop indefinitely on unavailable commands or repeated non-actionable failures.
 
-Stage completion:
+Phase completion:
 - After writing the architecture package, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Final response must be compact and include:
   - artifact path: `architecture/design.md`;
   - linked architecture docs created, or `none`;
   - self-check command and result;
   - {{skill_compliance_line}}
-  - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev next`.
+  - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev advance`.

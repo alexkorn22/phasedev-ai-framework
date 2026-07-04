@@ -1,4 +1,4 @@
-Stage 2. Code Research.
+Phase 2. Code Research.
 
 Phase contract: create the factual basis for the design phase.
 
@@ -16,7 +16,7 @@ Output artifact:
 Path resolution rule:
 - `research_facts.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
 - Write the artifact only to the absolute Output path in the Artifact Build Contract below.
-- Do not create or update a project-root `research_facts.md` file during this stage.
+- Do not create or update a project-root `research_facts.md` file during this phase.
 - Run all code, config, test, and runtime evidence searches under `{{project_path}}` unless an explicit input artifact path in this prompt points elsewhere.
 
 Use the Artifact Build Contract below as the only source of structure for `research_facts.md`.
@@ -48,7 +48,7 @@ Research artifact requirements:
 
 ## Artifact self-check
 
-After creating `research_facts.md`, immediately validate the new artifact before completing the stage:
+After creating `research_facts.md`, immediately validate the new artifact before completing the phase:
 
 ```bash
 {{self_check_command}}
@@ -56,14 +56,14 @@ After creating `research_facts.md`, immediately validate the new artifact before
 
 If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Report `Research ready` only after this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... ` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... ` or `bunx phasedev check --project-path ... ` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - active change folder `research_facts.md` at the Artifact Build Contract Output path
 
-Stage completion:
+Phase completion:
 - After writing `research_facts.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections:
 
@@ -71,7 +71,7 @@ Stage completion:
 Research ready: {{research_path}}
 Self-check: {{self_check_command}} -> <result>
 Route: design
-Next: phasedev next
+Next: phasedev phase
 {{skill_compliance_line}}
 ```
 

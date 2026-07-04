@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 
-const REQUIRED_SECTIONS = ["Test Commands"];
+const REQUIRED_SECTIONS = ["Test Commands", "Constraints", "Verification Gates", "Manual Checks", "Environment Notes"];
 const REQUIRED_COMMAND_KEYS = ["unit", "phase", "full"];
 const TABLE_HEADERS = ["Gate", "Command"];
 const BLOCKED_PLACEHOLDERS = [

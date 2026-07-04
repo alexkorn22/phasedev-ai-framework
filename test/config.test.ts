@@ -4,7 +4,7 @@ import * as path from "path";
 import {
   defaultConfigPath,
   getConfigValue,
-  getStageSkillConfig,
+  getPhaseSkillConfig,
   loadConfig,
   parseConfig,
   projectConfigPath,
@@ -65,13 +65,13 @@ stages:
 runArchiveStage: true
 autoApprove: false
 `);
-    expect(config.stages.change_intake).toBeDefined();
-    expect(config.stages.change_intake?.skills).toEqual({
+    expect(config.phases.change_intake).toBeDefined();
+    expect(config.phases.change_intake?.skills).toEqual({
       routers: ["using-zuvo"],
       main: ["dev-core"],
       additional: ["security-and-hardening"]
     });
-    expect(config.stages.implementation?.skills.main).toEqual(["test-driven-development"]);
+    expect(config.phases.implementation?.skills.main).toEqual(["test-driven-development"]);
     expect(config.runArchiveStage).toBe(true);
     expect(config.autoApprove).toBe(false);
   });
@@ -91,7 +91,7 @@ stages:
       main: ["test"]
 `);
       expect(config).toBeDefined();
-      expect(config.stages.unknown_stage).toBeUndefined();
+      expect((config.phases as any).unknown_stage).toBeUndefined();
     });
     expect(warnings.length).toBeGreaterThan(0);
     expect(warnings.some(w => w.includes("unknown_stage"))).toBe(true);
@@ -99,7 +99,7 @@ stages:
 
   test("parses empty/missing phases to empty object", () => {
     const config = parseConfig(`{}`);
-    expect(config.stages).toEqual({});
+    expect(config.phases).toEqual({});
   });
 
   test("parses phases with empty skills", () => {
@@ -111,8 +111,8 @@ stages:
       main: []
       additional: []
 `);
-    expect(config.stages.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
-    expect(config.stages.implementation).toBeUndefined();
+    expect(config.phases.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
+    expect(config.phases.implementation).toBeUndefined();
   });
 
   test("deduplicates stage skills by priority", () => {
@@ -132,14 +132,14 @@ stages:
         - test-driven-development
         - test-driven-development
 `);
-    expect(config.stages.change_intake?.skills).toEqual({
+    expect(config.phases.change_intake?.skills).toEqual({
       routers: ["using-zuvo"],
       main: ["dev-core"],
       additional: ["test-driven-development"]
     });
   });
 
-  test("getStageSkillConfig returns correct skills for a phase", () => {
+  test("getPhaseSkillConfig returns correct skills for a phase", () => {
     const config = parseConfig(`
 stages:
   implementation:
@@ -148,26 +148,82 @@ stages:
       main: ["dev-core"]
       additional: ["security-and-hardening"]
 `);
-    expect(getStageSkillConfig(config, "implementation")).toEqual({
+    expect(getPhaseSkillConfig(config, "implementation")).toEqual({
       routers: ["using-zuvo"],
       main: ["dev-core"],
       additional: ["security-and-hardening"]
     });
   });
 
-  test("getStageSkillConfig returns empty for init stage", () => {
+  test("getPhaseSkillConfig returns empty for init stage", () => {
     const config = parseConfig(`{}`);
-    expect(getStageSkillConfig(config, "init")).toEqual({ routers: [], main: [], additional: [] });
+    expect(getPhaseSkillConfig(config, "init")).toEqual({ routers: [], main: [], additional: [] });
   });
 
-  test("getStageSkillConfig returns empty for unconfigured phase", () => {
+  test("getPhaseSkillConfig returns empty for unconfigured phase", () => {
     const config = parseConfig(`
 stages:
   implementation:
     skills:
       main: ["dev-core"]
 `);
-    expect(getStageSkillConfig(config, "change_intake")).toEqual({ routers: [], main: [], additional: [] });
+    expect(getPhaseSkillConfig(config, "change_intake")).toEqual({ routers: [], main: [], additional: [] });
+  });
+
+  test("canonical 'phases:' key works and parses correctly", () => {
+    const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      routers: ["using-zuvo"]
+      main: ["dev-core"]
+      additional: ["security-and-hardening"]
+  implementation:
+    skills:
+      main: ["test-driven-development"]
+runArchiveStage: false
+autoApprove: true
+`);
+    expect(config.phases.change_intake).toBeDefined();
+    expect(config.phases.change_intake?.skills).toEqual({
+      routers: ["using-zuvo"],
+      main: ["dev-core"],
+      additional: ["security-and-hardening"]
+    });
+    expect(config.phases.implementation?.skills.main).toEqual(["test-driven-development"]);
+    expect(config.runArchiveStage).toBe(false);
+    expect(config.autoApprove).toBe(true);
+  });
+
+  test("legacy 'stages:' key emits deprecation warning", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+stages:
+  change_intake:
+    skills:
+      main: ["dev-core"]
+`);
+      expect(config.phases.change_intake?.skills.main).toEqual(["dev-core"]);
+    });
+    expect(warnings.some(w => w.includes("stages:"))).toBe(true);
+  });
+
+  test("conflict 'phases:' and 'stages:' resolved with 'phases:' winning", () => {
+    const warnings = captureWarnings(() => {
+      const config = parseConfig(`
+phases:
+  change_intake:
+    skills:
+      main: ["phases-skill"]
+stages:
+  change_intake:
+    skills:
+      main: ["stages-skill"]
+`);
+      expect(config.phases.change_intake?.skills.main).toEqual(["phases-skill"]);
+    });
+    // Should warn about conflict and that phases: takes precedence
+    expect(warnings.some(w => w.includes("both") || w.includes("Both"))).toBe(true);
   });
 });
 
@@ -187,14 +243,14 @@ stages:
       main: ["dev-core"]
 `);
     const config = loadConfig(configPath);
-    expect(config.stages.implementation?.skills.main).toEqual(["dev-core"]);
+    expect(config.phases.implementation?.skills.main).toEqual(["dev-core"]);
     expect(config.runArchiveStage).toBe(true);
     expect(config.autoApprove).toBe(false);
   });
 
   test("returns DEFAULT_CONFIG when config file does not exist", () => {
     const config = loadConfig("/nonexistent/path/config.yaml");
-    expect(config.stages).toEqual({});
+    expect(config.phases).toEqual({});
     expect(config.runArchiveStage).toBe(true);
     expect(config.autoApprove).toBe(false);
   });
@@ -226,7 +282,7 @@ stages:
 
     const resolvedPath = resolveConfigPath(projectPath, explicitConfigPath);
     expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
-    expect(loadConfig(resolvedPath).stages.implementation?.skills.main).toEqual(["explicit-skill"]);
+    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["explicit-skill"]);
   });
 
   test("resolves project flow config before root default config", () => {
@@ -240,7 +296,7 @@ stages:
 
     const resolvedPath = resolveConfigPath(projectPath);
     expect(resolvedPath).toBe(projectConfigPath(projectPath));
-    expect(loadConfig(resolvedPath).stages.implementation?.skills.main).toEqual(["project-skill"]);
+    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["project-skill"]);
   });
 
   test("resolves root default config when project config is missing", () => {
@@ -382,11 +438,11 @@ codex:
       skills:
         main: ["test"]
 `);
-      expect(config.stages).toBeDefined();
-      expect(config.stages.change_intake).toBeDefined();
-      expect(config.stages.change_intake?.skills.main).toEqual(["test"]);
-      expect(config.stages.change_intake?.skills.routers).toEqual([]);
-      expect(config.stages.change_intake?.skills.additional).toEqual([]);
+      expect(config.phases).toBeDefined();
+      expect(config.phases.change_intake).toBeDefined();
+      expect(config.phases.change_intake?.skills.main).toEqual(["test"]);
+      expect(config.phases.change_intake?.skills.routers).toEqual([]);
+      expect(config.phases.change_intake?.skills.additional).toEqual([]);
       expect(config.runArchiveStage).toBe(true);
       expect(config.autoApprove).toBe(false);
     });
@@ -409,7 +465,7 @@ codex:
       skills:
         main: ["test"]
 `);
-      expect(config.stages.change_intake?.skills.main).toEqual(["test"]);
+      expect(config.phases.change_intake?.skills.main).toEqual(["test"]);
     });
     expect(
       warnings.some(w => w.includes("model") || w.includes("reasoningEffort") || w.includes("setup"))
@@ -432,7 +488,7 @@ stages:
     skills:
       main: ["new-skill"]
 `);
-      expect(config.stages.change_intake?.skills.main).toEqual(["new-skill"]);
+      expect(config.phases.change_intake?.skills.main).toEqual(["new-skill"]);
     });
     expect(warnings.length).toBeGreaterThan(0);
   });

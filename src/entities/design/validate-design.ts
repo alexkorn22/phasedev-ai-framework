@@ -12,15 +12,6 @@ import {
 } from "../../shared/markdown/table";
 import { extractPrdTraceability } from "../prd/traceability";
 
-const REQUIRED_SECTIONS = [
-  "Executive Summary",
-  "Traceability Mapping",
-  "Architecture Package Map",
-  "Key Design Decisions",
-  "Contracts, Interfaces & Boundaries",
-  "Risks & Open Questions"
-];
-
 const BLOCKED_PLACEHOLDERS = [
   { pattern: /\bTBD\b/i, label: "TBD" },
   { pattern: /\bTODO\b/i, label: "TODO" },
@@ -445,28 +436,6 @@ export function validateDesign(filePath: string, options: ValidateDesignOptions 
     if (deepHeading) {
       issues.push(`design.md must not contain headings deeper than \`##\`: \`${line.trim()}\`.`);
     }
-  }
-
-  const actualSections = lines.map(headingName).filter((section): section is string => section !== null);
-  for (const section of REQUIRED_SECTIONS) {
-    if (!actualSections.some(actual => actual.toLowerCase() === section.toLowerCase())) {
-      issues.push(`design.md must contain section \`## ${section}\`.`);
-    }
-  }
-
-  for (const section of actualSections) {
-    if (!REQUIRED_SECTIONS.some(allowed => allowed.toLowerCase() === section.toLowerCase())) {
-      issues.push(`design.md contains unexpected section \`## ${section}\`.`);
-    }
-  }
-
-  const normalizedActualSections = actualSections.map(section => section.toLowerCase());
-  const normalizedRequiredSections = REQUIRED_SECTIONS.map(section => section.toLowerCase());
-  if (
-    normalizedActualSections.length !== normalizedRequiredSections.length ||
-    normalizedActualSections.some((section, index) => section !== normalizedRequiredSections[index])
-  ) {
-    issues.push(`design.md \`##\` sections must exactly match this order: ${REQUIRED_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
   validateArchitecturePackageMap(lines, filePath, issues);

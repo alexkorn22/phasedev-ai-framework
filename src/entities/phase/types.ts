@@ -1,4 +1,4 @@
-export type Stage =
+export type Phase =
   | "init"
   | "change_intake"
   | "code_research"
@@ -12,7 +12,7 @@ export type Stage =
 
 export interface Prompt {
   command: "init" | "next";
-  stage: Stage;
+  phase: Phase;
   prompt: string;
   blocked: boolean;
   reason?: string;

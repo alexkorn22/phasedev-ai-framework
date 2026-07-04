@@ -1,12 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
-import { resolveRoute } from "../stage-control/flow-route";
+import { resolveRoute } from "../phase-control/flow-route";
 
 export interface ChangeEntry {
   name: string;
   type: "active" | "archived";
-  stage?: string;
+  phase?: string;
   routeKind?: string;
   archiveDate?: string;
   archiveStatus?: string;
@@ -29,7 +29,7 @@ export function listChanges(projectPath: string): ChangeEntry[] {
       entries.push({
         name: item,
         type: "active",
-        stage: route.stage,
+        phase: route.phase,
         routeKind: route.kind
       });
     }
@@ -92,8 +92,8 @@ export function renderChanges(entries: ChangeEntry[]): string {
       if (entry.routeKind) {
         lines.push(`    Route: ${entry.routeKind}`);
       }
-      if (entry.stage) {
-        lines.push(`    Stage: ${entry.stage}`);
+      if (entry.phase) {
+        lines.push(`    Phase: ${entry.phase}`);
       }
     }
     lines.push("");

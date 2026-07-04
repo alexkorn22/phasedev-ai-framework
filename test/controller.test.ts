@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { getInitPrompt, getNextPrompt } from "../src/features/stage-control";
+import { getInitPrompt, getNextPrompt } from "../src/features/phase-control";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -206,6 +206,18 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `);
   fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
   writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody(), options.designApproved ?? true);
@@ -226,7 +238,7 @@ describe("flow controller typed stages", () => {
     const result = getInitPrompt(testTmpDir);
 
     expect(result.command).toBe("init");
-    expect(result.stage).toBe("init");
+    expect(result.phase).toBe("init");
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("## Init State");
     expect(result.prompt).toContain("command: init");
@@ -253,11 +265,23 @@ describe("flow controller typed stages", () => {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `);
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("change_intake");
+    expect(result.phase).toBe("change_intake");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid prd.md");
     expect(result.prompt).toContain("Intent field `Change type` must be present and non-empty.");
@@ -273,9 +297,9 @@ describe("flow controller typed stages", () => {
 
     const result = getInitPrompt(testTmpDir);
 
-    expect(result.stage).toBe("init");
+    expect(result.phase).toBe("init");
     expect(result.prompt).toContain("current_stage: implementation");
-    expect(result.prompt).toContain("route_kind: phase");
+    expect(result.prompt).toContain("route_kind: iteration");
     expect(result.prompt).toContain(`active_change: file://${changeDir}`);
     expect(fs.existsSync(changeDir)).toBe(true);
   });
@@ -308,20 +332,20 @@ describe("flow controller typed stages", () => {
     const result = getInitPrompt(testTmpDir);
 
     expect(result.command).toBe("init");
-    expect(result.stage).toBe("init");
+    expect(result.phase).toBe("init");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
     expect(result.prompt).toContain("Multiple active changes found in .phasedev/changes");
     expect(result.prompt).toContain("phasedev init performed no filesystem changes");
-    expect(result.prompt).toContain("Fix the flow state before running `phasedev next`.");
+    expect(result.prompt).toContain("Fix the flow state before running `phasedev phase` or `phasedev advance`.");
   });
 
   test("missing active change routes to setup stage", () => {
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("change_intake");
+    expect(result.phase).toBe("change_intake");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Stage 1. Change Intake.");
+    expect(result.prompt).toContain("Phase 1. Change Intake.");
     expect(result.prompt).toContain(`current project repository at \`${testTmpDir}\``);
     expect(result.prompt).toContain("this absolute path is the only target repository for repository inspection and artifact writes");
     expect(result.prompt).toContain("Artifact Build Contract: prd.md");
@@ -339,7 +363,7 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
-    expect(result.prompt).toContain("first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route change_intake_approval` subcommand");
+    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
     expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
@@ -363,19 +387,31 @@ describe("flow controller typed stages", () => {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `);
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("technical_design");
+    expect(result.phase).toBe("technical_design");
     expect(result.prompt).toContain("Artifact Build Contract: architecture/design.md");
     expect(result.prompt).toContain(`Output path: \`${path.join(changeDir, "architecture", "design.md")}\``);
     expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt).toContain("# Design");
     expect(result.prompt).toContain("## Architecture Package Map");
     expect(result.prompt).toContain("Use this bounded retrieval order before designing");
-    expect(result.prompt).toContain("If a stage input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands)");
+    expect(result.prompt).toContain("If a phase input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands)");
     expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
     expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
     expect(result.prompt).toContain("do not add headings beyond the required `# Design` title and those six required `##` sections");
@@ -394,7 +430,13 @@ describe("flow controller typed stages", () => {
     expect(result.prompt).toContain("Final response must be compact and include");
     expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
-    expect(result.prompt).toContain("--expect-route technical_design_approval");
+    expect(result.prompt).toContain("Self-check command:");
+
+    // Self-check no longer uses --expect-route; verify it's the simplified form
+    const checkCmdIndex = result.prompt.indexOf("phasedev check");
+    const nextNewline = result.prompt.indexOf("\n", checkCmdIndex);
+    const checkLine = nextNewline > -1 ? result.prompt.slice(checkCmdIndex, nextNewline) : "";
+    expect(checkLine).not.toContain("--expect-route");
   });
 
   test("research prompt constrains repository evidence to target project root", () => {
@@ -410,18 +452,30 @@ describe("flow controller typed stages", () => {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `);
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("code_research");
+    expect(result.phase).toBe("code_research");
     expect(result.prompt).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
     expect(result.prompt).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
     expect(result.prompt).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
     expect(result.prompt).not.toContain("Context budget: use a small bounded number of broad file listings/searches");
     expect(result.prompt).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
-    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route design` subcommand");
-    expect(result.prompt).toContain("repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route design` or `bunx phasedev check --project-path ... --expect-route design` form");
+    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(result.prompt).not.toContain("--expect-route");
   });
 
   test("implementation route reports implementation stage", () => {
@@ -434,11 +488,11 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
+    expect(result.phase).toBe("implementation");
     expect(result.blocked).toBe(false);
-    expect(result.prompt).toContain("Stage 5. Implementation.");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
     expect(result.prompt).toContain("Check Evidence");
-    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}" --expect-route phase --expect-stage iteration_validation`);
+    expect(result.prompt).toContain(`phasedev check --project-path "${testTmpDir}"`);
   });
 
   test("completed multi-phase phase with passed evidence routes to phase validation stage", () => {
@@ -467,8 +521,8 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("iteration_validation");
+    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
   });
@@ -483,8 +537,8 @@ describe("flow controller typed stages", () => {
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("iteration_validation");
-    expect(result.prompt).toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("iteration_validation");
+    expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Check Evidence");
   });
 
@@ -515,9 +569,9 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 5. Implementation.");
-    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("implementation");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("completed tasks with failed check evidence stay in implementation", () => {
@@ -547,9 +601,9 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 5. Implementation.");
-    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("implementation");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("completed tasks with blocked check evidence stay in implementation", () => {
@@ -579,9 +633,9 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 5. Implementation.");
-    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("implementation");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("current phase implementation prompt uses required phase check commands", () => {
@@ -611,7 +665,7 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
+    expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("- full: `bun test full`");
     expect(result.prompt).not.toContain("- unit: `bun test unit`");
   });
@@ -643,9 +697,9 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("implementation");
-    expect(result.prompt).toContain("Stage 5. Implementation.");
-    expect(result.prompt).not.toContain("Stage 6A. Iteration Validation.");
+    expect(result.phase).toBe("implementation");
+    expect(result.prompt).toContain("Phase 5. Implementation.");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
   test("validated single-phase route reports final validation stage", () => {
@@ -660,8 +714,8 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("final_validation");
-    expect(result.prompt).toContain("Stage 6B. Final Validation.");
+    expect(result.phase).toBe("final_validation");
+    expect(result.prompt).toContain("Phase 6B. Final Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain(`phasedev check-validation --project-path "${testTmpDir}"`);
     expect(result.prompt).toContain("--scope final");
@@ -682,8 +736,8 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("finding_repair");
-    expect(result.prompt).toContain("Stage 6R. Finding Repair.");
+    expect(result.phase).toBe("finding_repair");
+    expect(result.prompt).toContain("Phase 6R. Finding Repair.");
   });
 
   test("archive route reports archive stage and moves active change to pending archive", () => {
@@ -701,8 +755,8 @@ Complete API work.
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
     const statePath = path.join(archiveDir, ".phase-archive.json");
 
-    expect(result.stage).toBe("archive");
-    expect(result.prompt).toContain("Stage 7. Archive.");
+    expect(result.phase).toBe("archive");
+    expect(result.prompt).toContain("Phase 7. Archive.");
     expect(fs.existsSync(changeDir)).toBe(false);
     expect(fs.existsSync(statePath)).toBe(true);
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({
@@ -725,8 +779,8 @@ Complete API work.
     const first = getNextPrompt(testTmpDir);
     const second = getNextPrompt(testTmpDir);
 
-    expect(first.stage).toBe("archive");
-    expect(second.stage).toBe("archive");
+    expect(first.phase).toBe("archive");
+    expect(second.phase).toBe("archive");
     expect(second.prompt).toContain(".phase-archive.json");
     expect(second.prompt).toContain(".phasedev/changes/archive");
   });
@@ -739,13 +793,13 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("archive");
+    expect(result.phase).toBe("archive");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
     expect(result.prompt).toContain("Invalid archive state.");
     expect(result.prompt).toContain(statePath);
     expect(result.prompt).toContain(".phase-archive.json is not valid JSON");
-    expect(result.prompt).not.toContain("Stage 1. Change Intake.");
+    expect(result.prompt).not.toContain("Phase 1. Change Intake.");
   });
 
   test("approval blocker reports blocked gate stage", () => {
@@ -760,7 +814,7 @@ Complete API work.
 
     const result = getNextPrompt(testTmpDir);
 
-    expect(result.stage).toBe("technical_design");
+    expect(result.phase).toBe("technical_design");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Design requires review");
   });

@@ -71,8 +71,8 @@ Phase section contract:
 Check Evidence contract:
 - Keep Check Evidence as a plain markdown table. Do not use task checkboxes inside evidence rows.
 - Result values must be exactly one of: pending, passed, failed, blocked, not_applicable.
-- Planning stage initializes relevant checks as pending and irrelevant checks as not_applicable.
-- Implementation stage updates pending rows after executing checks.
+- Planning phase initializes relevant checks as pending and irrelevant checks as not_applicable.
+- Implementation phase updates pending rows after executing checks.
 - Command Or Method must match the check command or named review/manual method from Checks.
 - Rows with Result `passed`, `failed`, or `blocked` must have non-empty concrete Evidence.
 -->

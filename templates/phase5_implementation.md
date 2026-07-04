@@ -1,4 +1,4 @@
-Stage 5. Implementation.
+Phase 5. Implementation.
 
 Phase contract: complete only the current phase of the approved implementation plan.
 
@@ -20,7 +20,7 @@ Current phase from approved plan:
 {{phase_excerpt}}
 
 Ordered workflow:
-1. Read this stage prompt, the embedded full-plan orientation, and the embedded current phase excerpt first; open the full [iteration_plan.md]({{plan_path}}) only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory.
+1. Read this phase prompt, the embedded full-plan orientation, and the embedded current phase excerpt first; open the full [iteration_plan.md]({{plan_path}}) only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory.
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
 4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
@@ -39,13 +39,13 @@ Context budget and stop condition:
 Scope rules:
 - execute only the current phase shown above;
 - the current phase change set implements only the `R#` and `SC#` tied to the current phase in the approved plan;
-- `Expected Change Surface` in the current phase constrains the allowed implementation areas for this stage;
+- `Expected Change Surface` in the current phase constrains the allowed implementation areas for this phase;
 - do not expand scope beyond the current phase `Expected Change Surface`, related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
 - if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary, stop and report a blocker instead of expanding scope yourself;
 - if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking;
 - do not block on PRD/design coverage gaps outside the current phase boundary; mention them only as remaining risks if discovered while following the retrieval order;
-- do not mark the phase heading `[x]` at this stage. It must remain `[~]` until successful validation.
+- do not mark the phase heading `[x]` at this phase. It must remain `[~]` until successful validation.
 
 Path resolution rule:
 - `iteration_plan.md` in this prompt is the active change folder plan at [iteration_plan.md]({{plan_path}}), not a path from the project repository root.
@@ -80,10 +80,10 @@ Final response is allowed only after the self-check passes or the current phase 
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - production/test code needed for current phase
 - task checkboxes and `Check Evidence` rows in active change folder `iteration_plan.md`
 
-Stage completion:
+Phase completion:
 - After updating the change set and `iteration_plan.md`, stop.
-- Tell the user that the current phase is ready for validation and the next transition is run through `phasedev next`.
+- Tell the user that the current phase is ready for validation and the next transition is through `phasedev advance`.

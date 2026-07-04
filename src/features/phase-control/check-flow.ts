@@ -1,17 +1,17 @@
-import { Stage } from "../../entities/stage/types";
-import { findActiveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { Route, resolveRoute } from "./flow-route";
+import { findActiveChangeDir } from "../../entities/change/active-change";
+import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
+import { validatePhase } from "./phase-validators";
 
 export type RouteKind = Route["kind"];
 
-export interface FlowCheckResult {
+export interface PhaseCheckResult {
   ok: boolean;
-  route: RouteKind;
-  stage: Stage;
+  phase: ActivePhase | string;
   message: string;
 }
 
@@ -44,11 +44,11 @@ const ROUTE_KINDS = new Set<RouteKind>([
   "finding_repair",
   "archive_readiness_blocked",
   "archive_ready",
-  "phase",
+  "iteration",
   "final_validation"
 ]);
 
-const STAGE_KINDS = new Set<Stage>([
+const PHASE_KINDS = new Set<string>([
   "init",
   "change_intake",
   "code_research",
@@ -60,10 +60,6 @@ const STAGE_KINDS = new Set<Stage>([
   "finding_repair",
   "archive"
 ]);
-
-function hasIssues(route: Route): route is Route & { issues: string[] } {
-  return "issues" in route;
-}
 
 function hasPaths(route: Route): route is Route & { paths: ChangePaths } {
   return "paths" in route;
@@ -98,13 +94,66 @@ export function routeKinds(): string[] {
   return Array.from(ROUTE_KINDS);
 }
 
-export function isStageKind(value: string): value is Stage {
-  return STAGE_KINDS.has(value as Stage);
+export function isPhaseKind(value: string): value is string {
+  return PHASE_KINDS.has(value);
 }
 
-export function stageKinds(): string[] {
-  return Array.from(STAGE_KINDS);
+export function phaseKinds(): string[] {
+  return Array.from(PHASE_KINDS);
 }
+
+// ── check-phase (new per-phase validator) ──────────────────
+
+/**
+ * Per-phase artifact validator.
+ *
+ * Validates artifacts of the active phase (or phaseOverride if provided).
+ * Does NOT compute route. Does NOT accept --expect-route.
+ */
+export function checkPhase(
+  projectPath: string,
+  phaseOverride?: string
+): PhaseCheckResult {
+  const state = loadFlowState(projectPath);
+  if (!state) {
+    return {
+      ok: false,
+      phase: "unknown",
+      message: "[PHASEDEV CHECK] FAILED: No active change. Run: phasedev create-change <name>."
+    };
+  }
+
+  const phase = phaseOverride ?? state.activePhase;
+  if (!isActivePhase(phase)) {
+    return {
+      ok: false,
+      phase,
+      message: `[PHASEDEV CHECK] FAILED: Unknown phase: ${phase}.`
+    };
+  }
+
+  const changeDir = locateChangeDir(projectPath, state);
+  if (!changeDir) {
+    return {
+      ok: false,
+      phase,
+      message: `[PHASEDEV CHECK] FAILED: Cannot locate change directory for phase ${phase}.`
+    };
+  }
+
+  const paths = buildChangePaths(changeDir);
+  const v = validatePhase(projectPath, phase, paths, state.activeIteration);
+
+  return {
+    ok: v.ok,
+    phase,
+    message: v.ok
+      ? `[PHASEDEV CHECK] OK: phase ${phase} is valid.`
+      : `[PHASEDEV CHECK] FAILED: phase ${phase} has issues.\n${v.issues.map(i => `- ${i}`).join("\n")}`
+  };
+}
+
+// ── check-validation (specialized, unchanged) ──────────────
 
 export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions): ValidationCheckResult {
   const route = resolveRoute(projectPath);
@@ -189,55 +238,5 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     ok: true,
     route: route.kind,
     message: `[PHASEDEV VALIDATION CHECK] OK: ${options.scope} validation is complete.`
-  };
-}
-
-export function checkRoute(projectPath: string, expectedRoute?: RouteKind, expectedStage?: Stage): FlowCheckResult {
-  const route = resolveRoute(projectPath);
-
-  if (hasIssues(route)) {
-    return {
-      ok: false,
-      route: route.kind,
-      stage: route.stage,
-      message: [
-        `[PHASEDEV CHECK] FAILED: ${route.kind} (stage: ${route.stage})`,
-        ...route.issues.map(issue => `- ${issue}`)
-      ].join("\n")
-    };
-  }
-
-  if (expectedRoute && route.kind !== expectedRoute) {
-    return {
-      ok: false,
-      route: route.kind,
-      stage: route.stage,
-      message: `[PHASEDEV CHECK] FAILED: expected route ${expectedRoute}, got ${route.kind} (stage: ${route.stage}).`
-    };
-  }
-
-  if (expectedStage && route.stage !== expectedStage) {
-    return {
-      ok: false,
-      route: route.kind,
-      stage: route.stage,
-      message: `[PHASEDEV CHECK] FAILED: expected stage ${expectedStage}, got ${route.stage} (route: ${route.kind}).`
-    };
-  }
-
-  if (route.kind === "archive_ready") {
-    return {
-      ok: true,
-      route: route.kind,
-      stage: route.stage,
-      message: "[PHASEDEV CHECK] OK: archive_ready. Archive is ready; no files were moved by check."
-    };
-  }
-
-  return {
-    ok: true,
-    route: route.kind,
-    stage: route.stage,
-    message: `[PHASEDEV CHECK] OK: current route is ${route.kind} (stage: ${route.stage}).`
   };
 }

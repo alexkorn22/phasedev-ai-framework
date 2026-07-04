@@ -6,16 +6,14 @@ import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
-import { Prompt, Stage } from "../../entities/stage/types";
+import { Prompt } from "../../entities/phase/types";
 import { parseCurrentValidationFindings, ValidationFindingState } from "../../entities/validation-findings/parse-validation-findings";
-import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
 import { shellQuote } from "../../shared/shell/shell-quote";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate } from "../../shared/prompt/phase-render-helpers";
 import { renderArtifactContract } from "./artifact-contract";
 import { renderChangedFileInventory } from "./changed-file-inventory";
 import { prompt, testCommandBlocker } from "./prompt-blockers";
 import { formatPhaseExcerpt, formatPlanMap, toFileUrl } from "./prompt-formatters";
-import { renderSkillComplianceLine, renderSkillPolicy, renderStageSkillNote, renderStageSkillStep } from "./skill-policy";
-import { renderValidationCommonContract } from "./validation-common-contract";
 
 export interface Urls {
   prd_path: string;
@@ -53,28 +51,6 @@ function renderRequiredCheckCommands(currentPhase: Iteration, testCommands: Test
   }).join("\n");
 }
 
-function renderStageTemplate(stage: Exclude<Stage, "init">, templateName: string, variables: Record<string, string>, config: Config): string {
-  return renderTemplate(templateName, {
-    ...variables,
-    prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
-    implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/implementation_plan")),
-    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/execution_contract")),
-    validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
-    validation_common_contract: renderValidationCommonContract(stage, config),
-    skill_policy: renderSkillPolicy(stage, config),
-    skill_compliance_line: renderSkillComplianceLine(stage, config),
-    stage_skill_step: renderStageSkillStep(stage, config),
-    stage_skill_note: renderStageSkillNote(stage, config),
-    skill_policy_inline_ref: ""
-  });
-}
-
-function flowCheckCommand(projectPath: string, expectedRoute?: string, expectedStage?: Stage): string {
-  const baseCommand = `phasedev check --project-path ${shellQuote(projectPath)}`;
-  const routeCommand = expectedRoute ? `${baseCommand} --expect-route ${expectedRoute}` : baseCommand;
-  return expectedStage ? `${routeCommand} --expect-stage ${expectedStage}` : routeCommand;
-}
-
 function flowValidationCheckCommand(projectPath: string, iterationId: number): string {
   return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope iteration --iteration-id ${iterationId}`;
 }
@@ -92,6 +68,12 @@ function validationFindingsContract(findingsPath: string, projectPath: string, i
   });
 }
 
+/**
+ * @deprecated Used only by the deprecated `phasedev next` path (get-next-prompt.ts).
+ * This function mutates flow state (updateIterationStatus) which violates the
+ * read-only contract principle. New code should use getPhasePrompt() instead.
+ * Called from scripts/generate-agent-prompts.ts via get-next-prompt.ts.
+ */
 export function handlePhase(planPath: string, activeIteration: Iteration, urls: Urls, testCommands: TestCommands, rulesPath: string, config: Config, projectPath = path.resolve(path.dirname(planPath), "..", "..", "..")): Prompt {
   let currentPhase = activeIteration;
   let planPhases = parsePlan(planPath);
@@ -105,7 +87,7 @@ export function handlePhase(planPath: string, activeIteration: Iteration, urls: 
   }
 
   if (isIterationReadyForValidation(currentPhase)) {
-    return prompt("next", "iteration_validation", renderStageTemplate("iteration_validation", "stage6a_iteration_validation", {
+    return prompt("next", "iteration_validation", renderPhaseTemplate("iteration_validation", "phase6a_iteration_validation", {
       phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
       prd_path: urls.prd_path,
       rules_path: urls.rules_path,
@@ -121,12 +103,12 @@ export function handlePhase(planPath: string, activeIteration: Iteration, urls: 
   const testCommand = renderRequiredCheckCommands(currentPhase, testCommands, rulesPath);
   if (typeof testCommand !== "string") return testCommand;
 
-  return prompt("next", "implementation", renderStageTemplate("implementation", "stage5_implementation", {
+  return prompt("next", "implementation", renderPhaseTemplate("implementation", "phase5_implementation", {
     phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
     plan_map: formatPlanMap(planPhases, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
-    self_check_command: flowCheckCommand(projectPath, "phase", "iteration_validation"),
+    self_check_command: flowCheckCommand(projectPath),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,
@@ -186,7 +168,7 @@ function formatRepairQueue(findingsPath: string): string {
 }
 
 export function repairPrompt(urls: Urls, findingsPath: string, config: Config, projectPath = path.resolve(path.dirname(findingsPath), "..", "..", "..")): Prompt {
-  return prompt("next", "finding_repair", renderStageTemplate("finding_repair", "stage6r_finding_repair", {
+  return prompt("next", "finding_repair", renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(findingsPath),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,

@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { findActiveChangeDir } from "../src/entities/change/active-change";
 import { parsePlan } from "../src/entities/iteration-plan/parse-plan";
+import type { Iteration } from "../src/entities/iteration-plan/types";
 import { validatePlanArtifact } from "../src/entities/iteration-plan/validate-plan-artifact";
 import { validatePlanStructure } from "../src/entities/iteration-plan/validate-plan";
 import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
@@ -681,7 +682,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       { id: 1, name: "API", status: "completed", tasks: [{ id: "1.1", name: "Implement endpoint", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 1, name: "UI", status: "in_progress", tasks: [], additionalChecks: [] },
       { id: 3, name: "Docs", status: "in_progress", tasks: [{ id: "3.1", name: "Update docs", status: "completed", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
 
     expect(issues).toContain("Iteration numbers must be unique; duplicate iteration id(s): 1.");
     expect(issues).toContain("Iteration numbers must be sequential starting at 1.");
@@ -693,7 +694,7 @@ Add bounded expected change surfaces for R1, SC1, and D1.
   test("validatePlanStructure rejects empty phase names", () => {
     const issues = validatePlanStructure([
       { id: 1, name: "", status: "not_started", tasks: [{ id: "1.1", name: "Implement prompt", status: "not_started", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
 
     expect(issues).toContain("Iteration 1 must have a non-empty name.");
   });
@@ -703,17 +704,17 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       {
         id: 1,
         name: "API",
-        status: "not_started",
+        status: "not_started" as const,
         tasks: [
-          { id: "1.1", name: "Task 1", status: "completed", children: [] }
+          { id: "1.1", name: "Task 1", status: "completed" as const, children: [] }
         ],
         additionalChecks: [],
         rawContent: "### Goal\nGoal\n### Expected Change Surface\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | API | R1, SC1, D1 |\n### Tasks\n- [x] 1.1 Task 1\n### Checks\nchecks\n### Check Evidence\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | cmd | passed | ok | none |\n",
         checkEvidence: [
-          { check: "unit", commandOrMethod: "cmd", result: "passed", evidence: "ok", notes: "none" }
+          { check: "unit", commandOrMethod: "cmd", result: "passed" as const, evidence: "ok", notes: "none" }
         ]
       }
-    ]);
+    ] as Iteration[]);
 
     expect(issues).toContain("Iteration 1: API is not started [ ] but contains completed tasks: 1.1.");
     expect(issues).toContain("Iteration 1: API is not started [ ] but contains non-pending evidence results.");
@@ -724,25 +725,25 @@ Add bounded expected change surfaces for R1, SC1, and D1.
       { id: 1, name: "Done", status: "completed", tasks: [{ id: "1.1", name: "Task 1", status: "completed", children: [] }], additionalChecks: [] },
       { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 3, name: "Queued", status: "not_started", tasks: [{ id: "3.1", name: "Task 3", status: "not_started", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
     expect(validIssues).not.toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Active [~] cannot appear after Iteration 1: Done [x].");
 
     const queuedBeforeActiveIssues = validatePlanStructure([
       { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Active", status: "in_progress", tasks: [{ id: "2.1", name: "Task 2", status: "not_started", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
     expect(queuedBeforeActiveIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Active [~] cannot appear after Iteration 1: Queued [ ].");
 
     const activeBeforeCompletedIssues = validatePlanStructure([
       { id: 1, name: "Active", status: "in_progress", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
     expect(activeBeforeCompletedIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Done [x] cannot appear after Iteration 1: Active [~].");
 
     const queuedBeforeCompletedIssues = validatePlanStructure([
       { id: 1, name: "Queued", status: "not_started", tasks: [{ id: "1.1", name: "Task 1", status: "not_started", children: [] }], additionalChecks: [] },
       { id: 2, name: "Done", status: "completed", tasks: [{ id: "2.1", name: "Task 2", status: "completed", children: [] }], additionalChecks: [] }
-    ]);
+    ] as Iteration[]);
     expect(queuedBeforeCompletedIssues).toContain("Iteration statuses must follow [x]* -> [~]? -> [ ]* order; Iteration 2: Done [x] cannot appear after Iteration 1: Queued [ ].");
   });
 
@@ -767,7 +768,7 @@ date: 2026-06-02
 | SC2 | R2 | Log is tested | review |
 `, "utf-8");
 
-    const phases = [
+    const phases: Iteration[] = [
       {
         id: 1,
         name: "Auth",
@@ -799,7 +800,7 @@ date: 2026-06-02
           { id: "1.2", name: "Duplicate task id", status: "completed", children: [] }
         ]
       }
-    ]);
+    ] as Iteration[]);
 
     expect(issues).toContain(`Iteration 1: API has a task with invalid task ID syntax: Missing task id. ${canonicalTaskSyntaxIssue}`);
     expect(issues).toContain("Task 2.1 must start with iteration number 1.");
@@ -2209,6 +2210,18 @@ date: 2026-06-02
 | unit | \`bun test test/parser.test.ts\` |
 | phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `, "utf-8");
 
     expect(validateRulesArtifact(validRulesFile)).toEqual([]);
@@ -2226,6 +2239,18 @@ date: 2026-06-02
 | full | TODO |
 | phase |  |
 | extra | nope |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 
 ## Notes
 Not allowed.
@@ -2255,6 +2280,18 @@ Use the local Bun commands below.
 | unit | \`bun test test/parser.test.ts\` |
 | phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `, "utf-8");
 
     expect(validateRulesArtifact(extraTextRulesFile)).toEqual([]);

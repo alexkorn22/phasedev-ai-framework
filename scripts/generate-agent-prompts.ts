@@ -1,15 +1,15 @@
 import * as fs from "fs";
 import * as path from "path";
-import { getInitPrompt, getNextPrompt } from "../src/features/stage-control";
+import { getInitPrompt, getNextPrompt } from "../src/features/phase-control";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";
-import { Stage } from "../src/entities/stage/types";
+import { Phase } from "../src/entities/phase/types";
 import { shellQuote } from "../src/shared/shell/shell-quote";
 
 interface StageOutput {
   file: string;
   bytes: number;
-  stage: Stage;
+  phase: Phase;
   sourceProjectPath: string;
   workingProjectPath: string;
 }
@@ -91,7 +91,7 @@ function toFileUrl(absolutePath: string): string {
   return `file://${absolutePath.replace(/\\/g, "/")}`;
 }
 
-function snapshotPromptArtifactLinks(promptText: string, options: Options, workingProjectPath: string, fileName: string, stage: Stage): string {
+function snapshotPromptArtifactLinks(promptText: string, options: Options, workingProjectPath: string, fileName: string, phase: Phase): string {
   const sourceChangeDir = path.join(workingProjectPath, ".phasedev", "changes", generatedChangeName);
   const snapshotProjectPath = path.join(options.outDir, "artifact-snapshots", path.basename(fileName, ".md"));
   const snapshotChangeDir = path.join(snapshotProjectPath, ".phasedev", "changes", generatedChangeName);
@@ -111,7 +111,7 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
       .split(sourcePath).join(snapshotPath);
   }
 
-  if (stage === "iteration_validation" || stage === "final_validation" || stage === "finding_repair") {
+  if (phase === "iteration_validation" || phase === "final_validation" || phase === "finding_repair") {
     rewrittenPrompt = rewrittenPrompt
       .split(`--project-path ${shellQuote(workingProjectPath)}`)
       .join(`--project-path ${shellQuote(snapshotProjectPath)}`);
@@ -123,17 +123,17 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
 function savePrompt(
   promptsDir: string,
   fileName: string,
-  stage: Stage,
+  phase: Phase,
   promptText: string,
   options: Options,
   workingProjectPath: string
 ): StageOutput {
   const filePath = path.join(promptsDir, fileName);
-  writeFile(filePath, snapshotPromptArtifactLinks(promptText, options, workingProjectPath, fileName, stage));
+  writeFile(filePath, snapshotPromptArtifactLinks(promptText, options, workingProjectPath, fileName, phase));
   return {
     file: filePath,
     bytes: fs.statSync(filePath).size,
-    stage,
+    phase,
     sourceProjectPath: options.projectPath,
     workingProjectPath
   };
@@ -147,16 +147,16 @@ function saveNextPrompt(
   projectPath: string,
   promptsDir: string,
   fileName: string,
-  expectedStage: Exclude<Stage, "init">,
+  expectedPhase: Exclude<Phase, "init">,
   options: Options,
   config: ReturnType<typeof loadConfig>
 ): StageOutput {
   const prompt = getNextPrompt(projectPath, config);
-  if (prompt.stage !== expectedStage) {
-    throw new Error(`Expected ${expectedStage} prompt, got ${prompt.stage} for ${fileName}.`);
+  if (prompt.phase !== expectedPhase) {
+    throw new Error(`Expected ${expectedPhase} prompt, got ${prompt.phase} for ${fileName}.`);
   }
 
-  return savePrompt(promptsDir, fileName, prompt.stage, prompt.prompt, options, projectPath);
+  return savePrompt(promptsDir, fileName, prompt.phase, prompt.prompt, options, projectPath);
 }
 
 function approvedArtifact(body: string): string {
@@ -198,6 +198,18 @@ function rulesBody(): string {
 | unit | \`bun test\` |
 | phase | \`bun test\` |
 | full | \`bun test\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
 `;
 }
 
@@ -450,7 +462,7 @@ function main(): void {
   const config = sourceConfig(options);
 
   const initPrompt = getInitPrompt(workingProjectPath, config);
-  manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.stage, initPrompt.prompt, options, workingProjectPath));
+  manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.phase, initPrompt.prompt, options, workingProjectPath));
 
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-stage-0-setup.md", "change_intake", options, config));
   writeBaseArtifacts(paths);

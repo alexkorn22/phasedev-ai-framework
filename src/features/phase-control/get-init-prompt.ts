@@ -1,5 +1,5 @@
 import { Config } from "../../entities/config/config";
-import { Prompt } from "../../entities/stage/types";
+import { Prompt } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { resolveCurrentState } from "./current-flow-state";
 import { prompt } from "./prompt-blockers";
@@ -10,7 +10,7 @@ export function getInitPrompt(projectPath: string, _config?: Config): Prompt {
     const state = resolveCurrentState(projectPath);
 
     return prompt("init", "init", renderTemplate("init", {
-      current_stage: state.stage,
+      current_stage: state.phase,
       route_kind: state.routeKind,
       active_change_path: state.activeChangePath ? toFileUrl(state.activeChangePath) : "none"
     }));
@@ -22,7 +22,7 @@ export function getInitPrompt(projectPath: string, _config?: Config): Prompt {
       message,
       "",
       "phasedev init performed no filesystem changes.",
-      "Fix the flow state before running `phasedev next`.",
+      "Fix the flow state before running `phasedev phase` or `phasedev advance`.",
       "================================================================================"
     ].join("\n"), true, "Invalid flow state");
   }

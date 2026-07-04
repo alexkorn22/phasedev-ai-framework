@@ -1,5 +1,5 @@
 import { Config } from "../../entities/config/config";
-import { Stage } from "../../entities/stage/types";
+import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { renderSkillComplianceLine, renderSkillPolicyInlineRef } from "./skill-policy";
 
@@ -34,7 +34,7 @@ const FINAL_VALIDATION_COMMON: ValidationCommonVariables = {
   validation_requirements_pass: "confirm the full change satisfies the approved PRD, approved design, and approved implementation plan without adding unapproved behavior"
 };
 
-export function renderValidationCommonContract(stage: Stage, config: Config): string {
+export function renderValidationCommonContract(stage: Phase, config: Config): string {
   const variables = stage === "final_validation" ? FINAL_VALIDATION_COMMON : PHASE_VALIDATION_COMMON;
   return renderTemplate("validation_common", {
     ...variables,

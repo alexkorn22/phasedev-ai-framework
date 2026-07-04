@@ -1,4 +1,4 @@
-Stage 7. Archive.
+Phase 7. Archive.
 
 Your task is to complete the already archived change: sync long-lived specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
 
@@ -30,7 +30,7 @@ Path resolution rule:
 Do not use `validation_findings.md` as a source of requirements, product behavior, or architecture decisions. This file is only gate status.
 Do not use `Generation Bundle`, `Expected Change Surface`, or `Check Evidence` as a source of new requirements, product behavior, or architecture decisions. These sections are only delivery evidence and context for the final response.
 Use `R#` requirements from `prd.md` as the only source of new requirement-level content for long-lived specs. Use `Intent`, `Risk boundaries`, and `SC#` only as context for the final response and to verify that spec sync reflects approved requirements. Do not create spec requirements only from intent, risk notes, or success criteria unless the same behavior is expressed as requirement-level behavior in a concrete `R#`.
-`.phasedev/specs` is long-lived AI context for future Research stages. Prefer omission over speculative requirements.
+`.phasedev/specs` is long-lived AI context for future Research phases. Prefer omission over speculative requirements.
 
 ## Visual Formatting Scope
 
@@ -166,18 +166,18 @@ After updating `.phase-archive.json`, run:
 phasedev check-archive --archive-path {{archive_path}}
 ```
 
-If the check fails, fix only Archive artifacts allowed by this stage and rerun the same command. Do not report Archive as complete until this command exits successfully.
+If the check fails, fix only Archive artifacts allowed by this phase and rerun the same command. Do not report Archive as complete until this command exits successfully.
 
-Stage completion:
+Phase completion:
 - Stop after the archive self-check passes.
 - In the report, include the `R#` classification table and state which specs were created/updated or why sync was skipped.
 - Include the final archive path: `{{archive_path}}`.
 - Include {{skill_compliance_line}}
-- Do not suggest running the next flow stage.
+- Do not suggest running the next flow phase.
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - Delta specs in `{{archive_path}}/specs`
 - `.phasedev/specs`
 - `{{archive_state_path}}`

@@ -1,14 +1,14 @@
-import { Stage } from "../../entities/stage/types";
+import { Phase } from "../../entities/phase/types";
 import type { Route } from "./flow-route";
 import { resolveRoute } from "./flow-route";
 
 export interface CurrentState {
-  stage: Stage;
+  phase: Phase;
   routeKind: Route["kind"];
   activeChangePath: string | null;
 }
 
 export function resolveCurrentState(projectPath: string): CurrentState {
   const route = resolveRoute(projectPath);
-  return { stage: route.stage, routeKind: route.kind, activeChangePath: route.activeChangePath };
+  return { phase: route.phase, routeKind: route.kind, activeChangePath: route.activeChangePath };
 }

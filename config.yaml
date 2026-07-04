@@ -1,6 +1,5 @@
-# Stage config — skills per stage
-# Runner config moved to runner.yaml
-stages:
+# Phase config — skills per phase
+phases:
   change_intake:
     skills:
       routers:

@@ -1,4 +1,4 @@
-Stage 4. Iteration Planning.
+Phase 4. Iteration Planning.
 
 Your task is to decompose the approved technical design into a step-by-step implementation plan.
 
@@ -63,24 +63,24 @@ Examples of required planning blockers:
 
 ## Artifact self-check
 
-After creating `iteration_plan.md`, immediately validate the new artifact before completing the stage:
+After creating `iteration_plan.md`, immediately validate the new artifact before completing the phase:
 
 ```bash
 {{self_check_command}}
 ```
 
-If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `iteration_plan.md` until this self-check passes.
+If the check fails, fix the reported artifact issues in this same phase, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `iteration_plan.md` until this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... --expect-route iteration_planning_approval` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... --expect-route iteration_planning_approval`, `bunx phasedev check --project-path ... --expect-route iteration_planning_approval`, or local CLI invocation like `bun run src/cli.ts check --project-path ... --expect-route iteration_planning_approval` when package/source entrypoint evidence supports it. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
+If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... ` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... `, `bunx phasedev check --project-path ... `, or local CLI invocation like `bun run src/cli.ts check --project-path ... ` when package/source entrypoint evidence supports it. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
 
-Stage completion:
+Phase completion:
 - After writing `iteration_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.
 - Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections:
   - `Plan ready: iteration_plan.md`
   - `Plan path: {{plan_path}}`
   - `Self-check: <exact command> -> <result>`
   - {{skill_compliance_line}}
-  - `Next: review iteration_plan.md, set approved: true and approved_by: "<your name>" only if accepted, then run phasedev next.`
+  - `Next: review iteration_plan.md, set approved: true and approved_by: "<your name>" only if accepted, then run phasedev advance.`
 - For any blocker stop, do not use the `Plan ready` template and do not add extra sections. Use exactly one short plain blocker sentence or one compact line such as:
   - `Blocked: missing required input artifact (<exact linked path>)`
   - `Blocked: plan self-check unavailable (<exact command failure>)`
@@ -88,5 +88,5 @@ Stage completion:
 
 ## Artifact allowlist
 
-Allowed persistent artifacts for this stage:
+Allowed persistent artifacts for this phase:
 - active change folder `iteration_plan.md` at the Artifact Build Contract Output path
