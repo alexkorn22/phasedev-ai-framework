@@ -2,9 +2,10 @@ import * as fs from "fs";
 import { loadFlowState, saveFlowState, ActivePhase } from "../../entities/change/flow-state";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
-import { readFrontmatter, matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
+import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { parse as parseYaml } from "yaml";
 
 export type ReopenablePhase = "design" | "plan";
 
@@ -31,6 +32,10 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase): Reopen
 
   const paths = buildChangePaths(changeDir);
   const config = REOPEN_MAP[phase];
+  if (!config) {
+    return { ok: false, message: `Invalid phase "${phase}". Must be "design" or "plan".` };
+  }
+
   const artifactPath = phase === "design" ? paths.designPath : paths.iterationPlanPath;
 
   if (!fs.existsSync(artifactPath)) {
@@ -44,7 +49,14 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase): Reopen
     return { ok: false, message: `${config.artifactRelPath} has no frontmatter. Cannot reopen.` };
   }
 
-  const fm = readFrontmatter(artifactPath);
+  // Parse frontmatter from the already-read content (no redundant file read)
+  let fm: Record<string, unknown> | null = null;
+  try {
+    const parsed = parseYaml(block.yaml);
+    fm = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    fm = null;
+  }
   if (!fm || fm.approved !== true && String(fm.approved).toLowerCase() !== "true") {
     return { ok: false, message: `${config.artifactRelPath} is not approved. Nothing to reopen.` };
   }

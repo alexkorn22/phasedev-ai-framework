@@ -14,6 +14,7 @@ import { validatePhase } from "../src/features/phase-control/phase-validators";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 
 let testTmpDir: string;
 
@@ -1194,5 +1195,102 @@ Complete API work.
     expect(result.ok).toBe(false);
     expect(result.message).toContain("Repair cycle limit reached");
     expect(result.message).toContain("3");
+  });
+
+  describe("reopen phase", () => {
+    function writeState(changeDir: string, phase: string, iteration: number | null = null) {
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: phase, activeIteration: iteration, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+    }
+
+    test("reopen design resets approved: false and phase to technical_design", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { designApproved: true });
+      writeState(changeDir, "implementation");
+
+      const result = reopenPhase(testTmpDir, "design");
+
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain("Reopened design");
+      expect(result.message).toContain("technical_design");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state).not.toBeNull();
+      expect(state!.activePhase).toBe("technical_design");
+
+      const designContent = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
+      expect(designContent).toMatch(/approved:\s*false/);
+      expect(designContent).not.toMatch(/approved:\s*true/);
+    });
+
+    test("reopen plan resets approved: false and phase to iteration_planning", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { planApproved: true });
+      writeState(changeDir, "implementation");
+
+      const result = reopenPhase(testTmpDir, "plan");
+
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain("Reopened plan");
+      expect(result.message).toContain("iteration_planning");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state).not.toBeNull();
+      expect(state!.activePhase).toBe("iteration_planning");
+
+      const planContent = fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8");
+      expect(planContent).toMatch(/approved:\s*false/);
+      expect(planContent).not.toMatch(/approved:\s*true/);
+    });
+
+    test("reject invalid phase argument", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      writeState(changeDir, "implementation");
+      // TypeScript prevents invalid phases at compile time; test with a cast
+      const result = reopenPhase(testTmpDir, "invalid" as ReopenablePhase);
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("Invalid phase");
+      expect(result.message).toContain('"invalid"');
+    });
+
+    test("reject when no active change exists", () => {
+      // Clean temp dir without any .phasedev structure
+      const result = reopenPhase(testTmpDir, "design");
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("No active change");
+    });
+
+    test("reject when artifact is not approved", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { designApproved: false });
+      writeState(changeDir, "implementation");
+
+      const result = reopenPhase(testTmpDir, "design");
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("not approved");
+    });
   });
 });
