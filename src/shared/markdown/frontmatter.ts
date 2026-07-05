@@ -73,8 +73,9 @@ export function isApproved(filePath: string): boolean {
 
   const storedHash = fm.approved_hash;
   if (storedHash === undefined || storedHash === null || String(storedHash).length === 0) {
-    // Legacy approval stamped before content hashing existed.
-    return true;
+    // Approval without content hash is rejected (hand-edited or legacy).
+    // The framework always writes approved_hash alongside approved: true.
+    return false;
   }
 
   return String(storedHash) === approvalContentHash(content);
