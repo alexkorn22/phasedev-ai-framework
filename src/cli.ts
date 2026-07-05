@@ -21,6 +21,7 @@ import { loadFlowState } from "./entities/change/flow-state";
 import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
+import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-phase";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
@@ -513,6 +514,30 @@ function main(): void {
     return;
   }
 
+  if (command === "reopen") {
+    const phase = args[1];
+    if (!phase || (phase !== "design" && phase !== "plan")) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "reopen",
+        humanMessage: "[PHASEDEV REOPEN] FAILED: <phase> must be `design` or `plan`.\nUsage: phasedev reopen <design|plan> [--project-path <path>]"
+      });
+      return;
+    }
+
+    runWithStateLock(projectPath, () => {
+      const result = reopenPhase(projectPath, phase as ReopenablePhase);
+      const prefix = result.ok ? "[PHASEDEV REOPEN] OK" : "[PHASEDEV REOPEN] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "reopen",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { phase }
+      });
+    });
+    return;
+  }
   // --- Existing commands ---
 
   if (command === "init-project") {
@@ -696,7 +721,8 @@ try {
       console.error([
         `[PHASEDEV] BLOCKED: ${message}`,
         ...error.directories.map(dir => `- ${dir}`),
-        "Keep exactly one active change. Move the extra directories out of .phasedev/changes/ (for example into .phasedev/changes/.trash/) or archive them, then rerun the command."
+        "Keep exactly one active change. Move the extra directories out of .phasedev/changes/ (for example into .phasedev/changes/.trash/) or archive them, then rerun the command.",
+        "Tip: Use `phasedev changes` to list all changes and their status."
       ].join("\n"));
     }
     process.exitCode = 1;

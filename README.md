@@ -34,6 +34,20 @@ flowchart LR
 8. **Phase 6R. Repair Loop**: If validation fails, automatically fix findings until clean.
 9. **Phase 7. Archive**: Move changes to archive and generate delta specifications.
 
+### Phase name reference
+
+| Internal name | CLI / prompt name | Legacy config name |
+|---|---|---|
+| `change_intake` | Change Intake | `setup` |
+| `code_research` | Code Research | `research` |
+| `technical_design` | Technical Design | `design` |
+| `iteration_planning` | Iteration Planning | `planning` |
+| `implementation` | Implementation | `implement` |
+| `iteration_validation` | Iteration Validation | `validate` |
+| `final_validation` | Final Validation | `final_validate` |
+| `finding_repair` | Finding Repair | `repair` |
+| `archive` | Archive | `archive` |
+
 ---
 
 ## 🚀 Quick Start (Manual Mode)

@@ -7,7 +7,7 @@ import { archiveRootPath, archiveTargetPath, buildChangePaths, SYSTEM_DIR } from
 import { Prompt } from "../../entities/phase/types";
 import { moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
-import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
+import { prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { urlsFor } from "./prompt-render-helpers";
@@ -50,14 +50,14 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
 
   const changeName = path.basename(changeDir);
   const today = now.toISOString().split("T")[0];
-  const archiveTarget = archiveTargetPath(projectPath, changeName, today);
+  let archiveTarget = archiveTargetPath(projectPath, changeName, today);
 
   if (fs.existsSync(archiveTarget)) {
-    return archiveReadinessBlocker(
-      "Archive target already exists.",
-      archiveTarget,
-      "The active change was not moved because the date-prefixed archive directory already exists."
-    );
+    let suffix = 2;
+    while (fs.existsSync(archiveTarget)) {
+      archiveTarget = archiveTargetPath(projectPath, `${changeName}-${suffix}`, today);
+      suffix++;
+    }
   }
 
   // Phase 1: write archive-state INSIDE the still-active change dir, before moving anything.
@@ -71,7 +71,7 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
   // Set the phase lock to archive *before* moving: state.json travels inside the
   // change dir, so writing it here means the archived directory always arrives
   // already locked to the archive phase, even if the process dies after the move.
-  writeFlowState(path.join(changeDir, FLOW_STATE_FILE), { activePhase: "archive", activeIteration: null });
+  writeFlowState(path.join(changeDir, FLOW_STATE_FILE), { activePhase: "archive", activeIteration: null, repairCycleCount: 0 });
 
   // Phase 2: move. If this throws, changeDir plus its un-moved archive-state are left intact for retry.
   fs.mkdirSync(archiveRootPath(projectPath), { recursive: true });

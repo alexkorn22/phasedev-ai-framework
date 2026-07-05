@@ -125,6 +125,11 @@ Commands:
       View .phasedev/logs/ralph-log.jsonl entries.
       Side effects: none.
 
+  phasedev reopen <design|plan> [--project-path <path>]
+      Reopen an approved design or plan phase artifact, setting approved: false
+      and resetting the active phase back to technical_design or iteration_planning.
+      Side effects: modifies the artifact frontmatter and state.json.
+
   phasedev reset-change [--project-path <path>] [--yes|--force]
       Reset (move to .trash) the current active change. Requires --yes to confirm.
       Side effects: moves the active change directory to .trash.
