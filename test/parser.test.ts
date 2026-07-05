@@ -49,10 +49,10 @@ describe("Parser & Checker Utilities", () => {
     expect(cleaned).toBe("Line 1\nLine 2 with space");
   });
 
-  test("isApproved detects approved: true in YAML frontmatter and lines", () => {
+  test("isApproved rejects hashless approved: true in YAML frontmatter", () => {
     const validFile = path.join(testTmpDir, "valid.md");
     fs.writeFileSync(validFile, "---\napproved: true\n---\n# Title", "utf-8");
-    expect(isApproved(validFile)).toBe(true);
+    expect(isApproved(validFile)).toBe(false);
 
     const invalidFile = path.join(testTmpDir, "invalid.md");
     fs.writeFileSync(invalidFile, "---\napproved: false\n---\n# Title", "utf-8");
@@ -2555,7 +2555,7 @@ Test fixture only.
 
     const result = validateExecutionContract(contractFile);
     expect(result.valid).toBe(false);
-    expect(result.issues).toContain("execution_contract.md is missing required section: ## Constraints.");
+    expect(result.issues).toContain("execution_contract.md must contain section `## Constraints`.");
   });
 
   test("extractRequirementsAndCriteriaFromPrd ignores requirement IDs inside fenced code blocks", () => {

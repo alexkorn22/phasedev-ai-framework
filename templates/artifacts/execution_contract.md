@@ -12,6 +12,16 @@ Authoring instructions:
 
 # Execution Contract
 
+## Test Commands
+
+<!-- Required test commands for the project. Each gate must have a concrete command. -->
+
+| Gate | Command |
+|---|---|
+| unit | `echo TODO: add unit test command` |
+| phase | `echo TODO: add phase-level test command` |
+| full | `echo TODO: add full-gate test command` |
+
 ## Constraints
 
 <!-- List project-level constraints: tech stack, required tooling, external dependencies, performance targets, etc. -->

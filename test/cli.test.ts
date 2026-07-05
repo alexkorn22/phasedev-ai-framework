@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { getConfigValue, parseConfig } from "../src/entities/config/config";
@@ -23,7 +24,12 @@ function cleanupTestDir() {
 
 function writeArtifact(filePath: string, body: string, approved = true) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `---\napproved: ${approved ? "true" : "false"}\n---\n${body}`, "utf-8");
+  if (approved) {
+    const contentHash = createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
+    fs.writeFileSync(filePath, `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${body}`, "utf-8");
+  } else {
+    fs.writeFileSync(filePath, `---\napproved: false\n---\n${body}`, "utf-8");
+  }
 }
 
 function writeApproved(filePath: string, body: string) {
@@ -578,23 +584,13 @@ stages:
 
     expect(output).toContain("## Configured Skill Policy");
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
-    expect(output).toContain("Skills are method instructions only; they never control Flow state.");
-    expect(output).toContain("Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.");
-    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
-    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence.");
-    expect(output).toContain("`additional` skills stay optional until selected because routers/main are insufficient or an additional skill is clearly better.");
+    expect(output).toContain("Authority: Flow phase contract > linked/embedded artifact contract > configured skill policy > skill body.");
+    expect(output).toContain("Skills are method instructions only; they never control Flow state");
+    expect(output).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
+    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable and applicable, stop with a blocker. Skip only with a concrete evidence-specific reason.");
+    expect(output).toContain("Final response: one line per skill — `APPLIED` / `NOT_APPLICABLE(reason)` / `UNAVAILABLE`.");
     expect(output).not.toContain("If a listed skill is unavailable and is needed or applicable");
-    expect(output).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
-    expect(output).toContain("Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.");
-    expect(output).toContain("Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead.");
-    expect(output).toContain("Do not skip an applicable selected skill because its native output format differs");
-    expect(output).toContain("In the final response, include the structured skill ledger below");
-    expect(output).toContain("Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
-    expect(output).toContain("one entry per configured router, configured main, and router-selected skill, plus selected additional skills; do not use prose in that section:");
-    expect(output).toContain("- `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)");
-    expect(output).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
-    expect(output).toContain("- `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)");
+    expect(output).toContain("Native skill reports, headings, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker.");
     expect(output).toContain("No routers are configured; main skills fully execute by default.");
     expect(output).toContain("Allowed skills:");
     expect(output).toContain("Priority 1 - Routers:\n- none configured");
@@ -610,8 +606,11 @@ stages:
     expect(output).toContain("Check Evidence");
     // Negative: old compact placeholder must not appear when skills are configured
     expect(output).not.toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
-    // Structured ledger must be referenced in final template
-    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
+    // Structured ledger format must be in the compliance line
+    expect(output).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(output).toContain("Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)");
+    expect(output).toContain("Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])");
+    expect(output).toContain("Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)");
   });
 
   test("implementation prompt uses project flow config without --config", () => {
@@ -648,8 +647,8 @@ stages:
     expect(output).toContain("Priority 1 - Routers:\n- `using-ecc`");
     expect(output).not.toContain("- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
-    expect(output).toContain("Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.");
-    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
+    expect(output).toContain("Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files).");
+    expect(output).not.toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
     expect(output).toContain("Priority 1: read listed router skills first when they are available and help select a relevant research method; fully execute any router-selected skill that applies to the research evidence. If no router-selected method applies after the configured router is read, continue under this Flow phase contract.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
@@ -684,13 +683,13 @@ stages:
     const output = runNext(["--config", configPath]);
 
     expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
+    expect(output).toContain("Authority: Flow phase contract > linked/embedded artifact contract > configured skill policy > skill body.");
     expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
     expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(output).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
-    expect(output).toContain("Skipping a mandatory skill step requires a concrete evidence-specific reason and reference, or `skipped_by_policy: <exact policy reason>` when it conflicts with this Flow phase, artifact allowlist, or repository policy.");
+    expect(output).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
+    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable and applicable, stop with a blocker. Skip only with a concrete evidence-specific reason.");
     expect(output).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
@@ -776,7 +775,10 @@ stages:
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
+    expect(output).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(output).toContain("Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)");
+    expect(output).toContain("Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])");
+    expect(output).toContain("Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -888,7 +890,10 @@ stages:
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
+    expect(output).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(output).toContain("Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)");
+    expect(output).toContain("Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])");
+    expect(output).toContain("Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -946,7 +951,10 @@ stages:
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(implementationPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; evaluate them against the current phase evidence and never silently skip a configured skill.");
     expect(planPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; map useful output into the embedded implementation plan template only");
-    expect(phaseValidationPrompt).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
+    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(phaseValidationPrompt).toContain("Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)");
+    expect(phaseValidationPrompt).toContain("Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])");
+    expect(phaseValidationPrompt).toContain("Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");
@@ -1951,7 +1959,7 @@ Test fixture only.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("missing required section: ## Constraints");
+    expect(output).toContain("must contain section `## Constraints`");
     expect(output).not.toContain("run unit tests");
   });
 
@@ -1988,7 +1996,7 @@ Test fixture only.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("missing required section: ## Verification Gates");
+    expect(output).toContain("must contain section `## Verification Gates`");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
@@ -2022,7 +2030,7 @@ None.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("missing required section: ## Environment Notes");
+    expect(output).toContain("must contain section `## Environment Notes`");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
@@ -2293,17 +2301,10 @@ stages:
     expect(implementationPolicy).toContain("- `security-and-hardening`");
     expect(implementationPolicy).not.toContain("Router-selected:");
     expect(implementationPolicy).not.toContain("determined after reading routers");
-    expect(implementationPolicy).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
-    expect(implementationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
-    expect(implementationPolicy).toContain("Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.");
-    expect(implementationPolicy).toContain("Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead.");
-    expect(implementationPolicy).toContain("- `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)");
-    expect(implementationPolicy).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
-    expect(implementationPolicy).toContain("- `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)");
+    expect(implementationPolicy).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
+    expect(implementationPolicy).toContain("Native skill reports, headings, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker.");
     expect(implementationPolicy).toContain("When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>) only for the superseded evidence.");
-    expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
     expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(implementationPolicy).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
     expect(implementationPolicy).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(implementationPolicy).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
@@ -2312,7 +2313,7 @@ stages:
     expect(validationPolicy).toContain("Allowed skills:");
     expect(validationPolicy).toContain("- `performance-audit`");
     expect(validationPolicy).toContain("Apply only read-only review/audit/static-inspection skill methods");
-    expect(validationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
+    expect(validationPolicy).toContain("Skills are method instructions only; they never control Flow state");
   });
 
   test("stage templates preserve executable artifact allowlists", () => {
