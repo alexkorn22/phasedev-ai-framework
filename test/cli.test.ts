@@ -765,7 +765,7 @@ stages:
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(output).not.toContain("Strict fill rules:");
     expect(output).toContain("# PRD");
-    expect(output).toContain("# Execution Contract");
+    expect(output).toContain("# Rules");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);

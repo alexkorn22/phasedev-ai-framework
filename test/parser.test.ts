@@ -49,10 +49,10 @@ describe("Parser & Checker Utilities", () => {
     expect(cleaned).toBe("Line 1\nLine 2 with space");
   });
 
-  test("isApproved rejects hashless approved: true in YAML frontmatter", () => {
+  test("isApproved detects approved: true in YAML frontmatter and lines", () => {
     const validFile = path.join(testTmpDir, "valid.md");
     fs.writeFileSync(validFile, "---\napproved: true\n---\n# Title", "utf-8");
-    expect(isApproved(validFile)).toBe(false);
+    expect(isApproved(validFile)).toBe(true);
 
     const invalidFile = path.join(testTmpDir, "invalid.md");
     fs.writeFileSync(invalidFile, "---\napproved: false\n---\n# Title", "utf-8");

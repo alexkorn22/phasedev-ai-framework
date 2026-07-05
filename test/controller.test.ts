@@ -386,7 +386,7 @@ Test fixture only.
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
-    expect(result.prompt).toContain("# Execution Contract");
+    expect(result.prompt).toContain("# Rules");
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
   });
 

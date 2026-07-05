@@ -6,11 +6,11 @@ date: {{date}}
 
 <!--
 Authoring instructions:
-- Fill all four sections below. Each section must have at least one entry.
+- Fill all sections below. Each section must have at least one entry.
 - Execution contract defines what, how, and under what constraints the change must be implemented and verified.
 -->
 
-# Execution Contract
+# Rules
 
 ## Test Commands
 
