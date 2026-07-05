@@ -32,9 +32,7 @@ Required phase-contract checks:
 - completeness of production/test/source/config changes for the current iteration and current iteration task statuses is checked through review methods without running tests;
 - `Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
 - do not rerun tests or additional checks at this phase;
-- validation result is written to [validation_findings.md]({{findings_path}});
-- use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
-- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: iteration` for Iteration Validation;
+- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure; `phasedev check-validation` catches every structural violation.
 - if the final verdict is `ready` or `ready_with_risks`, change the current iteration status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;
 - if the final verdict is `repair_required`, keep the current iteration status as `[~]`.
 

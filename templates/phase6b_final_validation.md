@@ -38,9 +38,7 @@ Required phase-contract checks:
 - full-gate execution: run the `full` gate command from `execution_contract.md` exactly once before deciding the verdict; `verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed; if the full gate fails, add a `MUST-FIX` finding with the exact command and a short failure summary and set `verdict: repair_required`; if the command or environment is unavailable, add a `MUST-FIX` finding with `Class = validation` recording the exact command and error class; do not rerun `unit`, `phase`, or additional checks;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods; the single `full` gate run above is the only allowed execution;
 - `Check Evidence` across all iterations in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
-- validation result is written to [validation_findings.md]({{findings_path}});
-- use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
-- YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation.
+- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure; `phasedev check-validation` catches every structural violation.
 
 {{path_resolution_rule}}
 
