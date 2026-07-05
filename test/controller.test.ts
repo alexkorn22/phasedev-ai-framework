@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { getInitPrompt } from "../src/features/phase-control";
@@ -26,7 +27,12 @@ function cleanupTestDir() {
 
 function writeArtifact(filePath: string, body: string, approved = true) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `---\napproved: ${approved ? "true" : "false"}\n---\n${body}`, "utf-8");
+  if (approved) {
+    const contentHash = createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
+    fs.writeFileSync(filePath, `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${body}`, "utf-8");
+  } else {
+    fs.writeFileSync(filePath, `---\napproved: false\n---\n${body}`, "utf-8");
+  }
 }
 
 function validPrdBody(): string {

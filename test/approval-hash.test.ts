@@ -42,11 +42,11 @@ describe("approval content hash", () => {
     expect(isApproved(filePath)).toBe(false);
   });
 
-  test("legacy approved artifact without approved_hash stays approved", () => {
+  test("legacy approved artifact without approved_hash is rejected", () => {
     const filePath = path.join(tmpDir, "legacy.md");
     fs.writeFileSync(filePath, `---\napproved: true\napproved_by: "human"\n---\n\n# PRD\n\nBody.\n`, "utf-8");
 
-    expect(isApproved(filePath)).toBe(true);
+    expect(isApproved(filePath)).toBe(false);
   });
 
   test("frontmatter-only edits do not invalidate approval", () => {
