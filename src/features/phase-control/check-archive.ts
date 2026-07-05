@@ -27,10 +27,6 @@ const CATCH_ALL_CAPABILITIES = new Set([
 
 const PLACEHOLDER_PATTERN = /\b(?:TBD|TODO|unknown|clarify later|to be decided)\b/i;
 
-function normalizedPath(value: string): string {
-  return path.resolve(value);
-}
-
 function relativeSpecFiles(specsPath: string): string[] {
   if (!fs.existsSync(specsPath)) {
     return [];
@@ -57,10 +53,6 @@ function relativeSpecFiles(specsPath: string): string[] {
 function validateArchiveState(archivePath: string, issues: string[]): { changeName: string | null } {
   const result = validateArchiveStateFile(archivePath, { requireCompleted: true });
   issues.push(...result.issues);
-
-  if (result.state && normalizedPath(result.state.archivePath) !== normalizedPath(archivePath)) {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} archivePath must match --archive-path.`);
-  }
 
   return { changeName: result.state?.changeName ?? null };
 }

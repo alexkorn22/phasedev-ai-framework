@@ -1459,6 +1459,19 @@ The system SHALL route approved changes to Archive.
     expect(result.output).toContain("[FLOW ARCHIVE CHECK] OK: archive is complete.");
   });
 
+  test("check-archive accepts a completed archive whose stored archivePath is stale after a project move", () => {
+    const archiveDir = writeCompletedArchive();
+    const statePath = path.join(archiveDir, ".phase-archive.json");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    state.archivePath = "/old/location/that/no/longer/exists";
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), "utf-8");
+
+    const result = runCheckArchive(["--archive-path", archiveDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).not.toContain("archivePath must match");
+  });
+
   test("check-archive fails when archive path or state is invalid", () => {
     const missingPath = runCheckArchive([]);
     expect(missingPath.exitCode).toBe(1);
