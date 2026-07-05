@@ -113,20 +113,24 @@ phasedev advance --project-path /tmp/some-project
 
 Prefer delegating work to subagents over doing it all in the main context. Actively spin up a subagent whenever a piece of work can be scoped and handed off, and pick the model tier to match the task's actual complexity — do not default every subagent to the strongest model.
 
-IMPORTANT: every Agent tool call MUST pass the `model` parameter explicitly. An omitted `model` silently inherits the main agent's model — that is almost never the intended tier. Use exactly these values:
+### Model selection
 
-- Simple, mechanical, or narrow-scope work (single-file lookups, grepping/locating code, running a known command, applying a small well-defined edit, formatting/rename passes) -> `model: "haiku"`.
-- Moderate work (single-feature implementation within one module, focused test writing, routine refactors that stay inside existing module boundaries) -> `model: "sonnet"`.
-- Complex, cross-cutting, or high-stakes work (architecture or dependency-direction changes, multi-module refactors, ambiguous requirements needing judgment, anything touching contracts in "Behavior To Preserve") -> `model: "opus"`, or omit `model` to inherit the main agent's model when it is the strongest available.
+- Custom agents (e.g. the `sp-*` agents in `.claude/agents/`) already pin their model in their definition — do NOT pass `model` when calling them and do not override it.
+- Built-in generic types (`general-purpose`, `Explore`, `Plan`, etc.) have no pinned model, and an omitted `model` silently inherits the main agent's (most expensive) model — so pass a `model` matched to task complexity: `"haiku"` for mechanical/narrow work, `"sonnet"` for routine single-module work, `"opus"` for complex or high-stakes work. Do not pass `model: "fable"`.
+- `subagent_type: "fork"` always runs on the main agent's model and ignores `model` — do not pass it there.
 
-Exception: `subagent_type: "fork"` always runs on the main agent's model and ignores `model` — do not pass it there.
+### Choosing subagent_type
 
-Guidelines:
+Agent types are defined by the Claude Code environment (see the available agent types listed in the session); do not redefine them here. Pick the type whose description matches the task, and to continue a previously spawned agent with its context intact, use SendMessage instead of launching a fresh one.
 
-- Split a task into independent subtasks whenever possible and dispatch them to parallel subagents rather than doing them sequentially in the main thread.
+### Guidelines
+
+- Split a task into independent subtasks whenever possible and dispatch them to parallel subagents in a single message rather than doing them sequentially in the main thread.
 - Match model cost to task difficulty: never pay for a top-tier model on a trivial task, and never underpower a subagent on a task that needs real reasoning.
 - The main agent should act as an orchestrator: decompose the request, delegate each piece to the right subagent/model, then integrate results — rather than doing the implementation itself when delegation is feasible.
 - If a subagent's output reveals the task was more complex than expected, escalate the remaining work to a stronger model rather than forcing the same subagent to continue.
+- Subagents cannot ask the user questions mid-task: put all needed context, constraints, and acceptance criteria into the delegation prompt, and require a concrete report (what changed, what was verified) as the final message.
+- Do not use `isolation: "worktree"` — all work happens on the current branch in the shared working tree. When parallel subagents would edit the same files, split the work by file/module or run those subtasks sequentially instead.
 
 ## Coding Rules
 
