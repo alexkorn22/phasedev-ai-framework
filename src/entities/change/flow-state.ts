@@ -34,6 +34,7 @@ export function isActivePhase(value: string): value is ActivePhase {
 export interface FlowState {
   activePhase: ActivePhase;
   activeIteration: number | null;
+  repairCycleCount: number;
 }
 
 export const FLOW_STATE_FILE = "state.json";
@@ -100,7 +101,11 @@ export function loadFlowState(projectPath: string): FlowState | null {
     return invalid(`activeIteration must be null or a positive integer, got ${JSON.stringify(activeIteration)}.`);
   }
 
-  return { activePhase, activeIteration };
+  const repairCycleCount = typeof record.repairCycleCount === "number" && Number.isInteger(record.repairCycleCount) && record.repairCycleCount >= 0
+    ? record.repairCycleCount
+    : 0;
+
+  return { activePhase, activeIteration, repairCycleCount };
 }
 
 export function writeFlowState(statePath: string, state: FlowState): void {

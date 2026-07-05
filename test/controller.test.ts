@@ -912,6 +912,36 @@ Complete API work.
     expect(() => loadFlowState(testTmpDir)).toThrow("unknown activePhase");
   });
 
+  // ── repairCycleCount ─────────────────────────────────
+
+  test("loadFlowState defaults repairCycleCount to 0 when not in state.json", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "change_intake", activeIteration: null }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const state = loadFlowState(testTmpDir);
+    expect(state).not.toBeNull();
+    expect(state!.repairCycleCount).toBe(0);
+  });
+
+  test("loadFlowState reads repairCycleCount from state.json", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 2 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const state = loadFlowState(testTmpDir);
+    expect(state).not.toBeNull();
+    expect(state!.repairCycleCount).toBe(2);
+  });
+
   test("advanceFlow reports invalid archive state instead of a generic 'cannot locate' message", () => {
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
@@ -994,7 +1024,7 @@ Complete API work.
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("technical_design_approval");
+    expect(result.message).toContain("Design Approval Required");
   });
 
   test("approval blocker reports blocked gate stage", () => {
@@ -1099,5 +1129,70 @@ Complete API work.
     expect(result.blocked).toBe(true);
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("state.json is missing activeIteration");
+  });
+
+  // ── Repair cycle count ─────────────────────────────
+
+  test("repairCycleCount increments when advance flows to finding_repair", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("finding_repair");
+    expect(result.newState?.repairCycleCount).toBe(1);
+  });
+
+  test("repairCycleCount resets to 0 when advancing from finding_repair to normal phase", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "iteration")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: 1, repairCycleCount: 2 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("iteration_validation");
+    expect(result.newState?.repairCycleCount).toBe(0);
+  });
+
+  test("repair cycle limit reached — advance refuses after 3 repair attempts", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Repair cycle limit reached");
+    expect(result.message).toContain("3");
   });
 });

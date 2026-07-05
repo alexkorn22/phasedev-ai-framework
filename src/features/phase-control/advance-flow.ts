@@ -10,6 +10,12 @@ import { resolveRoute, Route } from "./flow-route";
 import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 
+import {
+  invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
+  invalidDesignBlocker, invalidPlanBlocker, validationFindingsBlocker,
+  approvalBlocker, archiveReadinessBlocker
+} from "./prompt-blockers";
+
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 
@@ -84,24 +90,25 @@ void NON_ADVANCEABLE_ROUTE_KIND_CHECK;
 function routeToState(route: Route): FlowState {
   switch (route.kind) {
     case "change_intake":
-      return { activePhase: "change_intake", activeIteration: null };
+      return { activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 };
     case "code_research":
-      return { activePhase: "code_research", activeIteration: null };
+      return { activePhase: "code_research", activeIteration: null, repairCycleCount: 0 };
     case "technical_design":
-      return { activePhase: "technical_design", activeIteration: null };
+      return { activePhase: "technical_design", activeIteration: null, repairCycleCount: 0 };
     case "iteration_planning":
-      return { activePhase: "iteration_planning", activeIteration: null };
+      return { activePhase: "iteration_planning", activeIteration: null, repairCycleCount: 0 };
     case "iteration":
       return {
         activePhase: route.phase,
-        activeIteration: route.activeIteration.id
+        activeIteration: route.activeIteration.id,
+        repairCycleCount: 0
       };
     case "final_validation":
-      return { activePhase: "final_validation", activeIteration: null };
+      return { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 };
     case "finding_repair":
-      return { activePhase: "finding_repair", activeIteration: null };
+      return { activePhase: "finding_repair", activeIteration: null, repairCycleCount: 0 };
     case "pending_archive":
-      return { activePhase: "archive", activeIteration: null };
+      return { activePhase: "archive", activeIteration: null, repairCycleCount: 0 };
     default:
       throw new Error(
         `Unexpected route kind "${route.kind}" in routeToState. ` +
@@ -233,7 +240,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   // completed, so reaching here means the flow is done.
   if (state.activePhase === "archive") {
     return ok(
-      { activePhase: "archive", activeIteration: null },
+      { activePhase: "archive", activeIteration: null, repairCycleCount: 0 },
       "Archive complete. Flow finished.",
       true
     );
@@ -257,25 +264,56 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     route = resolveRoute(projectPath);
   }
 
-  // (C1) invalid_* → refuse (invalid_findings already starts with "invalid_")
+  // (C1) invalid_* → refuse with rich blocker
+  if (route.kind === "invalid_prd") {
+    return refuse(invalidPrdBlocker(route.paths.prdPath, route.issues).prompt);
+  }
+  if (route.kind === "invalid_execution_contract") {
+    return refuse(invalidRulesBlocker(route.paths.executionContractPath, route.issues).prompt);
+  }
+  if (route.kind === "invalid_code_research") {
+    return refuse(invalidResearchBlocker(route.paths.researchPath, route.issues).prompt);
+  }
+  if (route.kind === "invalid_technical_design") {
+    return refuse(invalidDesignBlocker(route.paths.designPath, route.issues).prompt);
+  }
+  if (route.kind === "invalid_iteration_planning") {
+    return refuse(invalidPlanBlocker(route.paths.iterationPlanPath, route.issues).prompt);
+  }
+  if (route.kind === "invalid_findings") {
+    return refuse(validationFindingsBlocker(route.paths.findingsPath, route.issues).prompt);
+  }
+  // Fallback for any remaining invalid_ kind (e.g. invalid_archive_state)
   if (route.kind.startsWith("invalid_")) {
     return refuse(
       `Cannot advance: ${route.kind}. Fix artifact, rerun check, then advance.`
     );
   }
 
-  // (C2) *_approval → refuse
+  // (C2) *_approval → refuse with rich blocker
+  if (route.kind === "change_intake_approval") {
+    return refuse(approvalBlocker(route.phase, "Setup Approval Required", route.paths.prdPath, "prd.md and execution_contract.md").prompt);
+  }
+  if (route.kind === "technical_design_approval") {
+    return refuse(approvalBlocker(route.phase, "Design Approval Required", route.paths.designPath, "design.md").prompt);
+  }
+  if (route.kind === "iteration_planning_approval") {
+    return refuse(approvalBlocker(route.phase, "Plan Approval Required", route.paths.iterationPlanPath, "iteration_plan.md").prompt);
+  }
+  // Fallback for any remaining *_approval kind
   if (route.kind.endsWith("_approval")) {
     return refuse(
       `Cannot advance: ${route.kind}. Run: phasedev approve <artifact> (or enable autoApprove).`
     );
   }
 
-  // (C3) archive_readiness_blocked → refuse
+  // (C3) archive_readiness_blocked → refuse with rich blocker
   if (route.kind === "archive_readiness_blocked") {
-    return refuse(
-      "Cannot advance: not all iterations are [x]. Complete validation for each iteration."
-    );
+    return refuse(archiveReadinessBlocker(
+      "Not all iterations are completed",
+      route.paths.iterationPlanPath,
+      "Complete validation for each iteration and mark it [x] in iteration_plan.md."
+    ).prompt);
   }
 
   // (D) archive_ready → mutate archive
@@ -293,11 +331,20 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
       return refuse(`Cannot advance to archive: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`);
     }
 
-    const newState: FlowState = { activePhase: "archive", activeIteration: null };
+    const newState: FlowState = { activePhase: "archive", activeIteration: null, repairCycleCount: 0 };
 
     return ok(
       newState,
       "Advanced to archive phase. Run: phasedev phase for the archive contract."
+    );
+  }
+
+  // Repair cycle guard: refuse after N consecutive repair attempts
+  const MAX_REPAIR_CYCLES = 3;
+  if (route.kind === "finding_repair" && state.repairCycleCount >= MAX_REPAIR_CYCLES) {
+    return refuse(
+      `Repair cycle limit reached (${MAX_REPAIR_CYCLES}). ` +
+      "Manual intervention required. Review the findings, resolve them directly, then run advance again."
     );
   }
 
@@ -323,13 +370,19 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   if (!sideEffect.ok) {
     return refuse(`Cannot advance: ${sideEffect.reason}`);
   }
-  saveFlowState(projectPath, nextState);
 
-  const iterSuffix = nextState.activeIteration
-    ? ` (iter ${nextState.activeIteration})`
+  // Increment repair cycle count when entering finding_repair, reset otherwise
+  const nextRepairCount = nextState.activePhase === "finding_repair"
+    ? state.repairCycleCount + 1
+    : 0;
+  const finalNextState = { ...nextState, repairCycleCount: nextRepairCount };
+  saveFlowState(projectPath, finalNextState);
+
+  const iterSuffix = finalNextState.activeIteration
+    ? ` (iter ${finalNextState.activeIteration})`
     : "";
   return ok(
-    nextState,
-    `Advanced to ${nextState.activePhase}${iterSuffix}.`
+    finalNextState,
+    `Advanced to ${finalNextState.activePhase}${iterSuffix}.`
   );
 }
