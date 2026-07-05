@@ -1,7 +1,8 @@
 import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import { readFrontmatterValue } from "../../shared/markdown/frontmatter";
+import { bodyAfterFrontmatter } from "../../shared/markdown/headings";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
-import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
+import { isMarkdownTableSeparatorRow, parseMarkdownTableBlocks, splitMarkdownTableRow } from "../../shared/markdown/table";
 import * as fs from "fs";
 
 export interface ValidationFindingState {
@@ -96,33 +97,6 @@ function genericIssue(message: string): ValidationFindingIssue {
   return { code: "generic", message };
 }
 
-function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
-  const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
-  if (!frontmatterMatch) {
-    return { body: content, hasFrontmatter: false };
-  }
-
-  return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
-}
-
-function parseStrictTableBlocks(lines: string[]): Array<{ start: number; end: number }> {
-  const blocks: Array<{ start: number; end: number }> = [];
-
-  for (let index = 0; index < lines.length; index++) {
-    if (!lines[index].trim().startsWith("|")) {
-      continue;
-    }
-
-    const start = index;
-    while (index + 1 < lines.length && lines[index + 1].trim().startsWith("|")) {
-      index++;
-    }
-    blocks.push({ start, end: index });
-  }
-
-  return blocks;
-}
-
 function artifactWithDerivedRows(
   exists: boolean,
   verdict: ValidationFindingsArtifact["verdict"],
@@ -169,7 +143,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
     issues.push(genericIssue("YAML field `type` must be one of: iteration, final."));
   }
 
-  const tableBlocks = parseStrictTableBlocks(bodyLines);
+  const tableBlocks = parseMarkdownTableBlocks(bodyLines);
   if (tableBlocks.length !== 1) {
     issues.push(genericIssue(`validation_findings.md must contain exactly one markdown table, found ${tableBlocks.length}.`));
   }
