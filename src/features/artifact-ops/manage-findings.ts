@@ -36,7 +36,7 @@ function findTableBounds(lines: string[]): { start: number; end: number } | null
 
 function parseTable(content: string): { frontmatter: string; headerLine: string; rows: FindingTableRow[]; bodyBeforeTable: string; bodyAfterTable: string } {
   const block = matchFrontmatterBlock(content);
-  const frontmatter = block ? content.slice(0, block.endIndex) : "";
+  const frontmatter = block ? `${content.slice(0, block.endIndex)}\n\n` : "";
   const body = block ? content.slice(block.endIndex).replace(/^\s*/, "") : content;
   const bodyLines = body.split("\n");
   const tableBounds = findTableBounds(bodyLines);
