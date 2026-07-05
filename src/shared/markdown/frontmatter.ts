@@ -17,12 +17,7 @@ export function matchFrontmatterBlock(content: string): FrontmatterBlock | null 
   return { prefix: match[1], yaml: match[2], endIndex: (match.index ?? 0) + match[0].length };
 }
 
-export function readFrontmatter(filePath: string): Record<string, any> | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+function parseFrontmatterFromContent(content: string): Record<string, any> | null {
   const block = matchFrontmatterBlock(content);
   if (!block) {
     return null;
@@ -34,6 +29,15 @@ export function readFrontmatter(filePath: string): Record<string, any> | null {
   } catch {
     return null;
   }
+}
+
+export function readFrontmatter(filePath: string): Record<string, any> | null {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  return parseFrontmatterFromContent(content);
 }
 
 export function readFrontmatterValue(filePath: string, key: string): string | null {
@@ -53,7 +57,12 @@ export function approvalContentHash(content: string): string {
 }
 
 export function isApproved(filePath: string): boolean {
-  const fm = readFrontmatter(filePath);
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  const fm = parseFrontmatterFromContent(content);
   if (!fm) {
     return false;
   }
@@ -68,5 +77,5 @@ export function isApproved(filePath: string): boolean {
     return true;
   }
 
-  return String(storedHash) === approvalContentHash(fs.readFileSync(filePath, "utf-8"));
+  return String(storedHash) === approvalContentHash(content);
 }

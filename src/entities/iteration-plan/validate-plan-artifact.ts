@@ -122,10 +122,14 @@ function validateTraceReferenceExistence(
   const knownRequirements = new Set<string>();
   const knownCriteria = new Set<string>();
   const prdAvailable = Boolean(prdPath && fs.existsSync(prdPath));
-  if (prdPath && prdAvailable) {
-    const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
-    for (const id of requirements) knownRequirements.add(id);
-    for (const id of criteria) knownCriteria.add(id);
+  if (prdAvailable) {
+    const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath ?? "");
+    for (const id of requirements) {
+      knownRequirements.add(id);
+    }
+    for (const id of criteria) {
+      knownCriteria.add(id);
+    }
   }
   const knownDecisions = extractDesignDecisionIds(designPath);
 

@@ -39,7 +39,7 @@ Context budget and stop condition:
 Scope rules:
 - execute only the current iteration shown above;
 - the current iteration change set implements only the `R#` and `SC#` tied to the current iteration in the approved plan;
-- `Expected Change Surface` in the current iteration constrains the allowed implementation areas for this phase;
+- `Expected Change Surface` in the current iteration constrains the allowed implementation areas for the current iteration;
 - do not expand scope beyond the current iteration `Expected Change Surface`, related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
 - if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary, stop and report a blocker instead of expanding scope yourself;
