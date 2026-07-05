@@ -1,6 +1,6 @@
 ## Common Validation Contract
 
-- Validation mode is review-only: do not rerun tests, builds, browsers, migrations, deployments, or other execution gates.
+- {{validation_execution_rule}}
 Positive decision flow:
 
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
@@ -58,6 +58,7 @@ Validation coverage:
 - Code review pass: completed / incomplete
 - Security review pass: completed / incomplete
 - Check Evidence review: sufficient / insufficient
+- {{validation_full_gate_line}}
 - Evidence gaps: none / <short reason>
 {{skill_compliance_line}}
 ```

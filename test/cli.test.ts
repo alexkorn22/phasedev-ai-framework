@@ -985,7 +985,8 @@ stages:
     expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
     expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
     expect(finalValidationPrompt).toContain("do not force `repair_required`");
-    expect(finalValidationPrompt).toContain("do not rerun `unit`, `phase`, `full`, or additional checks at this phase");
+    expect(finalValidationPrompt).toContain("run the `full` gate command from `execution_contract.md` exactly once");
+    expect(finalValidationPrompt).toContain("`verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed");
     expect(finalValidationPrompt).toContain("Final Validation does not mark phases as `[x]`");
     expect(finalValidationPrompt).toContain("type: final");
     expect(finalValidationPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
@@ -1692,7 +1693,7 @@ No iteration headings yet.
     expect(output).toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
     expect(output).not.toContain("bun test full");
-    expect(output).toContain("do not rerun `unit`, `phase`, `full`, or additional checks");
+    expect(output).toContain("run the `full` gate command from `execution_contract.md` exactly once");
     expect(output).toContain("Intent");
     expect(output).toContain("Requirements");
     expect(output).toContain("Success Criteria");
