@@ -13,14 +13,14 @@ Input artifacts:
 {{controller_changed_files_inventory}}
 
 Retrieval order:
-- Start from the approved PRD target state, requirements, success criteria, and risk boundaries; then read the approved design, all phases of the implementation plan, rules, and existing validation findings if present.
+- Start from the approved PRD target state, requirements, success criteria, and risk boundaries; then read the approved design, all iterations of the implementation plan, rules, and existing validation findings if present.
 - Treat linked artifact paths as the active change source of truth.
 - Use repository reads and narrow searches only to verify the full changed-file set, requirements completeness, code review findings, security findings, and contradictions between approved artifacts and actual code.
 
 Required phase-contract checks:
 - scope = full change;
-- all phases in [iteration_plan.md]({{plan_path}}) have status `[x]`;
-- Final Validation does not mark phases as `[x]`;
+- all iterations in [iteration_plan.md]({{plan_path}}) have status `[x]`;
+- Final Validation does not mark iterations as `[x]`;
 - change-set inventory gate: before deciding the verdict, identify the complete set of repository files changed outside `.phasedev/**` from available read-only repository evidence;
 - inspect every changed production/source/config/test file outside `.phasedev/**`, not only the flow artifacts, implementation plan, or `Check Evidence`;
 - final requirements conformance pass: verify that the actual changed code implements exactly the initial change requirements from PRD, approved design, and implementation plan artifacts; if behavior is missing, extra, contradictory, or only implied by `Check Evidence`, add a finding;
@@ -36,7 +36,7 @@ Required phase-contract checks:
 - `Generation Bundle` in [iteration_plan.md]({{plan_path}}) is checked against the actual change set: declared required areas must be completed or have a finding;
 - `Expected Change Surface` in [iteration_plan.md]({{plan_path}}) is delivery scope context for comparing expected and actual changed areas; it is not a new requirements source and does not replace PRD-first validation or actual repo evidence;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods; the single `full` gate run above is the only allowed execution;
-- `Check Evidence` across all phases in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
+- `Check Evidence` across all iterations in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
 - full-gate execution: run the `full` gate command from `execution_contract.md` exactly once before deciding the verdict; `verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed; if the full gate fails, add a `MUST-FIX` finding with the exact command and a short failure summary and set `verdict: repair_required`; if the command or environment is unavailable, add a `MUST-FIX` finding with `Class = validation` recording the exact command and error class; do not rerun `unit`, `phase`, or additional checks;
 - validation result is written to [validation_findings.md]({{findings_path}});
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});

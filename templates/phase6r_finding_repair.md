@@ -25,7 +25,7 @@ Ordered workflow:
 Context budget and stop condition:
 - Stop retrieval when every queued finding ID has a concrete repair target, source-of-truth requirement/design/plan context, affected file or artifact evidence, and a verification path or documented blocker.
 - Do not read unrelated repository areas, historical chat, generated prompt bundles, or config files to improve confidence after the narrow repair path is established.
-- If a needed file is missing, search only by the finding's exact ID, affected phase label, `R#`, `SC#`, named file, or command text before declaring a blocker.
+- If a needed file is missing, search only by the finding's exact ID, affected iteration label, `R#`, `SC#`, named file, or command text before declaring a blocker.
 
 Finding handling rules:
 - use the Artifact Build Contract below as the only source of structure before changing the registry;
@@ -39,7 +39,7 @@ Finding handling rules:
 - do not delete finding rows;
 - record a fixed finding by changing the existing row `Status` to `resolved`;
 - do not change stable fields in an existing row unless needed to fix an explicit error in the row;
-- if repair reruns checks or changes evidence for the affected phase, update `Check Evidence` in [iteration_plan.md]({{plan_path}});
+- if repair reruns checks or changes evidence for the affected iteration, update `Check Evidence` in [iteration_plan.md]({{plan_path}});
 - in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - do not leave relevant repair evidence as `pending` or `failed`, except for an external blocker recorded as `blocked` with a reason;
 - if a table cell needs a literal `|`, escape it as `\|`.
@@ -67,7 +67,7 @@ Verdict rule:
 Human reapproval:
 - if repair changes an already approved `prd.md`, `architecture/design.md`, or `iteration_plan.md`, change that artifact's YAML frontmatter from `approved: true` to `approved: false` and clear `approved_by` if the field exists;
 - this is allowed only for artifacts that are actually changed in this repair;
-- updating only task checkboxes, phase status, or `Check Evidence` in `iteration_plan.md` does not count as changing approved plan content and does not require resetting approval;
+- updating only task checkboxes, iteration status, or `Check Evidence` in `iteration_plan.md` does not count as changing approved plan content and does not require resetting approval;
 - for a pure `implementation` repair, do not change approval statuses for requirements, design, or plan.
 
 {{validation_findings_artifact_contract}}

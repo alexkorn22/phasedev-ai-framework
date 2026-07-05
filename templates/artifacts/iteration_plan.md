@@ -9,10 +9,10 @@ Authoring instructions for the planning agent:
 - Fill this template for iteration_plan.md.
 - Remove every HTML comment from the final iteration_plan.md.
 - Replace the title with the concrete change name.
-- Do not leave blank table cells, blank phase names, blank task descriptions, copied field descriptions, or placeholder-like prose in the final artifact.
+- Do not leave blank table cells, blank iteration names, blank task descriptions, copied field descriptions, or placeholder-like prose in the final artifact.
 - Keep YAML frontmatter first.
 
-Phase status contract:
+Iteration status contract:
 - Keep iteration headings machine-readable: ## Iteration N: Name [status]
 - Iteration numbers must be sequential starting at 1.
 - Use [ ] for not started.
@@ -22,12 +22,12 @@ Phase status contract:
 
 Task contract:
 - Every executable checkbox item must be atomic and numbered.
-- Use exactly this checkbox syntax for top-level tasks: `- [ ] <phase>.<task> Task description`.
-- Use exactly this checkbox syntax for subtasks: `  - [ ] <phase>.<task>.<subtask> Subtask description`.
-- Task IDs are phase-scoped dot-separated numbers and must start with the phase number.
+- Use exactly this checkbox syntax for top-level tasks: `- [ ] <iteration>.<task> Task description`.
+- Use exactly this checkbox syntax for subtasks: `  - [ ] <iteration>.<task>.<subtask> Subtask description`.
+- Task IDs are iteration-scoped dot-separated numbers and must start with the iteration number.
 - Subtasks are allowed only when they clarify execution and must be numbered with one additional dot segment.
-- Do not add task checkboxes outside phase task sections.
-- Do not add a generic Definition of Done section. Phase completion is all task/subtask checkboxes [x] plus required checks passed.
+- Do not add task checkboxes outside iteration task sections.
+- Do not add a generic Definition of Done section. Iteration completion is all task/subtask checkboxes [x] plus required checks passed.
 
 Approval Summary row contract:
 - Approval scope: what the user approves in this implementation plan.
@@ -47,25 +47,25 @@ Generation Bundle contract:
 - The Plan column must explain the selected value with concrete change-specific content.
 - Generation Bundle must align with PRD Target state, Risk boundaries, R# Requirements, SC# Success Criteria, and SC# Evidence types.
 
-Phase Overview contract:
-- Add one row per phase.
-- Main work items should reference task IDs from the phase.
-- Required checks should list commands or named checks for the phase.
+Iteration Overview contract:
+- Add one row per iteration.
+- Main work items should reference task IDs from the iteration.
+- Required checks should list commands or named checks for the iteration.
 
-Phase section contract:
-- Add one machine-readable phase heading per phase.
-- Each phase must include Goal, Expected Change Surface, Tasks, Checks, and Check Evidence.
-- Goal states the observable outcome of the phase.
-- Expected Change Surface describes the allowed implementation area for the phase. Keep it as a markdown table with at most 7-10 rows.
+Iteration section contract:
+- Add one machine-readable iteration heading per iteration.
+- Each iteration must include Goal, Expected Change Surface, Tasks, Checks, and Check Evidence.
+- Goal states the observable outcome of the iteration.
+- Expected Change Surface describes the allowed implementation area for the iteration. Keep it as a markdown table with at most 7-10 rows.
 - Use exact files only for critical entrypoints/contracts, migrations, config, generated artifacts, or known risky files.
 - For broad implementation areas, use path patterns, globs, or subsystem ownership rows instead of enumerating every file.
-- Large phases must group by subsystem/glob, not enumerate every file.
+- Large iterations must group by subsystem/glob, not enumerate every file.
 - Expected Change Surface rows must use columns exactly: Area / Path Pattern, Change Type, Ownership, Trace.
 - Trace must reference concrete R#, SC#, and relevant D# IDs.
-- Tasks contains only executable numbered task checkboxes for that phase.
-- Checks contains the unit gate and any additional phase-specific checks.
+- Tasks contains only executable numbered task checkboxes for that iteration.
+- Checks contains the unit gate and any additional iteration-specific checks.
 - Additional checks may be omitted when none exist.
-- Phase goals, expected change surface, tasks, checks, and evidence rows must trace back to concrete approved PRD R# requirements, SC# success criteria, SC# Evidence types, risk boundaries, and approved design D# decisions.
+- Iteration goals, expected change surface, tasks, checks, and evidence rows must trace back to concrete approved PRD R# requirements, SC# success criteria, SC# Evidence types, risk boundaries, and approved design D# decisions.
 - Do not use vague trace labels such as "all requirements"; reference concrete R#, SC#, and relevant D# IDs.
 
 Check Evidence contract:

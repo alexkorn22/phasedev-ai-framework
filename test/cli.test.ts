@@ -843,7 +843,7 @@ stages:
     expect(output).toContain("Phase 4. Iteration Planning.");
     expect(output).toContain("Artifact Build Contract: iteration_plan.md");
     expect(output).toContain("# Implementation Plan");
-    expect(output.match(/`- \[ \] <phase>\.<task> Task description`/g) ?? []).toHaveLength(1);
+    expect(output.match(/`- \[ \] <iteration>\.<task> Task description`/g) ?? []).toHaveLength(1);
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--project-path");
@@ -916,34 +916,34 @@ stages:
     expect(planPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(planPrompt).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(implementationPrompt).toContain("Ordered workflow:");
-    expect(implementationPrompt).toContain("use the embedded full-plan orientation and current phase excerpt below as the implementation-plan read surface");
+    expect(implementationPrompt).toContain("use the embedded full-plan orientation and current iteration excerpt below as the implementation-plan read surface");
     expect(implementationPrompt).toContain("Full-plan orientation:");
-    expect(implementationPrompt).toContain("Read this phase prompt, the embedded full-plan orientation, and the embedded current phase excerpt first");
+    expect(implementationPrompt).toContain("Read this phase prompt, the embedded full-plan orientation, and the embedded current iteration excerpt first");
     expect(implementationPrompt).toContain("open the full [iteration_plan.md]");
-    expect(implementationPrompt).toContain("only when patching current-phase task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory");
+    expect(implementationPrompt).toContain("only when patching current-iteration task checkboxes or `Check Evidence`, or when the embedded orientation/excerpt is missing or contradictory");
     expect(implementationPrompt).toContain("Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries");
-    expect(implementationPrompt).toContain("do not implement future-phase tasks from the orientation alone");
-    expect(implementationPrompt).toContain("retrieve only the rows or sections referenced by current-phase `R#`, `SC#`, `D#`, checks, and risk boundaries");
-    expect(implementationPrompt).toContain("Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.");
+    expect(implementationPrompt).toContain("do not implement future-iteration tasks from the orientation alone");
+    expect(implementationPrompt).toContain("retrieve only the rows or sections referenced by current-iteration `R#`, `SC#`, `D#`, checks, and risk boundaries");
+    expect(implementationPrompt).toContain("Inspect repository files only after the current iteration scope is understood, and only files or narrow searches needed by the current iteration `Expected Change Surface`.");
     expect(implementationPrompt).not.toContain("Read this stage prompt, then the linked artifacts in this order");
-    expect(implementationPrompt).not.toContain("Treat the linked artifacts and current phase excerpt as the first retrieval layer.");
+    expect(implementationPrompt).not.toContain("Treat the linked artifacts and current iteration excerpt as the first retrieval layer.");
     expect(implementationPrompt).toContain("Context budget and stop condition:");
-    expect(implementationPrompt).toContain("Treat the embedded full-plan orientation plus current phase excerpt as the primary retrieval layer");
-    expect(implementationPrompt).toContain("Keep future phases as boundary context only");
-    expect(implementationPrompt).toContain("Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
+    expect(implementationPrompt).toContain("Treat the embedded full-plan orientation plus current iteration excerpt as the primary retrieval layer");
+    expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
+    expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(implementationPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; evaluate them against the current phase evidence and never silently skip a configured skill.");
     expect(planPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; map useful output into the embedded implementation plan template only");
     expect(phaseValidationPrompt).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
-    expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
-    expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking");
-    expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current phase boundary");
+    expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
+    expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
+    expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");
     expect(implementationPrompt).toContain("use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`");
-    expect(implementationPrompt).toContain("if checks fail and the failure is causally related to the current phase change set, fix only inside the approved current-phase surface and repeat the affected checks");
-    expect(implementationPrompt).toContain("if a check failure is unrelated to the current phase, external/environmental, or outside the approved surface, do not repair outside scope");
-    expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the phase heading `[~]`");
+    expect(implementationPrompt).toContain("if checks fail and the failure is causally related to the current iteration change set, fix only inside the approved current-iteration surface and repeat the affected checks");
+    expect(implementationPrompt).toContain("if a check failure is unrelated to the current iteration, external/environmental, or outside the approved surface, do not repair outside scope");
+    expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the iteration heading `[~]`");
     expect(implementationPrompt).toContain("do not substitute a different route check");
     expect(implementationPrompt).toContain("--project-path");
-    expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current phase is honestly recorded as `blocked`.");
+    expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Iteration 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("Artifact Build Contract");
     expect(phaseValidationPrompt).toContain("Retrieval order:");
@@ -987,7 +987,7 @@ stages:
     expect(finalValidationPrompt).toContain("do not force `repair_required`");
     expect(finalValidationPrompt).toContain("run the `full` gate command from `execution_contract.md` exactly once");
     expect(finalValidationPrompt).toContain("`verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed");
-    expect(finalValidationPrompt).toContain("Final Validation does not mark phases as `[x]`");
+    expect(finalValidationPrompt).toContain("Final Validation does not mark iterations as `[x]`");
     expect(finalValidationPrompt).toContain("type: final");
     expect(finalValidationPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
     expect(finalValidationPrompt).not.toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
@@ -1001,10 +1001,10 @@ stages:
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
     expect(finalValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current phase");
-    expect(finalValidationPrompt).not.toContain("Build the validation scope from the current phase `Goal`");
-    expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
-    expect(finalValidationPrompt).not.toContain("current-phase artifacts, current-phase changed files");
+    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current iteration");
+    expect(finalValidationPrompt).not.toContain("Build the validation scope from the current iteration `Goal`");
+    expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
+    expect(finalValidationPrompt).not.toContain("current-iteration artifacts, current-iteration changed files");
     expect(repairPrompt).toContain("Phase 6R. Finding Repair.");
     expect(repairPrompt).toContain("Ordered workflow:");
     expect(repairPrompt).toContain("Read the Current Repair Queue, then open the full findings registry only to preserve/update rows");
@@ -1549,7 +1549,7 @@ The system routes approved changes.
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nIteration 1: API");
+    expect(output).toContain("Current iteration:\nIteration 1: API");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("Check Evidence");
     expect(output).toContain("do not rerun tests or additional checks");
@@ -1669,7 +1669,7 @@ No iteration headings yet.
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nIteration 1: Complete Change");
+    expect(output).toContain("Current iteration:\nIteration 1: Complete Change");
     expect(output).not.toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("bun test phase");
     expect(output).toContain("do not rerun tests or additional checks");
@@ -1717,7 +1717,7 @@ No iteration headings yet.
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).toContain("Current phase:\nIteration 1: API");
+    expect(output).toContain("Current iteration:\nIteration 1: API");
   });
 
   test("repaired final validation repeats final validation", () => {
@@ -2049,10 +2049,10 @@ None.
     expect(output).toContain("Phase 5. Implementation.");
     expect(output).toContain("bun test unit");
     expect(output).toContain(`phasedev check --project-path "${testTmpDir}"`);
-    expect(output).toContain("finish only when the controller self-check passes or the current phase is honestly recorded as `blocked`");
-    expect(output).toContain("do not mark the phase heading `[x]` at this phase");
+    expect(output).toContain("finish only when the controller self-check passes or the current iteration is honestly recorded as `blocked`");
+    expect(output).toContain("do not mark the iteration heading `[x]` at this phase");
     expect(output).not.toContain("change the phase status in the plan heading from `[~]`");
-    expect(output).not.toContain("mark the phase heading as `[x]`");
+    expect(output).not.toContain("mark the iteration heading as `[x]`");
     expect(output).not.toContain("run unit tests");
   });
 
@@ -2074,13 +2074,13 @@ Additional checks:
     const output = runNext();
 
     expect(output).toContain("Phase 5. Implementation.");
-    expect(output).toContain("Current phase from approved plan:");
+    expect(output).toContain("Current iteration from approved plan:");
     expect(output).toContain("Additional checks:");
     expect(output).toContain("bun test:e2e auth");
     expect(output).toContain("Browser smoke for login flow");
   });
 
-  test("implementation prompt includes full current phase excerpt and bounded full-plan orientation", () => {
+  test("implementation prompt includes full current iteration excerpt and bounded full-plan orientation", () => {
     // [~] is set by advance (applyStateSideEffects) when entering the
     // iteration; prompt resolution is read-only and renders the plan as-is.
     setupChange(`
@@ -2104,7 +2104,7 @@ Implementation note:
 
     const output = runNext();
 
-    expect(output).toContain("Current phase from approved plan:");
+    expect(output).toContain("Current iteration from approved plan:");
     expect(output).toContain("Full-plan orientation:");
     expect(output).toContain("- Iteration 1: API [~] (current); tasks: 1.1; required checks: unit");
     expect(output).toContain("- Iteration 2: UI [ ] (orientation only); tasks: 2.1; required checks: unit");
@@ -2153,7 +2153,7 @@ Additional checks:
     const output = runNext();
 
     expect(output).toContain("Phase 6A. Iteration Validation.");
-    expect(output).not.toContain("Additional checks for the current phase from the plan:");
+    expect(output).not.toContain("Additional checks for the current iteration from the plan:");
     expect(output).not.toContain("bun test:e2e auth");
     expect(output).not.toContain("additional checks are executed");
   });
@@ -2172,7 +2172,7 @@ Additional checks:
     const output = runNext();
 
     expect(output).toContain("Phase 6B. Final Validation.");
-    expect(output).not.toContain("Additional checks for the current single-phase phase");
+    expect(output).not.toContain("Additional checks for the current single-iteration iteration");
     expect(output).not.toContain("bun test:e2e checkout");
     expect(output).not.toContain("applicable additional checks");
   });
@@ -2318,7 +2318,7 @@ stages:
 
     const prdSections = Array.from(prdTemplate.matchAll(/^##\s+(.+)$/gm)).map(match => match[1]);
     expect(prdSections).toEqual(["Intent", "Requirements", "Success Criteria"]);
-    expect(planTemplate).toContain("Phase status contract:");
+    expect(planTemplate).toContain("Iteration status contract:");
     expect(planTemplate).toContain("Check Evidence contract:");
     expect(planTemplate).toContain("| Area / Path Pattern | Change Type | Ownership | Trace |");
     expect(findingsTemplate).toContain("verdict: <set_after_review>");
@@ -2336,10 +2336,10 @@ stages:
     expect(phaseTemplate).toContain("must have `type: iteration`");
     expect(finalTemplate).toContain("must have `type: final`");
     expect(finalTemplate).not.toContain("template default `type: iteration`");
-    expect(phaseTemplate).toContain("Build the validation scope from the current phase `Goal`");
+    expect(phaseTemplate).toContain("Build the validation scope from the current iteration `Goal`");
     expect(finalTemplate).toContain("Build the validation scope from the full approved PRD `Intent`");
-    expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current phase");
-    expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current phase");
+    expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current iteration");
+    expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
       expect(template).toContain("Class = security` and `Severity = MUST-FIX");

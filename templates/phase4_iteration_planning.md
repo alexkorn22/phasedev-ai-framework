@@ -17,25 +17,25 @@ Use this bounded retrieval order before planning:
 3. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `iteration_plan.md`.
 4. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
 {{phase_skill_step}}
-5. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
+5. Inspect repository files only to answer a concrete planning question about iteration boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
 
 Context budget and stop condition:
 - Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
 {{phase_skill_note}}
-- Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one phase, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
+- Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one iteration, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
 - Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless an approved input explicitly requires that evidence.
 
 Planning instructions:
 1. Use the Artifact Build Contract below as the only source of structure for [iteration_plan.md]({{plan_path}}).
 2. Create the implementation plan file: [iteration_plan.md]({{plan_path}}), filling that template for the current change.
 3. Apply the contract's canonical fill rules for comments, placeholders, status values, trace IDs, review formatting, and machine-readable fields.
-4. Split implementation into sequential autonomous phases:
-   - every phase, including the only phase, goes through `Implementation -> Iteration Validation`;
-   - after successful Iteration Validation for all phases, the flow proceeds to `Final Validation`;
-   - each phase must fit fully into one AI-agent working session without context overflow;
-   - the optimal phase size is a 3-10 file change; do not artificially split a small change.
+4. Split implementation into sequential autonomous iterations:
+   - every iteration, including the only iteration, goes through `Implementation -> Iteration Validation`;
+   - after successful Iteration Validation for all iterations, the flow proceeds to `Final Validation`;
+   - each iteration must fit fully into one AI-agent working session without context overflow;
+   - the optimal iteration size is a 3-10 file change; do not artificially split a small change.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
-   - phase sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
+   - iteration sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
    - checks must cover each `SC#` according to its PRD `Evidence` type;
    - risk boundaries must be represented in the generated plan.
 6. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
@@ -46,19 +46,19 @@ Planning instructions:
 ## Uncertainty decision flow
 
 Prefer a complete, approvable plan when approved inputs support one:
-1. If the phase, task, check, or change-surface choice is directly supported by approved PRD/design/rules, make the planning decision and map it to concrete `R#`, `SC#`, and `D#` IDs.
-2. If a detail is missing but does not change approval scope, PRD semantics, approved design decisions, public contracts, risk boundaries, phase ordering, or required checks, choose the smallest conservative planning assumption and record it in an existing `Approval Summary`, `Phase Overview`, or phase-local field with concrete trace IDs.
+1. If the iteration, task, check, or change-surface choice is directly supported by approved PRD/design/rules, make the planning decision and map it to concrete `R#`, `SC#`, and `D#` IDs.
+2. If a detail is missing but does not change approval scope, PRD semantics, approved design decisions, public contracts, risk boundaries, iteration ordering, or required checks, choose the smallest conservative planning assumption and record it in an existing `Approval Summary`, `Iteration Overview`, or iteration-local field with concrete trace IDs.
 3. If the missing answer would change what the user is approving, expand scope, contradict approved PRD/design, weaken a risk boundary, change a public contract, or make required checks impossible to name, ask the user and stop before writing or finalizing `iteration_plan.md`.
 4. Do not write pending material questions into `iteration_plan.md` as a substitute for asking the user. Do not encode assumptions or deferred decisions unless they are grounded in approved design and concrete PRD rows.
 
 Examples of acceptable conservative planning assumptions:
 - Choose the smaller existing module or package named by the approved design when two equivalent local file placements both satisfy the same `R#`, `SC#`, and `D#`.
 - Use the test command already listed in `execution_contract.md` for the matching evidence type when the PRD names the evidence type but not the exact command.
-- Keep a phase as one 3-10 file change when the approved scope is small and no `R#`, `SC#`, `D#`, public contract, or risk boundary requires a separate phase.
+- Keep an iteration as one 3-10 file change when the approved scope is small and no `R#`, `SC#`, `D#`, public contract, or risk boundary requires a separate iteration.
 
 Examples of required planning blockers:
 - `prd.md` or `design.md` is missing, unreadable, or not approved.
-- Approved PRD and approved design disagree about a public contract, target behavior, risk boundary, or phase-critical dependency.
+- Approved PRD and approved design disagree about a public contract, target behavior, risk boundary, or iteration-critical dependency.
 - A required `SC#` check cannot be named from PRD/rules/design/repository evidence without inventing validation authority.
 
 ## Artifact self-check
