@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface ManageFindingsResult {
   ok: boolean;
@@ -15,35 +16,6 @@ interface FindingTableRow {
   iteration: string;
   finding: string;
   requiredFix: string;
-}
-
-function splitTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let current = "";
-
-  for (let i = 0; i < trimmed.length; i++) {
-    if (trimmed[i] === "\\" && trimmed[i + 1] === "|") {
-      current += "|";
-      i++;
-      continue;
-    }
-    if (trimmed[i] === "|") {
-      cells.push(current.trim());
-      current = "";
-      continue;
-    }
-    current += trimmed[i];
-  }
-  cells.push(current.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(c => /^:?-{3,}:?$/.test(c));
 }
 
 function findTableBounds(lines: string[]): { start: number; end: number } | null {
@@ -79,10 +51,10 @@ function parseTable(content: string): { frontmatter: string; headerLine: string;
   const bodyAfterTable = bodyLines.slice(tableBounds.end + 1).join("\n");
   const headerLine = tableLines[0];
   // Skip header and separator to get data rows
-  const dataLines = tableLines.slice(2).filter(line => !isSeparatorRow(splitTableRow(line)));
+  const dataLines = tableLines.slice(2).filter(line => !isMarkdownTableSeparatorRow(splitMarkdownTableRow(line)));
 
   const rows: FindingTableRow[] = dataLines.map(line => {
-    const cells = splitTableRow(line);
+    const cells = splitMarkdownTableRow(line);
     return {
       id: cells[0] ?? "",
       status: cells[1] ?? "",
@@ -97,16 +69,9 @@ function parseTable(content: string): { frontmatter: string; headerLine: string;
   return { frontmatter, headerLine, rows, bodyBeforeTable, bodyAfterTable };
 }
 
-function escapeCell(value: string): string {
-  // splitTableRow unescapes \| when reading, so cells held in memory are raw.
-  // Escape pipes (and flatten newlines) on the way back out to keep the
-  // markdown table structurally intact.
-  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
-}
-
 function padColumns(rowParts: string[]): string {
   // Build a pipe-delimited row with consistent padding
-  return `| ${rowParts.map(escapeCell).join(" | ")} |`;
+  return `| ${rowParts.map(escapeMarkdownTableCell).join(" | ")} |`;
 }
 
 function composeDocument(frontmatter: string, bodyBeforeTable: string, table: string, bodyAfterTable: string): string {
