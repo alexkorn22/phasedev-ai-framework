@@ -11,12 +11,13 @@ import { getFlowStatus, renderFlowStatus } from "./features/flow-status/get-stat
 import { approveArtifact } from "./features/artifact-ops/approve-artifact";
 import { setIterationStatus } from "./features/iteration-ops/set-iteration-status";
 import { validateArtifact } from "./features/artifact-ops/validate-artifact";
-import { addFinding, resolveFinding } from "./features/artifact-ops/manage-findings";
+import { addFinding, resolveFinding, PLACEHOLDER_REQUIRED_FIX } from "./features/artifact-ops/manage-findings";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
 import { resetChange } from "./features/flow-state/reset-change";
 import { findActiveChangeDir, MultipleActiveChangesError } from "./entities/change/active-change";
+import { loadFlowState } from "./entities/change/flow-state";
 import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
@@ -297,13 +298,43 @@ function main(): void {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "add-finding",
-        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: <id>, <title>, and <severity> are required.\nUsage: phasedev add-finding <id> <title> <severity> [--class <class>] [--iteration <iteration>] [--file <path>]"
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: <id>, <title>, and <severity> are required.\nUsage: phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
+      });
+      return;
+    }
+
+    const requiredFix = parseStringOption(args, "--required-fix");
+    if (!requiredFix) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "add-finding",
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: --required-fix <text> is required.\nUsage: phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
+      });
+      return;
+    }
+    if (PLACEHOLDER_REQUIRED_FIX.test(requiredFix.trim())) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "add-finding",
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: Required fix must be a concrete action; placeholder values such as TBD are not allowed."
       });
       return;
     }
 
     const className = parseStringOption(args, "--class");
-    const iteration = parseStringOption(args, "--iteration");
+    let iteration = parseStringOption(args, "--iteration");
+    if (!iteration) {
+      const state = loadFlowState(projectPath);
+      iteration = state?.activeIteration ? `Iteration ${state.activeIteration}` : undefined;
+    }
+    if (!iteration) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "add-finding",
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: could not derive the iteration from state.json. Pass --iteration (for example \"Iteration 1\" or \"Final\")."
+      });
+      return;
+    }
     const filePath = parseStringOption(args, "--file") || "";
     const targetFile = filePath || resolveFindingsPath(projectPath);
 
@@ -316,7 +347,7 @@ function main(): void {
       return;
     }
 
-    const result = addFinding(targetFile, id, title, severity, className, iteration);
+    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration);
     const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,

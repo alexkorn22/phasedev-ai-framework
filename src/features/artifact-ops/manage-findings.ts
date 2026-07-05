@@ -117,15 +117,23 @@ function composeDocument(frontmatter: string, bodyBeforeTable: string, table: st
 
 const HEADER_CELLS = ["ID", "Status", "Severity", "Class", "Iteration", "Finding", "Required Fix"];
 const SEPARATOR = "|---|---|---|---|---|---|---|";
+export const PLACEHOLDER_REQUIRED_FIX = /^(?:TBD|TODO|n\/a|none|-)$/i;
 
 export function addFinding(
   filePath: string,
   id: string,
   title: string,
   severity: string,
+  requiredFix: string,
   className?: string,
   iteration?: string
 ): ManageFindingsResult {
+  if (requiredFix.trim().length === 0 || PLACEHOLDER_REQUIRED_FIX.test(requiredFix.trim())) {
+    return { ok: false, message: "Required fix must be a concrete action; placeholder values such as TBD are not allowed." };
+  }
+  if (!iteration || iteration.trim().length === 0) {
+    return { ok: false, message: "Iteration label is required (for example \"Iteration 1\" or \"Final\")." };
+  }
   if (!fs.existsSync(filePath)) {
     return { ok: false, message: `File not found: ${filePath}` };
   }
@@ -143,9 +151,9 @@ export function addFinding(
     status: "open",
     severity,
     className: className ?? "validation",
-    iteration: iteration ?? "current",
+    iteration,
     finding: title,
-    requiredFix: "TBD"
+    requiredFix
   };
 
   const allRows = [...rows, newRow];

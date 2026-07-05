@@ -103,7 +103,7 @@ Commands:
       Validate an artifact file without modifying flow state.
       Side effects: none.
 
-  phasedev add-finding <id> <title> <severity> [--class <class>] [--iteration <iteration>] [--file <path>]
+  phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]
       Add a finding row to validation_findings.md.
       Side effects: modifies validation_findings.md.
 
@@ -140,7 +140,8 @@ Options:
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding.
   --class <class>             Finding class for add-finding.
-  --iteration <iteration>     Iteration label for add-finding.
+  --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
+  --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json.
   --tail N                    Show last N log entries.
   --yes, --force              Confirm destructive operations (reset-change).
   --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.

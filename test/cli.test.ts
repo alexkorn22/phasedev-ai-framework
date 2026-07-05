@@ -2650,7 +2650,7 @@ ${rows ?? ""}`;
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath);
 
-    const result = runCli(["add-finding", "F1", "Test finding", "MUST-FIX", "--file", findingsPath]);
+    const result = runCli(["add-finding", "F1", "Test finding", "MUST-FIX", "--required-fix", "Add missing guard clause", "--iteration", "Iteration 1", "--file", findingsPath]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV ADD-FINDING] OK");
 
@@ -2658,15 +2658,31 @@ ${rows ?? ""}`;
     expect(content).toContain("F1");
     expect(content).toContain("open");
     expect(content).toContain("MUST-FIX");
+    expect(content).toContain("Iteration 1");
+    expect(content).toContain("Add missing guard clause");
   });
 
   test("add-finding rejects duplicate ID", () => {
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
 
-    const result = runCli(["add-finding", "F1", "Duplicate", "MUST-FIX", "--file", findingsPath]);
+    const result = runCli(["add-finding", "F1", "Duplicate", "MUST-FIX", "--required-fix", "Fix it", "--iteration", "Iteration 1", "--file", findingsPath]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("already exists");
+  });
+
+  test("add-finding without --required-fix fails with usage error", () => {
+    const result = runCli(["add-finding", "F9", "Broken thing", "MUST-FIX", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("--required-fix");
+  });
+
+  test("add-finding rejects placeholder required fix", () => {
+    const result = runCli(["add-finding", "F9", "Broken thing", "MUST-FIX", "--required-fix", "TBD", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("placeholder");
   });
 
   test("resolve-finding sets finding status to resolved", () => {
