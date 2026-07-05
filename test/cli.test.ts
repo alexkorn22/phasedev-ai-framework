@@ -2360,15 +2360,13 @@ stages:
     const phaseTemplate = readValidationTemplate("phase6a_iteration_validation.md");
     const finalTemplate = readValidationTemplate("phase6b_final_validation.md");
 
-    expect(phaseTemplate).toContain("must have `type: iteration`");
-    expect(finalTemplate).toContain("must have `type: final`");
     expect(finalTemplate).not.toContain("template default `type: iteration`");
     expect(phaseTemplate).toContain("Build the validation scope from the current iteration `Goal`");
     expect(finalTemplate).toContain("Build the validation scope from the full approved PRD `Intent`");
     expect(finalTemplate).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current iteration");
     expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
     for (const template of [phaseTemplate, finalTemplate]) {
-      expect(template).toContain("`validation_findings.md` contains only YAML frontmatter and exactly one markdown findings table");
+      expect(template).toContain("Structure, column set, allowed values, and verdict/type — only from the embedded Artifact Build Contract");
       expect(template).toContain("Class = security` and `Severity = MUST-FIX");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
