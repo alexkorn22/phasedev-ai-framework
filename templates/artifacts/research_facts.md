@@ -18,31 +18,32 @@ Authoring instructions for the research agent:
 - If `.phasedev/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
 - Source Facts Supports must use R#/SC#; do not use none/not_applicable.
 - In Research Gaps & Blockers, explicitly declare any remaining unresolved gaps or disputed facts.
+
+Row examples (for reference only — write real rows in the tables below, then remove this whole comment):
+| Target state | Requested target from PRD. | limited | F1 | F1 records what exists and what does not yet support the target. |
+| R1 | confirmed | F1 | S1 | none |
+| F1 | code | `src/file.ts:42` | Current implementation does X. | R1 |
+| S1 | spec | `.phasedev/specs/foo/spec.md:12` | Existing spec describes capability Y. | R1 |
 -->
 
 ## PRD Intent Trace
 
 | Field | PRD Value | Status | Evidence | Notes |
 |---|---|---|---|---|
-| Change type |  | not_applicable | prd-only | Classification comes from PRD intent. |
-| Why |  | not_applicable | prd-only | Rationale comes from PRD intent. |
-| Target state | Requested target from PRD. | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
-| Risk boundaries | Requested risk boundary from PRD. | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
+| Change type |  |  |  |  |
+| Why |  |  |  |  |
+| Target state |  |  |  |  |
+| Risk boundaries |  |  |  |  |
 
 ## Requirements & Success Criteria Trace
 
 | ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
 |---|---|---|---|---|
-| R1 | confirmed | F1 | S1 | none |
-| SC1 | limited | F2 | none | none |
 
 ## Source Facts
 
 | Fact ID | Type | Source | Fact | Supports |
 |---|---|---|---|---|
-| F1 | code | `src/file.ts:42` | Current implementation does X. | R1 |
-| F2 | code | `test/file.test.ts:12` | Tests verify behavior X. | SC1 |
-| S1 | spec | `.phasedev/specs/foo/spec.md:12` | Existing spec describes capability Y. | R1 |
 
 ## Research Gaps & Blockers
 
