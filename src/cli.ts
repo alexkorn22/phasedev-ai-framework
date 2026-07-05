@@ -16,7 +16,7 @@ import { listChanges, renderChanges } from "./features/flow-status/list-changes"
 import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
 import { resetChange } from "./features/flow-state/reset-change";
-import { findActiveChangeDir } from "./entities/change/active-change";
+import { findActiveChangeDir, MultipleActiveChangesError } from "./entities/change/active-change";
 import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
@@ -658,10 +658,22 @@ try {
   main();
 } catch (error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  if (globalJsonMode) {
+  if (error instanceof MultipleActiveChangesError) {
+    if (globalJsonMode) {
+      console.log(JSON.stringify({ ok: false, kind: "multiple-active-changes", message, data: { directories: error.directories } }));
+    } else {
+      console.error([
+        `[PHASEDEV] BLOCKED: ${message}`,
+        ...error.directories.map(dir => `- ${dir}`),
+        "Keep exactly one active change. Move the extra directories out of .phasedev/changes/ (for example into .phasedev/changes/.trash/) or archive them, then rerun the command."
+      ].join("\n"));
+    }
+    process.exitCode = 1;
+  } else if (globalJsonMode) {
     console.log(JSON.stringify({ ok: false, kind: "error", message }));
+    process.exitCode = 1;
   } else {
     console.error(`[PHASEDEV] ${message}`);
+    process.exitCode = 1;
   }
-  process.exitCode = 1;
 }

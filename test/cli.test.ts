@@ -438,6 +438,19 @@ describe("flow-cli state machine", () => {
     expect(result.output).toContain("phasedev init-project");
   });
 
+  test("commands report an actionable blocker when multiple active changes exist", () => {
+    fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "change-a"), { recursive: true });
+    fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "change-b"), { recursive: true });
+
+    const result = runCli(["status", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Multiple active changes found in .phasedev/changes");
+    expect(result.output).toContain("change-a");
+    expect(result.output).toContain("change-b");
+    expect(result.output).toContain("Keep exactly one active change");
+  });
+
   test("init-project creates PhaseDev workspace structure and project config", () => {
     const result = runCli(["init-project", "--project-path", testTmpDir]);
 
