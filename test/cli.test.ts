@@ -971,10 +971,10 @@ stages:
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
     expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
     expect(phaseValidationPrompt).toContain("git diff --name-status -- .");
-    expect(phaseValidationPrompt).toContain("Run these read-only repository inventory commands from the project root for this prompt context");
-    expect(phaseValidationPrompt).toContain("in generated prompt bundles, the same snapshot root shown by the Artifact Build Contract Output path and `phasedev check-validation --project-path`");
+    expect(phaseValidationPrompt).toContain("Determine the single project root from this prompt context");
+    expect(phaseValidationPrompt).toContain("Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root");
     expect(phaseValidationPrompt).toContain("including, where applicable to changed files, user/input handling");
-    expect(phaseValidationPrompt).toContain("ignored or generated expected surfaces can be verified through filesystem reads, generated manifest/output evidence, or other concrete read-only evidence");
+    expect(phaseValidationPrompt).toContain("proceed with filesystem reads as fallback");
     expect(phaseValidationPrompt).toContain("Preserve every existing finding row, including `resolved` rows");
     expect(phaseValidationPrompt).toContain("Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
