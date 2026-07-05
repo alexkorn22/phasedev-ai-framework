@@ -13,6 +13,7 @@ export function approvalBlocker(phase: Phase, title: string, filePath: string, l
     `Please review and approve ${label} in:`,
     `- Link: ${toFileUrl(filePath)}`,
     "Set 'approved: true' in YAML frontmatter once approved, then run 'phasedev advance'.",
+    "If this artifact was edited after an earlier approval, the approval is stale: re-review the current content and run 'phasedev approve <file>' again.",
     "================================================================================"
   ].join("\n"), true, title);
 }
