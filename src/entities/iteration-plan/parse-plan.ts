@@ -3,6 +3,7 @@ import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endin
 import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import { CheckEvidenceRow, GenerationBundleRow, Iteration, RequiredCheck, Task } from "./types";
+import { ITERATION_HEADING_REGEX_SOURCE } from "./iteration-heading-regex";
 
 function taskStatusFor(statusChar: string): Task["status"] {
   const normalized = statusChar.toLowerCase();
@@ -228,7 +229,7 @@ export function parsePlan(filePath: string): Iteration[] {
   const lines = blankFencedCodeLines(rawLines);
   const iterations: Iteration[] = [];
   const generationBundle = parseGenerationBundle(lines);
-  const phaseRegex = /^##\s*Iteration\s*(\d+)\s*:\s*(.+)\s*\[\s*(x|~| |\/)\s*\]\s*$/i;
+  const phaseRegex = new RegExp(`^${ITERATION_HEADING_REGEX_SOURCE}\\s*$`, "i");
 
   let currentPhaseLines: string[] = [];
   let currentPhaseRawLines: string[] = [];

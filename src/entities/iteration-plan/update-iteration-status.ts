@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { ITERATION_HEADING_REGEX_SOURCE } from "./iteration-heading-regex";
 
 /**
  * Flip an iteration heading checkbox. Returns true only when the heading was
@@ -14,13 +15,18 @@ export function updateIterationStatus(filePath: string, iterationId: number, sta
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
   const statusChar = status === "completed" ? "x" : status === "in_progress" ? "~" : " ";
-  // Anchored to a whole heading line (mirrors parsePlan's phaseRegex) so that
-  // inline mentions of an iteration heading in task text, tables, or deeper
+  // Anchored to a whole heading line (mirrors ITERATION_HEADING_REGEX_SOURCE) so
+  // that inline mentions of an iteration heading in task text, tables, or deeper
   // headings (### Iteration ...) are never rewritten by mistake. Fenced code
   // is skipped: an example heading inside ``` must never be edited.
   // Content is normalized to LF above, so the rewritten file always has
   // consistent line endings even when the source plan used CRLF.
-  const iterationRegex = new RegExp(`^(##\\s*Iteration\\s*${iterationId}\\s*:\\s*.*?\\s*\\[\\s*)(x|~| |\\/)(\\s*\\])[ \\t]*$`, "i");
+  // Note: uses a different capture-group structure for replacement ($1$3) than
+  // the shared ITERATION_HEADING_REGEX_SOURCE, so it constructs its own regex.
+  const iterationRegex = new RegExp(
+    `^(##\\s*Iteration\\s*${iterationId}\\s*:\\s*.*?\\s*\\[\\s*)(x|~| |\\/)(\\s*\\])[ \\t]*$`,
+    "i"
+  );
 
   const lines = content.split("\n");
   const fenceMask = fencedCodeLineMask(lines);

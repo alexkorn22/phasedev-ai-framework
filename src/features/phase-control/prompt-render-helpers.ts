@@ -12,6 +12,7 @@ import { testCommandBlocker } from "./prompt-blockers";
 import { renderValidationCommonContract } from "./validation-common-contract";
 import { renderArtifactContract } from "./artifact-contract";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
+import { RESEARCH_TEMPLATE_SAMPLE_VALUES } from "../../entities/research-facts/sample-values";
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -106,19 +107,6 @@ export function renderRequiredCheckCommands(currentPhase: Iteration, testCommand
 }
 
 // ── Artifact Contracts ─────────────────────────────────────
-
-const RESEARCH_TEMPLATE_SAMPLE_VALUES = [
-  "Requested target from PRD.",
-  "Requested risk boundary from PRD.",
-  "Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.",
-  "Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.",
-  "src/file.ts:42",
-  "test/file.test.ts:12",
-  ".phasedev/specs/foo/spec.md:12",
-  "Current implementation does X.",
-  "Tests verify behavior X.",
-  "Existing spec describes capability Y.",
-];
 
 export function researchArtifactContract(researchPath: string, projectPath: string): string {
   return renderArtifactContract({

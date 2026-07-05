@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
 import { extractPrdTraceability } from "../prd/traceability";
+import { RESEARCH_TEMPLATE_SAMPLE_VALUES } from "./sample-values";
 
 const REQUIRED_SECTIONS = [
   "PRD Intent Trace",
@@ -34,19 +35,6 @@ const STRUCTURE_SPEC: ArtifactStructureSpec = {
 const INTENT_TABLE: TableShapeSpec = { section: "PRD Intent Trace", headers: INTENT_TABLE_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
 const TRACE_TABLE: TableShapeSpec = { section: "Requirements & Success Criteria Trace", headers: TRACE_TABLE_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
 const SOURCE_FACTS_TABLE: TableShapeSpec = { section: "Source Facts", headers: SOURCE_FACTS_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
-
-const BLOCKED_TEMPLATE_SAMPLE_VALUES = [
-  "Requested target from PRD.",
-  "Requested risk boundary from PRD.",
-  "Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.",
-  "Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.",
-  "src/file.ts:42",
-  "test/file.test.ts:12",
-  ".phasedev/specs/foo/spec.md:12",
-  "Current implementation does X.",
-  "Tests verify behavior X.",
-  "Existing spec describes capability Y."
-];
 
 interface SourceFact {
   id: string;
@@ -247,7 +235,7 @@ export function validateResearchFacts(filePath: string, prdPath?: string): strin
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
   const { issues, lines } = validateArtifactStructure(content, STRUCTURE_SPEC);
 
-  for (const sampleValue of BLOCKED_TEMPLATE_SAMPLE_VALUES) {
+  for (const sampleValue of RESEARCH_TEMPLATE_SAMPLE_VALUES) {
     if (content.includes(sampleValue)) {
       issues.push(`research_facts.md must replace embedded template sample value \`${sampleValue}\`.`);
     }
