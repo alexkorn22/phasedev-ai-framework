@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
-import { approvalContentHash } from "../../shared/markdown/frontmatter";
+import { approvalContentHash, matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 
 export interface ApproveResult {
   ok: boolean;
@@ -14,17 +14,17 @@ export function approveArtifact(filePath: string, approvedBy?: string): ApproveR
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const frontmatterMatch = content.match(/^(﻿?\s*)---\r?\n([\s\S]*?)\r?\n---/);
-  if (!frontmatterMatch) {
+  const block = matchFrontmatterBlock(content);
+  if (!block) {
     return { ok: false, message: `${filePath} does not contain YAML frontmatter.` };
   }
 
   const contentHash = approvalContentHash(content);
-  const prefix = frontmatterMatch[1];
-  const afterFrontmatter = content.slice(frontmatterMatch.index! + frontmatterMatch[0].length);
+  const prefix = block.prefix;
+  const afterFrontmatter = content.slice(block.endIndex);
 
   // Preserve the exact raw frontmatter lines, replace or add approved/approved_by/approved_hash
-  const lines = frontmatterMatch[2].split(/\r?\n/);
+  const lines = block.yaml.split(/\r?\n/);
   let hasApproved = false;
   let hasApprovedBy = false;
   let hasApprovedHash = false;

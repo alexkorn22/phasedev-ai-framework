@@ -1,8 +1,21 @@
 import { createHash } from "crypto";
 import * as fs from "fs";
 import { parse as parseYaml } from "yaml";
-import { bodyAfterFrontmatter } from "./headings";
 import { normalizeLineEndings } from "./normalize-line-endings";
+
+export interface FrontmatterBlock {
+  prefix: string;
+  yaml: string;
+  endIndex: number;
+}
+
+export function matchFrontmatterBlock(content: string): FrontmatterBlock | null {
+  const match = content.match(/^(﻿?\s*)---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/);
+  if (!match) {
+    return null;
+  }
+  return { prefix: match[1], yaml: match[2], endIndex: (match.index ?? 0) + match[0].length };
+}
 
 export function readFrontmatter(filePath: string): Record<string, any> | null {
   if (!fs.existsSync(filePath)) {
@@ -10,13 +23,13 @@ export function readFrontmatter(filePath: string): Record<string, any> | null {
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
-  if (!frontmatterMatch) {
+  const block = matchFrontmatterBlock(content);
+  if (!block) {
     return null;
   }
 
   try {
-    const parsed = parseYaml(frontmatterMatch[1]);
+    const parsed = parseYaml(block.yaml);
     return typeof parsed === "object" && parsed !== null ? parsed : null;
   } catch {
     return null;
@@ -33,7 +46,9 @@ export function readFrontmatterValue(filePath: string, key: string): string | nu
 }
 
 export function approvalContentHash(content: string): string {
-  const { body } = bodyAfterFrontmatter(normalizeLineEndings(content));
+  const normalized = normalizeLineEndings(content);
+  const block = matchFrontmatterBlock(normalized);
+  const body = block ? normalized.slice(block.endIndex) : normalized;
   return createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
 }
 

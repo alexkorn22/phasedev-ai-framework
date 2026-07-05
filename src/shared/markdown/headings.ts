@@ -1,3 +1,5 @@
+import { matchFrontmatterBlock } from "./frontmatter";
+
 export function headingName(line: string): string | null {
   const match = line.match(/^##\s+(.+?)\s*$/);
   return match?.[1]?.trim() ?? null;
@@ -28,10 +30,11 @@ export function sectionLines(lines: string[], sectionName: string, caseInsensiti
 }
 
 export function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
-  const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
-  if (!frontmatterMatch) {
+  const block = matchFrontmatterBlock(content);
+  if (!block) {
     return { body: content, hasFrontmatter: false };
   }
 
-  return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
+  const body = content.slice(block.endIndex).replace(/^\s+/, "");
+  return { body, hasFrontmatter: true };
 }
