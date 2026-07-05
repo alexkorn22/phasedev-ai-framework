@@ -13,7 +13,7 @@ import { validateDesign } from "../src/entities/design/validate-design";
 import { validateExecutionContract } from "../src/entities/execution-contract/validate-execution-contract";
 import { extractRequirementsAndCriteriaFromPrd } from "../src/entities/prd/traceability";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
-import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
+import { parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved, readFrontmatter } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
@@ -2062,31 +2062,30 @@ date: 2026-05-30
 `, "utf-8");
 
     const artifact = parseValidationFindingsArtifact(findingsFile);
-    const findings = parseBlockingValidationFindings(findingsFile);
 
     expect(artifact.issues).toEqual([]);
     expect(artifact.openBlockingRows.map(row => row.id)).toEqual(["F1"]);
     expect(artifact.openNonBlockingRows.map(row => row.id)).toEqual(["F2"]);
-    expect(findings).toEqual([
+    expect(artifact.rows.filter(row => row.blocksPr)).toEqual([
       {
         id: "F1",
         status: "open",
         severity: "MUST-FIX",
         className: "implementation",
+        blocksPr: true,
         phase: "Iteration 1",
         finding: "API response omits required error handling.",
-        requiredFix: "Add error mapping.",
-        signature: "iteration|iteration 1|implementation|api response omits required error handling"
+        requiredFix: "Add error mapping."
       },
       {
         id: "F3",
         status: "resolved",
         severity: "MUST-FIX",
         className: "design",
+        blocksPr: true,
         phase: "Phase 2",
         finding: "Design does not cover retry behavior.",
-        requiredFix: "Document retry behavior.",
-        signature: "iteration|phase 2|design|design does not cover retry behavior"
+        requiredFix: "Document retry behavior."
       }
     ]);
   });
@@ -2312,45 +2311,7 @@ date: 2026-05-30
     expect(parseValidationFindingsArtifact(repairedBlockingFile).issues.map(i => i.code)).toContain("verdict_repaired_with_open_blocking");
   });
 
-  test("parseBlockingValidationFindings ignores IDs and status when building signatures", () => {
-    const findingsFile = path.join(testTmpDir, "changed_ids.md");
-    fs.writeFileSync(findingsFile, `---
-verdict: repair_required
-type: final
-date: 2026-05-30
----
-
-| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
-|---|---|---|---|---|---|---|
-| F7 | reopened | MUST-FIX | implementation | Final | reopened/regression: API response omits required error handling!!! | Restore the error handling fix. |
-`, "utf-8");
-
-    const findings = parseBlockingValidationFindings(findingsFile);
-
-    expect(findings).toHaveLength(1);
-    expect(findings[0].signature).toBe("final|final|implementation|api response omits required error handling");
-  });
-
-  test("parseBlockingValidationFindings normalizes reopened prefix and hyphen variants", () => {
-    const findingsFile = path.join(testTmpDir, "hyphen_variants.md");
-    fs.writeFileSync(findingsFile, `---
-verdict: repair_required
-type: iteration
-date: 2026-05-30
----
-
-| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
-|---|---|---|---|---|---|---|
-| F7 | reopened | MUST-FIX | implementation | Phase 1 | reopened/regression: API-response omits required error-handling!!! | Restore the error handling fix. |
-`, "utf-8");
-
-    const findings = parseBlockingValidationFindings(findingsFile);
-
-    expect(findings).toHaveLength(1);
-    expect(findings[0].signature).toBe("iteration|phase 1|implementation|api response omits required error handling");
-  });
-
-  test("parseBlockingValidationFindings keeps escaped pipes inside descriptions", () => {
+  test("findings rows keep escaped pipes inside descriptions", () => {
     const findingsFile = path.join(testTmpDir, "escaped_pipe.md");
     fs.writeFileSync(findingsFile, `---
 verdict: repair_required
@@ -2363,11 +2324,10 @@ date: 2026-05-30
 | F1 | open | MUST-FIX | implementation | Phase 1 | Type guard misses \`A \\| B\` response. | Add union response coverage. |
 `, "utf-8");
 
-    const findings = parseBlockingValidationFindings(findingsFile);
+    const rows = parseValidationFindingsArtifact(findingsFile).rows;
 
-    expect(findings).toHaveLength(1);
-    expect(findings[0].finding).toBe("Type guard misses `A | B` response.");
-    expect(findings[0].signature).toBe("iteration|phase 1|implementation|type guard misses a b response");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].finding).toBe("Type guard misses `A | B` response.");
   });
 
   test("parseCurrentValidationFindings returns current strict registry rows", () => {
@@ -2390,7 +2350,6 @@ date: 2026-05-30
     expect(findings).toEqual([
       {
         id: "F1",
-        signature: "iteration|iteration 1|implementation|api response omits required error handling",
         latestStatus: "resolved",
         severity: "MUST-FIX",
         className: "implementation",
@@ -2402,7 +2361,6 @@ date: 2026-05-30
       },
       {
         id: "F2",
-        signature: "final|final|implementation|non blocking naming note",
         latestStatus: "open",
         severity: "RECOMMENDED",
         className: "implementation",
@@ -2414,7 +2372,6 @@ date: 2026-05-30
       },
       {
         id: "F3",
-        signature: "final|final|test|missing auth failure coverage",
         latestStatus: "reopened",
         severity: "MUST-FIX",
         className: "test",

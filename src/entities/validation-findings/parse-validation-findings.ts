@@ -4,20 +4,8 @@ import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endin
 import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import * as fs from "fs";
 
-export interface BlockingValidationFinding {
-  id: string;
-  status: string;
-  severity: ValidationFindingSeverity;
-  className: string;
-  phase: string;
-  finding: string;
-  requiredFix: string;
-  signature: string;
-}
-
 export interface ValidationFindingState {
   id: string;
-  signature: string;
   latestStatus: string;
   severity: ValidationFindingSeverity;
   className: string;
@@ -54,7 +42,6 @@ export interface ValidationFindingRow {
   phase: string;
   finding: string;
   requiredFix: string;
-  signature: string;
 }
 
 export interface ValidationFindingsArtifact {
@@ -95,32 +82,10 @@ function normalizeHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9?]+/g, "");
 }
 
-function normalizeSignaturePart(value: string): string {
-  return value
-    .replace(/reopened\s*\/\s*regression/gi, " ")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function canonicalFindingFor(value: string): string {
   return value
     .replace(/^reopened\s*\/\s*regression\s*:\s*/i, "")
     .trim();
-}
-
-function validationTypeForIteration(phase: string): "iteration" | "final" {
-  return normalizeSignaturePart(phase) === "final" ? "final" : "iteration";
-}
-
-function signatureFor(type: string, phase: string, className: string, finding: string): string {
-  return [
-    normalizeSignaturePart(type),
-    normalizeSignaturePart(phase),
-    normalizeSignaturePart(className),
-    normalizeSignaturePart(finding)
-  ].join("|");
 }
 
 function isOpenStatus(status: string): boolean {
@@ -299,8 +264,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
         blocksPr: severity === "MUST-FIX",
         phase,
         finding,
-        requiredFix,
-        signature: signatureFor(type, phase, className, finding)
+        requiredFix
       });
     }
   }
@@ -333,25 +297,6 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   return artifact;
 }
 
-export function parseBlockingValidationFindings(filePath: string): BlockingValidationFinding[] {
-  if (!fs.existsSync(filePath)) {
-    return [];
-  }
-
-  return parseValidationFindingsArtifact(filePath).rows
-    .filter(row => row.blocksPr)
-    .map(row => ({
-      id: row.id,
-      status: row.status,
-      severity: row.severity,
-      className: row.className,
-      phase: row.phase,
-      finding: row.finding,
-      requiredFix: row.requiredFix,
-      signature: row.signature
-    }));
-}
-
 export function parseCurrentValidationFindings(filePath: string): ValidationFindingState[] {
   if (!fs.existsSync(filePath)) {
     return [];
@@ -359,11 +304,9 @@ export function parseCurrentValidationFindings(filePath: string): ValidationFind
 
   return parseValidationFindingsArtifact(filePath).rows.map(row => {
     const canonicalFinding = canonicalFindingFor(row.finding);
-    const validationType = validationTypeForIteration(row.phase);
 
     return {
       id: row.id,
-      signature: signatureFor(validationType, row.phase, row.className, canonicalFinding),
       latestStatus: row.status,
       severity: row.severity,
       className: row.className,
