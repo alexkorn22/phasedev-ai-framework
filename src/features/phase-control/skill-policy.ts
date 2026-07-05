@@ -23,19 +23,13 @@ function flowSkillBoundaryProtocol(): string[] {
   return [
     "## Flow Skill Boundary Protocol",
     "",
-    "Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.",
+    "Authority: Flow phase contract > linked/embedded artifact contract > configured skill policy > skill body.",
     "",
-    "- Skills are method instructions only; they never control Flow state. Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
-    "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration. Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.",
-    "- Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default. `additional` skills stay optional until selected because routers/main are insufficient or an additional skill is clearly better.",
-    "- Skipping a mandatory skill step requires a concrete evidence-specific reason and reference, or `skipped_by_policy: <exact policy reason>` when it conflicts with this Flow phase, artifact allowlist, or repository policy. Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.",
-    "- If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence. The same holds when an applicable mandatory step cannot run and is not policy-skipped: stop, do not finish with a green compliance claim.",
-    "- `APPLIED` means the agent read the full skill body and any skill-required referenced files, then executed every mandatory phase, checklist, tool/preload step, quality gate, degraded-mode decision, and self-evaluation applying to the current phase evidence. Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.",
-    "- Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead. Do not skip an applicable selected skill because its native output format differs.",
-    "- In the final response, include the structured skill ledger below with exactly one entry per configured router, configured main, and router-selected skill, plus selected additional skills; do not use prose in that section:",
-    "  - `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)",
-    "  - `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])",
-    "  - `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)"
+    "- Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files).",
+    "- Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.",
+    "- If a configured router, configured `main`, or router-selected skill is unavailable and applicable, stop with a blocker. Skip only with a concrete evidence-specific reason.",
+    "- Final response: one line per skill — `APPLIED` / `NOT_APPLICABLE(reason)` / `UNAVAILABLE`.",
+    "- Native skill reports, headings, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker."
   ];
 }
 
@@ -182,7 +176,12 @@ export function renderSkillComplianceLine(phase: Phase, config: Config): string 
   if (!hasConfiguredSkills(skills)) {
     return "Skill compliance: none configured.";
   }
-  return "Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.";
+  return [
+    "Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.",
+    "Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)",
+    "Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])",
+    "Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)"
+  ].join("\n");
 }
 
 export function renderPhaseSkillStep(phase: Phase, config: Config): string {
