@@ -11,7 +11,7 @@ import { getFlowStatus, renderFlowStatus } from "./features/flow-status/get-stat
 import { approveArtifact } from "./features/artifact-ops/approve-artifact";
 import { setIterationStatus } from "./features/iteration-ops/set-iteration-status";
 import { validateArtifact } from "./features/artifact-ops/validate-artifact";
-import { addFinding, resolveFinding, PLACEHOLDER_REQUIRED_FIX } from "./features/artifact-ops/manage-findings";
+import { addFinding, resolveFinding, isPlaceholderRequiredFix } from "./features/artifact-ops/manage-findings";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
@@ -312,7 +312,7 @@ function main(): void {
       });
       return;
     }
-    if (PLACEHOLDER_REQUIRED_FIX.test(requiredFix.trim())) {
+    if (isPlaceholderRequiredFix(requiredFix)) {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "add-finding",

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface ManageFindingsResult {
@@ -34,9 +35,9 @@ function findTableBounds(lines: string[]): { start: number; end: number } | null
 }
 
 function parseTable(content: string): { frontmatter: string; headerLine: string; rows: FindingTableRow[]; bodyBeforeTable: string; bodyAfterTable: string } {
-  const frontmatterMatch = content.match(/^---[\s\S]*?---\s*/);
-  const frontmatter = frontmatterMatch ? frontmatterMatch[0] : "";
-  const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
+  const block = matchFrontmatterBlock(content);
+  const frontmatter = block ? content.slice(0, block.endIndex) : "";
+  const body = block ? content.slice(block.endIndex).replace(/^\s*/, "") : content;
   const bodyLines = body.split("\n");
   const tableBounds = findTableBounds(bodyLines);
 
@@ -84,6 +85,11 @@ const HEADER_CELLS = ["ID", "Status", "Severity", "Class", "Iteration", "Finding
 const SEPARATOR = "|---|---|---|---|---|---|---|";
 export const PLACEHOLDER_REQUIRED_FIX = /^(?:TBD|TODO|n\/a|none|-)$/i;
 
+export function isPlaceholderRequiredFix(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length === 0 || PLACEHOLDER_REQUIRED_FIX.test(trimmed);
+}
+
 export function addFinding(
   filePath: string,
   id: string,
@@ -93,7 +99,7 @@ export function addFinding(
   className?: string,
   iteration?: string
 ): ManageFindingsResult {
-  if (requiredFix.trim().length === 0 || PLACEHOLDER_REQUIRED_FIX.test(requiredFix.trim())) {
+  if (isPlaceholderRequiredFix(requiredFix)) {
     return { ok: false, message: "Required fix must be a concrete action; placeholder values such as TBD are not allowed." };
   }
   if (!iteration || iteration.trim().length === 0) {

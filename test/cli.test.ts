@@ -2698,6 +2698,30 @@ ${rows ?? ""}`;
     expect(result.output).toContain("placeholder");
   });
 
+  test("add-finding rejects whitespace-only required fix with the concrete-fix message, not the iteration message", () => {
+    const result = runCli(["add-finding", "F9", "Broken thing", "MUST-FIX", "--required-fix", "   ", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Required fix must be a concrete action");
+    expect(result.output).not.toContain("could not derive the iteration");
+  });
+
+  test("add-finding derives the iteration label from state.json when --iteration is omitted", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { findings: `---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-01\n---\n\n| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n|---|---|---|---|---|---|---|\n` });
+    writeStateJson(changeDir, "implementation", 2);
+
+    const result = runCli(["add-finding", "F1", "Missing guard clause", "MUST-FIX", "--required-fix", "Add missing guard clause", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    const content = fs.readFileSync(path.join(changeDir, "validation_findings.md"), "utf-8");
+    expect(content).toContain("Iteration 2");
+  });
+
   test("resolve-finding sets finding status to resolved", () => {
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
