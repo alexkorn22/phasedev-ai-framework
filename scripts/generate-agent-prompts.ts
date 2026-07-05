@@ -1,6 +1,8 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
-import { getInitPrompt, getNextPrompt } from "../src/features/phase-control";
+import { getInitPrompt, getRoutePrompt } from "../src/features/phase-control";
+import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";
 import { Phase } from "../src/entities/phase/types";
@@ -18,6 +20,7 @@ interface Options {
   projectPath: string;
   outDir: string;
   configPath?: string;
+  allowMutation: boolean;
 }
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -39,6 +42,7 @@ function parseArgs(args: string[]): Options {
   let projectPath = defaultProjectPath();
   let outDir = path.join(repoRoot, "temp", "generated-agent-prompts");
   let configPath: string | undefined;
+  let allowMutation = false;
 
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
@@ -56,14 +60,40 @@ function parseArgs(args: string[]): Options {
     if (arg === "--config" && next) {
       configPath = next;
       index++;
+      continue;
+    }
+    if (arg === "--allow-mutation") {
+      allowMutation = true;
     }
   }
 
   return {
     projectPath: path.resolve(projectPath),
     outDir: path.resolve(outDir),
-    configPath: configPath ? path.resolve(configPath) : undefined
+    configPath: configPath ? path.resolve(configPath) : undefined,
+    allowMutation
   };
+}
+
+// This script scaffolds a fake project under workingProjectPath, resets the
+// out-dir, and runs the archive mutation (startArchiveStage). That is only
+// safe on a scratch scaffold, never on a real project. Require --out-dir to
+// sit under a `temp/` segment unless the caller explicitly opts in with
+// --allow-mutation.
+function assertMutationIsSafe(options: Options, workingProjectPath: string): void {
+  if (options.allowMutation) {
+    return;
+  }
+
+  const scratchRoots = [path.join(repoRoot, "temp"), os.tmpdir()];
+  const isScratchPath = scratchRoots.some(root => workingProjectPath.startsWith(`${root}${path.sep}`));
+  if (!isScratchPath) {
+    throw new Error(
+      `generate-agent-prompts.ts refuses to run against "${workingProjectPath}": it is not under a "temp/" scratch directory. ` +
+      "This script resets directories and runs the archive mutation on the scaffold. " +
+      "Pass --out-dir under temp/, or pass --allow-mutation to override at your own risk."
+    );
+  }
 }
 
 function resetDir(dir: string): void {
@@ -117,7 +147,29 @@ function snapshotPromptArtifactLinks(promptText: string, options: Options, worki
       .join(`--project-path ${shellQuote(snapshotProjectPath)}`);
   }
 
+  const bundleNote = bundleSnapshotNote(phase);
+  if (bundleNote) {
+    rewrittenPrompt = `${rewrittenPrompt.trimEnd()}\n\n${bundleNote}\n`;
+  }
+
   return rewrittenPrompt;
+}
+
+// These notes only make sense for the generated-bundle fixtures, where linked
+// artifacts and self-check project paths are rewritten to snapshot fixture
+// locations. Live `phasedev phase` prompts point at the real active change, so
+// the notes are injected here by the generator instead of living in templates.
+function bundleSnapshotNote(phase: Phase): string {
+  switch (phase) {
+    case "iteration_validation":
+      return "Generated bundle note: If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt; mention the missing sandbox files only as an evaluation limitation, not as a validation finding.";
+    case "final_validation":
+      return "Generated bundle note: snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead.";
+    case "finding_repair":
+      return "Generated bundle note: in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead.";
+    default:
+      return "";
+  }
 }
 
 function savePrompt(
@@ -151,7 +203,7 @@ function saveNextPrompt(
   options: Options,
   config: ReturnType<typeof loadConfig>
 ): StageOutput {
-  const prompt = getNextPrompt(projectPath, config);
+  const prompt = getRoutePrompt(projectPath, config);
   if (prompt.phase !== expectedPhase) {
     throw new Error(`Expected ${expectedPhase} prompt, got ${prompt.phase} for ${fileName}.`);
   }
@@ -279,7 +331,7 @@ function designBody(): string {
 
 | Boundary | Contract | Applies To |
 |---|---|---|
-| Prompt renderer | Each prompt is produced by getInitPrompt or getNextPrompt for the generated project state. | D1 |
+| Prompt renderer | Each prompt is produced by getInitPrompt or getRoutePrompt for the generated project state. | D1 |
 
 ## Risks & Open Questions
 None.
@@ -451,6 +503,7 @@ function main(): void {
   const manifestPath = path.join(options.outDir, "manifest.json");
   const combinedPath = path.join(options.outDir, "all-agent-prompts.md");
   const workingProjectPath = generatedWorkingProjectPath(options);
+  assertMutationIsSafe(options, workingProjectPath);
 
   resetDir(options.outDir);
   fs.mkdirSync(promptsDir, { recursive: true });
@@ -490,6 +543,10 @@ function main(): void {
   writePlan(paths, "archive");
   writeFinalReadyFindings(paths);
 
+  // getRoutePrompt is read-only: the archive mutation (move + .phase-archive.json)
+  // is owned by advance/startArchiveStage. Run it explicitly so the archive
+  // prompt renders against the pending archive, like after a real advance.
+  startArchiveStage(workingProjectPath, changeDir, new Date(), config);
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "09-stage-6-archive.md", "archive", options, config));
 
   restoreActiveChangeArtifactSnapshot(changeDir);

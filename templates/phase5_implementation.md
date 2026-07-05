@@ -24,9 +24,9 @@ Ordered workflow:
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-phase tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current phase, plus any directly referenced prior-phase contract needed to avoid conflicting with already completed work.
 4. Identify the current phase `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-phase boundary that the current phase must preserve.
-{{stage_skill_step}}
-6. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
-7. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
+{{phase_skill_step}}
+5. Inspect repository files only after the current phase scope is understood, and only files or narrow searches needed by the current phase `Expected Change Surface`.
+6. Implement the smallest change set that completes the current phase tasks, then run checks, update current-phase task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 
 Context budget and stop condition:
 - Treat the embedded full-plan orientation plus current phase excerpt as the primary retrieval layer; do not load the full implementation plan unless the write-back or ambiguity exception above applies.
@@ -47,10 +47,8 @@ Scope rules:
 - do not block on PRD/design coverage gaps outside the current phase boundary; mention them only as remaining risks if discovered while following the retrieval order;
 - do not mark the phase heading `[x]` at this phase. It must remain `[~]` until successful validation.
 
-Path resolution rule:
-- `iteration_plan.md` in this prompt is the active change folder plan at [iteration_plan.md]({{plan_path}}), not a path from the project repository root.
+{{path_resolution_rule}}
 - Only production/test/source/config changes from the current phase belong outside `.phasedev/**`.
-- Do not create or update project-root flow artifact files such as `prd.md`, `execution_contract.md`, `research_facts.md`, `iteration_plan.md`, or `validation_findings.md`.
 
 Completion checklist:
 - complete the current phase tasks within the approved `prd.md`, approved design, and approved plan;

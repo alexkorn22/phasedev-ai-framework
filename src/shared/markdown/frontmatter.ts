@@ -8,7 +8,7 @@ export function readFrontmatter(filePath: string): Record<string, any> | null {
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---/);
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
   if (!frontmatterMatch) {
     return null;
   }

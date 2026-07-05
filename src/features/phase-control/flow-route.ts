@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/change/approval";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, InvalidArchiveState } from "../../entities/change/archive-state";
+import { loadFlowState } from "../../entities/change/flow-state";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { Iteration } from "../../entities/iteration-plan/types";
@@ -9,7 +10,7 @@ import { isIterationReadyForValidation, iterationValidationBlockers } from "../.
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
-import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
+import { parseValidationFindingsArtifact, ValidationFindingIssue } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
 
@@ -39,10 +40,14 @@ function iterationPhase(activeIteration: Iteration): "implementation" | "iterati
   return isIterationReadyForValidation(activeIteration) ? "iteration_validation" : "implementation";
 }
 
-function isVerdictOnlyOpenBlockingIssue(issue: string): boolean {
-  return issue.startsWith("`verdict: ready`") ||
-         issue.startsWith("`verdict: ready_with_risks`") ||
-         issue.startsWith("`verdict: repaired`");
+const VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES: ReadonlySet<ValidationFindingIssue["code"]> = new Set([
+  "verdict_ready_with_open_findings",
+  "verdict_ready_with_risks_with_open_blocking",
+  "verdict_repaired_with_open_blocking"
+]);
+
+function isVerdictOnlyOpenBlockingIssue(issue: ValidationFindingIssue): boolean {
+  return VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES.has(issue.code);
 }
 
 export function resolveRoute(projectPath: string): Route {
@@ -136,15 +141,11 @@ export function resolveRoute(projectPath: string): Route {
                                                  findings.issues.length > 0 &&
                                                  findings.issues.every(isVerdictOnlyOpenBlockingIssue);
     if (findings.issues.length > 0 && !onlyVerdictCannotBypassOpenBlocking) {
-      return { kind: "invalid_findings", phase: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
+      return { kind: "invalid_findings", phase: "finding_repair", paths, issues: findings.issues.map(issue => issue.message), activeChangePath: changeDir };
     }
 
     if (findings.openBlockingRows.length > 0) {
       return { kind: "finding_repair", phase: "finding_repair", paths, activeChangePath: changeDir };
-    }
-
-    if (findings.issues.length > 0) {
-      return { kind: "invalid_findings", phase: "finding_repair", paths, issues: findings.issues, activeChangePath: changeDir };
     }
   }
 
@@ -153,7 +154,10 @@ export function resolveRoute(projectPath: string): Route {
   // through iterationPhase() which may return "implementation" due to
   // stale Check Evidence that the repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
-    const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+    const flowState = loadFlowState(projectPath);
+    const activeIteration = (flowState?.activeIteration != null
+      ? planPhases.find(phase => phase.id === flowState.activeIteration)
+      : undefined) ?? planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
     if (activeIteration) {
       return {
         kind: "iteration",

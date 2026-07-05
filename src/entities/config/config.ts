@@ -4,10 +4,6 @@ import { parse as parseYaml } from "yaml";
 import { Phase } from "../phase/types";
 import { SYSTEM_DIR } from "../change/paths";
 
-export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
-export type SandboxMode = "workspace-write" | "danger-full-access";
-export type ApprovalPolicy = "never" | "on-request" | "on-failure" | "untrusted";
-
 export type PhaseSkillConfig = {
   routers: string[];
   main: string[];
@@ -37,10 +33,6 @@ export const DEFAULT_CONFIG: Config = {
   autoApprove: false,
   maxIterations: 10
 };
-
-const REASONING_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
-const SANDBOX_MODES = new Set(["workspace-write", "danger-full-access"]);
-const APPROVAL_POLICIES = new Set(["never", "on-request", "on-failure", "untrusted"]);
 
 const PHASE_NAME_MAP: Record<string, string> = {
   setup: "change_intake",
@@ -105,14 +97,6 @@ function asRecord(value: unknown, key: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function readString(value: unknown, fallback: string, key: string): string {
-  if (value === undefined) return fallback;
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`Config key ${key} must be a non-empty string.`);
-  }
-  return value;
-}
-
 function readBoolean(value: unknown, fallback: boolean, key: string): boolean {
   if (value === undefined) return fallback;
   if (typeof value !== "boolean") {
@@ -127,14 +111,6 @@ function readPositiveInteger(value: unknown, fallback: number, key: string): num
     throw new Error(`Config key ${key} must be a positive integer.`);
   }
   return value;
-}
-
-function readEnum<T extends string>(value: unknown, fallback: T, key: string, allowed: Set<string>): T {
-  if (value === undefined) return fallback;
-  if (typeof value !== "string" || !allowed.has(value)) {
-    throw new Error(`Config key ${key} must be one of: ${Array.from(allowed).join(", ")}.`);
-  }
-  return value as T;
 }
 
 function readSkillArray(value: unknown, key: string): string[] {
@@ -165,9 +141,23 @@ function parsePhaseSkills(value: unknown, key: string): PhaseSkillConfig {
   const skills = asRecord(value, key);
   const routers = readSkillArray(skills.routers, `${key}.routers`);
   const routerSet = new Set(routers);
-  const main = readSkillArray(skills.main, `${key}.main`).filter(skill => !routerSet.has(skill));
+  const rawMain = readSkillArray(skills.main, `${key}.main`);
+  const main = rawMain.filter(skill => {
+    if (routerSet.has(skill)) {
+      console.warn(`[config] Skill "${skill}" in ${key}.main is already listed in ${key}.routers. Dropping duplicate from main.`);
+      return false;
+    }
+    return true;
+  });
   const mainSet = new Set(main);
-  const additional = readSkillArray(skills.additional, `${key}.additional`).filter(skill => !routerSet.has(skill) && !mainSet.has(skill));
+  const rawAdditional = readSkillArray(skills.additional, `${key}.additional`);
+  const additional = rawAdditional.filter(skill => {
+    if (routerSet.has(skill) || mainSet.has(skill)) {
+      console.warn(`[config] Skill "${skill}" in ${key}.additional is already listed in ${key}.routers or ${key}.main. Dropping duplicate from additional.`);
+      return false;
+    }
+    return true;
+  });
 
   return { routers, main, additional };
 }
@@ -210,6 +200,10 @@ function parseLegacyCodexStages(codexRaw: Record<string, unknown>): Partial<Reco
   return phases;
 }
 
+function validPhaseNamesList(): string {
+  return Array.from(PHASES).sort().join(", ");
+}
+
 /**
  * Parse the phases section of a config file.
  */
@@ -218,8 +212,9 @@ function parsePhasesSection(phasesRaw: Record<string, unknown>): Partial<Record<
 
   for (const [phaseName, value] of Object.entries(phasesRaw)) {
     if (!PHASES.has(phaseName as Exclude<Phase, "init">)) {
-      console.warn(`[config] Unknown phase "${phaseName}" in phases section. Ignoring.`);
-      continue;
+      throw new Error(
+        `[config] Unknown phase "${phaseName}" in phases section. Valid phase names: ${validPhaseNamesList()}.`
+      );
     }
 
     phases[phaseName as Exclude<Phase, "init">] = parsePhaseConfig(value, `phases.${phaseName}`);
@@ -237,12 +232,19 @@ function parseLegacyStagesSection(stagesRaw: Record<string, unknown>): Partial<R
   const phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
 
   for (const [stageName, value] of Object.entries(stagesRaw)) {
-    if (!PHASES.has(stageName as Exclude<Phase, "init">)) {
-      console.warn(`[config] Unknown stage "${stageName}" in legacy stages section. Ignoring.`);
-      continue;
+    // Accept both new phase names and legacy stage names (like codex.stages
+    // does): a genuinely legacy config uses names such as "plan" or "setup".
+    const phaseName = PHASES.has(stageName as Exclude<Phase, "init">)
+      ? stageName
+      : PHASE_NAME_MAP[stageName];
+
+    if (!phaseName || !PHASES.has(phaseName as Exclude<Phase, "init">)) {
+      throw new Error(
+        `[config] Unknown stage "${stageName}" in legacy stages section. Valid phase names: ${validPhaseNamesList()}.`
+      );
     }
 
-    phases[stageName as Exclude<Phase, "init">] = parsePhaseConfig(value, `stages.${stageName}`);
+    phases[phaseName as Exclude<Phase, "init">] = parsePhaseConfig(value, `stages.${stageName}`);
   }
 
   return phases;
@@ -263,6 +265,9 @@ export function parseConfig(content: string): Config {
   let phases: Partial<Record<Exclude<Phase, "init">, PhaseConfig>> = {};
 
   // Priority: phases: > stages: > codex.stages:
+  if (hasLegacyStages && (hasPhases || hasStages)) {
+    console.warn("[config] 'codex.stages:' is ignored because a 'phases:'/'stages:' section is present.");
+  }
   if (hasPhases && hasStages) {
     console.warn("[config] Both 'phases:' and 'stages:' found. 'phases:' takes precedence.");
     phases = parsePhasesSection(phasesRaw);
@@ -354,18 +359,6 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
     return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
   }
 
-  // Legacy: codex.default.* → runner config (removed)
-  if (segments[0] === "codex" && segments[1] === "default") {
-    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
-    return undefined;
-  }
-
-  // Legacy: codex.sandboxMode / codex.approvalPolicy → runner config (removed)
-  if (segments[0] === "codex" && (segments[1] === "sandboxMode" || segments[1] === "approvalPolicy")) {
-    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
-    return undefined;
-  }
-
   // Legacy: loop.* runner fields
   if (segments[0] === "loop") {
     if (segments[1] === "runArchiveStage") {
@@ -380,8 +373,6 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
       console.warn(`[config] Deprecated key "${key}" — use "maxIterations" at root level instead.`);
       return config.maxIterations;
     }
-    console.warn(`[config] Deprecated key "${key}" — runner was removed.`);
-    return undefined;
   }
 
   return getDeepValue(config as unknown as Record<string, unknown>, segments);

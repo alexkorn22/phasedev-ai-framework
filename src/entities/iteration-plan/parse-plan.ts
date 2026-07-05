@@ -1,11 +1,26 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
+import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import { CheckEvidenceRow, GenerationBundleRow, Iteration, RequiredCheck, Task } from "./types";
 
 function taskStatusFor(statusChar: string): Task["status"] {
   const normalized = statusChar.toLowerCase();
   if (normalized === "x") return "completed";
   if (normalized === "~" || normalized === "/") return "in_progress";
+  return "not_started";
+}
+
+/**
+ * Iteration heading status differs from task status: `/` is accepted by the
+ * heading regex per the `[x|~| |/]` contract but is not a writer-emitted
+ * marker. It is explicitly mapped to not_started (not merged with `~`) so an
+ * iteration never becomes the single "active" `~` iteration by accident.
+ */
+function iterationHeadingStatusFor(statusChar: string): Iteration["status"] {
+  const normalized = statusChar.toLowerCase();
+  if (normalized === "x") return "completed";
+  if (normalized === "~") return "in_progress";
   return "not_started";
 }
 
@@ -130,43 +145,6 @@ function parseRequiredChecks(lines: string[]): RequiredCheck[] {
   return checks;
 }
 
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") {
-    cells.shift();
-  }
-  if (cells[cells.length - 1] === "") {
-    cells.pop();
-  }
-
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
-}
-
 function headingLevel(line: string): number | null {
   const match = line.match(/^(#{1,6})\s+/);
   return match?.[1]?.length ?? null;
@@ -198,7 +176,7 @@ function parseTableAfterHeading(lines: string[], headingPattern: RegExp, boundar
 
   return tableLines
     .map(splitMarkdownTableRow)
-    .filter(cells => cells.length > 0 && !isSeparatorRow(cells));
+    .filter(cells => cells.length > 0 && !isMarkdownTableSeparatorRow(cells));
 }
 
 function parseGenerationBundle(lines: string[]): GenerationBundleRow[] {
@@ -223,7 +201,9 @@ function parseCheckEvidence(lines: string[]): CheckEvidenceRow[] {
     }));
 }
 
-function iterationFor(meta: { id: number; name: string; status: Iteration["status"] }, heading: string, lines: string[], generationBundle: GenerationBundleRow[]): Iteration {
+function iterationFor(meta: { id: number; name: string; status: Iteration["status"] }, heading: string, lines: string[], rawLines: string[], generationBundle: GenerationBundleRow[]): Iteration {
+  // `lines` has fenced code blanked and is used for structure parsing;
+  // `rawLines` keeps the original content for rawContent (prompt excerpts).
   return {
     ...meta,
     tasks: parseTasks(lines),
@@ -231,7 +211,7 @@ function iterationFor(meta: { id: number; name: string; status: Iteration["statu
     requiredChecks: parseRequiredChecks(lines),
     generationBundle,
     checkEvidence: parseCheckEvidence(lines),
-    rawContent: [heading, ...lines].join("\n").trim()
+    rawContent: [heading, ...rawLines].join("\n").trim()
   };
 }
 
@@ -241,39 +221,47 @@ export function parsePlan(filePath: string): Iteration[] {
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const lines = content.split("\n");
+  const rawLines = content.split("\n");
+  // Fenced code is blanked for structure matching only: a fenced example like
+  // "## Iteration 9: Example [ ]" or "- [ ] example task" must never become a
+  // live iteration or task. rawLines keeps the original text for excerpts.
+  const lines = blankFencedCodeLines(rawLines);
   const iterations: Iteration[] = [];
   const generationBundle = parseGenerationBundle(lines);
-  const phaseRegex = /^##\s*Iteration\s*(\d+)\s*:\s*(.*?)\s*\[\s*(x|~| |\/)\s*\]/i;
+  const phaseRegex = /^##\s*Iteration\s*(\d+)\s*:\s*(.+)\s*\[\s*(x|~| |\/)\s*\]\s*$/i;
 
   let currentPhaseLines: string[] = [];
+  let currentPhaseRawLines: string[] = [];
   let currentPhaseHeading = "";
   let currentPhaseMeta: { id: number; name: string; status: Iteration["status"] } | null = null;
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     const match = line.match(phaseRegex);
     if (match && match[1] !== undefined && match[2] !== undefined && match[3] !== undefined) {
       if (currentPhaseMeta !== null) {
-        iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
+        iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, currentPhaseRawLines, generationBundle));
       }
 
       currentPhaseLines = [];
+      currentPhaseRawLines = [];
       currentPhaseHeading = line;
       currentPhaseMeta = {
         id: parseInt(match[1], 10),
         name: match[2].trim(),
-        status: taskStatusFor(match[3])
+        status: iterationHeadingStatusFor(match[3])
       };
       continue;
     }
 
     if (currentPhaseMeta !== null) {
       currentPhaseLines.push(line);
+      currentPhaseRawLines.push(rawLines[index]);
     }
   }
 
   if (currentPhaseMeta !== null) {
-    iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, generationBundle));
+    iterations.push(iterationFor(currentPhaseMeta, currentPhaseHeading, currentPhaseLines, currentPhaseRawLines, generationBundle));
   }
 
   return iterations;

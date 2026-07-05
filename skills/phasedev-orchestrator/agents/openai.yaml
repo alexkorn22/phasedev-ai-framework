@@ -1,4 +1,4 @@
 interface:
   display_name: "PhaseDev Orchestrator — AI Flow Controller"
-  short_description: "PhaseDev AI Framework orchestrator. Spawns dedicated sub-agents for each PhaseDev stage (setup/research/design/plan/impl/validation/repair/archive). The main agent acts as a pure flow controller."
+  short_description: "PhaseDev AI Framework orchestrator. Spawns dedicated sub-agents for each PhaseDev phase (setup/research/design/plan/impl/validation/repair/archive). The main agent acts as a pure flow controller."
   default_prompt: "$phasedev-orchestrator"

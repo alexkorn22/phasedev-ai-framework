@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateRulesArtifact } from "../../entities/rules/validate-rules";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
@@ -23,7 +24,7 @@ const ARTIFACT_DISPATCH: Array<{
   { pattern: /iteration_plan\.md$/, validator: (f: string) => validatePlanArtifact(f) },
   { pattern: /validation_findings\.md$/, validator: (f: string) => {
     const result = parseValidationFindingsArtifact(f);
-    return result.issues;
+    return result.issues.map(issue => issue.message);
   }},
 ];
 
@@ -42,7 +43,8 @@ export function validateArtifact(filePath: string): ValidateArtifactResult {
     };
   }
 
-  const issues = dispatch.validator(filePath);
+  const prdPath = path.join(path.dirname(filePath), "prd.md");
+  const issues = dispatch.validator(filePath, prdPath);
 
   if (issues.length === 0) {
     return { ok: true, message: `${fileName}: validation passed.` };

@@ -1,4 +1,7 @@
 import * as fs from "fs";
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
+import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface PrdTraceIds {
   requirements: string[];
@@ -9,38 +12,6 @@ export interface PrdTraceability {
   intent: Map<string, string>;
   requirements: string[];
   criteria: string[];
-}
-
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
 }
 
 function collectFirstColumnIds(lines: string[], sectionName: string, idPattern: RegExp): string[] {
@@ -60,7 +31,7 @@ function collectFirstColumnIds(lines: string[], sectionName: string, idPattern: 
 
     const cells = splitMarkdownTableRow(line);
     const id = cells[0] ?? "";
-    if (cells[0] === "ID" || isSeparatorRow(cells)) {
+    if (cells[0] === "ID" || isMarkdownTableSeparatorRow(cells)) {
       continue;
     }
     if (idPattern.test(id)) {
@@ -87,7 +58,7 @@ function collectIntentValues(lines: string[]): Map<string, string> {
     }
 
     const cells = splitMarkdownTableRow(line);
-    if (cells[0] === "Field" || isSeparatorRow(cells)) {
+    if (cells[0] === "Field" || isMarkdownTableSeparatorRow(cells)) {
       continue;
     }
 
@@ -101,12 +72,17 @@ function collectIntentValues(lines: string[]): Map<string, string> {
   return values;
 }
 
+function readPrdLines(prdPath: string): string[] {
+  const content = normalizeLineEndings(fs.readFileSync(prdPath, "utf-8"));
+  return blankFencedCodeLines(content.split("\n"));
+}
+
 export function extractRequirementsAndCriteriaFromPrd(prdPath: string): PrdTraceIds {
   if (!fs.existsSync(prdPath)) {
     return { requirements: [], criteria: [] };
   }
 
-  const lines = fs.readFileSync(prdPath, "utf-8").split("\n");
+  const lines = readPrdLines(prdPath);
   return {
     requirements: collectFirstColumnIds(lines, "Requirements", /^R\d+$/),
     criteria: collectFirstColumnIds(lines, "Success Criteria", /^SC\d+$/)
@@ -118,7 +94,7 @@ export function extractPrdTraceability(prdPath: string): PrdTraceability {
     return { intent: new Map(), requirements: [], criteria: [] };
   }
 
-  const lines = fs.readFileSync(prdPath, "utf-8").split("\n");
+  const lines = readPrdLines(prdPath);
   return {
     intent: collectIntentValues(lines),
     requirements: collectFirstColumnIds(lines, "Requirements", /^R\d+$/),

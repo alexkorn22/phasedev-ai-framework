@@ -38,11 +38,3 @@ export function formatPlanMap(iterations: Iteration[], currentPhaseId: number): 
     return `- Iteration ${phase.id}: ${phase.name} ${status} (${marker}); tasks: ${taskIds}; required checks: ${requiredChecks}`;
   }).join("\n");
 }
-
-export function formatAdditionalChecks(phase: Iteration | null): string {
-  if (!phase || phase.additionalChecks.length === 0) {
-    return "  * No additional checks for the current phase.";
-  }
-
-  return phase.additionalChecks.map(check => `  * ${check}`).join("\n");
-}

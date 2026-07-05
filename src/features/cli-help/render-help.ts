@@ -9,6 +9,11 @@ Overview:
   contracts for AI agents. The controller owns routing, artifact contracts,
   approval gates, validation verdicts, archive state, and allowed state files.
 
+  Every command accepts a global --json flag: instead of human-readable text,
+  it prints one JSON object to stdout ({ ok, kind, phase?, message?, issues?,
+  data? }) and exits 0 when ok is true, 1 otherwise. Use --json when driving
+  PhaseDev from another agent or script.
+
 Workflow:
   1. phasedev init-project --project-path <path>
      Create the PhaseDev workspace structure and project config.
@@ -56,8 +61,8 @@ Commands:
       Refuses if artifacts are invalid, require approval, or archives are blocked.
       Side effects: updates state.json, flips iteration status, archives on archive_ready.
 
-  phasedev next [--project-path <path>] [--config <path>]
-      DEPRECATED. Prints a warning and exits.
+  phasedev next
+      DEPRECATED. Prints a warning and exits. Ignores all flags.
       Use phasedev phase and phasedev advance instead.
       Side effects: none.
 
@@ -75,8 +80,10 @@ Commands:
       E.g.: phasedev config runArchiveStage
       Side effects: none.
 
-  phasedev config set <key> <value> [--project-path <path>] [--config <path>]
+  phasedev config set <key> <value> [--project-path <path>] [--config <path>] [--string]
       Write a dot-notation config key to .phasedev/config.yaml.
+      Values are coerced to boolean/number when they look like one; pass --string to
+      store the raw string instead. The OK message states the stored type.
       Side effects: modifies the config file.
 
   phasedev status [--project-path <path>]
@@ -123,6 +130,7 @@ Commands:
       Side effects: moves the active change directory to .trash.
 
 Options:
+  --json                       Emit a single JSON envelope to stdout instead of human text. All commands.
   --project-path, -p <path>   Target project path. Defaults to the current directory.
   --config <path>             Explicit PhaseDev config path for phase/advance/config.
   --phase <phase>             Phase override for check.
@@ -135,6 +143,7 @@ Options:
   --iteration <iteration>     Iteration label for add-finding.
   --tail N                    Show last N log entries.
   --yes, --force              Confirm destructive operations (reset-change).
+  --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.
 
 Generated files:
   .phasedev/config.yaml

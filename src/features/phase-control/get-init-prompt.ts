@@ -10,7 +10,7 @@ export function getInitPrompt(projectPath: string, _config?: Config): Prompt {
     const state = resolveCurrentState(projectPath);
 
     return prompt("init", "init", renderTemplate("init", {
-      current_stage: state.phase,
+      current_phase: state.phase,
       route_kind: state.routeKind,
       active_change_path: state.activeChangePath ? toFileUrl(state.activeChangePath) : "none"
     }));

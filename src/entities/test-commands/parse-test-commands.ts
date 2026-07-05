@@ -1,5 +1,7 @@
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface TestCommands {
   unit?: string;
@@ -12,38 +14,6 @@ export interface TestCommandsParseResult {
   missing: Array<keyof TestCommands>;
 }
 
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") cells.shift();
-  if (cells[cells.length - 1] === "") cells.pop();
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
-}
-
 export function parseTestCommands(filePath: string): TestCommandsParseResult {
   const required: Array<keyof TestCommands> = ["unit", "phase", "full"];
   const commands: TestCommands = {};
@@ -53,7 +23,7 @@ export function parseTestCommands(filePath: string): TestCommandsParseResult {
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const lines = content.split("\n");
+  const lines = blankFencedCodeLines(content.split("\n"));
   let inSection = false;
 
   for (const line of lines) {
@@ -75,7 +45,7 @@ export function parseTestCommands(filePath: string): TestCommandsParseResult {
     }
 
     const cells = splitMarkdownTableRow(line);
-    if (cells.length !== 2 || cells[0] === "Gate" || isSeparatorRow(cells)) {
+    if (cells.length !== 2 || cells[0] === "Gate" || isMarkdownTableSeparatorRow(cells)) {
       continue;
     }
 

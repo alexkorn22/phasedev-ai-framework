@@ -25,38 +25,17 @@ function flowSkillBoundaryProtocol(): string[] {
     "",
     "Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.",
     "",
-    "- Skills are method instructions only; they never control Flow state.",
-    "- This prompt is the phase skill policy compiled from `config.yaml`.",
-    "- Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.",
-    "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.",
-    "- If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence.",
-    "- Configured `additional` skills are optional until selected. Once selected because configured router/main skills are insufficient or the additional skill is clearly better, unavailable or failed mandatory additional-skill steps block completion unless another authorized skill fully covers the same evidence.",
-    "- Fully execute a selected skill's mandatory instructions by default; an evidence-specific reason and reference is required to skip.",
-    "- Router skills listed as Priority 1 are read first when available because they may select execution-method skills.",
-    "- Configured router skills are mandatory routing/control skills for this phase.",
-    "- Configured `main` skills are mandatory execution-method skills for this phase.",
-    "- Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of phase evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.",
-    "- Do not eagerly load method skill bodies before phase/artifact context is understood; still read each configured router first when phase timing allows, then evaluate and fully execute each configured main skill per the mandate above.",
-    "- Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
-    "- Do not skip an applicable selected skill because its native output format differs; adapt useful output into the current Flow contract.",
-    "- Native skill reports, headings, lifecycle files, and artifact formats are not Flow artifact structure; adapt results into the current PhaseDev artifact template, final response, or blocker instead.",
-    "- In the final response, include a structured skill compliance section using the exact format below.",
-    "",
-    "## Skill Execution Contract",
-    "",
-    "- `APPLIED` means the agent read the full skill body and any skill-required referenced instruction files, then executed every mandatory phase, checklist, tool/preload step, quality gate, degraded-mode decision, and self-evaluation that applies to the current phase evidence.",
-    "- Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.",
-    "- Do not replace mandatory skill steps with ad hoc grep, prose, or `echo` acknowledgements. Prose claims are not evidence that a tool, command, checklist, or gate ran.",
-    "- If a mandatory skill step conflicts with this Flow phase, artifact allowlist, or repository policy, record it as `skipped_by_policy` with the exact policy reason; do not report it as passed.",
-    "- If an applicable mandatory skill step cannot be executed and is not policy-skipped, stop with a blocker or report the skill as unavailable/blocking. Do not finish the phase with a green compliance claim.",
-    "- Native skill output format may be adapted to PhaseDev, but mandatory skill instructions must not be dropped.",
-    "",
-    "  For every configured router, configured main, and router-selected skill, exactly one of:",
+    "- Skills are method instructions only; they never control Flow state. Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
+    "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration. Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.",
+    "- Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default. `additional` skills stay optional until selected because routers/main are insufficient or an additional skill is clearly better.",
+    "- Skipping a mandatory skill step requires a concrete evidence-specific reason and reference, or `skipped_by_policy: <exact policy reason>` when it conflicts with this Flow phase, artifact allowlist, or repository policy. Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.",
+    "- If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence. The same holds when an applicable mandatory step cannot run and is not policy-skipped: stop, do not finish with a green compliance claim.",
+    "- `APPLIED` means the agent read the full skill body and any skill-required referenced files, then executed every mandatory phase, checklist, tool/preload step, quality gate, degraded-mode decision, and self-evaluation applying to the current phase evidence. Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.",
+    "- Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead. Do not skip an applicable selected skill because its native output format differs.",
+    "- In the final response, include the structured skill ledger below with exactly one entry per configured router, configured main, and router-selected skill, plus selected additional skills; do not use prose in that section:",
     "  - `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)",
     "  - `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])",
-    "  - `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)",
-    "",
-    "  Selected additional skills use the same APPLIED/NOT_APPLICABLE/UNAVAILABLE format when used or when selection fails. Do not use prose in this section."
+    "  - `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)"
   ];
 }
 
@@ -64,23 +43,20 @@ function flowSkillBoundaryProtocolCompact(): string[] {
   return [
     "## Flow Skill Boundary Protocol",
     "",
-    "Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.",
-    "",
-    "- Skills are method instructions only; they never control Flow state.",
-    "- Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
+    "- Skills are method instructions only; they never control Flow state. Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
     "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.",
     "- Skill compliance final response entry must be `Skill compliance: none configured`.",
   ];
 }
 
-function stageSpecificRules(phase: Phase): string[] {
+function phaseSpecificRules(phase: Phase): string[] {
   if (phase === "change_intake") {
     return [
       "- Setup skills are post-intake only: do not load, read, route through, or apply any configured skill until the task/change description and task-specific rules or constraints are available.",
       "- If setup intake is missing, ignore the configured skill list for now, ask only for the missing intake, and stop.",
-      "- After intake is available, configured skills may be used only as methods for shaping `prd.md` and `rules.md` within the embedded Artifact Build Contracts.",
-      "- For setup, router skills such as `using-ecc` may classify the task, select an applicable method skill, or improve context discipline, but they do not authorize reading framework source, framework templates, config files, or unrelated repository areas that this Stage 0 contract forbids.",
-      "- If a router-selected skill asks for extra reports, headings, lifecycle files, broad codebase scans, or source/template reading beyond this setup contract, adapt only the relevant method guidance and keep the Stage 0 repository-reading limits."
+      "- After intake is available, configured skills may be used only as methods for shaping `prd.md` and `execution_contract.md` within the embedded Artifact Build Contracts.",
+      "- For setup, router skills such as `using-ecc` may classify the task, select an applicable method skill, or improve context discipline, but they do not authorize reading framework source, framework templates, config files, or unrelated repository areas that this change_intake phase contract forbids.",
+      "- If a router-selected skill asks for extra reports, headings, lifecycle files, broad codebase scans, or source/template reading beyond this setup contract, adapt only the relevant method guidance and keep the change_intake repository-reading limits."
     ];
   }
 
@@ -89,9 +65,7 @@ function stageSpecificRules(phase: Phase): string[] {
   }
 
   return [
-    "- Validation phases are review-only: do not rerun tests, builds, browsers, deployments, migrations, or other execution gates.",
-    "- Read-only review/audit/static-inspection skill methods are allowed only when they do not modify repo-tracked files or create persistent artifacts outside this phase allowlist.",
-    "- Implementation checks are already declared passed; validation must not re-execute them.",
+    "- Apply only read-only review/audit/static-inspection skill methods (review-only mode is defined in the Common Validation Contract); do not use a skill to rerun implementation checks, modify repo-tracked files, or create persistent artifacts outside this phase allowlist.",
     "- `validation_findings.md` may contain only YAML frontmatter and one findings table; convert findings into rows and put non-registry explanation only in the final response."
   ];
 }
@@ -126,6 +100,16 @@ function routerPriorityRule(phase: Phase, onlyRouters: boolean): string {
 
 export function renderSkillPolicy(phase: Phase, config: Config): string {
   const skills = getPhaseSkillConfig(config, phase);
+  if (!hasConfiguredSkills(skills)) {
+    return [
+      "## Configured Skill Policy",
+      "",
+      "No external skills are configured for this phase.",
+      ...flowSkillBoundaryProtocolCompact(),
+      ""
+    ].join("\n");
+  }
+
   const onlyRouters = hasOnlyConfiguredRouters(skills);
   const routerRules = hasConfiguredRouters(skills)
     ? [
@@ -151,26 +135,12 @@ export function renderSkillPolicy(phase: Phase, config: Config): string {
   const rules = [
     ...routerRules,
     externalSkillArtifactRule(phase),
-    ...stageSpecificRules(phase),
+    ...phaseSpecificRules(phase),
     "- After using skills, return to the Flow phase contract and complete only allowed phase work."
   ];
 
-  if (!hasConfiguredSkills(skills)) {
-    return "";
-  }
-
   const prioritySections = hasConfiguredRouters(skills)
-    ? onlyRouters
-      ? [
-        "Allowed skills:",
-        "",
-        "Priority 1 - Routers:",
-        formatSkillList(skills.routers),
-        "",
-        "Priority 2 - Main: none configured",
-        "Priority 3 - Additional: none configured"
-      ]
-      : [
+    ? [
       "Allowed skills:",
       "",
       "Priority 1 - Routers:",
@@ -198,10 +168,6 @@ export function renderSkillPolicy(phase: Phase, config: Config): string {
   return [
     "## Configured Skill Policy",
     "",
-    "You MUST evaluate every configured router, configured main, and router-selected skill against the phase evidence and fully execute its mandatory instructions by default. Skipping is allowed only with a concrete, evidence-specific reason and reference. Omitting this evaluation is a contract violation.",
-    "",
-    "When a router-selected skill and a main skill address the same evidence, the more specific (router-selected) method takes priority for that evidence. The main skill reports NOT_APPLICABLE(superseded by <router-selected-skill>) for that evidence and remains mandatory-by-default for any uncovered evidence.",
-    "",
     ...flowSkillBoundaryProtocol(),
     "",
     ...prioritySections,
@@ -214,30 +180,30 @@ export function renderSkillPolicy(phase: Phase, config: Config): string {
 export function renderSkillComplianceLine(phase: Phase, config: Config): string {
   const skills = getPhaseSkillConfig(config, phase);
   if (!hasConfiguredSkills(skills)) {
-    return "";
+    return "Skill compliance: none configured.";
   }
-  return "Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.";
+  return "Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.";
 }
 
-export function renderStageSkillStep(phase: Phase, config: Config): string {
+export function renderPhaseSkillStep(phase: Phase, config: Config): string {
   const skills = getPhaseSkillConfig(config, phase);
   if (!hasConfiguredSkills(skills)) {
     return "";
   }
 
-  switch (phase) {
-    case "technical_design":
-      return "3. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the phase contract is understood; map relevant skill output back into the embedded design template only.";
-    case "iteration_planning":
-      return "5. Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the phase contract is understood. Use only routing-relevant sections and applicable method guidance, then map useful output back into the embedded implementation plan template only. Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.";
-    case "implementation":
-      return "5. Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.";
-    default:
-      return "";
+  const suffix: Partial<Record<Phase, string>> = {
+    technical_design: "map relevant output into the embedded design template only.",
+    iteration_planning: "map useful output into the embedded implementation plan template only, and do not let router skills expand the repository retrieval budget.",
+    implementation: "evaluate them against the current phase evidence and never silently skip a configured skill."
+  };
+  const tail = suffix[phase];
+  if (tail === undefined) {
+    return "";
   }
+  return `   - Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; ${tail}`;
 }
 
-export function renderStageSkillNote(phase: Phase, config: Config): string {
+export function renderPhaseSkillNote(phase: Phase, config: Config): string {
   if (phase !== "iteration_planning") {
     return "";
   }

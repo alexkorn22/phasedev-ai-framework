@@ -1,7 +1,16 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { getInitPrompt, getNextPrompt } from "../src/features/phase-control";
+import { getInitPrompt, getRoutePrompt } from "../src/features/phase-control";
+import { createArchiveState } from "../src/entities/change/archive-state";
+import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
+import { startArchiveStage } from "../src/features/phase-control/archive-stage";
+import { resolveRoute } from "../src/features/phase-control/flow-route";
+import { loadFlowState } from "../src/entities/change/flow-state";
+import { validatePhase } from "../src/features/phase-control/phase-validators";
+import { buildChangePaths } from "../src/entities/change/paths";
+import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -242,7 +251,7 @@ describe("flow controller typed stages", () => {
     expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("## Init State");
     expect(result.prompt).toContain("command: init");
-    expect(result.prompt).toContain("current_stage: change_intake");
+    expect(result.prompt).toContain("current_phase: change_intake");
     expect(result.prompt).toContain("route_kind: change_intake");
     expect(result.prompt).toContain("active_change: none");
     expect(result.prompt).toContain("may_modify_files: false");
@@ -279,7 +288,7 @@ None.
 Test fixture only.
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("change_intake");
     expect(result.blocked).toBe(true);
@@ -298,7 +307,7 @@ Test fixture only.
     const result = getInitPrompt(testTmpDir);
 
     expect(result.phase).toBe("init");
-    expect(result.prompt).toContain("current_stage: implementation");
+    expect(result.prompt).toContain("current_phase: implementation");
     expect(result.prompt).toContain("route_kind: iteration");
     expect(result.prompt).toContain(`active_change: file://${changeDir}`);
     expect(fs.existsSync(changeDir)).toBe(true);
@@ -318,7 +327,7 @@ Test fixture only.
 
     const result = getInitPrompt(testTmpDir);
 
-    expect(result.prompt).toContain("current_stage: archive");
+    expect(result.prompt).toContain("current_phase: archive");
     expect(result.prompt).toContain("route_kind: archive_ready");
     expect(result.prompt).toContain(`active_change: file://${changeDir}`);
     expect(fs.existsSync(changeDir)).toBe(true);
@@ -341,7 +350,7 @@ Test fixture only.
   });
 
   test("missing active change routes to setup stage", () => {
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("change_intake");
     expect(result.blocked).toBe(false);
@@ -363,10 +372,10 @@ Test fixture only.
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
-    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
-    expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(result.prompt).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
@@ -402,7 +411,7 @@ Test fixture only.
 `);
     fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("technical_design");
     expect(result.prompt).toContain("Artifact Build Contract: architecture/design.md");
@@ -425,10 +434,10 @@ Test fixture only.
     expect(result.prompt).toContain("`assumption: ...` or `risk: ...`");
     expect(result.prompt).toContain("Treat material unknowns as blockers before finalizing the artifact");
     expect(result.prompt).toContain("`not_applicable: <reason>` is a valid mapping only when justified by the validated research record");
-    expect(result.prompt).toContain("Do not loop indefinitely on unavailable commands or repeated non-actionable failures.");
+    expect(result.prompt).toContain("Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed.");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
     expect(result.prompt).toContain("Final response must be compact and include");
-    expect(result.prompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(result.prompt).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("Self-check command:");
 
@@ -466,15 +475,15 @@ None.
 Test fixture only.
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("code_research");
     expect(result.prompt).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
-    expect(result.prompt).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
+    expect(result.prompt).toContain("Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere.");
     expect(result.prompt).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
     expect(result.prompt).not.toContain("Context budget: use a small bounded number of broad file listings/searches");
     expect(result.prompt).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
-    expect(result.prompt).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
     expect(result.prompt).not.toContain("--expect-route");
   });
 
@@ -486,7 +495,7 @@ Test fixture only.
 - [ ] 1.1 Implement endpoint
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.blocked).toBe(false);
@@ -519,12 +528,15 @@ Test fixture only.
 - [ ] 2.1 Build page
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("iteration_validation");
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
+    expect(result.prompt).toContain("type: iteration");
+    expect(result.prompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
+    expect(result.prompt).toContain("repaired: use only in Repair Loop");
   });
 
   test("completed single-phase route reports phase validation stage", () => {
@@ -535,7 +547,7 @@ Test fixture only.
 - [x] 1.1 Implement endpoint
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("iteration_validation");
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
@@ -567,7 +579,7 @@ Complete API work.
 | unit | \`bun test unit\` | pending |  |  |
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("Phase 5. Implementation.");
@@ -599,7 +611,7 @@ Complete API work.
 | unit | \`bun test unit\` | failed | unit test failed | rerun after fix |
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("Phase 5. Implementation.");
@@ -631,7 +643,7 @@ Complete API work.
 | unit | \`bun test unit\` | blocked | command unavailable in current sandbox | rerun when environment is available |
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("Phase 5. Implementation.");
@@ -663,7 +675,7 @@ Complete API work.
 | full | \`bun test full\` | pending |  |  |
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("- full: `bun test full`");
@@ -695,7 +707,7 @@ Complete API work.
 | phase | \`bun test unit\` | passed | unit passed but phase gate did not run | wrong command |
 `);
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
     expect(result.prompt).toContain("Phase 5. Implementation.");
@@ -712,7 +724,7 @@ Complete API work.
       findings: validationFindings("ready", "iteration")
     });
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("final_validation");
     expect(result.prompt).toContain("Phase 6B. Final Validation.");
@@ -722,6 +734,10 @@ Complete API work.
     expect(result.prompt).toContain("## Controller Observed Changed Files");
     expect(result.prompt).toContain("Generation Bundle");
     expect(result.prompt).toContain("Intent");
+    expect(result.prompt).toContain("type: final");
+    expect(result.prompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
+    expect(result.prompt).not.toContain("type: iteration");
+    expect(result.prompt).not.toContain("repaired: use only in Repair Loop");
   });
 
   test("repair route reports repair stage", () => {
@@ -734,13 +750,55 @@ Complete API work.
       findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
     });
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("finding_repair");
     expect(result.prompt).toContain("Phase 6R. Finding Repair.");
   });
 
-  test("archive route reports archive stage and moves active change to pending archive", () => {
+  test("verdict-only conflict with still-open blocking findings routes to finding_repair via the typed issue code", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "iteration", "| F1 | open | MUST-FIX | implementation | Iteration 1 | API response omits required error handling. | Add error mapping. |\n")
+    });
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("finding_repair");
+  });
+
+  test("repaired verdict routes to the state.json-tracked active iteration, not the first not_started one", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [ ] 1.1 Implement endpoint
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      findings: validationFindings("repaired", "iteration")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: 2 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(2);
+      expect(route.phase).toBe("iteration_validation");
+    }
+  });
+
+  test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
 
@@ -750,7 +808,13 @@ Complete API work.
       findings: validationFindings("ready", "final")
     });
 
-    const result = getNextPrompt(testTmpDir);
+    const promptResult = getRoutePrompt(testTmpDir, DEFAULT_CONFIG);
+    expect(promptResult.phase).toBe("archive");
+    expect(promptResult.blocked).toBe(true);
+    expect(promptResult.prompt).toContain("phasedev advance");
+    expect(fs.existsSync(changeDir)).toBe(true);
+
+    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
     const today = new Date().toISOString().split("T")[0];
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
     const statePath = path.join(archiveDir, ".phase-archive.json");
@@ -767,7 +831,7 @@ Complete API work.
   });
 
   test("pending archive state resumes archive prompt for archived change", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -776,8 +840,8 @@ Complete API work.
       findings: validationFindings("ready", "final")
     });
 
-    const first = getNextPrompt(testTmpDir);
-    const second = getNextPrompt(testTmpDir);
+    const first = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const second = getRoutePrompt(testTmpDir, DEFAULT_CONFIG);
 
     expect(first.phase).toBe("archive");
     expect(second.phase).toBe("archive");
@@ -791,7 +855,7 @@ Complete API work.
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(statePath, "{ malformed json", "utf-8");
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("archive");
     expect(result.blocked).toBe(true);
@@ -800,6 +864,130 @@ Complete API work.
     expect(result.prompt).toContain(statePath);
     expect(result.prompt).toContain(".phase-archive.json is not valid JSON");
     expect(result.prompt).not.toContain("Phase 1. Change Intake.");
+  });
+
+  test("validatePhase iteration-number matching rejects prefix false positives like '10' for iteration 1", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    const paths = buildChangePaths(changeDir);
+    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 10 | Unrelated to iteration 1. | n/a |\n"), "utf-8");
+
+    const result = validatePhase(testTmpDir, "iteration_validation", paths, 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues.join("\n")).toContain("No findings reference iteration 1");
+  });
+
+  test("validatePhase iteration-number matching accepts exact and 'Iteration N' style labels", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    const paths = buildChangePaths(changeDir);
+    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Matches active iteration. | n/a |\n"), "utf-8");
+
+    const result = validatePhase(testTmpDir, "iteration_validation", paths, 1);
+
+    expect(result.ok).toBe(true);
+  });
+
+  test("loadFlowState throws a descriptive error on syntactically invalid state.json", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(path.join(changeDir, "state.json"), "{ not valid json", "utf-8");
+
+    expect(() => loadFlowState(testTmpDir)).toThrow("Invalid flow state");
+  });
+
+  test("loadFlowState throws on unknown activePhase instead of silently dropping the phase lock", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "no_such_phase", activeIteration: null }), "utf-8");
+
+    expect(() => loadFlowState(testTmpDir)).toThrow("unknown activePhase");
+  });
+
+  test("advanceFlow reports invalid archive state instead of a generic 'cannot locate' message", () => {
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), "{ malformed json", "utf-8");
+    fs.writeFileSync(path.join(archiveDir, "state.json"), JSON.stringify({ activePhase: "archive", activeIteration: null }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Archive state is invalid");
+    expect(result.message).toContain(".phase-archive.json is not valid JSON");
+    expect(result.message).not.toContain("Cannot locate change directory");
+  });
+
+  test("archive stage resumes after crash between state-write and move (idempotent retry)", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+
+    // Simulate a crash after the archive-state marker was written into the still-active
+    // change dir but before the directory was moved (Phase 1 done, Phase 2 not run).
+    createArchiveState("sample-change", archiveDir, new Date(), changeDir);
+    expect(fs.existsSync(path.join(changeDir, ".phase-archive.json"))).toBe(true);
+    expect(fs.existsSync(changeDir)).toBe(true);
+
+    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+
+    expect(result.phase).toBe("archive");
+    expect(result.blocked).toBeFalsy();
+    expect(fs.existsSync(changeDir)).toBe(false);
+    const statePath = path.join(archiveDir, ".phase-archive.json");
+    expect(fs.existsSync(statePath)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({
+      status: "in_progress",
+      changeName: "sample-change",
+      archivePath: archiveDir
+    });
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
+  });
+
+  test("advanceFlow with autoApprove approves the gated artifact and advances", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      designApproved: false
+    });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "technical_design", activeIteration: null }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("implementation");
+    const design = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
+    expect(design).toContain("approved: true");
+    expect(design).toContain("PhaseDev autoApprove");
+  });
+
+  test("advanceFlow without autoApprove still refuses at the approval gate", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      designApproved: false
+    });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "technical_design", activeIteration: null }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("technical_design_approval");
   });
 
   test("approval blocker reports blocked gate stage", () => {
@@ -812,10 +1000,97 @@ Complete API work.
       designApproved: false
     });
 
-    const result = getNextPrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("technical_design");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Design requires review");
+  });
+
+  test("advance refuses and leaves state.json untouched when the required plan flip cannot be applied", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 01: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(statePath, JSON.stringify({ activePhase: "iteration_planning", activeIteration: null }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("iteration_plan.md could not be updated");
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).activePhase).toBe("iteration_planning");
+  });
+
+  test("advance to archive writes activePhase archive into the state.json that travels with the change", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+
+    startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+
+    const archivedState = JSON.parse(fs.readFileSync(path.join(archiveDir, "state.json"), "utf-8"));
+    expect(archivedState.activePhase).toBe("archive");
+  });
+
+  test("advance blocks when state.json phase and the artifact-derived route disagree", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(statePath, JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("state.json phase: implementation");
+    expect(result.message).toContain("artifact-derived phase: technical_design");
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).activePhase).toBe("implementation");
+  });
+
+  test("phase prompt blocks when state.json phase and the artifact-derived route disagree", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
+
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("state.json phase: implementation");
+    expect(result.prompt).toContain("artifact-derived phase: technical_design");
+  });
+
+  test("phase prompt blocks implementation when state.json is missing activeIteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation" }, null, 2) + "\n", "utf-8");
+
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.blocked).toBe(true);
+    expect(result.phase).toBe("implementation");
+    expect(result.prompt).toContain("state.json is missing activeIteration");
   });
 });

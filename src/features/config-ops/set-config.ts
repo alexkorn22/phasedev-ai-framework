@@ -1,23 +1,40 @@
 import * as fs from "fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
 export interface SetConfigResult {
   ok: boolean;
   message: string;
+  storedValue?: unknown;
+  storedType?: string;
 }
 
-function parseValue(raw: string): unknown {
+export interface SetConfigOptions {
+  /** Force the raw value to be stored as a string, skipping type coercion. */
+  forceString?: boolean;
+}
+
+function typeLabel(value: unknown): string {
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+function parseValue(raw: string, key: string, forceString: boolean): unknown {
+  if (forceString) return raw;
+
+  const isSkillArrayKey = /\.skills\.(routers|main|additional)$/.test(key);
+  if (isSkillArrayKey) {
+    return raw.split(",").map(s => s.trim()).filter(Boolean);
+  }
   if (raw.toLowerCase() === "true") return true;
   if (raw.toLowerCase() === "false") return false;
   if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
   if (/^\d+\.\d+$/.test(raw)) return Number.parseFloat(raw);
-  if (raw.includes(",")) {
-    return raw.split(",").map(s => s.trim()).filter(Boolean);
-  }
+  // No generic comma-to-array coercion: only the skill keys above are lists.
+  // A free-text value like "fix, then test" must stay a string.
   return raw;
 }
 
-export function setConfigValue(configPath: string, key: string, rawValue: string): SetConfigResult {
+export function setConfigValue(configPath: string, key: string, rawValue: string, options: SetConfigOptions = {}): SetConfigResult {
   if (!fs.existsSync(configPath)) {
     return { ok: false, message: `Config file not found: ${configPath}` };
   }
@@ -31,7 +48,7 @@ export function setConfigValue(configPath: string, key: string, rawValue: string
     return { ok: false, message: `Failed to parse config: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  const value = parseValue(rawValue);
+  const value = parseValue(rawValue, key, options.forceString ?? false);
   const segments = key.split(".").filter(Boolean);
 
   if (segments.length === 0) {
@@ -58,10 +75,13 @@ export function setConfigValue(configPath: string, key: string, rawValue: string
   const newContent = stringifyYaml(parsed, {
     lineWidth: 120
   });
-  fs.writeFileSync(configPath, newContent, "utf-8");
+  writeFileAtomic(configPath, newContent);
 
+  const storedType = typeLabel(value);
   return {
     ok: true,
-    message: `Config key \`${key}\` set to \`${rawValue}\`.`
+    message: `Config key \`${key}\` set to \`${rawValue}\` (${storedType}).`,
+    storedValue: value,
+    storedType
   };
 }

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { FLOW_ARCHIVE_STATE_FILE } from "../../entities/change/archive-state";
+import { archiveDirectories, FLOW_ARCHIVE_STATE_FILE, readArchiveState, validateArchiveStateFile } from "../../entities/change/archive-state";
 
 export interface ArchiveCheckResult {
   ok: boolean;
@@ -26,10 +26,6 @@ const CATCH_ALL_CAPABILITIES = new Set([
 ]);
 
 const PLACEHOLDER_PATTERN = /\b(?:TBD|TODO|unknown|clarify later|to be decided)\b/i;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function normalizedPath(value: string): string {
   return path.resolve(value);
@@ -59,43 +55,14 @@ function relativeSpecFiles(specsPath: string): string[] {
 }
 
 function validateArchiveState(archivePath: string, issues: string[]): { changeName: string | null } {
-  const statePath = path.join(archivePath, FLOW_ARCHIVE_STATE_FILE);
-  if (!fs.existsSync(statePath)) {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} is missing.`);
-    return { changeName: null };
-  }
+  const result = validateArchiveStateFile(archivePath, { requireCompleted: true });
+  issues.push(...result.issues);
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(fs.readFileSync(statePath, "utf-8"));
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Invalid JSON.";
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} is not valid JSON: ${message}`);
-    return { changeName: null };
-  }
-
-  if (!isRecord(parsed)) {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} must be a JSON object.`);
-    return { changeName: null };
-  }
-
-  if (parsed.status !== "completed") {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} status must be "completed".`);
-  }
-
-  if (typeof parsed.completedAt !== "string" || parsed.completedAt.trim() === "") {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} must include completedAt as a non-empty string.`);
-  }
-
-  if (typeof parsed.changeName !== "string" || parsed.changeName.trim() === "") {
-    issues.push(`${FLOW_ARCHIVE_STATE_FILE} must include changeName as a non-empty string.`);
-  }
-
-  if (typeof parsed.archivePath === "string" && normalizedPath(parsed.archivePath) !== normalizedPath(archivePath)) {
+  if (result.state && normalizedPath(result.state.archivePath) !== normalizedPath(archivePath)) {
     issues.push(`${FLOW_ARCHIVE_STATE_FILE} archivePath must match --archive-path.`);
   }
 
-  return { changeName: typeof parsed.changeName === "string" ? parsed.changeName : null };
+  return { changeName: result.state?.changeName ?? null };
 }
 
 function validateSpecPath(relativeFile: string, changeName: string | null, issues: string[]): void {
@@ -194,23 +161,44 @@ function validateSpecContent(specsPath: string, relativeFile: string, issues: st
   }
 }
 
+export function findOrphanedArchiveDirectories(projectPath: string): string[] {
+  const orphans: string[] = [];
+
+  for (const archivePath of archiveDirectories(projectPath)) {
+    const statePath = path.join(archivePath, FLOW_ARCHIVE_STATE_FILE);
+    if (!fs.existsSync(statePath)) {
+      orphans.push(`${archivePath}: orphan, no archive state (${FLOW_ARCHIVE_STATE_FILE} missing).`);
+      continue;
+    }
+
+    const state = readArchiveState(archivePath);
+    if (state && state.status !== "completed") {
+      orphans.push(`${archivePath}: archive still in_progress (started ${state.startedAt}).`);
+    }
+  }
+
+  return orphans;
+}
+
 export function checkArchiveCompletion(archivePath: string | undefined): ArchiveCheckResult {
   const issues: string[] = [];
+  const archiveStat = archivePath ? fs.statSync(archivePath, { throwIfNoEntry: false }) : undefined;
 
   if (!archivePath) {
     issues.push("check-archive requires --archive-path <path>.");
-  } else if (!fs.existsSync(archivePath)) {
+  } else if (!archiveStat) {
     issues.push(`Archive path does not exist: ${archivePath}`);
-  } else if (!fs.statSync(archivePath).isDirectory()) {
+  } else if (!archiveStat.isDirectory()) {
     issues.push(`Archive path must be a directory: ${archivePath}`);
   }
 
   let changeName: string | null = null;
-  if (archivePath && fs.existsSync(archivePath) && fs.statSync(archivePath).isDirectory()) {
+  if (archivePath && archiveStat?.isDirectory()) {
     changeName = validateArchiveState(archivePath, issues).changeName;
 
     const specsPath = path.join(archivePath, "specs");
-    if (fs.existsSync(specsPath) && !fs.statSync(specsPath).isDirectory()) {
+    const specsStat = fs.statSync(specsPath, { throwIfNoEntry: false });
+    if (specsStat && !specsStat.isDirectory()) {
       issues.push(`Archive specs path must be a directory when present: ${specsPath}`);
     } else {
       for (const relativeFile of relativeSpecFiles(specsPath)) {

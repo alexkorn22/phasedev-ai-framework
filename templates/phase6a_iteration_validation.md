@@ -2,8 +2,6 @@ Phase 6A. Iteration Validation.
 
 Phase contract: validate current iteration readiness against the implementation plan. This phase runs for every iteration, including the only iteration in a single-iteration plan.
 
-Validation mode: review-only phase. This phase checks completeness/correctness through review methods and is not a test execution gate.
-
 {{skill_policy}}
 
 Input artifacts:
@@ -19,7 +17,7 @@ Current phase:
 
 Retrieval order:
 - Start from the current phase in [iteration_plan.md]({{plan_path}}), then read PRD/design/rules only for the `R#`, `SC#`, risk boundaries, design decisions, and check commands referenced by that phase.
-- Treat linked artifact paths as the active change source of truth during real phase execution. If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt; mention the missing sandbox files only as an evaluation limitation, not as a validation finding.
+- Treat linked artifact paths as the active change source of truth.
 - Use repository reads and narrow searches only to verify the current phase changed-file set, implementation completeness, code review findings, and security findings.
 
 Required phase-contract checks:
@@ -40,11 +38,8 @@ Required phase-contract checks:
 - if the final verdict is `ready` or `ready_with_risks`, change the current phase status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;
 - if the final verdict is `repair_required`, keep the current phase status as `[~]`.
 
-Path resolution rule:
-- `validation_findings.md` and `iteration_plan.md` in this prompt are paths inside the active change folder, not paths from the project repository root.
-- Write `validation_findings.md` only to the absolute Output path in the Artifact Build Contract below.
+{{path_resolution_rule}}
 - Update phase status only in the linked active change folder [iteration_plan.md]({{plan_path}}).
-- Do not create or update project-root flow artifact files during this phase.
 
 {{validation_common_contract}}
 

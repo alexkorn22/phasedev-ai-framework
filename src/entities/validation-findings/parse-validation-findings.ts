@@ -1,5 +1,7 @@
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import { readFrontmatterValue } from "../../shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
+import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import * as fs from "fs";
 
 export interface BlockingValidationFinding {
@@ -32,6 +34,17 @@ export type ValidationFindingClass = "implementation" | "test" | "plan" | "desig
 export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required";
 export type ValidationFindingsType = "iteration" | "final";
 
+export type ValidationFindingIssueCode =
+  | "verdict_ready_with_open_findings"
+  | "verdict_ready_with_risks_with_open_blocking"
+  | "verdict_repaired_with_open_blocking"
+  | "generic";
+
+export interface ValidationFindingIssue {
+  code: ValidationFindingIssueCode;
+  message: string;
+}
+
 export interface ValidationFindingRow {
   id: string;
   status: ValidationFindingStatus;
@@ -49,7 +62,7 @@ export interface ValidationFindingsArtifact {
   verdict: ValidationFindingsVerdict | "unknown";
   type: ValidationFindingsType | "unknown";
   rows: ValidationFindingRow[];
-  issues: string[];
+  issues: ValidationFindingIssue[];
   openRows: ValidationFindingRow[];
   openBlockingRows: ValidationFindingRow[];
   openNonBlockingRows: ValidationFindingRow[];
@@ -76,43 +89,6 @@ export function parseValidationVerdictType(filePath: string): "iteration" | "fin
   }
 
   return "unknown";
-}
-
-function splitMarkdownTableRow(line: string): string[] {
-  const trimmed = line.trim();
-  const cells: string[] = [];
-  let currentCell = "";
-
-  for (let index = 0; index < trimmed.length; index++) {
-    const char = trimmed[index];
-    if (char === "\\" && trimmed[index + 1] === "|") {
-      currentCell += "|";
-      index++;
-      continue;
-    }
-
-    if (char === "|") {
-      cells.push(currentCell.trim());
-      currentCell = "";
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  cells.push(currentCell.trim());
-  if (cells[0] === "") {
-    cells.shift();
-  }
-  if (cells[cells.length - 1] === "") {
-    cells.pop();
-  }
-
-  return cells;
-}
-
-function isSeparatorRow(cells: string[]): boolean {
-  return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
 }
 
 function normalizeHeader(value: string): string {
@@ -151,6 +127,10 @@ function isOpenStatus(status: string): boolean {
   return status === "open" || status === "reopened";
 }
 
+function genericIssue(message: string): ValidationFindingIssue {
+  return { code: "generic", message };
+}
+
 function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
   const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
   if (!frontmatterMatch) {
@@ -183,7 +163,7 @@ function artifactWithDerivedRows(
   verdict: ValidationFindingsArtifact["verdict"],
   type: ValidationFindingsArtifact["type"],
   rows: ValidationFindingRow[],
-  issues: string[]
+  issues: ValidationFindingIssue[]
 ): ValidationFindingsArtifact {
   const openRows = rows.filter(row => isOpenStatus(row.status));
   const openBlockingRows = openRows.filter(row => row.severity === "MUST-FIX");
@@ -210,23 +190,23 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   const type = parseValidationVerdictType(filePath);
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
   const { body, hasFrontmatter } = bodyAfterFrontmatter(content);
-  const bodyLines = body.split("\n");
-  const issues: string[] = [];
+  const bodyLines = blankFencedCodeLines(body.split("\n"));
+  const issues: ValidationFindingIssue[] = [];
   const rows: ValidationFindingRow[] = [];
 
   if (!hasFrontmatter) {
-    issues.push("validation_findings.md must start with YAML frontmatter.");
+    issues.push(genericIssue("validation_findings.md must start with YAML frontmatter."));
   }
   if (verdict === "unknown") {
-    issues.push("YAML field `verdict` must be one of: ready, ready_with_risks, repaired, repair_required.");
+    issues.push(genericIssue("YAML field `verdict` must be one of: ready, ready_with_risks, repaired, repair_required."));
   }
   if (type === "unknown") {
-    issues.push("YAML field `type` must be one of: iteration, final.");
+    issues.push(genericIssue("YAML field `type` must be one of: iteration, final."));
   }
 
   const tableBlocks = parseStrictTableBlocks(bodyLines);
   if (tableBlocks.length !== 1) {
-    issues.push(`validation_findings.md must contain exactly one markdown table, found ${tableBlocks.length}.`);
+    issues.push(genericIssue(`validation_findings.md must contain exactly one markdown table, found ${tableBlocks.length}.`));
   }
 
   const nonTableContent = bodyLines.filter(line => {
@@ -234,7 +214,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
     return trimmed.length > 0 && !trimmed.startsWith("|");
   });
   if (nonTableContent.length > 0) {
-    issues.push("validation_findings.md may contain only YAML frontmatter and one findings table.");
+    issues.push(genericIssue("validation_findings.md may contain only YAML frontmatter and one findings table."));
   }
 
   const tableBlock = tableBlocks[0];
@@ -245,25 +225,25 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   const headerCells = splitMarkdownTableRow(bodyLines[tableBlock.start]);
   const normalizedHeaders = headerCells.map(normalizeHeader);
   if (normalizedHeaders.length !== STRICT_HEADERS.length || !STRICT_HEADERS.every((header, index) => normalizedHeaders[index] === header)) {
-    issues.push("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix.");
+    issues.push(genericIssue("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix."));
   }
 
   const separatorIndex = tableBlock.start + 1;
-  if (separatorIndex > tableBlock.end || !isSeparatorRow(splitMarkdownTableRow(bodyLines[separatorIndex]))) {
-    issues.push("Findings table must include a separator row immediately after the header.");
+  if (separatorIndex > tableBlock.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(bodyLines[separatorIndex]))) {
+    issues.push(genericIssue("Findings table must include a separator row immediately after the header."));
   }
 
   const seenIds = new Set<string>();
   const dataStart = separatorIndex + 1;
   for (let rowIndex = dataStart; rowIndex <= tableBlock.end; rowIndex++) {
     const cells = splitMarkdownTableRow(bodyLines[rowIndex]);
-    if (isSeparatorRow(cells)) {
-      issues.push(`Findings table row ${rowIndex + 1} contains an unexpected separator.`);
+    if (isMarkdownTableSeparatorRow(cells)) {
+      issues.push(genericIssue(`Findings table row ${rowIndex + 1} contains an unexpected separator.`));
       continue;
     }
 
     if (cells.length !== STRICT_HEADERS.length) {
-      issues.push(`Findings table row ${rowIndex + 1} must have exactly ${STRICT_HEADERS.length} cells.`);
+      issues.push(genericIssue(`Findings table row ${rowIndex + 1} must have exactly ${STRICT_HEADERS.length} cells.`));
       continue;
     }
 
@@ -272,33 +252,33 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
     const severity = rawSeverity;
     const className = rawClassName.toLowerCase();
     if (id.length === 0) {
-      issues.push(`Findings table row ${rowIndex + 1} has an empty ID.`);
+      issues.push(genericIssue(`Findings table row ${rowIndex + 1} has an empty ID.`));
     }
     if (seenIds.has(id)) {
-      issues.push(`Findings table contains duplicate ID \`${id}\`.`);
+      issues.push(genericIssue(`Findings table contains duplicate ID \`${id}\`.`));
     }
     seenIds.add(id);
     if (!ALLOWED_STATUSES.has(status)) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Status \`${rawStatus}\`.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has invalid Status \`${rawStatus}\`.`));
     }
     if (!ALLOWED_SEVERITIES.has(severity)) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Severity \`${rawSeverity}\`.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has invalid Severity \`${rawSeverity}\`.`));
     }
     if (!ALLOWED_CLASSES.has(className)) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has invalid Class \`${rawClassName}\`.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has invalid Class \`${rawClassName}\`.`));
     }
     const securitySeverityMismatch = ALLOWED_CLASSES.has(className) && className === "security" && severity !== "MUST-FIX";
     if (securitySeverityMismatch) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has Class \`security\`; security findings must use Severity \`MUST-FIX\`.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has Class \`security\`; security findings must use Severity \`MUST-FIX\`.`));
     }
     if (phase.length === 0) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Iteration.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has an empty Iteration.`));
     }
     if (finding.length === 0) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Finding.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has an empty Finding.`));
     }
     if (requiredFix.length === 0) {
-      issues.push(`Finding ${id || `row ${rowIndex + 1}`} has an empty Required Fix.`);
+      issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has an empty Required Fix.`));
     }
 
     if (
@@ -328,16 +308,25 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   const artifact = artifactWithDerivedRows(true, verdict, type, rows, issues);
   if (artifact.issues.length === 0) {
     if (artifact.verdict === "ready" && artifact.openRows.length > 0) {
-      artifact.issues.push("`verdict: ready` is allowed only when there are no open or reopened findings.");
+      artifact.issues.push({
+        code: "verdict_ready_with_open_findings",
+        message: "`verdict: ready` is allowed only when there are no open or reopened findings."
+      });
     }
     if (artifact.verdict === "ready_with_risks" && artifact.openBlockingRows.length > 0) {
-      artifact.issues.push("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.");
+      artifact.issues.push({
+        code: "verdict_ready_with_risks_with_open_blocking",
+        message: "`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist."
+      });
     }
     if (artifact.verdict === "repair_required" && artifact.openBlockingRows.length === 0) {
-      artifact.issues.push("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.");
+      artifact.issues.push(genericIssue("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding."));
     }
     if (artifact.verdict === "repaired" && artifact.openBlockingRows.length > 0) {
-      artifact.issues.push("`verdict: repaired` is not allowed while open or reopened MUST-FIX findings exist.");
+      artifact.issues.push({
+        code: "verdict_repaired_with_open_blocking",
+        message: "`verdict: repaired` is not allowed while open or reopened MUST-FIX findings exist."
+      });
     }
   }
 

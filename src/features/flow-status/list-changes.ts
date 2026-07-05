@@ -17,21 +17,32 @@ export function listChanges(projectPath: string): ChangeEntry[] {
   const archiveDir = path.join(changesDir, "archive");
   const entries: ChangeEntry[] = [];
 
-  // Active changes
+  // Active changes. resolveRoute resolves the single global route; with more
+  // than one active directory (an anomaly this listing should surface) it can
+  // throw, so resolve it once and degrade to an error marker instead of
+  // crashing the whole listing.
   if (fs.existsSync(changesDir)) {
     const items = fs.readdirSync(changesDir);
-    for (const item of items) {
+    const activeItems = items.filter(item => {
+      if (item === "archive" || item.startsWith(".")) return false;
       const fullPath = path.join(changesDir, item);
-      if (item === "archive" || item.startsWith(".")) continue;
-      if (!fs.statSync(fullPath).isDirectory()) continue;
+      return fs.statSync(fullPath, { throwIfNoEntry: false })?.isDirectory() ?? false;
+    });
 
-      const route = resolveRoute(projectPath);
-      entries.push({
-        name: item,
-        type: "active",
-        phase: route.phase,
-        routeKind: route.kind
-      });
+    let phase: string | undefined;
+    let routeKind: string | undefined;
+    if (activeItems.length > 0) {
+      try {
+        const route = resolveRoute(projectPath);
+        phase = route.phase;
+        routeKind = route.kind;
+      } catch (error: unknown) {
+        routeKind = `error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+
+    for (const item of activeItems) {
+      entries.push({ name: item, type: "active", phase, routeKind });
     }
   }
 
@@ -40,7 +51,7 @@ export function listChanges(projectPath: string): ChangeEntry[] {
     const archivedItems = fs.readdirSync(archiveDir);
     for (const item of archivedItems) {
       const fullPath = path.join(archiveDir, item);
-      if (!fs.statSync(fullPath).isDirectory()) continue;
+      if (!(fs.statSync(fullPath, { throwIfNoEntry: false })?.isDirectory() ?? false)) continue;
 
       const archiveJsonPath = path.join(fullPath, ".phase-archive.json");
       let archiveStatus = "unknown";

@@ -1,6 +1,6 @@
 ---
 verdict: <set_after_review>
-type: iteration
+type: {{artifact_type}}
 date: {{date}}
 ---
 
@@ -17,7 +17,7 @@ Authoring instructions for validation and repair agents:
 - If a new finding semantically matches an existing row, update that row instead of creating a duplicate.
 
 Frontmatter contract:
-- verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.
+- verdict must be exactly one of: {{allowed_verdicts}}.
 - Replace `<set_after_review>` with the verdict selected after evidence review; never leave the placeholder in the final file.
 - type must be exactly one of: iteration, final.
 - date must be an ISO date.
@@ -26,8 +26,7 @@ Verdict contract:
 - ready: use only when there are no open or reopened findings.
 - ready_with_risks: use only when open/reopened findings are limited to RECOMMENDED or NIT.
 - repair_required: use when at least one open/reopened MUST-FIX finding exists.
-- repaired: use only in Repair Loop after actual blocking findings are resolved; do not use ready or ready_with_risks from Repair Loop.
-
+{{repaired_verdict_note}}
 Table value contract:
 - ID: stable finding ID such as F1, F2, F3.
 - Status: exactly one of open, reopened, resolved.

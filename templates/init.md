@@ -10,14 +10,14 @@ This prompt initializes context only. It is not a phase contract.
 
 ```yaml
 command: init
-current_stage: {{current_stage}}
+current_phase: {{current_phase}}
 route_kind: {{route_kind}}
 active_change: {{active_change_path}}
 next_prompt_required: true
 may_modify_files: false
 may_read_files: false
 may_run_commands: false
-may_reconstruct_stage_contract: false
+may_reconstruct_phase_contract: false
 ```
 
 `next_prompt_required: true` means the next executable input must be the complete, verbatim controller output printed by `phasedev phase`.

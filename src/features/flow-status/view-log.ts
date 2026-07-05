@@ -2,13 +2,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 
-export interface LogEntry {
-  timestamp?: string;
-  level?: string;
-  message?: string;
-  [key: string]: unknown;
-}
-
 export function viewLog(projectPath: string, tail?: number): string {
   const logsDir = path.join(projectPath, SYSTEM_DIR, "logs");
   const logFile = path.join(logsDir, "ralph-log.jsonl");

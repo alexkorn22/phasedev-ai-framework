@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import {
+  DEFAULT_CONFIG,
   defaultConfigPath,
   getConfigValue,
   getPhaseSkillConfig,
@@ -13,6 +14,8 @@ import {
 } from "../src/entities/config/config";
 import { initProject } from "../src/features/project-init/init-project";
 import type { Config } from "../src/entities/config/config";
+import { renderSkillComplianceLine, renderSkillPolicy } from "../src/features/phase-control/skill-policy";
+import { setConfigValue } from "../src/features/config-ops/set-config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -82,19 +85,34 @@ autoApprove: false
     expect(config.autoApprove).toBe(false);
   });
 
-  test("warns on unknown phase but does not throw (forward compatibility)", () => {
-    const warnings = captureWarnings(() => {
-      const config = parseConfig(`
+  test("throws a hard error on unknown stage name naming the bad key and valid phases", () => {
+    expect(() =>
+      parseConfig(`
 stages:
   unknown_stage:
     skills:
       main: ["test"]
-`);
-      expect(config).toBeDefined();
-      expect((config.phases as any).unknown_stage).toBeUndefined();
-    });
-    expect(warnings.length).toBeGreaterThan(0);
-    expect(warnings.some(w => w.includes("unknown_stage"))).toBe(true);
+`)
+    ).toThrow(/unknown_stage/);
+    expect(() =>
+      parseConfig(`
+stages:
+  unknown_stage:
+    skills:
+      main: ["test"]
+`)
+    ).toThrow(/change_intake/);
+  });
+
+  test("throws a hard error on unknown phase name in 'phases:' section", () => {
+    expect(() =>
+      parseConfig(`
+phases:
+  unknown_phase:
+    skills:
+      main: ["test"]
+`)
+    ).toThrow(/unknown_phase/);
   });
 
   test("parses empty/missing phases to empty object", () => {
@@ -359,34 +377,19 @@ stages:
     ).toBe(true);
   });
 
-  test("returns undefined for legacy codex.default.* keys", () => {
+  test("returns undefined for removed codex.default.* keys", () => {
     const config = parseConfig(`{}`);
-    const warnings = captureWarnings(() => {
-      expect(getConfigValue(config, "codex.default.model")).toBeUndefined();
-    });
-    expect(
-      warnings.some(w => w.includes("Deprecated") && w.includes("codex.default"))
-    ).toBe(true);
+    expect(getConfigValue(config, "codex.default.model")).toBeUndefined();
   });
 
-  test("returns undefined for legacy codex.sandboxMode", () => {
+  test("returns undefined for removed codex.sandboxMode", () => {
     const config = parseConfig(`{}`);
-    const warnings = captureWarnings(() => {
-      expect(getConfigValue(config, "codex.sandboxMode")).toBeUndefined();
-    });
-    expect(
-      warnings.some(w => w.includes("Deprecated") && w.includes("codex.sandboxMode"))
-    ).toBe(true);
+    expect(getConfigValue(config, "codex.sandboxMode")).toBeUndefined();
   });
 
-  test("returns undefined for legacy codex.approvalPolicy", () => {
+  test("returns undefined for removed codex.approvalPolicy", () => {
     const config = parseConfig(`{}`);
-    const warnings = captureWarnings(() => {
-      expect(getConfigValue(config, "codex.approvalPolicy")).toBeUndefined();
-    });
-    expect(
-      warnings.some(w => w.includes("Deprecated") && w.includes("codex.approvalPolicy"))
-    ).toBe(true);
+    expect(getConfigValue(config, "codex.approvalPolicy")).toBeUndefined();
   });
 
   test("maps legacy loop.runArchiveStage to config.runArchiveStage", () => {
@@ -491,6 +494,42 @@ stages:
       expect(config.phases.change_intake?.skills.main).toEqual(["new-skill"]);
     });
     expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+test("renderSkillPolicy and renderSkillComplianceLine report unconfigured skills explicitly", () => {
+  expect(renderSkillPolicy("change_intake", DEFAULT_CONFIG)).toContain("No external skills are configured");
+  expect(renderSkillComplianceLine("change_intake", DEFAULT_CONFIG)).toBe("Skill compliance: none configured.");
+});
+
+describe("setConfigValue", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = createTempWorkspace("set-config");
+  });
+
+  afterEach(() => {
+    cleanupTempWorkspace(dir);
+  });
+
+  test("wraps a single skill value in an array instead of writing a bare scalar", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "phases.change_intake.skills.main", "dev-core");
+    expect(result.ok).toBe(true);
+
+    const config = loadConfig(configPath);
+    expect(config.phases.change_intake?.skills.main).toEqual(["dev-core"]);
+  });
+
+  test("still splits comma-separated skill values into an array", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    setConfigValue(configPath, "phases.change_intake.skills.main", "dev-core, other-skill");
+
+    const config = loadConfig(configPath);
+    expect(config.phases.change_intake?.skills.main).toEqual(["dev-core", "other-skill"]);
   });
 });
 

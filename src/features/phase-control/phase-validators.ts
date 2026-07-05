@@ -115,7 +115,7 @@ export function validatePhase(
       }
 
       if (findings.issues.length > 0) {
-        issues.push(...findings.issues);
+        issues.push(...findings.issues.map(issue => issue.message));
       }
 
       if (findings.type !== "iteration") {
@@ -125,11 +125,8 @@ export function validatePhase(
       // Verify that findings reference the active iteration
       if (activeIteration !== null && findings.rows.length > 0) {
         const iterStr = String(activeIteration);
-        const matchingRows = findings.rows.filter(row =>
-          row.phase === iterStr ||
-          row.phase === `Iteration ${iterStr}` ||
-          row.phase.startsWith(`${iterStr}`)
-        );
+        const iterationPattern = new RegExp(`^(Iteration\\s+)?${iterStr}(\\s|:|$)`, "i");
+        const matchingRows = findings.rows.filter(row => iterationPattern.test(row.phase.trim()));
         if (matchingRows.length === 0) {
           issues.push(
             `No findings reference iteration ${activeIteration}. Findings Iteration column must match the active iteration.`
@@ -137,13 +134,12 @@ export function validatePhase(
         }
       }
 
-      // NOTE: [x] marking is done by applyStateSideEffects in advance-flow.ts
-      // when advance transitions from iteration_validation. The B1 guard was
-      // removed because it created a deadlock: validatePhase required [x], but
-      // [x] is only set by advance *after* validatePhase passes. resolveRoute
-      // already handles iteration transitions correctly — when verdict=ready,
-      // it returns the next iteration (or final_validation), so advance never
-      // no-ops on the same iteration.
+      // NOTE: [x] marking is the agent's job (see checkValidationCompletion),
+      // not a requirement here. The B1 guard was removed because it created a
+      // deadlock: validatePhase required [x], but the [x] side effect in
+      // advance-flow only runs *after* validatePhase passes. If the agent set
+      // verdict: ready without marking [x], resolveRoute returns the same
+      // iteration and advanceFlow refuses with a same-state no-op message.
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);
     }
@@ -157,7 +153,7 @@ export function validatePhase(
       }
 
       if (findings.issues.length > 0) {
-        issues.push(...findings.issues);
+        issues.push(...findings.issues.map(issue => issue.message));
       }
 
       if (findings.type !== "final") {
@@ -191,12 +187,16 @@ export function validatePhase(
       }
 
       if (findings.issues.length > 0) {
-        issues.push(...findings.issues);
+        issues.push(...findings.issues.map(issue => issue.message));
       }
 
-      // finding_repair phase requires at least one open (non-resolved) blocking finding
-      if (findings.openBlockingRows.length === 0) {
-        issues.push("No open blocking findings (MUST-FIX) in finding_repair phase. Findings must exist with open or reopened status.");
+      // finding_repair is valid in two states: repair ongoing (open blocking
+      // findings remain) or repair finished (verdict: repaired with all blocking
+      // findings resolved — the exit state advance routes onward from). Anything
+      // else (e.g. all findings resolved but verdict still repair_required) is
+      // an inconsistent artifact.
+      if (findings.openBlockingRows.length === 0 && findings.verdict !== "repaired") {
+        issues.push("No open blocking findings (MUST-FIX) in finding_repair phase. Either blocking findings must remain open/reopened, or set `verdict: repaired` after resolving them all.");
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);
@@ -210,4 +210,41 @@ export function validatePhase(
       return okMessage(phase);
     }
   }
+}
+
+/**
+ * Exit gate for advance: structural validity (validatePhase) plus the
+ * phase-completion conditions that must hold before the flow may leave the
+ * phase. validatePhase answers "are the artifacts consistent for this phase
+ * (in progress or done)"; validatePhaseExit answers "is the phase finished".
+ * Entry conditions are resolveRoute's job, never checked here.
+ */
+export function validatePhaseExit(
+  projectPath: string,
+  phase: ActivePhase,
+  paths: ChangePaths,
+  activeIteration: number | null
+): PhaseValidation {
+  const base = validatePhase(projectPath, phase, paths, activeIteration);
+  if (!base.ok) {
+    return base;
+  }
+
+  if (phase === "finding_repair") {
+    const findings = parseValidationFindingsArtifact(paths.findingsPath);
+    const issues: string[] = [];
+
+    if (findings.openBlockingRows.length > 0) {
+      issues.push(`Repair not finished: ${findings.openBlockingRows.length} blocking finding(s) still open or reopened.`);
+    }
+    if (findings.verdict !== "repaired") {
+      issues.push("Repair not finished: set `verdict: repaired` after resolving all blocking findings.");
+    }
+
+    if (issues.length > 0) {
+      return failMessage(phase, issues);
+    }
+  }
+
+  return base;
 }

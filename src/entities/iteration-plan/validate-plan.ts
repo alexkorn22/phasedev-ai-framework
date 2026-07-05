@@ -1,3 +1,4 @@
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import * as fs from "fs";
 import * as path from "path";
 import { CheckEvidenceRow, GenerationBundleRow, Iteration, Task } from "./types";
@@ -47,7 +48,7 @@ function headingLevel(line: string): number | null {
 }
 
 function iterationSectionLines(phase: Iteration, sectionName: string): string[] {
-  const lines = (phase.rawContent ?? "").split("\n");
+  const lines = blankFencedCodeLines((phase.rawContent ?? "").split("\n"));
   const headingIndex = lines.findIndex(line => new RegExp(`^###\\s+${sectionName}\\s*$`, "i").test(line.trim()));
   if (headingIndex === -1) return [];
 

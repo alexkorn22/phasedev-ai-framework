@@ -14,16 +14,18 @@ export function renderTemplate(templateName: string, variables: Record<string, s
     throw new Error(`Template not found: ${templatePath}`);
   }
 
-  let content = fs.readFileSync(templatePath, "utf-8");
-  for (const [key, value] of Object.entries(variables)) {
-    const placeholder = new RegExp(`{{\\s*${key}\\s*}}`, "g");
-    content = content.replace(placeholder, value);
-  }
+  const content = fs.readFileSync(templatePath, "utf-8");
+  const placeholderPattern = /{{\s*([^}]+?)\s*}}/g;
 
-  const unresolved = Array.from(content.matchAll(/{{\s*([^}]+?)\s*}}/g)).map(match => match[1].trim());
+  // Validate against the raw template BEFORE substitution: substituted content
+  // (plan excerpts, findings text) may legitimately contain {{...}} snippets
+  // and must never be treated as unresolved placeholders.
+  const unresolved = Array.from(content.matchAll(placeholderPattern))
+    .map(match => match[1].trim())
+    .filter(key => !(key in variables));
   if (unresolved.length > 0) {
     throw new Error(`Template ${templateName}.md has unresolved placeholder(s): ${Array.from(new Set(unresolved)).join(", ")}.`);
   }
 
-  return content;
+  return content.replace(placeholderPattern, (_match, key) => variables[key.trim()]);
 }

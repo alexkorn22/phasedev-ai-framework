@@ -1,13 +1,9 @@
 import { spawnSync } from "child_process";
 import { Iteration } from "../../entities/iteration-plan/types";
-import { isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
+import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 
 export interface ChangedFileInventoryOptions {
   phase?: Iteration;
-}
-
-function escapeMarkdownTableCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
 
 function normalizeStatusPath(rawPath: string): string {

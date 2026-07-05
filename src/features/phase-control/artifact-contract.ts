@@ -24,7 +24,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
     "",
     `- Artifact ID: \`${options.artifactId}\``,
     `- Output path: \`${options.resolvedOutputPath}\``,
-    "- Write the artifact exactly at the Output path above. Do not reinterpret the Artifact ID, template comments, embedded template rows, or allowlist entries as project-root filesystem paths.",
+    "- Write the artifact exactly at the Output path above (see the Path resolution rule for how to read artifact names and template/allowlist paths).",
     "- Template source: embedded below. Do not open framework template files.",
     "- Structure source: the embedded template is the only artifact structure. Fill that template; do not invent parallel markdown structure.",
     "",
@@ -49,7 +49,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
 
   if (options.blockedFinalArtifactContent?.length) {
     contract.push(
-      "- Replace every embedded template example row and example value with real stage-specific content.",
+      "- Replace every embedded template example row and example value with real phase-specific content.",
       `- The final artifact must not contain these embedded template sample values: ${options.blockedFinalArtifactContent.map(value => `\`${value}\``).join(", ")}.`
     );
   }
@@ -64,7 +64,7 @@ export function renderArtifactContract(options: ArtifactContractOptions): string
       "```",
       "",
       options.selfCheckFailureGuidance ??
-        "Artifact contract check must pass before reporting this stage complete. If it fails, fix only structural or content issues in this artifact for the current stage and rerun the same command."
+        "Artifact contract check must pass before reporting this phase complete. If it fails, fix only structural or content issues in this artifact for the current phase and rerun the same command."
     );
   }
 

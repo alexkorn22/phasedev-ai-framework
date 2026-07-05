@@ -3,7 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { getConfigValue, parseConfig } from "../src/entities/config/config";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
-import { getNextPrompt } from "../src/features/phase-control";
+import { getRoutePrompt } from "../src/features/phase-control";
+import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
@@ -285,7 +286,7 @@ function runNext(args: string[] = []): string {
 
   const configPath = explicitConfig ?? resolveConfigPath(testTmpDir);
   const config = loadConfig(configPath);
-  const result = getNextPrompt(testTmpDir, config);
+  const result = getRoutePrompt(testTmpDir, config);
   return result.prompt;
 }
 
@@ -490,7 +491,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
     expect(output).toContain("## Init State");
     expect(output).toContain("command: init");
-    expect(output).toContain("current_stage: change_intake");
+    expect(output).toContain("current_phase: change_intake");
     expect(output).toContain("route_kind: change_intake");
     expect(output).toContain("active_change: none");
     expect(output).toContain("may_modify_files: false");
@@ -566,23 +567,18 @@ stages:
     expect(output).toContain("## Flow Skill Boundary Protocol");
     expect(output).toContain("Authority order: Flow phase contract > linked or embedded artifact contract/template > configured skill policy > selected skill body.");
     expect(output).toContain("Skills are method instructions only; they never control Flow state.");
-    expect(output).toContain("This prompt is the phase skill policy compiled from `config.yaml`.");
-    expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
+    expect(output).toContain("Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
     expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable, the phase cannot be completed under its mandatory-execution contract; report the skill as `UNAVAILABLE` and stop with a blocker unless the skill is proven `NOT_APPLICABLE` to all current phase evidence.");
-    expect(output).toContain("Configured `additional` skills are optional until selected. Once selected because configured router/main skills are insufficient or the additional skill is clearly better, unavailable or failed mandatory additional-skill steps block completion unless another authorized skill fully covers the same evidence.");
+    expect(output).toContain("`additional` skills stay optional until selected because routers/main are insufficient or an additional skill is clearly better.");
     expect(output).not.toContain("If a listed skill is unavailable and is needed or applicable");
-    expect(output).toContain("Fully execute a selected skill's mandatory instructions by default; an evidence-specific reason and reference is required to skip.");
     expect(output).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
-    expect(output).toContain("Configured router skills are mandatory routing/control skills for this phase.");
-    expect(output).toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
-    expect(output).toContain("Do not replace mandatory skill steps with ad hoc grep, prose, or `echo` acknowledgements.");
-    expect(output).toContain("Native skill reports, headings, lifecycle files, and artifact formats are not Flow artifact structure; adapt results into the current PhaseDev artifact template, final response, or blocker instead.");
+    expect(output).toContain("Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.");
+    expect(output).toContain("Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead.");
     expect(output).toContain("Do not skip an applicable selected skill because its native output format differs");
-    expect(output).toContain("In the final response, include a structured skill compliance section using the exact format below.");
+    expect(output).toContain("In the final response, include the structured skill ledger below");
     expect(output).toContain("Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.");
-    expect(output).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the phase evidence and fully execute its mandatory instructions by default");
-    expect(output).toContain("For every configured router, configured main, and router-selected skill, exactly one of:");
+    expect(output).toContain("one entry per configured router, configured main, and router-selected skill, plus selected additional skills; do not use prose in that section:");
     expect(output).toContain("- `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)");
     expect(output).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
     expect(output).toContain("- `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)");
@@ -602,7 +598,7 @@ stages:
     // Negative: old compact placeholder must not appear when skills are configured
     expect(output).not.toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
     // Structured ledger must be referenced in final template
-    expect(output).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
   });
 
   test("implementation prompt uses project flow config without --config", () => {
@@ -639,8 +635,7 @@ stages:
     expect(output).toContain("Priority 1 - Routers:\n- `using-ecc`");
     expect(output).not.toContain("- `using-zuvo`");
     expect(output).not.toContain("Router-selected:");
-    expect(output).toContain("This prompt is the phase skill policy compiled from `config.yaml`.");
-    expect(output).toContain("Skill names are exact config values; do not replace them with similar, inferred, or remembered skills.");
+    expect(output).toContain("Use skill names exactly as listed; do not substitute similar, inferred, or remembered skills.");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
     expect(output).toContain("Priority 1: read listed router skills first when they are available and help select a relevant research method; fully execute any router-selected skill that applies to the research evidence. If no router-selected method applies after the configured router is read, continue under this Flow phase contract.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
@@ -681,8 +676,8 @@ stages:
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("determined after reading routers");
     expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(output).toContain("Router skills listed as Priority 1 are read first when available because they may select execution-method skills.");
-    expect(output).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of phase evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
+    expect(output).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
+    expect(output).toContain("Skipping a mandatory skill step requires a concrete evidence-specific reason and reference, or `skipped_by_policy: <exact policy reason>` when it conflicts with this Flow phase, artifact allowlist, or repository policy.");
     expect(output).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
@@ -706,12 +701,12 @@ stages:
 
     const output = runNext(["--config", configPath]);
 
-    // When skills are empty, no skill policy section should appear
-    expect(output).not.toContain("## Configured Skill Policy");
-    expect(output).not.toContain("## Flow Skill Boundary Protocol");
-    expect(output).not.toContain("No external skills are configured");
+    // When skills are empty, the phase prompt must say so explicitly, without the
+    // full mandatory-execution contract or priority sections used for configured skills.
+    expect(output).toContain("## Configured Skill Policy");
+    expect(output).toContain("No external skills are configured");
+    expect(output).toContain("Skill compliance: none configured.");
     expect(output).not.toContain("Do not use external skills");
-    expect(output).not.toContain("Skill compliance final response entry");
     expect(output).not.toContain("Priority 1 - Routers:");
     // No-skills branch must not include execution contract or skill compliance
     expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
@@ -764,11 +759,11 @@ stages:
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--project-path");
-    expect(output).toContain("first look for a controller-provided or local package executable that runs the same `check");
+    expect(output).toContain("look once for a controller-provided or local equivalent that runs the same `check");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -782,7 +777,7 @@ stages:
     expect(output).toContain("# Research Facts");
     expect(output).toContain(`Existing project specs: [.phasedev/specs](file://${path.join(testTmpDir, ".phasedev", "specs")})`);
     expect(output).toContain(`Target project root for repository evidence: \`${testTmpDir}\``);
-    expect(output).toContain(`Run all code, config, test, and runtime evidence searches under \`${testTmpDir}\` unless an explicit input artifact path in this prompt points elsewhere.`);
+    expect(output).toContain("Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere.");
     expect(output).toContain("Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets");
     expect(output).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
     expect(output).not.toContain("Context budget: use a small bounded number of broad file listings/searches");
@@ -792,15 +787,15 @@ stages:
     expect(output).toContain("Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text");
     expect(output).toContain("Every table cell must be non-empty, including Notes.");
     expect(output).toContain("Source Facts Supports must use R#/SC#; do not use none/not_applicable.");
-    expect(output).toContain("Replace every embedded template example row and example value with real stage-specific content.");
+    expect(output).toContain("Replace every embedded template example row and example value with real phase-specific content.");
     expect(output).toContain("The final artifact must not contain these embedded template sample values: `Requested target from PRD.`, `Requested risk boundary from PRD.`, `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--project-path");
-    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
+    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
     expect(output).not.toContain("--expect-route");
-    expect(output).toContain("If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.");
+    expect(output).toContain("If no equivalent is available, or the same non-actionable validator failure repeats after one concrete artifact fix and rerun, stop and report a blocker with the exact command and output.");
     expect(output).toContain("Report `Research ready` only after this self-check passes.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("The only exception is unavailable self-check after the documented command lookup.");
@@ -873,14 +868,14 @@ stages:
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
     expect(output).toContain("Do not use emoji in `iteration_plan.md`");
-    expect(output).toContain("If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check");
-    expect(output).toContain("local CLI invocation like `bun run src/cli.ts check --project-path ... ` when package/source entrypoint evidence supports it");
-    expect(output).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
+    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(output).toContain("`bun run src/cli.ts check --project-path ...` when package/source entrypoint evidence supports it");
+    expect(output).toContain("do not let router skills expand the repository retrieval budget.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(output).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -914,7 +909,7 @@ stages:
     const repairCheckProjectPath = repairPrompt.match(/phasedev check --project-path "([^"]+)"/)?.[1];
 
     expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md"));
-    expect(planPrompt).toContain("Router skills do not expand the repository retrieval budget or authorize extra repo inspection without a concrete planning question.");
+    expect(planPrompt).toContain("do not let router skills expand the repository retrieval budget.");
     expect(planPrompt).toContain("Reading configured skill instructions does not count as repository evidence, but skill-driven repo searches do count.");
     expect(planPrompt).toContain("Examples of acceptable conservative planning assumptions:");
     expect(planPrompt).toContain("Examples of required planning blockers:");
@@ -936,9 +931,9 @@ stages:
     expect(implementationPrompt).toContain("Treat the embedded full-plan orientation plus current phase excerpt as the primary retrieval layer");
     expect(implementationPrompt).toContain("Keep future phases as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-phase task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
-    expect(implementationPrompt).toContain("Read configured Priority 1 router skills first when available. Configured router, router-selected, and main skills must be evaluated against the current phase evidence and fully executed by default under the Skill Execution Contract. For each configured router, main, or router-selected skill: execute its mandatory instructions or record a concrete evidence-based reason why it does not apply. Never silently skip a configured skill.");
-    expect(planPrompt).toContain("Read configured router skills when available and evaluate configured main skills and router-selected skills under the Skill Execution Contract after the phase contract is understood");
-    expect(phaseValidationPrompt).toContain("Skill compliance: use the exact structured ledger from the Skill Execution Contract above; one entry per configured router, configured main, and router-selected skill, plus selected additional skills. For no configured skills, report none configured. May span multiple bullets/lines.");
+    expect(implementationPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; evaluate them against the current phase evidence and never silently skip a configured skill.");
+    expect(planPrompt).toContain("- Skill step: read configured router skills first when available, then evaluate and fully execute configured main and router-selected skills per the Flow Skill Boundary Protocol; map useful output into the embedded implementation plan template only");
+    expect(phaseValidationPrompt).toContain("Skill compliance: the structured skill ledger from the Flow Skill Boundary Protocol above, one entry per configured router, configured main, and router-selected skill, plus selected additional skills.");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-phase completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current phase inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current phase boundary");
@@ -1165,6 +1160,43 @@ autoApprove: true
     expect(result.output).toContain("[PHASEDEV CHECK] FAILED");
   });
 
+  test("check --check-orphans passes when no archive directories exist", () => {
+    const result = runCheck(["--check-orphans"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV ARCHIVE ORPHAN CHECK] OK");
+  });
+
+  test("check --check-orphans reports directories missing archive state", () => {
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-orphan-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    const result = runCheck(["--check-orphans"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV ARCHIVE ORPHAN CHECK] FOUND");
+    expect(result.output).toContain("no archive state");
+  });
+
+  test("check --check-orphans reports in-progress archives", () => {
+    writeCompletedArchive("done-change");
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-05-29-stuck-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
+      status: "in_progress",
+      changeName: "stuck-change",
+      archivePath: archiveDir,
+      startedAt: "2026-05-29T10:00:00.000Z"
+    }, null, 2), "utf-8");
+
+    const result = runCheck(["--check-orphans"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV ARCHIVE ORPHAN CHECK] FOUND");
+    expect(result.output).toContain("still in_progress");
+    expect(result.output).not.toContain("done-change");
+  });
+
   test("check-validation final fails when findings type is phase", () => {
     setupChange(`
 # Plan
@@ -1272,7 +1304,7 @@ autoApprove: true
     const result = runCheckValidation(["--scope", "final"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("`verdict: repaired` is not valid for Final Validation stage output.");
+    expect(result.output).toContain("`verdict: repaired` is not valid for Final Validation phase output.");
   });
 
   test("check-validation phase fails when ready findings leave the phase incomplete", () => {
@@ -1371,7 +1403,7 @@ autoApprove: true
     const result = runCheckValidation(["--scope", "iteration", "--iteration-id", "1"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("`verdict: repaired` is not valid for Iteration Validation stage output.");
+    expect(result.output).toContain("`verdict: repaired` is not valid for Iteration Validation phase output.");
   });
 
   test("check fails when archive state is malformed", () => {
@@ -1756,7 +1788,7 @@ No markdown finding table here.
   });
 
   test("successful final validation routes to archive stage", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -1768,6 +1800,8 @@ No markdown finding table here.
       findings: validationFindings("ready", "final")
     });
 
+    // The archive mutation is owned by advance; prompt resolution is read-only.
+    startArchiveStage(testTmpDir, changeDir, new Date(), loadConfig(resolveConfigPath(testTmpDir)));
     const output = runNext();
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
@@ -1786,7 +1820,7 @@ No markdown finding table here.
   });
 
   test("pending archive state repeats archive prompt without active change", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -1795,6 +1829,7 @@ No markdown finding table here.
       findings: validationFindings("ready", "final")
     });
 
+    startArchiveStage(testTmpDir, changeDir, new Date(), loadConfig(resolveConfigPath(testTmpDir)));
     const first = runNext();
     const second = runNext();
 
@@ -1805,7 +1840,7 @@ No markdown finding table here.
   });
 
   test("final ready_with_risks without blocking findings routes to archive stage", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -1814,6 +1849,7 @@ No markdown finding table here.
       findings: validationFindings("ready_with_risks", "final", "| F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |\n")
     });
 
+    startArchiveStage(testTmpDir, changeDir, new Date(), loadConfig(resolveConfigPath(testTmpDir)));
     const output = runNext();
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
@@ -2044,10 +2080,12 @@ Additional checks:
   });
 
   test("implementation prompt includes full current phase excerpt and bounded full-plan orientation", () => {
+    // [~] is set by advance (applyStateSideEffects) when entering the
+    // iteration; prompt resolution is read-only and renders the plan as-is.
     setupChange(`
 # Plan
 
-## Iteration 1: API [ ]
+## Iteration 1: API [~]
 - [ ] 1.1 Implement endpoint
 
 Checks:
@@ -2077,8 +2115,8 @@ Implementation note:
     expect(output).not.toContain("Build page");
   });
 
-  test("implementation prompt uses refreshed phase excerpt after marking phase in progress", () => {
-    setupChange(`
+  test("implementation prompt resolution is read-only and renders the plan status as-is", () => {
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [ ]
@@ -2091,8 +2129,10 @@ Checks:
     const output = runNext();
 
     expect(output).toContain("Phase 5. Implementation.");
-    expect(output).toContain("## Iteration 1: API [~]");
-    expect(output).not.toContain("## Iteration 1: API [ ]");
+    expect(output).toContain("## Iteration 1: API [ ]");
+    // Prompt resolution never mutates the plan; the [~] flip is advance's job.
+    const planAfter = fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8");
+    expect(planAfter).toContain("## Iteration 1: API [ ]");
   });
 
   test("phase validation prompt does not include additional checks from implementation plan", () => {
@@ -2226,19 +2266,17 @@ stages:
     expect(implementationPolicy).toContain("- `security-and-hardening`");
     expect(implementationPolicy).not.toContain("Router-selected:");
     expect(implementationPolicy).not.toContain("determined after reading routers");
-    expect(implementationPolicy).toContain("You MUST evaluate every configured router, configured main, and router-selected skill against the phase evidence and fully execute its mandatory instructions by default");
+    expect(implementationPolicy).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
     expect(implementationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
-    expect(implementationPolicy).toContain("Do not replace mandatory skill steps with ad hoc grep, prose, or `echo` acknowledgements.");
-    expect(implementationPolicy).toContain("Native skill reports, headings, lifecycle files, and artifact formats are not Flow artifact structure; adapt results into the current PhaseDev artifact template, final response, or blocker instead.");
+    expect(implementationPolicy).toContain("Do not replace a mandatory step with ad hoc grep, prose, or `echo`; prose claims are not evidence a step ran.");
+    expect(implementationPolicy).toContain("Native skill reports, headings, lifecycle files, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker instead.");
     expect(implementationPolicy).toContain("- `skill-name`: APPLIED(source: <skill body loaded/read>, mandatory_steps: <done/skipped_by_policy/blocking summary>, evidence: <files/commands/tool calls>, mapped_output: <PhaseDev artifact/final response/blocker>)");
     expect(implementationPolicy).toContain("- `skill-name`: NOT_APPLICABLE(reason: <evidence-specific reason>, evidence: [<reference>])");
     expect(implementationPolicy).toContain("- `skill-name`: UNAVAILABLE(exact_name: <exact configured skill name>, reason: <not found/tool unavailable/error>)");
-    expect(implementationPolicy).toContain("When a router-selected skill and a main skill address the same evidence, the more specific (router-selected) method takes priority for that evidence.");
+    expect(implementationPolicy).toContain("When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>) only for the superseded evidence.");
     expect(implementationPolicy).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
     expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(implementationPolicy).toContain("Router skills listed as Priority 1 are read first when available because they may select execution-method skills.");
-    expect(implementationPolicy).toContain("Configured routers, configured main skills, and router-selected skills must be evaluated against every piece of phase evidence; fully execute by default where evidence matches. Additional skills: evaluate and apply only when evidence fits.");
-    expect(implementationPolicy).toContain("Do not eagerly load method skill bodies before phase/artifact context is understood; still read each configured router first when phase timing allows, then evaluate and fully execute each configured main skill per the mandate above.");
+    expect(implementationPolicy).toContain("Read Priority 1 router skills first when available (they may select execution-method skills); then evaluate configured `main` and router-selected skills against every piece of phase evidence and fully execute their mandatory instructions by default.");
     expect(implementationPolicy).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
     expect(implementationPolicy).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
     expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
@@ -2246,8 +2284,7 @@ stages:
     expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
     expect(validationPolicy).toContain("Allowed skills:");
     expect(validationPolicy).toContain("- `performance-audit`");
-    expect(validationPolicy).toContain("Validation phases are review-only");
-    expect(validationPolicy).toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
+    expect(validationPolicy).toContain("Apply only read-only review/audit/static-inspection skill methods");
     expect(validationPolicy).toContain("Loading a skill, reading only its name/frontmatter, or writing a manual review inspired by it is not `APPLIED`.");
   });
 
@@ -2287,7 +2324,7 @@ stages:
     expect(findingsTemplate).toContain("Replace `<set_after_review>` with the verdict selected after evidence review");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened MUST-FIX finding exists.");
     expect(findingsTemplate).toContain("Security rows must always use Severity: MUST-FIX, including resolved rows.");
-    expect(findingsTemplate).toContain("type: iteration");
+    expect(findingsTemplate).toContain("type: {{artifact_type}}");
     expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Iteration | Finding | Required Fix |");
   });
 
@@ -2325,7 +2362,36 @@ stages:
   });
 
   test("template renderer rejects unresolved placeholders", () => {
-    expect(() => renderTemplate("phase_evolution", {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
+    const templatesDir = path.resolve(__dirname, "..", "templates");
+    const tempTemplateName = "__test_unresolved_placeholders";
+    const tempTemplatePath = path.join(templatesDir, `${tempTemplateName}.md`);
+    fs.writeFileSync(tempTemplatePath, "Incident: {{incident}}\nScope: {{change_scope}}\nTests: {{test_scope}}\n", "utf-8");
+
+    try {
+      expect(() => renderTemplate(tempTemplateName, {})).toThrow("unresolved placeholder(s): incident, change_scope, test_scope");
+    } finally {
+      fs.unlinkSync(tempTemplatePath);
+    }
+  });
+
+  test("template renderer does not re-expand a placeholder found inside another variable's value", () => {
+    const templatesDir = path.resolve(__dirname, "..", "templates");
+    const tempTemplateName = "__test_second_order_placeholder";
+    const tempTemplatePath = path.join(templatesDir, `${tempTemplateName}.md`);
+    fs.writeFileSync(tempTemplatePath, "Name: {{name}}\n", "utf-8");
+
+    try {
+      // Substitution runs once, against the original template text. A
+      // "{{secret}}"-shaped snippet arriving through another variable's value
+      // must stay a literal: never re-expanded into TOP_SECRET, and never
+      // treated as an unresolved placeholder (legitimate artifact content may
+      // contain mustache snippets).
+      const rendered = renderTemplate(tempTemplateName, { name: "attacker {{secret}}", secret: "TOP_SECRET" });
+      expect(rendered).toBe("Name: attacker {{secret}}\n");
+      expect(rendered).not.toContain("TOP_SECRET");
+    } finally {
+      fs.rmSync(tempTemplatePath, { force: true });
+    }
   });
 
   describe("config command deprecation", () => {
@@ -2513,6 +2579,20 @@ describe("new CLI commands", () => {
     const result = runCli(["validate-artifact", filePath]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("validation passed");
+  });
+
+  test("validate-artifact cross-checks research_facts.md against a sibling prd.md", () => {
+    const prdFilePath = path.join(testTmpDir, "prd.md");
+    writeApproved(prdFilePath, validPrdBody().replace(
+      "| R1 | Route the flow according to approved artifacts. |\n",
+      "| R1 | Route the flow according to approved artifacts. |\n| R2 | Second requirement not traced by research. |\n"
+    ));
+    const researchFilePath = path.join(testTmpDir, "research_facts.md");
+    fs.writeFileSync(researchFilePath, validResearchBody(), "utf-8");
+
+    const result = runCli(["validate-artifact", researchFilePath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Requirements & Success Criteria Trace must include PRD ID `R2`.");
   });
 
   test("validate-artifact fails for unknown artifact type", () => {
@@ -2706,7 +2786,7 @@ ${rows ?? ""}`;
     writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
 
     const result = runCli(["reset-change", "--project-path", testTmpDir]);
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.output).toContain("WARNING");
     expect(result.output).toContain("--yes");
     expect(fs.existsSync(changeDir)).toBe(true);
@@ -2728,5 +2808,181 @@ ${rows ?? ""}`;
     const result = runCli(["reset-change", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("No active change found");
+  });
+});
+
+describe("--json envelope", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  function setupChangeIntakeChange(): string {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), "# PRD\n\n## Intent\n", false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), validRulesBody(), false);
+    writeStateJson(changeDir, "change_intake");
+    return changeDir;
+  }
+
+  test("phase --json emits an envelope with the prompt in data.prompt", () => {
+    setupChangeIntakeChange();
+
+    const result = runCli(["phase", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("phase");
+    expect(envelope.phase).toBe("change_intake");
+    expect(typeof envelope.data.prompt).toBe("string");
+    expect(envelope.data.prompt.length).toBeGreaterThan(0);
+  });
+
+  test("advance --json reports a blocked refusal with issues folded into message", () => {
+    setupChangeIntakeChange();
+
+    const result = runCli(["advance", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(1);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.kind).toBe("advance");
+    expect(envelope.phase).toBe(null);
+    expect(envelope.data.advanced).toBe(false);
+    expect(envelope.message).toContain("Cannot leave phase");
+  });
+
+  test("check --json reports a structured issues array on failure", () => {
+    setupChangeIntakeChange();
+
+    const result = runCli(["check", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(1);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.kind).toBe("check");
+    expect(envelope.phase).toBe("change_intake");
+    expect(Array.isArray(envelope.issues)).toBe(true);
+    expect(envelope.issues.length).toBeGreaterThan(0);
+    expect(envelope.issues[0]).not.toStartWith("- ");
+  });
+
+  test("status --json makes the no-active-change case explicit", () => {
+    const result = runCli(["status", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("status");
+    expect(envelope.data.activeChange).toBe(null);
+  });
+
+  test("status --json reports the active change name explicitly", () => {
+    setupChangeIntakeChange();
+
+    const result = runCli(["status", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data.activeChange).toBe("sample-change");
+  });
+
+  test("approve --json reports the mutation as ok:true", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    const filePath = path.join(changeDir, "prd.md");
+    writeArtifact(filePath, validPrdBody(), false);
+
+    const result = runCli(["approve", filePath, "--by", "tester", "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("approve");
+    expect(envelope.data.file).toBe(filePath);
+    expect(envelope.data.approvedBy).toBe("tester");
+  });
+
+  test("reset-change --json reports a blocked refusal as ok:false", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "test-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+
+    const result = runCli(["reset-change", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(1);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.kind).toBe("reset-change");
+    expect(envelope.data.confirmationRequired).toBe(true);
+  });
+
+  test("reset-change --json treats no-active-change as ok:true", () => {
+    const result = runCli(["reset-change", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("reset-change");
+    expect(envelope.data.confirmationRequired).toBe(false);
+  });
+});
+
+describe("CLI robustness fixes", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("reset-change refusal without --yes exits non-zero (it did NOT reset)", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "test-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+
+    const result = runCli(["reset-change", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+  });
+
+  test("parseStringOption rejects a following flag as the option's value", () => {
+    const filePath = path.join(testTmpDir, "some-file.md");
+
+    const result = runCli(["approve", filePath, "--by", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("--by");
+    expect(result.output).toContain("requires a value");
+  });
+
+  test("config set --string forces string storage and echoes the stored type", () => {
+    const configPath = path.join(testTmpDir, "config.yaml");
+    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
+
+    const result = runCli(["config", "set", "someFlag", "true", "--config", configPath, "--string"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("(string)");
+
+    const content = fs.readFileSync(configPath, "utf-8");
+    expect(content).toContain('someFlag: "true"');
+  });
+
+  test("config set echoes the coerced type when --string is not passed", () => {
+    const configPath = path.join(testTmpDir, "config.yaml");
+    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
+
+    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("(number)");
+  });
+
+  test("config set --json reports the stored value and type", () => {
+    const configPath = path.join(testTmpDir, "config.yaml");
+    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
+
+    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath, "--json"]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("config-set");
+    expect(envelope.data.storedValue).toBe(7);
+    expect(envelope.data.storedType).toBe("number");
   });
 });

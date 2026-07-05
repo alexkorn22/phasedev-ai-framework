@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { findActiveChangeDir } from "../src/entities/change/active-change";
@@ -10,9 +10,11 @@ import { validatePrdArtifact } from "../src/entities/prd/validate-prd";
 import { validateResearchFacts } from "../src/entities/research-facts/validate-research";
 import { validateRulesArtifact } from "../src/entities/rules/validate-rules";
 import { validateDesign } from "../src/entities/design/validate-design";
+import { validateExecutionContract } from "../src/entities/execution-contract/validate-execution-contract";
+import { extractRequirementsAndCriteriaFromPrd } from "../src/entities/prd/traceability";
 import { parseTestCommands } from "../src/entities/test-commands/parse-test-commands";
 import { parseBlockingValidationFindings, parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
-import { isApproved } from "../src/shared/markdown/frontmatter";
+import { isApproved, readFrontmatter } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
@@ -65,6 +67,33 @@ describe("Parser & Checker Utilities", () => {
     expect(isApproved(notApprovedFile)).toBe(false);
   });
 
+  test("readFrontmatter keeps keys after an indented '---' inside a block scalar", () => {
+    const blockScalarFile = path.join(testTmpDir, "block_scalar.md");
+    fs.writeFileSync(
+      blockScalarFile,
+      [
+        "---",
+        "description: |",
+        "  Some text before.",
+        "  ---",
+        "  Some text after.",
+        "approved: true",
+        "---",
+        "# Title"
+      ].join("\n"),
+      "utf-8"
+    );
+
+    expect(readFrontmatter(blockScalarFile)).toMatchObject({ approved: true });
+  });
+
+  test("readFrontmatter returns null when there is no closing fence", () => {
+    const noClosingFence = path.join(testTmpDir, "no_closing_fence.md");
+    fs.writeFileSync(noClosingFence, "---\napproved: true\n# Title", "utf-8");
+
+    expect(readFrontmatter(noClosingFence)).toBeNull();
+  });
+
   test("parsePlan extracts phases and task list statuses correctly", () => {
     const planFile = path.join(testTmpDir, "plan.md");
     const planContent = `
@@ -99,6 +128,43 @@ describe("Parser & Checker Utilities", () => {
     expect(phases[1].tasks[0].children[0].id).toBe("2.1.1");
     expect(phases[1].tasks[0].status).toBe("completed");
     expect(phases[1].tasks[1].status).toBe("not_started");
+  });
+
+  test("parsePlan anchors the heading regex like the strict validator", () => {
+    const planFile = path.join(testTmpDir, "plan_anchored.md");
+    const planContent = `
+# Plan
+
+## Iteration 1: Fix [x] flag [~]
+- [x] 1.1 Do something
+
+## Iteration 2: Foo [x] (trailing note)
+- [x] 2.1 Do something else
+`;
+    fs.writeFileSync(planFile, planContent, "utf-8");
+    const phases = parsePlan(planFile);
+
+    expect(phases).toHaveLength(1);
+    expect(phases[0].id).toBe(1);
+    expect(phases[0].name).toBe("Fix [x] flag");
+    expect(phases[0].status).toBe("in_progress");
+  });
+
+  test("parsePlan treats a [/] iteration heading as not_started, distinct from [~] in_progress", () => {
+    const planFile = path.join(testTmpDir, "plan_slash_status.md");
+    const planContent = `
+# Plan
+
+## Iteration 1: Deferred Work [/]
+- [ ] 1.1 Not yet started
+`;
+    fs.writeFileSync(planFile, planContent, "utf-8");
+    const phases = parsePlan(planFile);
+
+    expect(phases).toHaveLength(1);
+    expect(phases[0].status).toBe("not_started");
+    expect(phases[0].status).not.toBe("in_progress");
+    expect(phases[0].status).not.toBe("completed");
   });
 
   test("parsePlan extracts optional phase additional checks", () => {
@@ -1902,9 +1968,9 @@ date: 2026-05-30
 | F2 | open | MUST-FIX | test | Phase 1 | Missing regression coverage. | Add regression coverage. |
 `, "utf-8");
 
-    expect(parseValidationFindingsArtifact(noTableFile).issues).toContain("validation_findings.md must contain exactly one markdown table, found 0.");
-    expect(parseValidationFindingsArtifact(noTableFile).issues).toContain("validation_findings.md may contain only YAML frontmatter and one findings table.");
-    expect(parseValidationFindingsArtifact(twoTablesFile).issues).toContain("validation_findings.md must contain exactly one markdown table, found 2.");
+    expect(parseValidationFindingsArtifact(noTableFile).issues.map(i => i.message)).toContain("validation_findings.md must contain exactly one markdown table, found 0.");
+    expect(parseValidationFindingsArtifact(noTableFile).issues.map(i => i.message)).toContain("validation_findings.md may contain only YAML frontmatter and one findings table.");
+    expect(parseValidationFindingsArtifact(twoTablesFile).issues.map(i => i.message)).toContain("validation_findings.md must contain exactly one markdown table, found 2.");
   });
 
   test("parseValidationFindingsArtifact rejects invalid table shape", () => {
@@ -1920,7 +1986,7 @@ date: 2026-05-30
 | F1 | red | open | implementation | Yes | Iteration 1 | API response omits required error handling. |
 `, "utf-8");
 
-    const issues = parseValidationFindingsArtifact(invalidFile).issues;
+    const issues = parseValidationFindingsArtifact(invalidFile).issues.map(i => i.message);
 
     expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix.");
   });
@@ -1939,7 +2005,7 @@ date: 2026-05-30
 | F1 | open | MUST-FIX | unknown | Phase 1 | Duplicate ID. | Fix duplicate. |
 `, "utf-8");
 
-    const issues = parseValidationFindingsArtifact(invalidFile).issues;
+    const issues = parseValidationFindingsArtifact(invalidFile).issues.map(i => i.message);
 
     expect(issues).toContain("Finding F1 has invalid Status `bad`.");
     expect(issues).toContain("Finding F1 has invalid Severity `bad`.");
@@ -2000,7 +2066,7 @@ date: 2026-05-30
 | F2 | resolved | NIT | security | Final | Resolved secret handling note was classified as a nit. | Keep resolved security rows classified as MUST-FIX. |
 `, "utf-8");
 
-    const issues = parseValidationFindingsArtifact(findingsFile).issues;
+    const issues = parseValidationFindingsArtifact(findingsFile).issues.map(i => i.message);
 
     expect(issues).toContain("Finding F1 has Class `security`; security findings must use Severity `MUST-FIX`.");
     expect(issues).toContain("Finding F2 has Class `security`; security findings must use Severity `MUST-FIX`.");
@@ -2031,8 +2097,50 @@ date: 2026-05-30
 | F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |
 `, "utf-8");
 
-    expect(parseValidationFindingsArtifact(readyRisksBlockingFile).issues).toContain("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.");
-    expect(parseValidationFindingsArtifact(repairWithoutBlockingFile).issues).toContain("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.");
+    expect(parseValidationFindingsArtifact(readyRisksBlockingFile).issues.map(i => i.message)).toContain("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.");
+    expect(parseValidationFindingsArtifact(repairWithoutBlockingFile).issues.map(i => i.message)).toContain("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.");
+  });
+
+  test("parseValidationFindingsArtifact assigns typed issue codes for verdict/open-findings conflicts", () => {
+    const readyWithOpenFile = path.join(testTmpDir, "ready_with_open.md");
+    fs.writeFileSync(readyWithOpenFile, `---
+verdict: ready
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |
+`, "utf-8");
+
+    const readyRisksBlockingFile = path.join(testTmpDir, "ready_risks_blocking_code.md");
+    fs.writeFileSync(readyRisksBlockingFile, `---
+verdict: ready_with_risks
+type: final
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | implementation | Final | Broken final check. | Repair final check. |
+`, "utf-8");
+
+    const repairedBlockingFile = path.join(testTmpDir, "repaired_blocking_code.md");
+    fs.writeFileSync(repairedBlockingFile, `---
+verdict: repaired
+type: iteration
+date: 2026-05-30
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | MUST-FIX | implementation | Iteration 1 | Broken check. | Repair check. |
+`, "utf-8");
+
+    expect(parseValidationFindingsArtifact(readyWithOpenFile).issues.map(i => i.code)).toContain("verdict_ready_with_open_findings");
+    expect(parseValidationFindingsArtifact(readyRisksBlockingFile).issues.map(i => i.code)).toContain("verdict_ready_with_risks_with_open_blocking");
+    expect(parseValidationFindingsArtifact(repairedBlockingFile).issues.map(i => i.code)).toContain("verdict_repaired_with_open_blocking");
   });
 
   test("parseBlockingValidationFindings ignores IDs and status when building signatures", () => {
@@ -2297,6 +2405,64 @@ Test fixture only.
     expect(validateRulesArtifact(extraTextRulesFile)).toEqual([]);
   });
 
+  test("validateExecutionContract ignores a ## Constraints heading inside a fenced code block", () => {
+    setupTestDir();
+    const contractFile = path.join(testTmpDir, "fenced_only_execution_contract.md");
+    fs.writeFileSync(contractFile, `# Rules
+
+Example of a section you should NOT include verbatim:
+
+\`\`\`markdown
+## Constraints
+Fenced example only, not a real section.
+\`\`\`
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
+`, "utf-8");
+
+    const result = validateExecutionContract(contractFile);
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContain("execution_contract.md is missing required section: ## Constraints.");
+  });
+
+  test("extractRequirementsAndCriteriaFromPrd ignores requirement IDs inside fenced code blocks", () => {
+    setupTestDir();
+    const prdFile = path.join(testTmpDir, "fenced_ids_prd.md");
+    fs.writeFileSync(prdFile, `# PRD
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | Real requirement. |
+
+Example table format:
+
+\`\`\`markdown
+| ID | Requirement |
+|---|---|
+| R2 | Fenced example only, not a real requirement. |
+\`\`\`
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Real criterion. | unit |
+`, "utf-8");
+
+    const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdFile);
+    expect(requirements).toEqual(["R1"]);
+    expect(criteria).toEqual(["SC1"]);
+  });
+
   test("findActiveChangeDir ignores archive directory when selecting active change", () => {
     const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
@@ -2315,6 +2481,27 @@ Test fixture only.
     fs.mkdirSync(path.join(changesDir, "change-2"), { recursive: true });
 
     expect(() => findActiveChangeDir(testTmpDir)).toThrow("Multiple active changes found in .phasedev/changes");
+  });
+
+  test("findActiveChangeDir propagates unrelated filesystem errors instead of masking them as null", () => {
+    const changesDir = path.join(testTmpDir, ".phasedev", "changes");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(changesDir, { recursive: true });
+
+    const originalReaddirSync = fs.readdirSync;
+    const spy = spyOn(fs, "readdirSync").mockImplementation((...args: Parameters<typeof fs.readdirSync>) => {
+      if (args[0] === changesDir) {
+        throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+      }
+      return originalReaddirSync(...args);
+    });
+
+    try {
+      expect(() => findActiveChangeDir(testTmpDir)).toThrow("EACCES");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   afterAll(() => {

@@ -8,7 +8,7 @@ This file is the repo-local system prompt for agents working inside `PhaseDev AI
 
 Public entrypoints:
 
-- `src/cli.ts`: manual CLI for `init`, `create-change`, `phase`, `advance`, `check`, and `approve`.
+- `src/cli.ts`: manual CLI. Run `phasedev help` (or `phasedev --help`) for the full, current command list.
 - `next` is **deprecated** — use `phase` + `advance` instead.
 
 Do not reintroduce separate root archive, parser, checker, template, controller, runner, or config scripts.
@@ -18,7 +18,7 @@ Do not reintroduce separate root archive, parser, checker, template, controller,
 Root `src/` must stay thin. Put logic in:
 
 - `src/features/phase-control`: phase routing, prompt construction, blockers, archive phase orchestration.
-- `src/entities/phase`: phase types, change paths/state/approval, config parsing, implementation-plan parsing/validation, validation findings, test commands.
+- `src/entities/*`: `phase` (phase types), `change` (paths/state/approval/archive state), `config` (config parsing), `iteration-plan` (plan parsing/validation), `validation-findings`, `prd`, `design`, `research-facts`, `execution-contract`, `test-commands`, `schema`.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 
 Dependency direction should be:
@@ -96,7 +96,7 @@ Focused checks:
 ```bash
 bun test test/parser.test.ts test/controller.test.ts
 bun test test/cli.test.ts test/config.test.ts
-bun test test/flow-state.test.ts test/phase-validators.test.ts
+bun test test/e2e-flow.test.ts test/schema.test.ts
 ```
 
 CLI smoke:
@@ -107,12 +107,33 @@ phasedev create-change --project-path /tmp/some-project my-change
 phasedev phase --project-path /tmp/some-project
 phasedev check --project-path /tmp/some-project
 phasedev advance --project-path /tmp/some-project
-phasedev next --project-path /tmp/some-project   # deprecated
 ```
+
+## Subagent Delegation
+
+Prefer delegating work to subagents over doing it all in the main context. Actively spin up a subagent whenever a piece of work can be scoped and handed off, and pick the model tier to match the task's actual complexity — do not default every subagent to the strongest model.
+
+IMPORTANT: every Agent tool call MUST pass the `model` parameter explicitly. An omitted `model` silently inherits the main agent's model — that is almost never the intended tier. Use exactly these values:
+
+- Simple, mechanical, or narrow-scope work (single-file lookups, grepping/locating code, running a known command, applying a small well-defined edit, formatting/rename passes) -> `model: "haiku"`.
+- Moderate work (single-feature implementation within one module, focused test writing, routine refactors that stay inside existing module boundaries) -> `model: "sonnet"`.
+- Complex, cross-cutting, or high-stakes work (architecture or dependency-direction changes, multi-module refactors, ambiguous requirements needing judgment, anything touching contracts in "Behavior To Preserve") -> `model: "opus"`, or omit `model` to inherit the main agent's model when it is the strongest available.
+
+Exception: `subagent_type: "fork"` always runs on the main agent's model and ignores `model` — do not pass it there.
+
+Guidelines:
+
+- Split a task into independent subtasks whenever possible and dispatch them to parallel subagents rather than doing them sequentially in the main thread.
+- Match model cost to task difficulty: never pay for a top-tier model on a trivial task, and never underpower a subagent on a task that needs real reasoning.
+- The main agent should act as an orchestrator: decompose the request, delegate each piece to the right subagent/model, then integrate results — rather than doing the implementation itself when delegation is feasible.
+- If a subagent's output reveals the task was more complex than expected, escalate the remaining work to a stronger model rather than forcing the same subagent to continue.
 
 ## Coding Rules
 
+MANDATORY: before writing, editing, or designing any code, invoke the `dev-core` skill first and follow its discipline — even for small or trivial-looking changes. When delegating implementation work to a subagent, the delegation prompt must explicitly instruct it to invoke `dev-core` before coding.
+
 - Keep changes scoped to the requested behavior.
+- In the end, the code should always be self-documenting with a minimum of comments.
 - Prefer existing module boundaries over new abstractions.
 - Use explicit return types for exported functions.
 - Keep executable/config code in English.

@@ -15,15 +15,35 @@ import { Prompt } from "../../entities/phase/types";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { findPendingArchiveState } from "../../entities/change/archive-state";
+import { archiveTemplateVariables } from "./archive-stage";
+import { resolveRoute } from "./flow-route";
+import { detectStateRouteConflict } from "./state-route-consistency";
+
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
-import { urlsFor, flowCheckCommand, renderPhaseTemplate, researchArtifactContract, finalValidationArtifactContract, implementationPlanArtifactContract } from "../../shared/prompt/phase-render-helpers";
+import { escapeMarkdownTableCell } from "../../shared/markdown/table";
+import { todayIsoDate } from "../../shared/time/today-iso-date";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract } from "./prompt-render-helpers";
+
+function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation"): Prompt {
+  return {
+    command: "next",
+    phase,
+    prompt: [
+      `[PHASEDEV] BLOCKED: state.json is missing activeIteration for phase "${phase}".`,
+      `Phase "${phase}" requires a numeric activeIteration to render an iteration-scoped contract.`,
+      `Recovery: fix state.json to set activeIteration to the current iteration id, or run phasedev advance to resync state.`
+    ].join("\n"),
+    blocked: true,
+    reason: "Missing activeIteration in state.json"
+  };
+}
 
 function artifactContractSimple(
   artifactId: string,
   resolvedOutputPath: string,
   templateName: string,
   selfCheckCommand: string,
-  date = new Date().toISOString().split("T")[0],
+  date = todayIsoDate(),
   selfCheckFailureGuidance?: string,
   includeSelfCheck?: boolean
 ): string {
@@ -40,24 +60,26 @@ function artifactContractSimple(
 
 
 function validationFindingsContract(findingsPath: string, projectPath: string, iterationId?: number): string {
+  const date = todayIsoDate();
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
+    templateContent: renderValidationFindingsTemplate("iteration", date),
     selfCheckCommand: iterationId === undefined
       ? flowCheckCommand(projectPath)
       : `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope iteration --iteration-id ${iterationId}`,
     selfCheckFailureGuidance: iterationId === undefined
       ? undefined
-      : "Artifact contract check must pass before reporting this stage complete. If it fails, fix only `validation_findings.md` and the current phase status in `iteration_plan.md` when allowed by the validation verdict, then rerun the same command.",
-    date: new Date().toISOString().split("T")[0]
+      : "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md` and the current phase status in `iteration_plan.md` when allowed by the validation verdict, then rerun the same command.",
+    date
   });
 }
 
 // ── Render Functions ───────────────────────────────────────
 
-function renderChangeIntake(projectPath: string, config: Config, state: FlowState, activeChangePath: string | null): string {
-  const date = new Date().toISOString().split("T")[0];
+export function renderChangeIntake(projectPath: string, config: Config, activeChangePath: string | null): string {
+  const date = todayIsoDate();
   const changeRoot = activeChangePath ?? path.join(projectPath, SYSTEM_DIR, "changes", "<derive-slug-from-final-task>");
   const selfCheckCommand = flowCheckCommand(projectPath);
 
@@ -76,7 +98,7 @@ function renderChangeIntake(projectPath: string, config: Config, state: FlowStat
   }, config) + taskContext;
 }
 
-function renderCodeResearch(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderCodeResearch(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("code_research", "phase2_code_research", {
     prd_path: urls.prd_path,
@@ -89,22 +111,22 @@ function renderCodeResearch(projectPath: string, config: Config, paths: ReturnTy
   }, config);
 }
 
-function renderTechnicalDesign(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderTechnicalDesign(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("technical_design", "phase3_technical_design", {
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     research_path: urls.research_path,
     design_path: urls.design_path,
-    date: new Date().toISOString().split("T")[0],
+    date: todayIsoDate(),
     design_artifact_contract: artifactContractSimple("architecture/design.md", paths.designPath, "artifacts/design", flowCheckCommand(projectPath)),
     self_check_command: flowCheckCommand(projectPath)
   }, config);
 }
 
-function renderIterationPlanning(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderIterationPlanning(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
   const urls = urlsFor(paths);
-  const date = new Date().toISOString().split("T")[0];
+  const date = todayIsoDate();
   const selfCheckCommand = flowCheckCommand(projectPath);
   return renderPhaseTemplate("iteration_planning", "phase4_iteration_planning", {
     prd_path: urls.prd_path,
@@ -117,7 +139,7 @@ function renderIterationPlanning(projectPath: string, config: Config, paths: Ret
   }, config);
 }
 
-function renderImplementation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string {
+export function renderImplementation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string | Prompt {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
@@ -127,11 +149,19 @@ function renderImplementation(projectPath: string, config: Config, paths: Return
     return `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan.`;
   }
 
+  // The iteration's required check commands come from execution_contract.md.
+  // When a required command is missing there, this returns a testCommandBlocker
+  // Prompt instead of a rendered contract.
+  const testCommand = renderRequiredCheckCommands(currentPhase, testCommands, paths.executionContractPath);
+  if (typeof testCommand !== "string") {
+    return testCommand;
+  }
+
   return renderPhaseTemplate("implementation", "phase5_implementation", {
     phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
     plan_map: formatPlanMap(plan, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
-    test_command: "phasedev check",
+    test_command: testCommand,
     self_check_command: flowCheckCommand(projectPath),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
@@ -140,7 +170,7 @@ function renderImplementation(projectPath: string, config: Config, paths: Return
   }, config);
 }
 
-function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string {
+export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
@@ -158,13 +188,13 @@ function renderIterationValidation(projectPath: string, config: Config, paths: R
     design_path: urls.design_path,
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
-    date: new Date().toISOString().split("T")[0],
+    date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, { phase: currentPhase }),
     validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, currentPhase.id)
   }, config);
 }
 
-function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("final_validation", "phase6b_final_validation", {
     prd_path: urls.prd_path,
@@ -172,13 +202,13 @@ function renderFinalValidation(projectPath: string, config: Config, paths: Retur
     design_path: urls.design_path,
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
-    date: new Date().toISOString().split("T")[0],
+    date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath),
     validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath)
   }, config);
 }
 
-function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(paths.findingsPath),
@@ -192,33 +222,18 @@ function renderFindingRepair(projectPath: string, config: Config, paths: ReturnT
   }, config);
 }
 
-function renderArchiveContract(projectPath: string, config: Config, activeChangePath: string): string {
-  const archivedPaths = buildChangePaths(activeChangePath);
-  const urls = urlsFor(archivedPaths);
+export function renderArchiveContract(projectPath: string, config: Config, activeChangePath: string): string {
   const changeName = path.basename(activeChangePath);
-
-  return renderTemplate("phase7_archive", {
-    change_name: changeName,
-    prd_path: urls.prd_path,
-    rules_path: urls.rules_path,
-    research_path: urls.research_path,
-    design_path: urls.design_path,
-    plan_path: urls.plan_path,
-    findings_path: urls.findings_path,
-    main_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
-    change_specs_path: toFileUrl(path.join(activeChangePath, "specs")),
-    archive_state_path: toFileUrl(path.join(activeChangePath, ".phase-archive.json")),
-    archive_path: activeChangePath,
-    skill_policy: renderSkillPolicy("archive", config),
-    skill_compliance_line: renderSkillComplianceLine("archive", config)
-  });
+  return renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, changeName, activeChangePath, config));
 }
 
 // ── phase command ──────────────────────────────────────────
 
 /**
  * Get the contract for the currently active phase.
- * Pure read-only: never mutates state, never returns blockers.
+ * Pure read-only: never mutates state. The only blocker it can return is the
+ * missing-test-command blocker for implementation, because that contract
+ * cannot be rendered without the commands from execution_contract.md.
  */
 export function getPhasePrompt(projectPath: string, config: Config = loadConfig()): Prompt {
   const state = loadFlowState(projectPath);
@@ -249,6 +264,17 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     };
   }
 
+  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath));
+  if (conflict) {
+    return {
+      command: "next",
+      phase: activePhase,
+      prompt: conflict,
+      blocked: true,
+      reason: "State and route disagree on the current phase"
+    };
+  }
+
   const paths = buildChangePaths(changeDir);
 
   switch (activePhase) {
@@ -256,7 +282,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderChangeIntake(projectPath, config, { activePhase, activeIteration }, changeDir),
+        prompt: renderChangeIntake(projectPath, config, changeDir),
         blocked: false
       };
 
@@ -284,21 +310,33 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
         blocked: false
       };
 
-    case "implementation":
+    case "implementation": {
+      if (activeIteration === null) {
+        return missingActiveIterationBlocker("implementation");
+      }
+      const rendered = renderImplementation(projectPath, config, paths, activeIteration);
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
       return {
         command: "next",
         phase: "implementation",
-        prompt: renderImplementation(projectPath, config, paths, activeIteration ?? 1),
+        prompt: rendered,
         blocked: false
       };
+    }
 
-    case "iteration_validation":
+    case "iteration_validation": {
+      if (activeIteration === null) {
+        return missingActiveIterationBlocker("iteration_validation");
+      }
       return {
         command: "next",
         phase: "iteration_validation",
-        prompt: renderIterationValidation(projectPath, config, paths, activeIteration ?? 1),
+        prompt: renderIterationValidation(projectPath, config, paths, activeIteration),
         blocked: false
       };
+    }
 
     case "final_validation":
       return {
@@ -341,10 +379,6 @@ interface ValidationFindingState {
 
 function isQueuedRepairFinding(finding: ValidationFindingState): boolean {
   return finding.blocksPr && ["open", "reopened"].includes(finding.latestStatus);
-}
-
-function escapeMarkdownTableCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
 
 function formatRepairQueue(findingsPath: string): string {

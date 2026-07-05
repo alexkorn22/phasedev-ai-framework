@@ -1,7 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
+import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { findActiveChangeDir } from "../../entities/change/active-change";
+import { findInvalidArchiveState, findPendingArchiveState } from "../../entities/change/archive-state";
 
 /**
  * Convert a name string to a filesystem-safe slug.
@@ -47,6 +49,20 @@ export function createChange(projectPath: string, name: string): CreateChangeRes
       const activeName = path.basename(activeDir);
       return { ok: false, message: `Active change already exists: ${activeName}. Complete or reset it before creating a new one.` };
     }
+
+    // A pending archive still owns the flow state (state.json lives in the
+    // archived change). Creating a new change now would fork the source of
+    // truth: locateFlowStatePath would prefer the new change while
+    // resolveRoute keeps routing to the pending archive.
+    const pendingArchive = findPendingArchiveState(projectPath);
+    if (pendingArchive) {
+      return { ok: false, message: `Archive of "${pendingArchive.changeName}" is still in progress at ${pendingArchive.archivePath}. Complete the archive phase (set .phase-archive.json status=completed) before creating a new change.` };
+    }
+
+    const invalidArchive = findInvalidArchiveState(projectPath);
+    if (invalidArchive) {
+      return { ok: false, message: `Archive state is invalid: ${invalidArchive.reason} (${invalidArchive.statePath}). Fix it before creating a new change.` };
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { ok: false, message: `Error checking active changes: ${msg}` };
@@ -68,7 +84,7 @@ export function createChange(projectPath: string, name: string): CreateChangeRes
     activePhase: "change_intake" as const,
     activeIteration: null
   };
-  fs.writeFileSync(statePath, JSON.stringify(initialState, null, 2) + "\n", "utf-8");
+  writeFileAtomic(statePath, JSON.stringify(initialState, null, 2) + "\n");
 
   return {
     ok: true,

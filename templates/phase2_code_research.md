@@ -13,11 +13,7 @@ Input artifacts:
 Output artifact:
 - [research_facts.md]({{research_path}}) inside the active change folder.
 
-Path resolution rule:
-- `research_facts.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
-- Write the artifact only to the absolute Output path in the Artifact Build Contract below.
-- Do not create or update a project-root `research_facts.md` file during this phase.
-- Run all code, config, test, and runtime evidence searches under `{{project_path}}` unless an explicit input artifact path in this prompt points elsewhere.
+{{path_resolution_rule}}
 
 Use the Artifact Build Contract below as the only source of structure for `research_facts.md`.
 
@@ -54,9 +50,9 @@ After creating `research_facts.md`, immediately validate the new artifact before
 {{self_check_command}}
 ```
 
-If the check fails, fix the reported artifact issues in this same stage, then rerun the same command. Repeat until it exits successfully. Report `Research ready` only after this self-check passes.
+If the check fails, fix the reported artifact issues in this same phase, then rerun the same command. Repeat until it exits successfully. Report `Research ready` only after this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... ` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... ` or `bunx phasedev check --project-path ... ` form. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report research as ready.
+{{self_check_fallback}}
 
 ## Artifact allowlist
 

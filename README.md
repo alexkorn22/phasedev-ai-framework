@@ -4,10 +4,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/your-username/phasedev/main/temp/docs/phasedev_banner.png" alt="PhaseDev Banner" width="100%">
-</p>
-
 **PhaseDev AI Framework** is a state-driven, gated framework for autonomous AI software engineering. It coordinates AI agents through strict, isolated development phases by saving the process state directly in your project workspace rather than relying on unstable LLM chat histories.
 
 > [!IMPORTANT]
@@ -43,12 +39,18 @@ flowchart LR
 ## 🚀 Quick Start (Manual Mode)
 
 ### 1. Installation
-Clone this repository and install the dependencies:
+PhaseDev requires [Bun](https://bun.sh) — the CLI entrypoint (`src/cli.ts`) runs directly as a
+Bun script, there is no compiled `dist/` build. Clone the repository, install dependencies, and
+link the `phasedev` binary onto your `PATH`:
 ```bash
 git clone https://github.com/your-username/phasedev.git
 cd phasedev
-npm install
+bun install
+bun link
 ```
+`bun link` registers this repo as the global `phasedev` package and symlinks it into
+`~/.bun/bin/phasedev`, which `bun` puts on your `PATH`. Verify it with `phasedev version`. To
+remove the link later, run `bun unlink` from this directory.
 
 ### 2. Initialize PhaseDev in a Target Project
 Create the PhaseDev workspace structure and project-local config in your target project:
@@ -124,7 +126,7 @@ phasedev advance --project-path /absolute/path/to/your-project
 | `phasedev list [--project-path <path>]` | Alias for `changes` |
 | `phasedev log [--project-path <path>] [--tail N]` | View flow log entries |
 | `phasedev config [--project-path <path>] <key>` | Read a config key |
-| `phasedev config set <key> <value> [--project-path <path>]` | Write a config key |
+| `phasedev config set <key> <value> [--project-path <path>] [--string]` | Write a config key (auto-coerces booleans/numbers unless `--string` forces raw string storage; echoes the stored type) |
 
 ### Meta
 | Command | Description |
@@ -135,27 +137,19 @@ phasedev advance --project-path /absolute/path/to/your-project
 
 ---
 
-## 🤖 Automated Loop: PhaseDev Runner
+## 🤖 Machine-readable output
 
-> [!WARNING]
-> **Deprecated.** The automated runner (`npm run phasedev:run`) is no longer maintained. Use `phasedev phase` and `phasedev advance` instead — they provide the same phase contracts with human oversight.
+Every command accepts a global `--json` flag. Instead of human-readable text, it prints a single
+JSON object to stdout:
 
-The **PhaseDev Runner** (runner) automates the manual cycle by launching isolated agent runs, executing phase prompts, logging answers, and monitoring progress. This functionality is **deprecated** and may be removed in a future release.
-
-### Run automation:
-```bash
-npm run phasedev:run -- --project-path /absolute/path/to/your-project
+```jsonc
+{ "ok": true, "kind": "phase", "phase": "implementation", "message": "...", "issues": [], "data": {} }
 ```
 
-### Real-time Telegram Notifications
-PhaseDev supports sending console outputs and loop milestones directly to your Telegram channel. 
-Copy `.env.example` to `.env` and fill in:
-```env
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-```
-
-Configure Telegram in `runner.yaml` under the `loop` section.
+`ok`, `kind` are always present; `phase`, `message`, `issues`, `data` are populated when relevant
+to the command. The process exit code mirrors `ok` (`0` when `true`, `1` when `false`). Use
+`--json` when driving PhaseDev from another agent, script, or CI step instead of parsing the
+human-readable text output.
 
 ---
 
@@ -178,11 +172,19 @@ autoApprove: false
 maxIterations: 10
 ```
 
-Runner-specific settings (model, logging, Telegram) belong in `runner.yaml`. The runner is **deprecated** — use `phasedev phase` and `phasedev advance` instead.
+`autoApprove: true` makes `phasedev advance` set `approved: true` and
+`approved_by: "PhaseDev autoApprove"` on valid approval artifacts after controller validation has
+already routed to an approval gate. With `autoApprove: false` (default), `advance` stops at each
+approval gate for human review.
 
-`autoApprove: true` is only used by the automated runner (deprecated). It sets `approved: true` and
-`approved_by: "PhaseDev Runner"` on valid approval artifacts after controller validation has
-already routed to an approval gate. Manual `phasedev phase`/`advance` flow still stops for human review.
+`maxIterations` is advisory only: the PhaseDev controller does not read or enforce it. It exists
+for an outer orchestrator (e.g. a loop/runner driving `phasedev phase`/`advance` in a cycle) to
+read via `phasedev config maxIterations` and decide when to stop iterating. Setting it has no
+effect on `phase`, `check`, or `advance` behavior by itself.
+
+An unrecognized key under `phases:` (or the legacy `stages:`) is a hard error — `phasedev`
+refuses to load a config with a typo'd phase name instead of silently dropping its skill
+configuration.
 
 ---
 

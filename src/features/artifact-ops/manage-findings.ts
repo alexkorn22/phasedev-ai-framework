@@ -1,4 +1,6 @@
 import * as fs from "fs";
+import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
+import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
 export interface ManageFindingsResult {
   ok: boolean;
@@ -45,9 +47,11 @@ function isSeparatorRow(cells: string[]): boolean {
 }
 
 function findTableBounds(lines: string[]): { start: number; end: number } | null {
+  // Fenced example tables must not be mistaken for the findings table.
+  const fenceMask = fencedCodeLineMask(lines);
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("|")) {
+    if (!fenceMask[i] && lines[i].trim().startsWith("|")) {
       if (start === -1) start = i;
     } else if (start !== -1) {
       return { start, end: i - 1 };
@@ -57,7 +61,7 @@ function findTableBounds(lines: string[]): { start: number; end: number } | null
   return null;
 }
 
-function parseTable(content: string): { frontmatter: string; headerLine: string; rows: FindingTableRow[]; tableStart: number; bodyAfterTable: string } {
+function parseTable(content: string): { frontmatter: string; headerLine: string; rows: FindingTableRow[]; bodyBeforeTable: string; bodyAfterTable: string } {
   const frontmatterMatch = content.match(/^---[\s\S]*?---\s*/);
   const frontmatter = frontmatterMatch ? frontmatterMatch[0] : "";
   const body = frontmatterMatch ? content.slice(frontmatterMatch[0].length) : content;
@@ -65,10 +69,13 @@ function parseTable(content: string): { frontmatter: string; headerLine: string;
   const tableBounds = findTableBounds(bodyLines);
 
   if (!tableBounds) {
-    return { frontmatter, headerLine: "", rows: [], tableStart: 0, bodyAfterTable: "" };
+    // No table yet: keep the whole body as leading content so nothing is lost
+    // when the table is appended.
+    return { frontmatter, headerLine: "", rows: [], bodyBeforeTable: body, bodyAfterTable: "" };
   }
 
   const tableLines = bodyLines.slice(tableBounds.start, tableBounds.end + 1);
+  const bodyBeforeTable = bodyLines.slice(0, tableBounds.start).join("\n");
   const bodyAfterTable = bodyLines.slice(tableBounds.end + 1).join("\n");
   const headerLine = tableLines[0];
   // Skip header and separator to get data rows
@@ -87,12 +94,25 @@ function parseTable(content: string): { frontmatter: string; headerLine: string;
     };
   });
 
-  return { frontmatter, headerLine, rows, tableStart: tableBounds.start, bodyAfterTable };
+  return { frontmatter, headerLine, rows, bodyBeforeTable, bodyAfterTable };
+}
+
+function escapeCell(value: string): string {
+  // splitTableRow unescapes \| when reading, so cells held in memory are raw.
+  // Escape pipes (and flatten newlines) on the way back out to keep the
+  // markdown table structurally intact.
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
 function padColumns(rowParts: string[]): string {
   // Build a pipe-delimited row with consistent padding
-  return `| ${rowParts.join(" | ")} |`;
+  return `| ${rowParts.map(escapeCell).join(" | ")} |`;
+}
+
+function composeDocument(frontmatter: string, bodyBeforeTable: string, table: string, bodyAfterTable: string): string {
+  const before = bodyBeforeTable.trimEnd();
+  const beforeBlock = before ? `${before}\n\n` : "";
+  return frontmatter + beforeBlock + table + (bodyAfterTable ? "\n" + bodyAfterTable : "");
 }
 
 const HEADER_CELLS = ["ID", "Status", "Severity", "Class", "Iteration", "Finding", "Required Fix"];
@@ -111,7 +131,7 @@ export function addFinding(
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const { frontmatter, rows, bodyAfterTable } = parseTable(content);
+  const { frontmatter, rows, bodyBeforeTable, bodyAfterTable } = parseTable(content);
 
   // Check for duplicate ID
   if (rows.some(r => r.id === id)) {
@@ -131,9 +151,9 @@ export function addFinding(
   const allRows = [...rows, newRow];
   const tableBody = allRows.map(r => padColumns([r.id, r.status, r.severity, r.className, r.iteration, r.finding, r.requiredFix]));
   const table = [padColumns(HEADER_CELLS), SEPARATOR, ...tableBody].join("\n");
-  const newContent = frontmatter + table + (bodyAfterTable ? "\n" + bodyAfterTable : "");
+  const newContent = composeDocument(frontmatter, bodyBeforeTable, table, bodyAfterTable);
 
-  fs.writeFileSync(filePath, newContent, "utf-8");
+  writeFileAtomic(filePath, newContent);
 
   return {
     ok: true,
@@ -147,7 +167,7 @@ export function resolveFinding(filePath: string, id: string): ManageFindingsResu
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const { frontmatter, rows, bodyAfterTable } = parseTable(content);
+  const { frontmatter, rows, bodyBeforeTable, bodyAfterTable } = parseTable(content);
 
   const rowIndex = rows.findIndex(r => r.id === id);
   if (rowIndex === -1) {
@@ -158,9 +178,9 @@ export function resolveFinding(filePath: string, id: string): ManageFindingsResu
 
   const tableBody = rows.map(r => padColumns([r.id, r.status, r.severity, r.className, r.iteration, r.finding, r.requiredFix]));
   const table = [padColumns(HEADER_CELLS), SEPARATOR, ...tableBody].join("\n");
-  const newContent = frontmatter + table + (bodyAfterTable ? "\n" + bodyAfterTable : "");
+  const newContent = composeDocument(frontmatter, bodyBeforeTable, table, bodyAfterTable);
 
-  fs.writeFileSync(filePath, newContent, "utf-8");
+  writeFileAtomic(filePath, newContent);
 
   return {
     ok: true,

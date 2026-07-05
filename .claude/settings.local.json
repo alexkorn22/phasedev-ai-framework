@@ -8,7 +8,12 @@
       "Bash(playwright --help)",
       "Bash(npx playwright *)",
       "Bash(node *)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(grep -E \"cli.ts$|shared/\\(cli|env|fs|shell|markdown|templates|prompt|telegram\\)|features/logger\")",
+      "Read(//Users/oleksandr/.claude/plugins/**)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
   }
 }

@@ -33,10 +33,7 @@ Phase invariants:
 - Do not ask for operational details that do not change artifact content, including the change folder slug.
 - Do not guess material PRD or rules fields. If the user cannot answer a material question, stop instead of encoding a silent assumption.
 
-Path resolution rule:
-- `prd.md` and `execution_contract.md` in this prompt are paths inside the active change folder, not paths from the project repository root.
-- Write each artifact only to its absolute Output path in the Artifact Build Contract.
-- Do not create or update project-root `prd.md` or `execution_contract.md` files during this phase.
+{{path_resolution_rule}}
 
 Artifact requirements:
 - Later research, design, planning, implementation, and validation phases will treat `prd.md` and `execution_contract.md` as source-of-truth inputs, so write stable, testable statements that can be carried forward without reinterpreting the conversation.
@@ -66,7 +63,7 @@ After both artifacts exist, immediately validate the new artifacts before comple
 
 If the check fails, fix the reported artifact issues in this same phase, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `prd.md` or `execution_contract.md` until this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... ` subcommand. Use it only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available, report the exact command failure as a blocker.
+{{self_check_fallback}}
 
 ## Human Review Formatting Policy
 

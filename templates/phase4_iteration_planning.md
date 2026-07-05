@@ -16,12 +16,12 @@ Use this bounded retrieval order before planning:
 2. Confirm that [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) exist and are readable. If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `iteration_plan.md`.
 3. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `iteration_plan.md`.
 4. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
-{{stage_skill_step}}
-6. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
+{{phase_skill_step}}
+5. Inspect repository files only to answer a concrete planning question about phase boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
 
 Context budget and stop condition:
 - Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
-{{stage_skill_note}}
+{{phase_skill_note}}
 - Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one phase, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
 - Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless an approved input explicitly requires that evidence.
 
@@ -71,7 +71,7 @@ After creating `iteration_plan.md`, immediately validate the new artifact before
 
 If the check fails, fix the reported artifact issues in this same phase, then rerun the same command. Repeat until it exits successfully. Do not ask the user to approve `iteration_plan.md` until this self-check passes.
 
-If the `phasedev` executable name is unavailable, first look for a controller-provided or local package executable that runs the same `check --project-path ... ` subcommand, such as a repository-confirmed `npm exec -- phasedev check --project-path ... `, `bunx phasedev check --project-path ... `, or local CLI invocation like `bun run src/cli.ts check --project-path ... ` when package/source entrypoint evidence supports it. Use an equivalent executable only when repository evidence or controller output identifies it; record the exact command used. If no equivalent executable is available after this documented lookup, report the exact command failure as a blocker/unavailable self-check result and do not report the plan as ready.
+{{self_check_fallback}}
 
 Phase completion:
 - After writing `iteration_plan.md`, run the artifact self-check, fix any reported issues, and stop only after the self-check passes.

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
-import { emptyTableCellsDiagnostic, isMarkdownTableSeparatorRow, MarkdownTableRow, splitMarkdownTableRow } from "../../shared/markdown/table";
+import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
 import { extractPrdTraceability } from "../prd/traceability";
 
 const REQUIRED_SECTIONS = [
@@ -18,13 +18,22 @@ const SOURCE_FACTS_HEADERS = ["Fact ID", "Type", "Source", "Fact", "Supports"];
 const PRD_ONLY_INTENT_FIELDS = ["Change type", "Why"];
 const CODE_EVIDENCE_REQUIRED_STATUSES = ["confirmed", "limited", "blocked"];
 
-const BLOCKED_PLACEHOLDERS = [
-  { pattern: /\bTBD\b/i, label: "TBD" },
-  { pattern: /\bTODO\b/i, label: "TODO" },
-  { pattern: /\bunknown\b/i, label: "unknown" },
-  { pattern: /\bclarify later\b/i, label: "clarify later" },
-  { pattern: /\bto be decided\b/i, label: "to be decided" }
-];
+const STRUCTURE_SPEC: ArtifactStructureSpec = {
+  artifactName: "research_facts.md",
+  title: "Research Facts",
+  frontmatter: "optional",
+  checkDeepHeadings: true,
+  checkHtmlComments: true,
+  sections: {
+    required: REQUIRED_SECTIONS,
+    membershipCaseInsensitive: false,
+    orderCaseInsensitive: false
+  }
+};
+
+const INTENT_TABLE: TableShapeSpec = { section: "PRD Intent Trace", headers: INTENT_TABLE_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
+const TRACE_TABLE: TableShapeSpec = { section: "Requirements & Success Criteria Trace", headers: TRACE_TABLE_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
+const SOURCE_FACTS_TABLE: TableShapeSpec = { section: "Source Facts", headers: SOURCE_FACTS_HEADERS, mode: "filtered", rowChecks: true, sectionCaseInsensitive: false };
 
 const BLOCKED_TEMPLATE_SAMPLE_VALUES = [
   "Requested target from PRD.",
@@ -46,69 +55,6 @@ interface SourceFact {
   supports: string;
 }
 
-function headingName(line: string): string | null {
-  const match = line.match(/^##\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function topLevelHeadingName(line: string): string | null {
-  const match = line.match(/^#\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function deepHeadingName(line: string): string | null {
-  const match = line.match(/^#{3,}\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function sectionLines(lines: string[], sectionName: string): string[] {
-  const startIndex = lines.findIndex(line => headingName(line) === sectionName);
-  if (startIndex === -1) {
-    return [];
-  }
-
-  const endIndex = lines.findIndex((line, index) => index > startIndex && /^##\s+/.test(line));
-  return lines.slice(startIndex + 1, endIndex === -1 ? lines.length : endIndex);
-}
-
-function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
-  const tableLines = sectionLines(lines, sectionName).filter(line => line.trim().startsWith("|"));
-  if (tableLines.length === 0) {
-    issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
-    return [];
-  }
-
-  const headerCells = splitMarkdownTableRow(tableLines[0]);
-  if (headerCells.length !== expectedHeaders.length || headerCells.some((header, index) => header !== expectedHeaders[index])) {
-    issues.push(`${sectionName} columns must be exactly: ${expectedHeaders.join(", ")}.`);
-  }
-
-  if (tableLines.length < 2 || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(tableLines[1]))) {
-    issues.push(`${sectionName} must include a separator row immediately after the header.`);
-  }
-
-  return tableLines.slice(2).map((line, index) => ({
-    cells: splitMarkdownTableRow(line),
-    rowNumber: index + 3
-  }));
-}
-
-function validateCellCountAndNonEmpty(sectionName: string, rows: MarkdownTableRow[], expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
-  return rows.filter(row => {
-    if (row.cells.length !== expectedHeaders.length) {
-      issues.push(`${sectionName} row ${row.rowNumber} must have exactly ${expectedHeaders.length} cells.`);
-      return false;
-    }
-
-    const emptyCellsIssue = emptyTableCellsDiagnostic(sectionName, row, expectedHeaders);
-    if (emptyCellsIssue) {
-      issues.push(emptyCellsIssue);
-    }
-
-    return true;
-  });
-}
-
 function validateStatus(sectionName: string, rowNumber: number, status: string, issues: string[]): void {
   if (!ALLOWED_STATUSES.includes(status)) {
     const allowedList = `${ALLOWED_STATUSES.slice(0, -1).join(", ")}, or ${ALLOWED_STATUSES[ALLOWED_STATUSES.length - 1]}`;
@@ -124,12 +70,7 @@ function splitReferences(value: string): string[] {
 }
 
 function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdIntent: Map<string, string>, issues: string[]): void {
-  const validRows = validateCellCountAndNonEmpty(
-    "PRD Intent Trace",
-    tableRowsForSection(lines, "PRD Intent Trace", INTENT_TABLE_HEADERS, issues),
-    INTENT_TABLE_HEADERS,
-    issues
-  );
+  const validRows = validateTableShape(lines, INTENT_TABLE, issues);
   const fields = validRows.map(row => row.cells[0]);
 
   for (const field of INTENT_FIELDS) {
@@ -176,12 +117,7 @@ function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdInt
 }
 
 function validateTraceTable(lines: string[], sourceFacts: SourceFact[], prdPath: string | undefined, issues: string[]): Set<string> {
-  const validRows = validateCellCountAndNonEmpty(
-    "Requirements & Success Criteria Trace",
-    tableRowsForSection(lines, "Requirements & Success Criteria Trace", TRACE_TABLE_HEADERS, issues),
-    TRACE_TABLE_HEADERS,
-    issues
-  );
+  const validRows = validateTableShape(lines, TRACE_TABLE, issues);
   const actualIds = validRows.map(row => row.cells[0]);
   const codeFactIds = new Set(sourceFacts.filter(fact => /^F\d+$/.test(fact.id) && fact.type === "code").map(fact => fact.id));
   const specFactIds = new Set(sourceFacts.filter(fact => /^S\d+$/.test(fact.id) && fact.type === "spec").map(fact => fact.id));
@@ -254,12 +190,7 @@ function validateTraceTable(lines: string[], sourceFacts: SourceFact[], prdPath:
 }
 
 function validateSourceFacts(lines: string[], issues: string[]): SourceFact[] {
-  const validRows = validateCellCountAndNonEmpty(
-    "Source Facts",
-    tableRowsForSection(lines, "Source Facts", SOURCE_FACTS_HEADERS, issues),
-    SOURCE_FACTS_HEADERS,
-    issues
-  );
+  const validRows = validateTableShape(lines, SOURCE_FACTS_TABLE, issues);
   const facts: SourceFact[] = [];
   const factIds: string[] = [];
 
@@ -314,55 +245,12 @@ export function validateResearchFacts(filePath: string, prdPath?: string): strin
   }
 
   const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const lines = content.split("\n");
-  const issues: string[] = [];
-
-  if (/<!--[\s\S]*?-->/.test(content)) {
-    issues.push("research_facts.md must not contain HTML template comments.");
-  }
-
-  for (const placeholder of BLOCKED_PLACEHOLDERS) {
-    if (placeholder.pattern.test(content)) {
-      issues.push(`research_facts.md must not contain placeholder text: ${placeholder.label}.`);
-    }
-  }
+  const { issues, lines } = validateArtifactStructure(content, STRUCTURE_SPEC);
 
   for (const sampleValue of BLOCKED_TEMPLATE_SAMPLE_VALUES) {
     if (content.includes(sampleValue)) {
       issues.push(`research_facts.md must replace embedded template sample value \`${sampleValue}\`.`);
     }
-  }
-
-  const topLevelHeadings = lines.map(topLevelHeadingName).filter((heading): heading is string => heading !== null);
-  if (topLevelHeadings.length !== 1 || topLevelHeadings[0] !== "Research Facts") {
-    issues.push("research_facts.md must contain exactly one top-level heading: `# Research Facts`.");
-  }
-
-  for (const line of lines) {
-    const deepHeading = deepHeadingName(line);
-    if (deepHeading) {
-      issues.push(`research_facts.md must not contain headings deeper than \`##\`: \`${line.trim()}\`.`);
-    }
-  }
-
-  const actualSections = lines.map(headingName).filter((section): section is string => section !== null);
-  for (const section of REQUIRED_SECTIONS) {
-    if (!actualSections.includes(section)) {
-      issues.push(`research_facts.md must contain section \`## ${section}\`.`);
-    }
-  }
-
-  for (const section of actualSections) {
-    if (!REQUIRED_SECTIONS.includes(section)) {
-      issues.push(`research_facts.md contains unexpected section \`## ${section}\`.`);
-    }
-  }
-
-  if (
-    actualSections.length !== REQUIRED_SECTIONS.length ||
-    actualSections.some((section, index) => section !== REQUIRED_SECTIONS[index])
-  ) {
-    issues.push(`research_facts.md \`##\` sections must exactly match this order: ${REQUIRED_SECTIONS.map(section => `\`## ${section}\``).join(", ")}.`);
   }
 
   const prdTraceability = prdPath ? extractPrdTraceability(prdPath) : { intent: new Map<string, string>(), requirements: [], criteria: [] };

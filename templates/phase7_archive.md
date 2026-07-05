@@ -68,26 +68,9 @@ Classification rules:
 - This matrix is not a persistent artifact. Do not create a file for it.
 - If you are unsure whether an item is spec-level, set `Operation = skipped`, omit it from specs, and explain the omission in `Reason`.
 
-Spec-level items include only concrete behavior from `R#`:
-- user-visible workflows or UI behavior;
-- API, CLI, SDK, or public interface contracts;
-- persisted data behavior visible to users or other systems;
-- integration behavior with external or internal systems;
-- authorization, permission, privacy, or security behavior;
-- business rules, invariants, limits, validation rules, and error behavior;
-- compatibility, deprecation, or migration behavior when expressed as required behavior.
+Spec-level items are concrete `R#` behavior: user-visible workflows or UI; API/CLI/SDK/public interface contracts; user- or system-visible persisted data behavior; external/internal integration behavior; authorization, permission, privacy, or security behavior; business rules, invariants, limits, validation rules, and error behavior; and compatibility/deprecation/migration behavior expressed as required behavior.
 
-Do not add to specs:
-- implementation tasks;
-- file, module, or class names unless they are part of a public contract;
-- test commands;
-- `Check Evidence`;
-- validation findings;
-- repair notes;
-- internal refactoring details without observable behavior;
-- architecture rationale from `architecture/design.md` unless tied to concrete `R#` behavior;
-- `Intent`, `Risk boundaries`, or `SC#` content unless the same behavior is expressed in an `R#`;
-- speculative future behavior.
+Never add to specs: implementation tasks or internal refactoring details without observable behavior; file/module/class names that are not part of a public contract; test commands; `Check Evidence`; validation findings; repair notes; architecture rationale from `architecture/design.md` not tied to a concrete `R#`; `Intent`, `Risk boundaries`, or `SC#` content unless the same behavior is expressed in an `R#`; and speculative future behavior.
 
 ## Delta-first specs
 
@@ -101,7 +84,6 @@ Do not add to specs:
    - If the change affects multiple independent user scenarios, workflows, APIs/interfaces, modules, domains, roles, or integrations, create multiple capability directories.
    - Do not create a new capability when the change should update an existing capability.
    - If the change updates an existing capability, write a delta spec for that capability, but do not mix unrelated requirements from other functional areas.
-   - Do not move internal implementation details, temporary tasks, test commands, or validation findings into specs.
 
 Use the delta specs format:
 
@@ -147,8 +129,7 @@ Format rules:
 After creating delta specs, sync them into `.phasedev/specs`:
 - carefully add new capabilities;
 - update existing capabilities only within the requirements of the current change;
-- preserve existing requirements/scenarios that the current change does not modify;
-- if you are unsure whether a change is spec-level, do not add it to specs and explain that in the report.
+- preserve existing requirements/scenarios that the current change does not modify.
 
 ## Complete archive state
 

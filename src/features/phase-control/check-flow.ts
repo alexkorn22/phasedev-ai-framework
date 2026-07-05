@@ -25,42 +25,6 @@ export interface ValidationCheckResult {
   message: string;
 }
 
-const ROUTE_KINDS = new Set<RouteKind>([
-  "invalid_archive_state",
-  "pending_archive",
-  "change_intake",
-  "invalid_prd",
-  "invalid_execution_contract",
-  "change_intake_approval",
-  "code_research",
-  "invalid_code_research",
-  "technical_design",
-  "invalid_technical_design",
-  "technical_design_approval",
-  "iteration_planning",
-  "iteration_planning_approval",
-  "invalid_iteration_planning",
-  "invalid_findings",
-  "finding_repair",
-  "archive_readiness_blocked",
-  "archive_ready",
-  "iteration",
-  "final_validation"
-]);
-
-const PHASE_KINDS = new Set<string>([
-  "init",
-  "change_intake",
-  "code_research",
-  "technical_design",
-  "iteration_planning",
-  "implementation",
-  "iteration_validation",
-  "final_validation",
-  "finding_repair",
-  "archive"
-]);
-
 function hasPaths(route: Route): route is Route & { paths: ChangePaths } {
   return "paths" in route;
 }
@@ -84,22 +48,6 @@ function readyIterationIssue(verdict: ValidationFindingsVerdict | "unknown", pha
 
 function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: RouteKind): string {
   return `\`verdict: repair_required\` is valid for ${scope} validation only when the current route is finding_repair; got ${routeKind}.`;
-}
-
-export function isRouteKind(value: string): value is RouteKind {
-  return ROUTE_KINDS.has(value as RouteKind);
-}
-
-export function routeKinds(): string[] {
-  return Array.from(ROUTE_KINDS);
-}
-
-export function isPhaseKind(value: string): value is string {
-  return PHASE_KINDS.has(value);
-}
-
-export function phaseKinds(): string[] {
-  return Array.from(PHASE_KINDS);
 }
 
 // ── check-phase (new per-phase validator) ──────────────────
@@ -170,7 +118,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
   }
 
   if (findings) {
-    issues.push(...findings.issues);
+    issues.push(...findings.issues.map(issue => issue.message));
   }
 
   if (findings?.exists && options.scope === "iteration") {
@@ -179,7 +127,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     }
 
     if (findings.verdict === "repaired") {
-      issues.push("`verdict: repaired` is not valid for Iteration Validation stage output.");
+      issues.push("`verdict: repaired` is not valid for Iteration Validation phase output.");
     }
 
     if (isReadyVerdict(findings.verdict)) {
@@ -207,7 +155,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     }
 
     if (findings.verdict === "repaired") {
-      issues.push("`verdict: repaired` is not valid for Final Validation stage output.");
+      issues.push("`verdict: repaired` is not valid for Final Validation phase output.");
     }
 
     if (isReadyVerdict(findings.verdict) && route.kind !== "archive_ready") {

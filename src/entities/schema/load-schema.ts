@@ -1,3 +1,5 @@
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
+import { headingName } from "../../shared/markdown/headings";
 import * as fs from "fs";
 import * as path from "path";
 import { parse as parseYaml } from "yaml";
@@ -64,11 +66,15 @@ export function validateSchemaSections(
   mode: "partial" | "full"
 ): string[] {
   const issues: string[] = [];
+  // A heading inside a fenced code example must not satisfy a section check.
+  const actualSections = blankFencedCodeLines(content.split("\n"))
+    .map(headingName)
+    .filter((section): section is string => section !== null)
+    .map(section => section.toLowerCase());
 
   for (const [sectionName, sectionDef] of Object.entries(schema.sections)) {
     const isRequired = mode === "full" ? true : sectionDef.required;
-    const headingPattern = new RegExp(`^##\\s+${escapeRegex(sectionName)}\\s*$`, "mi");
-    const sectionExists = headingPattern.test(content);
+    const sectionExists = actualSections.includes(sectionName.toLowerCase());
 
     if (isRequired && !sectionExists) {
       issues.push(`Missing required section: "${sectionName}".`);
@@ -76,11 +82,4 @@ export function validateSchemaSections(
   }
 
   return issues;
-}
-
-/**
- * Escape special regex characters for safe use in RegExp.
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

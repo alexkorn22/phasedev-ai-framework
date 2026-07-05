@@ -1,5 +1,6 @@
 import * as fs from "fs";
-import { readFrontmatter } from "../../shared/markdown/frontmatter";
+import * as path from "path";
+import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
 export interface ApproveResult {
   ok: boolean;
@@ -12,28 +13,25 @@ export function approveArtifact(filePath: string, approvedBy?: string): ApproveR
   }
 
   const content = fs.readFileSync(filePath, "utf-8");
-  const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---/);
+  const frontmatterMatch = content.match(/^(﻿?\s*)---\r?\n([\s\S]*?)\r?\n---/);
   if (!frontmatterMatch) {
     return { ok: false, message: `${filePath} does not contain YAML frontmatter.` };
   }
 
-  const rawFrontmatter = frontmatterMatch[1];
-  const beforeFrontmatter = content.slice(0, frontmatterMatch.index! + frontmatterMatch[0].indexOf(rawFrontmatter));
+  const prefix = frontmatterMatch[1];
   const afterFrontmatter = content.slice(frontmatterMatch.index! + frontmatterMatch[0].length);
 
-  // Preserve the exact raw frontmatter, replace or add approved/approved_by
-  let lines = rawFrontmatter.split("\n");
+  // Preserve the exact raw frontmatter lines, replace or add approved/approved_by
+  const lines = frontmatterMatch[2].split(/\r?\n/);
   let hasApproved = false;
   let hasApprovedBy = false;
 
   const newLines = lines.map(line => {
-    const approvedMatch = line.match(/^approved\s*:/);
-    if (approvedMatch) {
+    if (/^approved\s*:/.test(line)) {
       hasApproved = true;
       return "approved: true";
     }
-    const approvedByMatch = line.match(/^approved_by\s*:/);
-    if (approvedByMatch) {
+    if (/^approved_by\s*:/.test(line)) {
       hasApprovedBy = true;
       return `approved_by: "${approvedBy ?? "phasedev approve"}"`;
     }
@@ -47,13 +45,11 @@ export function approveArtifact(filePath: string, approvedBy?: string): ApproveR
     newLines.push(`approved_by: "${approvedBy ?? "phasedev approve"}"`);
   }
 
-  const newContent = beforeFrontmatter + "---\n" + newLines.join("\n") + "\n---" + afterFrontmatter;
-  fs.writeFileSync(filePath, newContent, "utf-8");
+  const newContent = `${prefix}---\n${newLines.join("\n")}\n---${afterFrontmatter}`;
+  writeFileAtomic(filePath, newContent);
 
   return {
     ok: true,
     message: `Approved: ${path.basename(filePath)}${approvedBy ? ` (by: ${approvedBy})` : ""}`
   };
 }
-
-import * as path from "path";

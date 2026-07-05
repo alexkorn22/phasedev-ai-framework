@@ -45,6 +45,10 @@ export function isMarkdownTableSeparatorRow(cells: string[]): boolean {
   return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
 }
 
+export function escapeMarkdownTableCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+}
+
 export function parseMarkdownTableBlocks(lines: string[]): MarkdownTableBlock[] {
   const blocks: MarkdownTableBlock[] = [];
 

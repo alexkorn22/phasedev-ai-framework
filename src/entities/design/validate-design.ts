@@ -1,7 +1,10 @@
+import { blankFencedCodeLines } from "../../shared/markdown/code-fences";
 import * as fs from "fs";
 import * as path from "path";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
+import { headingName, sectionLines } from "../../shared/markdown/headings";
+import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
 import {
   emptyTableCellsDiagnostic,
   isMarkdownTableSeparatorRow,
@@ -12,19 +15,22 @@ import {
 } from "../../shared/markdown/table";
 import { extractPrdTraceability } from "../prd/traceability";
 
-const BLOCKED_PLACEHOLDERS = [
-  { pattern: /\bTBD\b/i, label: "TBD" },
-  { pattern: /\bTODO\b/i, label: "TODO" },
-  { pattern: /\bunknown\b/i, label: "unknown" },
-  { pattern: /\bclarify later\b/i, label: "clarify later" },
-  { pattern: /\bto be decided\b/i, label: "to be decided" }
-];
-
 const PACKAGE_MAP_HEADERS = ["File", "Purpose", "Visual content", "Review priority"];
 const TRACEABILITY_HEADERS = ["PRD ID", "Research Evidence", "Design Decisions", "Design Coverage", "Plan Impact"];
 const DECISION_HEADERS = ["Decision ID", "Decision", "Rationale", "Applies To", "Impacts"];
 const REVIEW_PRIORITIES = new Set(["high", "medium", "low"]);
 const DESIGN_ENTRYPOINT = "architecture/design.md";
+
+const STRUCTURE_SPEC: ArtifactStructureSpec = {
+  artifactName: "design.md",
+  title: "Design",
+  frontmatter: "optional",
+  checkDeepHeadings: true,
+  checkHtmlComments: true
+};
+
+const DECISION_TABLE: TableShapeSpec = { section: "Key Design Decisions", headers: DECISION_HEADERS, mode: "blocks", rowChecks: true };
+const TRACEABILITY_TABLE: TableShapeSpec = { section: "Traceability Mapping", headers: TRACEABILITY_HEADERS, mode: "blocks", rowChecks: true };
 
 export interface ValidateDesignOptions {
   prdPath?: string;
@@ -37,89 +43,6 @@ interface PackageMapRow {
   purpose: string;
   visualContent: string;
   reviewPriority: string;
-}
-
-function headingName(line: string): string | null {
-  const match = line.match(/^##\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function topLevelHeadingName(line: string): string | null {
-  const match = line.match(/^#\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function deepHeadingName(line: string): string | null {
-  const match = line.match(/^#{3,}\s+(.+?)\s*$/);
-  return match?.[1]?.trim() ?? null;
-}
-
-function sectionLines(lines: string[], sectionName: string): string[] {
-  const startIndex = lines.findIndex(line => headingName(line)?.toLowerCase() === sectionName.toLowerCase());
-  if (startIndex === -1) {
-    return [];
-  }
-
-  const endIndex = lines.findIndex((line, index) => index > startIndex && /^##\s+/.test(line));
-  return lines.slice(startIndex + 1, endIndex === -1 ? lines.length : endIndex);
-}
-
-function bodyAfterFrontmatter(content: string): { body: string; hasFrontmatter: boolean } {
-  const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/);
-  if (!frontmatterMatch) {
-    return { body: content, hasFrontmatter: false };
-  }
-
-  return { body: content.slice(frontmatterMatch[0].length), hasFrontmatter: true };
-}
-
-function tableRowsForSection(lines: string[], sectionName: string, expectedHeaders: string[], issues: string[]): MarkdownTableRow[] {
-  const tableLines = sectionLines(lines, sectionName);
-  const tableBlocks = parseMarkdownTableBlocks(tableLines);
-  if (tableBlocks.length === 0) {
-    issues.push(`Section \`## ${sectionName}\` must contain a markdown table.`);
-    return [];
-  }
-  if (tableBlocks.length !== 1) {
-    issues.push(`Section \`## ${sectionName}\` must contain exactly one markdown table, found ${tableBlocks.length}.`);
-  }
-
-  const tableBlock = tableBlocks[0];
-  if (!tableBlock) {
-    return [];
-  }
-
-  const headerCells = splitMarkdownTableRow(tableLines[tableBlock.start]);
-  if (headerCells.length !== expectedHeaders.length || headerCells.some((header, index) => header !== expectedHeaders[index])) {
-    issues.push(`${sectionName} columns must be exactly: ${expectedHeaders.join(", ")}.`);
-  }
-
-  const separatorIndex = tableBlock.start + 1;
-  if (separatorIndex > tableBlock.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(tableLines[separatorIndex]))) {
-    issues.push(`${sectionName} must include a separator row immediately after the header.`);
-  }
-
-  const rows: MarkdownTableRow[] = [];
-  for (let rowIndex = separatorIndex + 1; rowIndex <= tableBlock.end; rowIndex++) {
-    const cells = splitMarkdownTableRow(tableLines[rowIndex]);
-    const rowNumber = rowIndex + 1;
-    if (isMarkdownTableSeparatorRow(cells)) {
-      issues.push(`${sectionName} row ${rowNumber} contains an unexpected separator.`);
-      continue;
-    }
-    if (cells.length !== expectedHeaders.length) {
-      issues.push(`${sectionName} row ${rowNumber} must have exactly ${expectedHeaders.length} cells.`);
-      continue;
-    }
-    const row = { rowNumber, cells };
-    const emptyCellsIssue = emptyTableCellsDiagnostic(sectionName, row, expectedHeaders);
-    if (emptyCellsIssue) {
-      issues.push(emptyCellsIssue);
-    }
-    rows.push(row);
-  }
-
-  return rows;
 }
 
 function stripCodeSpan(value: string): string {
@@ -145,21 +68,24 @@ function architectureFilesFor(designFilePath: string): string[] {
     .sort();
 }
 
-function hasVisualReviewSurfaceOutsidePackageMap(lines: string[]): boolean {
+function hasVisualReviewSurfaceOutsidePackageMap(lines: string[], rawLines: string[]): boolean {
   const packageMapStart = lines.findIndex(line => headingName(line)?.toLowerCase() === "architecture package map");
   const packageMapEnd = packageMapStart === -1
     ? -1
     : lines.findIndex((line, index) => index > packageMapStart && /^##\s+/.test(line));
-  const linesOutsidePackageMap = lines.filter((_, index) => {
+  const outsidePackageMap = (_: string, index: number): boolean => {
     if (packageMapStart === -1) {
       return true;
     }
     const end = packageMapEnd === -1 ? lines.length : packageMapEnd;
     return index < packageMapStart || index >= end;
-  });
+  };
 
-  return linesOutsidePackageMap.some(line => line.trim().toLowerCase() === "```mermaid") ||
-    parseMarkdownTableBlocks(linesOutsidePackageMap).length > 0;
+  // Mermaid fences must be looked up in the raw lines (fence-blanked lines
+  // hide them); live tables in the blanked lines (fenced example tables are
+  // rendered as code, not as a visual surface).
+  return rawLines.filter(outsidePackageMap).some(line => line.trim().toLowerCase() === "```mermaid") ||
+    parseMarkdownTableBlocks(lines.filter(outsidePackageMap)).length > 0;
 }
 
 function validatePackageMapTableShape(lines: string[], tableBlock: MarkdownTableBlock, issues: string[]): number {
@@ -258,13 +184,12 @@ function validateArchitectureFileCoverage(filePath: string, listedFiles: Set<str
   }
 }
 
-function validateArchitecturePackageMap(lines: string[], filePath: string, issues: string[]): void {
+function validateArchitecturePackageMap(lines: string[], rawLines: string[], filePath: string, issues: string[]): void {
   const packageMapLines = sectionLines(lines, "Architecture Package Map");
   const tableBlocks = parseMarkdownTableBlocks(packageMapLines);
   if (tableBlocks.length === 0) {
     issues.push("Section `## Architecture Package Map` must contain a markdown table.");
-  }
-  if (tableBlocks.length !== 1) {
+  } else if (tableBlocks.length !== 1) {
     issues.push(`Section \`## Architecture Package Map\` must contain exactly one markdown table, found ${tableBlocks.length}.`);
   }
 
@@ -278,7 +203,7 @@ function validateArchitecturePackageMap(lines: string[], filePath: string, issue
   const listedFiles = listedFilesFrom(rows, filePath, issues);
   validateArchitectureFileCoverage(filePath, listedFiles, issues);
 
-  if (listedFiles.size > 1 && !hasVisualReviewSurfaceOutsidePackageMap(lines)) {
+  if (listedFiles.size > 1 && !hasVisualReviewSurfaceOutsidePackageMap(lines, rawLines)) {
     issues.push("Multi-file design packages must include a Mermaid block or markdown table outside `## Architecture Package Map`.");
   }
 }
@@ -297,7 +222,7 @@ function collectResearchFactIds(researchPath: string | undefined): Set<string> {
 
   const content = normalizeLineEndings(fs.readFileSync(researchPath, "utf-8"));
   const factIds = new Set<string>();
-  for (const line of content.split("\n")) {
+  for (const line of blankFencedCodeLines(content.split("\n"))) {
     const match = line.match(/^\|\s*([FS]\d+)\s*\|/);
     if (match) {
       factIds.add(match[1]);
@@ -307,7 +232,7 @@ function collectResearchFactIds(researchPath: string | undefined): Set<string> {
 }
 
 function collectDecisionRows(lines: string[], issues: string[]): Map<string, MarkdownTableRow> {
-  const rows = tableRowsForSection(lines, "Key Design Decisions", DECISION_HEADERS, issues);
+  const rows = validateTableShape(lines, DECISION_TABLE, issues);
   const decisionRows = new Map<string, MarkdownTableRow>();
 
   for (const row of rows) {
@@ -327,7 +252,7 @@ function collectDecisionRows(lines: string[], issues: string[]): Map<string, Mar
 }
 
 function validateTraceabilityMapping(lines: string[], options: ValidateDesignOptions, issues: string[]): void {
-  const traceRows = tableRowsForSection(lines, "Traceability Mapping", TRACEABILITY_HEADERS, issues);
+  const traceRows = validateTableShape(lines, TRACEABILITY_TABLE, issues);
   const decisionRows = collectDecisionRows(lines, issues);
   const referencedDecisionIds = new Set<string>();
   const actualPrdIds = traceRows.map(row => row.cells[0] ?? "");
@@ -401,44 +326,19 @@ export function validateDesign(filePath: string, options: ValidateDesignOptions 
     return ["design.md does not exist."];
   }
 
-  const fm = readFrontmatter(filePath);
-  const issues: string[] = [];
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  // rawLines keeps fence delimiters visible for the visual-surface check
+  // (```mermaid); structural checks use fence-blanked lines.
+  const { issues, lines, rawLines } = validateArtifactStructure(content, STRUCTURE_SPEC);
 
+  const fm = readFrontmatter(filePath);
   if (!fm) {
     issues.push("design.md must start with YAML frontmatter.");
-  } else {
-    if (fm.approved === undefined) {
-      issues.push("design.md frontmatter must contain 'approved' field.");
-    }
+  } else if (fm.approved === undefined) {
+    issues.push("design.md frontmatter must contain 'approved' field.");
   }
 
-  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const { body, hasFrontmatter } = bodyAfterFrontmatter(content);
-  const lines = body.split("\n");
-
-  if (/<!--[\s\S]*?-->/.test(content)) {
-    issues.push("design.md must not contain HTML template comments.");
-  }
-
-  for (const placeholder of BLOCKED_PLACEHOLDERS) {
-    if (placeholder.pattern.test(body)) {
-      issues.push(`design.md must not contain placeholder text: ${placeholder.label}.`);
-    }
-  }
-
-  const topLevelHeadings = lines.map(topLevelHeadingName).filter((heading): heading is string => heading !== null);
-  if (topLevelHeadings.length !== 1 || topLevelHeadings[0] !== "Design") {
-    issues.push("design.md must contain exactly one top-level heading: `# Design`.");
-  }
-
-  for (const line of lines) {
-    const deepHeading = deepHeadingName(line);
-    if (deepHeading) {
-      issues.push(`design.md must not contain headings deeper than \`##\`: \`${line.trim()}\`.`);
-    }
-  }
-
-  validateArchitecturePackageMap(lines, filePath, issues);
+  validateArchitecturePackageMap(lines, rawLines, filePath, issues);
   if (options.prdPath || options.researchPath) {
     validateTraceabilityMapping(lines, options, issues);
   }

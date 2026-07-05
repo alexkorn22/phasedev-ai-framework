@@ -61,10 +61,10 @@ describe("E2E flow via CLI subprocess", () => {
 
   // ── K: Deprecated next ─────────────────────────────────────
 
-  test("next is deprecated — shows warning and exits 1", () => {
+  test("next is deprecated — shows warning and exits 0", () => {
     const result = run(["next"]);
 
-    expect(result.code).toBe(1);
+    expect(result.code).toBe(0);
     expect(result.out).toContain("next");
     expect(result.out).toContain("deprecated");
     expect(result.out).toContain("phase");
@@ -85,6 +85,13 @@ describe("E2E flow via CLI subprocess", () => {
     const st = JSON.parse(fs.readFileSync(statePath, "utf-8"));
     expect(st.activePhase).toBe("change_intake");
     expect(st.activeIteration).toBeNull();
+  });
+
+  test("create-change accepts the name after option flags, as documented", () => {
+    const result = run(["create-change", "--project-path", testTmpDir, "flag-first-change"]);
+
+    expect(result.code).toBe(0);
+    expect(result.out).toContain("Created change flag-first-change");
   });
 
   test("create-change refuses duplicate", () => {
@@ -156,7 +163,7 @@ describe("E2E flow via CLI subprocess", () => {
     const result = run(["advance"]);
 
     expect(result.code).toBe(1);
-    expect(result.out).toContain("artifacts invalid");
+    expect(result.out).toContain("Cannot leave phase");
   });
 
   test("advance refuses without state.json", () => {
@@ -182,7 +189,7 @@ describe("E2E flow via CLI subprocess", () => {
     // advance should refuse
     const adv = run(["advance"]);
     expect(adv.code).toBe(1);
-    expect(adv.out).toContain("artifacts invalid");
+    expect(adv.out).toContain("Cannot leave phase");
   });
 
 });

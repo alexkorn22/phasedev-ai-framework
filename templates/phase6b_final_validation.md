@@ -2,8 +2,6 @@ Phase 6B. Final Validation.
 
 Phase contract: validate the implemented working code before Archive.
 
-Validation mode: review-only phase. This phase checks completeness/correctness through review methods and is not a test execution gate.
-
 {{skill_policy}}
 
 Input artifacts:
@@ -16,7 +14,7 @@ Input artifacts:
 
 Retrieval order:
 - Start from the approved PRD target state, requirements, success criteria, and risk boundaries; then read the approved design, all phases of the implementation plan, rules, and existing validation findings if present.
-- Treat linked artifact paths as the active change source of truth during real phase execution. If only a generated prompt bundle is being evaluated and linked sandbox files are unavailable, use the embedded artifact contract, controller changed-file inventory, and snapshot root shown by the self-check command; mention unavailable sandbox files only as an evaluation limitation, not as a validation finding.
+- Treat linked artifact paths as the active change source of truth.
 - Use repository reads and narrow searches only to verify the full changed-file set, requirements completeness, code review findings, security findings, and contradictions between approved artifacts and actual code.
 
 Required phase-contract checks:
@@ -44,11 +42,7 @@ Required phase-contract checks:
 - use the Artifact Build Contract below as the only source of structure for [validation_findings.md]({{findings_path}});
 - YAML frontmatter in [validation_findings.md]({{findings_path}}) must have `type: final` for Final Validation.
 
-Path resolution rule:
-- `validation_findings.md` in this prompt is a path inside the active change folder, not a path from the project repository root.
-- Write the artifact only to the absolute Output path in the Artifact Build Contract below.
-- In generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead.
-- Do not create or update project-root flow artifact files during this stage.
+{{path_resolution_rule}}
 
 {{validation_common_contract}}
 

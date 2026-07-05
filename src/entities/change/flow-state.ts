@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { SYSTEM_DIR } from "./paths";
 import { findActiveChangeDir } from "./active-change";
-import { findPendingArchiveState } from "./archive-state";
+import { findInvalidArchiveState, findPendingArchiveState } from "./archive-state";
+import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
 export type ActivePhase =
   | "change_intake"
@@ -52,37 +52,76 @@ export function locateFlowStatePath(projectPath: string): string | null {
   const pending = findPendingArchiveState(projectPath);
   if (pending) return path.join(pending.archivePath, FLOW_STATE_FILE);
 
+  // A broken .phase-archive.json makes findPendingArchiveState skip its directory
+  // silently. Fall back to that directory's state.json (if any) so advanceFlow can
+  // still load state and report the invalid archive state instead of "no active change".
+  const invalid = findInvalidArchiveState(projectPath);
+  if (invalid) {
+    const fallbackStatePath = path.join(path.dirname(invalid.statePath), FLOW_STATE_FILE);
+    if (fs.existsSync(fallbackStatePath)) {
+      return fallbackStatePath;
+    }
+  }
+
   return null;
 }
 
+/**
+ * Load the flow state. Returns null only when no state.json exists.
+ * A state.json that exists but cannot be parsed or has an invalid shape
+ * throws: silently treating the phase lock as "no active change" would let
+ * the next saveFlowState overwrite the corrupt file and destroy evidence.
+ */
 export function loadFlowState(projectPath: string): FlowState | null {
   const p = locateFlowStatePath(projectPath);
   if (!p || !fs.existsSync(p)) return null;
 
-  const raw = JSON.parse(fs.readFileSync(p, "utf-8"));
-  if (typeof raw !== "object" || raw === null) return null;
+  const invalid = (reason: string): never => {
+    throw new Error(`Invalid flow state at ${p}: ${reason} Fix or remove state.json, then rerun.`);
+  };
 
-  const activePhase = raw.activePhase;
-  if (!isActivePhase(activePhase)) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch (error: unknown) {
+    return invalid(`not valid JSON (${error instanceof Error ? error.message : "parse error"}).`);
+  }
 
-  const activeIteration = raw.activeIteration ?? null;
+  if (typeof raw !== "object" || raw === null) return invalid("must be a JSON object.");
+  const record = raw as Record<string, unknown>;
+
+  const activePhase = record.activePhase;
+  if (typeof activePhase !== "string" || !isActivePhase(activePhase)) {
+    return invalid(`unknown activePhase ${JSON.stringify(activePhase)}.`);
+  }
+
+  const activeIteration = record.activeIteration ?? null;
   if (activeIteration !== null && (typeof activeIteration !== "number" || !Number.isInteger(activeIteration) || activeIteration <= 0)) {
-    return null;
+    return invalid(`activeIteration must be null or a positive integer, got ${JSON.stringify(activeIteration)}.`);
   }
 
   return { activePhase, activeIteration };
 }
 
+export function writeFlowState(statePath: string, state: FlowState): void {
+  writeFileAtomic(statePath, JSON.stringify(state, null, 2) + "\n");
+}
+
 export function saveFlowState(projectPath: string, state: FlowState): void {
   const p = locateFlowStatePath(projectPath);
   if (!p) throw new Error("No active change: cannot save flow state. Run create-change first.");
-  fs.writeFileSync(p, JSON.stringify(state, null, 2) + "\n", "utf-8");
+  writeFlowState(p, state);
 }
 
 /**
  * Locate the change directory that corresponds to the current flow state.
  * For archive phase, the change is in the archive directory.
  * For other phases, it's the active change directory.
+ *
+ * This is a read-only lookup; it does not diagnose *why* an archive change is
+ * missing. Callers (e.g. advanceFlow) are responsible for consulting
+ * findInvalidArchiveState when this returns null for an archive phase, so that
+ * diagnostic path stays in one place instead of drifting across call sites.
  */
 export function locateChangeDir(projectPath: string, state: FlowState): string | null {
   if (state.activePhase === "archive") {

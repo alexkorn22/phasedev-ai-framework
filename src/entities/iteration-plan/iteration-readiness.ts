@@ -12,14 +12,6 @@ export function hasIncompleteTask(tasks: Task[]): boolean {
   return flattenTasks(tasks).some(task => task.status !== "completed");
 }
 
-export function hasPendingOrFailedEvidence(phase: Iteration): boolean {
-  return hasUnreadyCheckEvidence(phase);
-}
-
-export function hasUnreadyCheckEvidence(phase: Iteration): boolean {
-  return (phase.checkEvidence ?? []).some(row => ["pending", "failed", "blocked"].includes(row.result));
-}
-
 function normalizeEvidenceCommand(value: string): string {
   return value.trim().replace(/^`(.+)`$/, "$1").replace(/\s+/g, " ").trim();
 }
@@ -32,15 +24,6 @@ function hasPassedRequiredCheckEvidence(phase: Iteration, requiredCheck: { check
     row.check.trim().toLowerCase() === requiredCheckName &&
     normalizeEvidenceCommand(row.commandOrMethod) === requiredCommand
   );
-}
-
-export function hasMissingRequiredCheckEvidence(phase: Iteration): boolean {
-  const requiredChecks = phase.requiredChecks ?? [];
-  if (requiredChecks.length === 0) {
-    return false;
-  }
-
-  return requiredChecks.some(required => !hasPassedRequiredCheckEvidence(phase, required));
 }
 
 export function iterationValidationBlockers(phase: Iteration): string[] {

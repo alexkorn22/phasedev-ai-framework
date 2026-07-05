@@ -54,12 +54,9 @@ Repair class map:
 - `security`: change affected source/config/tests needed to remove the security blocker inside approved scope; if the fix changes public requirements, use the `requirements` rule;
 - `code_review`: change the exact files or active change artifacts identified by the review finding; if review evidence is stale or wrong, update only the finding row with precise evidence.
 
-Path resolution rule:
-- Flow artifact names in this prompt (`prd.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) refer to the linked files inside the active change folder, not paths from the project repository root.
+{{path_resolution_rule}}
 - Production/test/source/config changes may be outside `.phasedev/**` only when required by an `implementation`, `test`, `security`, or `code_review` repair finding.
-- Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create or update a project-root `architecture/` directory as a flow design artifact.
-- Write or update `validation_findings.md` only at the absolute Output path in the Artifact Build Contract below.
-- in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence; during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead.
+- Design repair updates [design.md]({{design_path}}) and related active change folder `architecture/*.md` files; do not create a project-root `architecture/` directory as a flow design artifact.
 
 Verdict rule:
 - preserve `type` in YAML frontmatter as the scope of the latest validation: `iteration` for Iteration Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `iteration`;

@@ -27,6 +27,12 @@ export interface RequiredCheck {
 export interface Iteration {
   id: number;
   name: string;
+  /**
+   * Derived from the heading checkbox `[x|~| |/]`. `x` is completed, `~` is
+   * in_progress, and both ` ` and `/` are not_started: `/` is an accepted but
+   * unwritten heading marker (writers never emit it) and is deliberately kept
+   * distinct from `~` so it never counts as the single active iteration.
+   */
   status: "completed" | "in_progress" | "not_started";
   tasks: Task[];
   additionalChecks: string[];
