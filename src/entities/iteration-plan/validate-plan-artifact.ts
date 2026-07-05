@@ -8,6 +8,7 @@ import { validateArtifactStructure, validateTableShape, type ArtifactStructureSp
 import { CANONICAL_ITERATION_HEADING_SYNTAX } from "./contract-messages";
 import { parsePlan } from "./parse-plan";
 import { validatePlanStructure } from "./validate-plan";
+import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
 
 const REQUIRED_TOP_LEVEL_SECTIONS = ["Approval Summary", "Generation Bundle", "Iteration Overview"];
 const APPROVAL_SUMMARY_HEADERS = ["Area", "Decision"];
@@ -110,6 +111,47 @@ function validateDesignDecisionTraceability(body: string, designPath: string | u
   }
 }
 
+const TRACE_TOKEN_PATTERN = /\b(?:SC|R|D)\d+\b/g;
+
+function validateTraceReferenceExistence(
+  body: string,
+  prdPath: string | undefined,
+  designPath: string | undefined,
+  issues: string[]
+): void {
+  const knownRequirements = new Set<string>();
+  const knownCriteria = new Set<string>();
+  const prdAvailable = Boolean(prdPath && fs.existsSync(prdPath));
+  if (prdPath && prdAvailable) {
+    const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
+    for (const id of requirements) knownRequirements.add(id);
+    for (const id of criteria) knownCriteria.add(id);
+  }
+  const knownDecisions = extractDesignDecisionIds(designPath);
+
+  const scannable = blankFencedCodeLines(body.split("\n")).join("\n");
+  const reported = new Set<string>();
+  for (const token of scannable.match(TRACE_TOKEN_PATTERN) ?? []) {
+    if (reported.has(token)) {
+      continue;
+    }
+    if (token.startsWith("SC")) {
+      if (prdAvailable && !knownCriteria.has(token)) {
+        reported.add(token);
+        issues.push(`iteration_plan.md references unknown trace ID \`${token}\`; it is not declared in prd.md.`);
+      }
+    } else if (token.startsWith("R")) {
+      if (prdAvailable && !knownRequirements.has(token)) {
+        reported.add(token);
+        issues.push(`iteration_plan.md references unknown trace ID \`${token}\`; it is not declared in prd.md.`);
+      }
+    } else if (knownDecisions.size > 0 && !knownDecisions.has(token)) {
+      reported.add(token);
+      issues.push(`iteration_plan.md references unknown trace ID \`${token}\`; it is not declared in architecture/design.md Key Design Decisions.`);
+    }
+  }
+}
+
 function expectedSurfaceBasePath(planPath: string): string {
   const normalized = path.resolve(planPath);
   const marker = `${path.sep}.phasedev${path.sep}changes${path.sep}`;
@@ -135,6 +177,7 @@ export function validatePlanArtifact(filePath: string, prdPath?: string, designP
   validateTableShape(lines, ITERATION_OVERVIEW_TABLE, issues);
   issues.push(...validatePlanStructure(parsePlan(filePath), prdPath, expectedSurfaceBasePath(filePath)));
   validateDesignDecisionTraceability(body, designPath, issues);
+  validateTraceReferenceExistence(body, prdPath, designPath, issues);
 
   return issues;
 }

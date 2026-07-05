@@ -666,6 +666,175 @@ Add bounded expected change surfaces for R1, SC1, and D1.
     expect(validatePlanArtifact(validPlanFile, prdFile)).toEqual([]);
   });
 
+  test("plan referencing an undeclared R#/SC#/D# is invalid", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const prdFile = path.join(testTmpDir, "prd.md");
+    const planFile = path.join(testTmpDir, "unknown_trace_plan.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(prdFile, `# PRD
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | Update plan artifact scope control. |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Plan validation accepts bounded expected change surfaces. | test |
+`, "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+date: 2026-06-02
+---
+${validDesignBody()}
+`, "utf-8");
+
+    const planBody = `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
+| Out of scope | Runtime product behavior. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update prompt and validator code for R1, SC1, D1. |
+| Tests | yes | Add parser regression for R1, SC1, D1. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert plan validator changes. |
+
+## Iteration Overview
+
+| Iteration | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Iteration 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+
+## Iteration 1: Plan Surface [~]
+
+### Goal
+
+Add bounded expected change surfaces for R1, SC1, and D1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/entities/iteration-plan/*.ts\` | update | Plan artifact validation | R1, SC1, D1 |
+| \`templates/**/*.md\` | update | Prompt contracts | R1, SC1, D1 |
+
+### Tasks
+
+- [x] 1.1 Implement validator.
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | parser tests passed | none |
+`;
+    fs.writeFileSync(planFile, planBody.replace(/R1, SC1, D1/g, "R1 R9, SC1 SC9, D1 D9"), "utf-8");
+
+    const issues = validatePlanArtifact(planFile, prdFile, designFile);
+
+    expect(issues).toContain("iteration_plan.md references unknown trace ID `R9`; it is not declared in prd.md.");
+    expect(issues).toContain("iteration_plan.md references unknown trace ID `SC9`; it is not declared in prd.md.");
+    expect(issues).toContain("iteration_plan.md references unknown trace ID `D9`; it is not declared in architecture/design.md Key Design Decisions.");
+  });
+
+  test("unknown-ID check is skipped when PRD or design is unavailable", () => {
+    const planFile = path.join(testTmpDir, "unknown_trace_no_artifacts_plan.md");
+    cleanupTestDir();
+    setupTestDir();
+
+    const planBody = `---
+approved: true
+date: 2026-06-02
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
+| Out of scope | Runtime product behavior. |
+| Sequencing risk | none |
+| Validation | Run parser tests. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Update prompt and validator code for R1, SC1, D1. |
+| Tests | yes | Add parser regression for R1, SC1, D1. |
+| Docs/specs | not_applicable | No docs change. |
+| Migrations | not_applicable | No migrations. |
+| Feature flags/rollout | not_applicable | No rollout. |
+| Observability | not_applicable | No observability. |
+| Rollback path | not_applicable | Revert plan validator changes. |
+
+## Iteration Overview
+
+| Iteration | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Iteration 1 | Add expected surface validation for R1, SC1, D1. | 1.1 | unit |
+
+## Iteration 1: Plan Surface [~]
+
+### Goal
+
+Add bounded expected change surfaces for R1, SC1, and D1.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| \`src/entities/iteration-plan/*.ts\` | update | Plan artifact validation | R1, SC1, D1 |
+| \`templates/**/*.md\` | update | Prompt contracts | R1, SC1, D1 |
+
+### Tasks
+
+- [x] 1.1 Implement validator.
+
+### Checks
+
+- unit: \`bun test test/parser.test.ts\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/parser.test.ts\` | passed | parser tests passed | none |
+`;
+    fs.writeFileSync(planFile, planBody.replace(/R1, SC1, D1/g, "R1 R9, SC1 SC9, D1 D9"), "utf-8");
+
+    const issues = validatePlanArtifact(planFile);
+
+    expect(issues.filter(issue => issue.includes("unknown trace ID"))).toHaveLength(0);
+  });
+
   test("validatePlanArtifact rejects concrete modify paths that do not exist", () => {
     const planFile = path.join(testTmpDir, "missing_modify_surface_plan.md");
     cleanupTestDir();
