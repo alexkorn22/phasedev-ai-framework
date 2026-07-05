@@ -14,6 +14,32 @@ import { renderArtifactContract } from "./artifact-contract";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
 import { RESEARCH_TEMPLATE_SAMPLE_VALUES } from "../../entities/research-facts/sample-values";
 
+// ── Phase Opening Summary ──────────────────────────────────
+
+const PHASE_SUMMARIES: Partial<Record<Phase, { output: string; selfCheck: string }>> = {
+  change_intake:        { output: "prd.md and execution_contract.md", selfCheck: "phasedev check" },
+  code_research:        { output: "research_facts.md",                 selfCheck: "phasedev check" },
+  technical_design:     { output: "architecture/design.md",            selfCheck: "phasedev check" },
+  iteration_planning:   { output: "iteration_plan.md",                 selfCheck: "phasedev check" },
+  implementation:       { output: "repository files per iteration",    selfCheck: "phasedev check" },
+  iteration_validation: { output: "validation_findings.md",            selfCheck: "phasedev check-validation --scope iteration" },
+  final_validation:     { output: "validation_findings.md",            selfCheck: "phasedev check-validation --scope final" },
+  finding_repair:       { output: "repository files (fixes)",          selfCheck: "phasedev check" },
+  archive:              { output: "delta specs in archive",            selfCheck: "phasedev check-archive" },
+};
+
+export function renderPhaseOpeningSummary(phase: Phase): string {
+  const summary = PHASE_SUMMARIES[phase];
+  if (!summary) return "";
+  return [
+    "> **Phase summary:**",
+    `> - Output: \`${summary.output}\` per embedded Artifact Build Contract.`,
+    `> - Done when: \`${summary.selfCheck}\` passes.`,
+    "> - Forbidden: change `approved` fields manually, write outside phase allowlist.",
+    ""
+  ].join("\n");
+}
+
 // ── Helpers ────────────────────────────────────────────────
 
 export function urlsFor(paths: ReturnType<typeof buildChangePaths>) {
@@ -57,6 +83,7 @@ export function renderPhaseTemplate(
   return renderTemplate(templateName, {
     ...variables,
     path_resolution_rule: PATH_RESOLUTION_RULE,
+    phase_opening_summary: renderPhaseOpeningSummary(phase),
     self_check_fallback: SELF_CHECK_FALLBACK,
     prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
     research_template_path: toFileUrl(resolveTemplatePath("artifacts/research_facts")),

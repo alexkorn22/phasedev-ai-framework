@@ -966,7 +966,7 @@ stages:
     expect(implementationPrompt).toContain("--project-path");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Iteration 1: Prompt Generation");
-    expect(implementationPrompt).not.toContain("Artifact Build Contract");
+    expect(implementationPrompt).not.toContain("{{artifact_build_contract}}");
     expect(phaseValidationPrompt).toContain("Retrieval order:");
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
     expect(phaseValidationPrompt).toContain("Context budget and stop condition:");

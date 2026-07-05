@@ -1,4 +1,4 @@
-Phase 5. Implementation.
+{{phase_opening_summary}}Phase 5. Implementation.
 
 Phase contract: complete only the current iteration of the approved implementation plan.
 

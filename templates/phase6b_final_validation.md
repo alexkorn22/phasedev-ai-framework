@@ -1,4 +1,4 @@
-Phase 6B. Final Validation.
+{{phase_opening_summary}}Phase 6B. Final Validation.
 
 Phase contract: validate the implemented working code before Archive.
 

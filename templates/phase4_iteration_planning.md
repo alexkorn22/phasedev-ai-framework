@@ -1,4 +1,4 @@
-Phase 4. Iteration Planning.
+{{phase_opening_summary}}Phase 4. Iteration Planning.
 
 Your task is to decompose the approved technical design into a step-by-step implementation plan.
 

@@ -1,4 +1,4 @@
-Phase 6A. Iteration Validation.
+{{phase_opening_summary}}Phase 6A. Iteration Validation.
 
 Phase contract: validate current iteration readiness against the implementation plan. This validation runs for every iteration, including the only iteration in a single-iteration plan.
 

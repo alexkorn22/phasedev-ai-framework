@@ -1,4 +1,4 @@
-Phase 6R. Finding Repair.
+{{phase_opening_summary}}Phase 6R. Finding Repair.
 
 Phase contract: process open validation findings and prepare the change for validation again.
 
