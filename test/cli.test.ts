@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getConfigValue, parseConfig } from "../src/entities/config/config";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
-import { getRoutePrompt } from "../src/features/phase-control";
+import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";

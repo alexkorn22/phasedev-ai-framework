@@ -31,6 +31,9 @@ import {
  *
  * Pure read-only: never mutates artifacts or state. The archive mutation is
  * owned by advance/startArchiveStage; state transitions are owned by advance.
+ *
+ * Not part of the public CLI surface: kept as the route→prompt parity harness
+ * for controller tests; production prompts go through getPhasePrompt.
  */
 export function getRoutePrompt(projectPath: string, config: Config = loadConfig()): Prompt {
   const route = resolveRoute(projectPath);

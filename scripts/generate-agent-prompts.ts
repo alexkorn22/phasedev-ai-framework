@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { getInitPrompt, getRoutePrompt } from "../src/features/phase-control";
+import { getInitPrompt } from "../src/features/phase-control";
+import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";

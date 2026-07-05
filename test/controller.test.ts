@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { getInitPrompt, getRoutePrompt } from "../src/features/phase-control";
+import { getInitPrompt } from "../src/features/phase-control";
+import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { createArchiveState } from "../src/entities/change/archive-state";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
