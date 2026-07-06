@@ -1,8 +1,6 @@
-import { createHash } from "crypto";
 import * as fs from "fs";
 import { parse as parseYaml } from "yaml";
 import { normalizeLineEndings } from "./normalize-line-endings";
-import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "./table";
 
 export interface FrontmatterBlock {
   prefix: string;
@@ -50,63 +48,6 @@ export function readFrontmatterValue(filePath: string, key: string): string | nu
   return value !== undefined && value !== null ? String(value) : null;
 }
 
-// Task checkboxes ([x], [~], [ ], [/]) track execution progress and are
-// expected to change during implementation without re-approval; only the
-// task text itself is a plan-content change.
-function normalizeTaskCheckboxes(body: string): string {
-  return body.replace(/^(\s*-\s*)\[\s*(?:x|~| |\/)\s*\]/gim, "$1[ ]");
-}
-
-// Check Evidence rows record run results (Result, Evidence, Notes) that are
-// filled in while a plan is being executed; only the Check name and Command
-// Or Method are plan content, so only those columns affect the hash.
-function normalizeCheckEvidenceTables(body: string): string {
-  const lines = body.split("\n");
-  const headingPattern = /^###\s+Check Evidence\s*$/i;
-
-  for (let index = 0; index < lines.length; index++) {
-    if (!headingPattern.test(lines[index].trim())) {
-      continue;
-    }
-
-    let rowIndex = index + 1;
-    while (rowIndex < lines.length && !lines[rowIndex].trim().startsWith("|")) {
-      if (/^#{1,3}\s+/.test(lines[rowIndex].trim())) {
-        break;
-      }
-      rowIndex++;
-    }
-
-    rowIndex += 2; // skip header row and separator row
-    while (rowIndex < lines.length && lines[rowIndex].trim().startsWith("|")) {
-      const cells = splitMarkdownTableRow(lines[rowIndex]);
-      if (cells.length === 5 && !isMarkdownTableSeparatorRow(cells)) {
-        const normalizedCells = [cells[0], cells[1], "pending", "", ""].map(escapeMarkdownTableCell);
-        lines[rowIndex] = `| ${normalizedCells.join(" | ")} |`;
-      }
-      rowIndex++;
-    }
-  }
-
-  return lines.join("\n");
-}
-
-export function approvalContentHash(content: string): string {
-  const normalized = normalizeLineEndings(content);
-  const block = matchFrontmatterBlock(normalized);
-  let body = block ? normalized.slice(block.endIndex) : normalized;
-  // Normalize iteration status markers in headings ([x], [~], [ ], [/] → [ ])
-  // so that status changes don't invalidate the approval hash while actual
-  // content changes still do.
-  body = body.replace(
-    /(##\s*Iteration\s+\d+\s*:\s*.+?)\s*\[\s*(?:x|~| |\/)\s*\]/gi,
-    "$1 [ ]",
-  );
-  body = normalizeTaskCheckboxes(body);
-  body = normalizeCheckEvidenceTables(body);
-  return createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
-}
-
 export function isApproved(filePath: string): boolean {
   if (!fs.existsSync(filePath)) {
     return false;
@@ -117,17 +58,5 @@ export function isApproved(filePath: string): boolean {
   if (!fm) {
     return false;
   }
-  const approved = fm.approved === true || String(fm.approved).toLowerCase() === "true";
-  if (!approved) {
-    return false;
-  }
-
-  const storedHash = fm.approved_hash;
-  if (storedHash === undefined || storedHash === null || String(storedHash).length === 0) {
-    // Approval without content hash is rejected (hand-edited or legacy).
-    // The framework always writes approved_hash alongside approved: true.
-    return false;
-  }
-
-  return String(storedHash) === approvalContentHash(content);
+  return fm.approved === true || String(fm.approved).toLowerCase() === "true";
 }

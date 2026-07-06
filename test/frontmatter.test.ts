@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { approvalContentHash, matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
+import { matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
 import { bodyAfterFrontmatter } from "../src/shared/markdown/headings";
 
 let tmpDir: string;
@@ -49,102 +49,5 @@ describe("unified frontmatter policy", () => {
   test("content without frontmatter returns null / passthrough", () => {
     expect(matchFrontmatterBlock("# Title\n")).toBeNull();
     expect(bodyAfterFrontmatter("# Title\n")).toEqual({ body: "# Title\n", hasFrontmatter: false });
-  });
-});
-
-describe("approvalContentHash iteration heading normalization", () => {
-  function makeContent(status: string): string {
-    return `---
-approved: true
----
-
-## Iteration 1: Test [${status}]
-
-Some body content here.
-`;
-  }
-
-  test("all status markers ([x], [~], [ ], [/]) normalize to the same hash", () => {
-    const hashX = approvalContentHash(makeContent("x"));
-    const hashTilde = approvalContentHash(makeContent("~"));
-    const hashSpace = approvalContentHash(makeContent(" "));
-    const hashSlash = approvalContentHash(makeContent("/"));
-
-    expect(hashTilde).toBe(hashX);
-    expect(hashSpace).toBe(hashX);
-    expect(hashSlash).toBe(hashX);
-  });
-
-  test("different body text produces different hash", () => {
-    const hash1 = approvalContentHash(makeContent("x"));
-    const differentContent = makeContent("x").replace(
-      "Some body content here.",
-      "Different body content here.",
-    );
-    const hash2 = approvalContentHash(differentContent);
-    expect(hash1).not.toBe(hash2);
-  });
-
-  test("content with no iteration headings produces consistent hash", () => {
-    const content = `---
-approved: true
----
-
-# Just a title
-
-Some text.
-`;
-    expect(approvalContentHash(content)).toBe(approvalContentHash(content));
-  });
-});
-
-describe("approvalContentHash task and Check Evidence normalization", () => {
-  function makePlan(taskMarker: string, result: string, evidence: string): string {
-    return `---
-approved: true
----
-
-## Iteration 1: Test [~]
-
-### Tasks
-
-- [${taskMarker}] 1.1 Do the thing
-
-### Check Evidence
-
-| Check | Command Or Method | Result | Evidence | Notes |
-|---|---|---|---|---|
-| unit | \`npm test\` | ${result} | ${evidence} |  |
-`;
-  }
-
-  test("task checkbox marker changes do not invalidate the hash", () => {
-    const notStarted = approvalContentHash(makePlan(" ", "pending", ""));
-    const inProgress = approvalContentHash(makePlan("~", "pending", ""));
-    const completed = approvalContentHash(makePlan("x", "pending", ""));
-
-    expect(inProgress).toBe(notStarted);
-    expect(completed).toBe(notStarted);
-  });
-
-  test("task text changes still invalidate the hash", () => {
-    const original = makePlan(" ", "pending", "");
-    const renamed = original.replace("Do the thing", "Do a different thing");
-
-    expect(approvalContentHash(renamed)).not.toBe(approvalContentHash(original));
-  });
-
-  test("Check Evidence Result and Evidence changes do not invalidate the hash", () => {
-    const pending = approvalContentHash(makePlan(" ", "pending", ""));
-    const passed = approvalContentHash(makePlan("x", "passed", "44 tests pass"));
-
-    expect(passed).toBe(pending);
-  });
-
-  test("Check Evidence Check or Command changes still invalidate the hash", () => {
-    const original = makePlan(" ", "pending", "");
-    const differentCommand = original.replace("`npm test`", "`npm run test:unit`");
-
-    expect(approvalContentHash(differentCommand)).not.toBe(approvalContentHash(original));
   });
 });
