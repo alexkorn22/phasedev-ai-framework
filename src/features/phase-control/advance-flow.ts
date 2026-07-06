@@ -31,6 +31,15 @@ function refuse(message: string): AdvanceResult {
   return { ok: false, advanced: false, finished: false, newState: null, message };
 }
 
+/**
+ * Terminal success: the flow has finished (e.g. archive completed).
+ * Returns ok:true with finished:true so an external orchestrator
+ * can distinguish a clean finish from an error (refuse).
+ */
+function done(message: string): AdvanceResult {
+  return { ok: true, advanced: false, finished: true, newState: null, message };
+}
+
 function ok(newState: FlowState, message: string, finished = false): AdvanceResult {
   return { ok: true, advanced: true, finished, newState, message };
 }
@@ -204,7 +213,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   if (!state) {
     const completedArchive = findCompletedArchiveState(projectPath);
     if (completedArchive) {
-      return refuse("Archive complete. Flow finished.");
+      return done("Archive complete. Flow finished.");
     }
     return refuse("No active change. Run: phasedev create-change <name>.");
   }

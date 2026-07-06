@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
-import { createArchiveState } from "../src/entities/change/archive-state";
+import { createArchiveState, findCompletedArchiveState } from "../src/entities/change/archive-state";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
@@ -806,6 +806,39 @@ Complete API work.
     }
   });
 
+  test("repaired verdict with null activeIteration picks finding's iteration, not first not_started", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      // Findings with "repaired" verdict, no open MUST-FIX, but an open non-blocking
+      // finding that points to iteration 1.  The route should re-validate iteration 1
+      // (from the open finding's iteration field), not skip to iteration 2.
+      findings: validationFindings("repaired", "iteration", "| F1 | open | RECOMMENDED | implementation | 1 | Non-blocking note. | Review. |\n")
+    });
+    // Override state.json: activePhase=finding_repair, activeIteration=null
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    // Should route to iteration_validation for iteration 1 (from open finding),
+    // not iteration 2 (first not_started)
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(1);
+      expect(route.phase).toBe("iteration_validation");
+    }
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1309,7 +1342,7 @@ Complete API work.
     expect(result.message).toContain("3");
   });
 
-  test("advanceFlow returns 'Archive complete. Flow finished.' for completed archive", () => {
+  test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
 
@@ -1335,8 +1368,45 @@ Complete API work.
 
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(result.finished).toBe(true);
+    expect(result.advanced).toBe(false);
+    expect(result.newState).toBeNull();
     expect(result.message).toBe("Archive complete. Flow finished.");
+  });
+
+  test("advanceFlow returns 'No active change' when no archive exists and no change is active", () => {
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.finished).toBe(false);
+    expect(result.message).toBe("No active change. Run: phasedev create-change <name>.");
+  });
+
+  test("findCompletedArchiveState returns null when there is an active change (not in archive)", () => {
+    // Create an active change
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+
+    // Create a completed archive directory alongside, which should be ignored
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(archiveDir, ".phase-archive.json"),
+      JSON.stringify({
+        status: "completed",
+        changeName: "sample-change",
+        archivePath: archiveDir,
+        startedAt: "2026-07-06T00:00:00.000Z",
+        completedAt: "2026-07-06T01:00:00.000Z"
+      }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    // With an active change present, findCompletedArchiveState should return null
+    // (the active change takes precedence over a completed archive)
+    const result = findCompletedArchiveState(testTmpDir);
+    expect(result).toBeNull();
   });
 
   describe("reopen phase", () => {

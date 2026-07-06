@@ -155,15 +155,40 @@ export function resolveRoute(projectPath: string): Route {
   // stale Check Evidence that the repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
     const flowState = loadFlowState(projectPath);
-    const activeIteration = (flowState?.activeIteration != null
-      ? planPhases.find(phase => phase.id === flowState.activeIteration)
-      : undefined) ?? planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
-    if (activeIteration) {
+
+    // 1. Prefer the state-tracked iteration (when non-null)
+    let targetIteration: Iteration | undefined;
+    if (flowState?.activeIteration != null) {
+      targetIteration = planPhases.find(phase => phase.id === flowState.activeIteration);
+    }
+
+    // 2. When activeIteration is null (finding_repair clears it), fall back to
+    //    open findings' iteration field. This is more reliable than picking the
+    //    first in_progress/not_started iteration, which may skip an iteration
+    //    that was completed [x] before the repair cycle started.
+    if (!targetIteration) {
+      const openFindingIteration = findings.openRows
+        .map(row => {
+          const num = parseInt(row.phase, 10);
+          return isNaN(num) ? null : num;
+        })
+        .find((n): n is number => n != null);
+      if (openFindingIteration != null) {
+        targetIteration = planPhases.find(phase => phase.id === openFindingIteration);
+      }
+    }
+
+    // 3. Final fallback: first in_progress or not_started iteration
+    if (!targetIteration) {
+      targetIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+    }
+
+    if (targetIteration) {
       return {
         kind: "iteration",
         phase: "iteration_validation",
         paths,
-        activeIteration,
+        activeIteration: targetIteration,
         activeChangePath: changeDir
       };
     }

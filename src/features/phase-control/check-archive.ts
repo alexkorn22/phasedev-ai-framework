@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { archiveDirectories, FLOW_ARCHIVE_STATE_FILE, readArchiveState, validateArchiveStateFile } from "../../entities/change/archive-state";
+import { FLOW_STATE_FILE } from "../../entities/change/flow-state";
 
 export interface ArchiveCheckResult {
   ok: boolean;
@@ -157,6 +158,20 @@ export function findOrphanedArchiveDirectories(projectPath: string): string[] {
   const orphans: string[] = [];
 
   for (const archivePath of archiveDirectories(projectPath)) {
+    // An in_progress archive that has a live state.json (activePhase === "archive")
+    // is the currently-tracked archive — not an orphan.
+    const flowStatePath = path.join(archivePath, FLOW_STATE_FILE);
+    if (fs.existsSync(flowStatePath)) {
+      try {
+        const flowStateRaw = JSON.parse(fs.readFileSync(flowStatePath, "utf-8"));
+        if (flowStateRaw?.activePhase === "archive") {
+          continue; // Actively tracked archive — skip
+        }
+      } catch {
+        // Malformed state.json — fall through to normal orphan check
+      }
+    }
+
     const statePath = path.join(archivePath, FLOW_ARCHIVE_STATE_FILE);
     if (!fs.existsSync(statePath)) {
       orphans.push(`${archivePath}: orphan, no archive state (${FLOW_ARCHIVE_STATE_FILE} missing).`);

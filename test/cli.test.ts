@@ -1214,6 +1214,29 @@ autoApprove: true
     expect(result.output).not.toContain("done-change");
   });
 
+  test("check --check-orphans does not report actively-pending archive as orphan", () => {
+    // Create a pending (in_progress) archive directory WITH state.json
+    const pendingDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-active-change");
+    fs.mkdirSync(pendingDir, { recursive: true });
+    fs.writeFileSync(path.join(pendingDir, ".phase-archive.json"), JSON.stringify({
+      status: "in_progress",
+      changeName: "active-change",
+      archivePath: pendingDir,
+      startedAt: "2026-07-06T10:00:00.000Z"
+    }, null, 2), "utf-8");
+    fs.writeFileSync(path.join(pendingDir, "state.json"), JSON.stringify({
+      activePhase: "archive",
+      activeIteration: null,
+      repairCycleCount: 0
+    }, null, 2) + "\n", "utf-8");
+
+    const result = runCheck(["--check-orphans"]);
+
+    // The pending archive is actively tracked — not orphaned
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV ARCHIVE ORPHAN CHECK] OK");
+  });
+
   test("check-validation final fails when findings type is phase", () => {
     setupChange(`
 # Plan

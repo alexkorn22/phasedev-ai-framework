@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { archiveRootPath } from "./paths";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { findActiveChangeDir } from "./active-change";
 
 export interface ArchiveState {
   status: "in_progress" | "completed";
@@ -211,6 +212,12 @@ export function findPendingArchiveState(projectPath: string): ArchiveState | nul
 }
 
 export function findCompletedArchiveState(projectPath: string): string | null {
+  // If there is an active change (in changes/ not changes/archive/), prefer it
+  // and don't report a completed archive — the active change takes precedence.
+  if (findActiveChangeDir(projectPath)) {
+    return null;
+  }
+
   for (const directory of archiveDirectories(projectPath)) {
     const state = readArchiveState(directory);
     if (state?.status === "completed") {
