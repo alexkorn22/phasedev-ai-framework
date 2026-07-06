@@ -389,7 +389,7 @@ None.
 `;
     const designPath = path.join(cdir, "architecture", "design.md");
     // Write without approval in frontmatter; then use simulateAgent for correct hash
-    writeFile(designPath, designBody.replace("approved: false\napproved_by: \"\"\ndate: 2026-07-06", "approved: false\napproved_by: \"\"\ndate: 2026-07-06"));
+    writeFile(designPath, designBody);
 
     // Approve via CLI to get proper approved_hash
     const approveDesign = run(["approve", designPath]);
@@ -604,9 +604,9 @@ The E2E flow SHALL complete without re-approvals.
     writeFile(archiveStateFilePath, JSON.stringify(currentArchiveState, null, 2) + "\n");
 
     // Verify archive completion via check-archive (uses explicit path, bypassing loadFlowState)
-    const adv8 = run(["check-archive", "--archive-path", fullArchivePath]);
-    expect(adv8.code).toBe(0);
-    expect(adv8.out).toContain("OK");
+    const archiveCheck = run(["check-archive", "--archive-path", fullArchivePath]);
+    expect(archiveCheck.code).toBe(0);
+    expect(archiveCheck.out).toContain("OK");
 
     // ===================================================================
     // Final verification — also verify files directly
