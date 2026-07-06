@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { createHash } from "crypto";
+import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
@@ -215,7 +215,7 @@ function saveNextPrompt(
 
 function approvedArtifact(body: string): string {
   const trimmedBody = body.trim();
-  const contentHash = createHash("sha256").update(trimmedBody, "utf-8").digest("hex").slice(0, 12);
+  const contentHash = approvalContentHash(trimmedBody);
   return `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${trimmedBody}\n`;
 }
 
