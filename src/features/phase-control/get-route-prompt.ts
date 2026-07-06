@@ -1,4 +1,4 @@
-import { Config, loadConfig } from "../../entities/config/config";
+import { Config, DEFAULT_CONFIG } from "../../entities/config/config";
 import { Prompt } from "../../entities/phase/types";
 import { archivePrompt } from "./archive-stage";
 import {
@@ -37,7 +37,7 @@ import {
  * scripts/generate-agent-prompts.ts (npm run prompts:generate); production
  * CLI prompts go through getPhasePrompt.
  */
-export function getRoutePrompt(projectPath: string, config: Config = loadConfig()): Prompt {
+export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CONFIG): Prompt {
   const route = resolveRoute(projectPath);
 
   switch (route.kind) {

@@ -383,7 +383,7 @@ Test fixture only.
     expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
-    expect(result.prompt).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(result.prompt).toContain("Skill compliance: none configured.");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
@@ -445,7 +445,7 @@ Test fixture only.
     expect(result.prompt).toContain("Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed.");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
     expect(result.prompt).toContain("Final response must be compact and include");
-    expect(result.prompt).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
+    expect(result.prompt).toContain("Skill compliance: none configured.");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("Self-check command:");
 
