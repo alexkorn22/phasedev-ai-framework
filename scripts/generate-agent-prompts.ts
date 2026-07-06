@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
@@ -215,8 +214,7 @@ function saveNextPrompt(
 
 function approvedArtifact(body: string): string {
   const trimmedBody = body.trim();
-  const contentHash = approvalContentHash(trimmedBody);
-  return `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${trimmedBody}\n`;
+  return `---\napproved: true\n---\n${trimmedBody}\n`;
 }
 
 function prdBody(): string {
