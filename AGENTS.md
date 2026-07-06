@@ -1,6 +1,25 @@
-# PhaseDev AI Framework Agent System Prompt
+# PhaseDev AI Framework — Agent Operating Contract
 
-This file is the repo-local system prompt for agents working inside `PhaseDev AI Framework`.
+This file is the BINDING operating contract for every agent session in this repository — not background reading. Every rule here overrides your defaults, your habits, and any generic guidance you were trained on. Only an explicit instruction from the user in the current conversation may override a rule here. Re-read this contract's Hard Gates whenever you start a new task within a session.
+
+## Rule Zero: How To Comply
+
+1. Treat every MUST / MUST NOT below as a hard gate, not a preference. The following thoughts are NEVER valid reasons to skip a gate: "the change is trivial", "this is obvious", "the rule is overkill here", "I'll do it after this one step", "the session is almost over".
+2. Before starting ANY task, scan the Hard Gates table and state (to yourself or in your plan) which gates the task triggers.
+3. Before giving your FINAL answer, run the Exit Checklist at the bottom of this file. If any item fails, fix it before answering — do not answer and apologize later.
+4. If you cannot comply with a rule (skill unavailable, user request conflicts with a preserved contract, ambiguity), STOP and ask the user. Silently deviating is a contract violation; asking is not.
+
+## Hard Gates
+
+| When you are about to… | You MUST first… |
+|---|---|
+| Write, edit, or design ANY code — even one line | Invoke the `dev-core` skill and follow its discipline for the rest of the task |
+| Delegate implementation work to a subagent | Include an explicit instruction in the delegation prompt: invoke `dev-core` before coding |
+| Change anything listed in "Behavior To Preserve" | Obtain explicit user approval in the current conversation |
+| Add logic to root `src/` or recreate a root archive/parser/checker/template/controller/runner/config script | Stop — put the logic in `src/features`, `src/entities`, or `src/shared` instead |
+| Finish a task that changed production behavior or imports | Update the affected tests, run focused tests, then the full suite for cross-module changes |
+| Call a built-in generic subagent (`general-purpose`, `Explore`, `Plan`, …) | Pass an explicit `model` matched to task complexity (never `"fable"`, never omitted) |
+| Claim work is done | Verify with real command output; report failures honestly, never as success |
 
 ## Mission
 
@@ -11,17 +30,17 @@ Public entrypoints:
 - `src/cli.ts`: manual CLI. Run `phasedev help` (or `phasedev --help`) for the full, current command list.
 - `next` is **deprecated** — use `phase` + `advance` instead.
 
-Do not reintroduce separate root archive, parser, checker, template, controller, runner, or config scripts.
+You MUST NOT reintroduce separate root archive, parser, checker, template, controller, runner, or config scripts.
 
 ## Architecture
 
-Root `src/` must stay thin. Put logic in:
+Root `src/` MUST stay thin. Logic belongs in:
 
 - `src/features/phase-control`: phase routing, prompt construction, blockers, archive phase orchestration.
 - `src/entities/*`: `phase` (phase types), `change` (paths/state/approval/archive state), `config` (config parsing), `iteration-plan` (plan parsing/validation), `validation-findings`, `prd`, `design`, `research-facts`, `execution-contract`, `test-commands`, `schema`.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 
-Dependency direction should be:
+Dependency direction MUST be:
 
 - entrypoints -> features
 - features -> entities and shared
@@ -30,7 +49,7 @@ Dependency direction should be:
 
 ## Behavior To Preserve
 
-Keep these contracts stable unless the user explicitly changes them:
+These contracts are frozen. You MUST NOT change them unless the user explicitly asks in the current conversation:
 
 - Phase routing before Archive (previously Stage routing before Archive).
 - `state.json = { activePhase, activeIteration, repairCycleCount }` — lock of the current phase.
@@ -46,22 +65,22 @@ Phase skill routing is configured in `config.yaml`, not in a separate `skill_rou
 
 For each `phases.<phase>.skills` (or legacy `stages.<stage>.skills` / `codex.stages.<stage>.skills`):
 
-- `routers`: optional routing/control skills. If present, the generated phase prompt must tell the agent to read them first.
-- `main`: primary allowed method skills. These are not mandatory preloads; the agent should load them only when phase evidence requires them.
-- `additional`: secondary allowed method skills. These are used only when `main` is insufficient or an additional skill is clearly more suitable.
+- `routers`: optional routing/control skills. If present, the generated phase prompt MUST tell the agent to read them first.
+- `main`: primary allowed method skills. Not mandatory preloads; the agent loads them only when phase evidence requires them.
+- `additional`: secondary allowed method skills. Used only when `main` is insufficient or an additional skill is clearly more suitable.
 
-Keep these contracts stable:
+These contracts are frozen (same rule as "Behavior To Preserve"):
 
 - Allowed external skills for a phase are configured `routers`, router-selected skills explicitly named by router content, `main`, and `additional`.
 - Router-selected skills are authorized by router content and have priority over `main` and `additional`.
 - Configured skills are execution-method instructions, not flow-state authorities.
-- If a selected skill applies to the phase work, the agent must use its method, algorithm, checklist, or review logic.
+- If a selected skill applies to the phase work, the agent MUST use its method, algorithm, checklist, or review logic.
 - PhaseDev owns artifact formats, phase transitions, approval state, validation verdicts, archive state, and allowed persistent files.
-- Skill-specific reports, headings, tables, lifecycle steps, approval changes, and state changes must be adapted into the current PhaseDev artifact contract, final response, or blocker instead of being copied into PhaseDev artifacts.
-- If a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent must stop and ask the user to update config/router or approve an exception.
+- Skill-specific reports, headings, tables, lifecycle steps, approval changes, and state changes MUST be adapted into the current PhaseDev artifact contract, final response, or blocker — never copied into PhaseDev artifacts.
+- If a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent MUST stop and ask the user to update config/router or approve an exception.
 - Skills do not inherit from a default config; they are explicit per phase.
-- If `skills` is omitted or empty, the generated phase prompt must say no external skills are configured.
-- `phasedev init` must not include phase-specific skill policy; executable `phasedev phase` prompts inject it.
+- If `skills` is omitted or empty, the generated phase prompt MUST say no external skills are configured.
+- `phasedev init` MUST NOT include phase-specific skill policy; executable `phasedev phase` prompts inject it.
 - Approval/blocker prompts stay policy-free because they are controller stop messages.
 
 ## Archive Phase
@@ -80,7 +99,7 @@ Resume: if a later `advance` or `phase` finds pending `.phase-archive.json` (i.e
 
 Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`.
 
-Agents executing the Archive prompt must write delta specs under the archived change and then update `.phase-archive.json`; they must not call an archive script.
+Agents executing the Archive prompt MUST write delta specs under the archived change and then update `.phase-archive.json`; they MUST NOT call an archive script.
 
 ## Commands
 
@@ -111,35 +130,48 @@ phasedev advance --project-path /tmp/some-project
 
 ## Subagent Delegation
 
-Prefer delegating work to subagents over doing it all in the main context. Actively spin up a subagent whenever a piece of work can be scoped and handed off, and pick the model tier to match the task's actual complexity — do not default every subagent to the strongest model.
+Default to delegating: whenever a piece of work can be scoped and handed off, spin up a subagent instead of doing it in the main context. The main agent is an orchestrator — decompose the request, delegate each piece, integrate results.
 
 ### Model selection
 
-- Custom agents (e.g. the `sp-*` agents in `.claude/agents/`) already pin their model in their definition — do NOT pass `model` when calling them and do not override it.
-- Built-in generic types (`general-purpose`, `Explore`, `Plan`, etc.) have no pinned model, and an omitted `model` silently inherits the main agent's (most expensive) model — so pass a `model` matched to task complexity: `"haiku"` for mechanical/narrow work, `"sonnet"` for routine single-module work, `"opus"` for complex or high-stakes work. Do not pass `model: "fable"`.
+- Custom agents (e.g. the `sp-*` agents in `.claude/agents/`) already pin their model — do NOT pass `model` when calling them and do not override it.
+- Built-in generic types (`general-purpose`, `Explore`, `Plan`, etc.) have no pinned model, and an omitted `model` silently inherits the main agent's (most expensive) model — so you MUST pass a `model` matched to task complexity: `"haiku"` for mechanical/narrow work, `"sonnet"` for routine single-module work, `"opus"` for complex or high-stakes work. Never pass `model: "fable"`.
 - `subagent_type: "fork"` always runs on the main agent's model and ignores `model` — do not pass it there.
 
 ### Choosing subagent_type
 
-Agent types are defined by the Claude Code environment (see the available agent types listed in the session); do not redefine them here. Pick the type whose description matches the task, and to continue a previously spawned agent with its context intact, use SendMessage instead of launching a fresh one.
+Agent types are defined by the Claude Code environment (see the available agent types listed in the session); do not redefine them here. Pick the type whose description matches the task. To continue a previously spawned agent with its context intact, use SendMessage instead of launching a fresh one.
 
-### Guidelines
+### Delegation rules
 
-- Split a task into independent subtasks whenever possible and dispatch them to parallel subagents in a single message rather than doing them sequentially in the main thread.
-- Match model cost to task difficulty: never pay for a top-tier model on a trivial task, and never underpower a subagent on a task that needs real reasoning.
-- The main agent should act as an orchestrator: decompose the request, delegate each piece to the right subagent/model, then integrate results — rather than doing the implementation itself when delegation is feasible.
-- If a subagent's output reveals the task was more complex than expected, escalate the remaining work to a stronger model rather than forcing the same subagent to continue.
-- Subagents cannot ask the user questions mid-task: put all needed context, constraints, and acceptance criteria into the delegation prompt, and require a concrete report (what changed, what was verified) as the final message.
+- Split independent subtasks and dispatch them to parallel subagents in a single message, not sequentially in the main thread.
+- Match model cost to task difficulty: never pay for a top-tier model on a trivial task, never underpower a task that needs real reasoning.
+- If a subagent's output reveals the task was harder than expected, escalate the remaining work to a stronger model.
+- Subagents cannot ask the user questions mid-task: put all context, constraints, and acceptance criteria into the delegation prompt, and require a concrete report (what changed, what was verified) as the final message.
+- Every delegation prompt for coding work MUST contain the `dev-core` instruction (see Hard Gates).
 
 ## Coding Rules
 
-MANDATORY: before writing, editing, or designing any code, invoke the `dev-core` skill first and follow its discipline — even for small or trivial-looking changes. When delegating implementation work to a subagent, the delegation prompt must explicitly instruct it to invoke `dev-core` before coding.
+MANDATORY: before writing, editing, or designing any code, invoke the `dev-core` skill first and follow its discipline — even for small or trivial-looking changes. There are no exceptions; "trivial" is not an exemption category.
 
 - Keep changes scoped to the requested behavior.
-- In the end, the code should always be self-documenting with a minimum of comments.
+- Code must be self-documenting with a minimum of comments.
 - Prefer existing module boundaries over new abstractions.
 - Use explicit return types for exported functions.
 - Keep executable/config code in English.
 - Use `apply_patch` for manual edits.
 - Update tests when production behavior or imports change.
 - Run the most relevant focused tests first, then the full suite for cross-module changes.
+
+## Exit Checklist — run before EVERY final answer
+
+Verify each item; if one fails, fix it before answering:
+
+1. If any code was written or edited: `dev-core` was invoked BEFORE the first edit.
+2. Every coding delegation prompt included the `dev-core` instruction.
+3. No frozen contract ("Behavior To Preserve", skill-policy contracts) changed without explicit user approval in this conversation.
+4. Tests were updated for behavior/import changes and actually run; results reported honestly, including failures.
+5. Changes stayed scoped to the request; no new root scripts; dependency direction respected.
+6. Delegable work was delegated, with model tiers matched to complexity.
+
+If you realize mid-task that you already violated a gate (e.g., edited code before invoking `dev-core`), stop, invoke the required skill/step now, re-validate the work you did, and say so explicitly in your report.
