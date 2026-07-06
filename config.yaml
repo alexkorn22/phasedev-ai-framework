@@ -1,63 +1,23 @@
 # Phase config — skills per phase
 phases:
   change_intake:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
+    skills: {}
   code_research:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
+    skills: {}
   technical_design:
-    skills:
-      routers:
-        - using-ecc
-      main:
-        - dev-core
-      additional: []
+    skills: {}
   iteration_planning:
-    skills:
-      routers:
-        - using-ecc
-      main:
-        - dev-core
-      additional: []
+    skills: {}
   implementation:
-    skills:
-      routers:
-        - using-ecc
-      main:
-        - dev-core
-      additional: []
+    skills: {}
   iteration_validation:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
+    skills: {}
   final_validation:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
+    skills: {}
   finding_repair:
-    skills:
-      routers:
-        - using-ecc
-      main:
-        - dev-core
-      additional: []
+    skills: {}
   archive:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
+    skills: {}
 
 # Root-level flow flags
 runArchiveStage: true
