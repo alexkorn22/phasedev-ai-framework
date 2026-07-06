@@ -41,10 +41,10 @@ flowchart LR
 | `change_intake` | Change Intake | `setup` |
 | `code_research` | Code Research | `research` |
 | `technical_design` | Technical Design | `design` |
-| `iteration_planning` | Iteration Planning | `planning` |
-| `implementation` | Implementation | `implement` |
-| `iteration_validation` | Iteration Validation | `validate` |
-| `final_validation` | Final Validation | `final_validate` |
+| `iteration_planning` | Iteration Planning | `plan` |
+| `implementation` | Implementation | `implementation` |
+| `iteration_validation` | Iteration Validation | `phase_validation` |
+| `final_validation` | Final Validation | `final_validation` |
 | `finding_repair` | Finding Repair | `repair` |
 | `archive` | Archive | `archive` |
 
@@ -121,6 +121,7 @@ phasedev advance --project-path /absolute/path/to/your-project
 | `phasedev check-validation --project-path <path> --scope iteration --iteration-id <N>` | Validate iteration validation findings |
 | `phasedev check-validation --project-path <path> --scope final` | Validate final validation findings |
 | `phasedev check-archive --archive-path <path>` | Validate completed archive state and delta specs |
+| `phasedev reopen <design\|plan> [--project-path <path>]` | Reopen an approved design or plan phase for revision (resets approval) |
 | `phasedev next [--project-path <path>]` | **Deprecated** — use `phase` and `advance` instead |
 
 ### Artifact Management
@@ -129,7 +130,7 @@ phasedev advance --project-path /absolute/path/to/your-project
 | `phasedev approve <file> [--by <name>]` | Set `approved: true` in YAML frontmatter |
 | `phasedev validate-artifact <file>` | Validate an artifact file |
 | `phasedev set-iteration-status <id> <status> [--project-path <path>]` | Update iteration status (x/~/space) |
-| `phasedev add-finding <id> <title> <severity> [--class <class>] [--iteration <iteration>]` | Add a finding to `validation_findings.md` |
+| `phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>]` | Add a finding to `validation_findings.md` |
 | `phasedev resolve-finding <id>` | Mark a finding as resolved |
 
 ### Flow Status & Info

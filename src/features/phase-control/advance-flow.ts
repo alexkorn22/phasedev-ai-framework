@@ -3,7 +3,7 @@ import * as path from "path";
 import { Config } from "../../entities/config/config";
 import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
-import { findInvalidArchiveState, readArchiveState } from "../../entities/change/archive-state";
+import { findCompletedArchiveState, findInvalidArchiveState, readArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
 import { approveArtifact } from "../artifact-ops/approve-artifact";
 import { resolveRoute, Route } from "./flow-route";
@@ -202,6 +202,10 @@ function applyStateSideEffects(
 export function advanceFlow(projectPath: string, config: Config): AdvanceResult {
   const state = loadFlowState(projectPath);
   if (!state) {
+    const completedArchive = findCompletedArchiveState(projectPath);
+    if (completedArchive) {
+      return refuse("Archive complete. Flow finished.");
+    }
     return refuse("No active change. Run: phasedev create-change <name>.");
   }
 
@@ -251,17 +255,6 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   if (!v.ok) {
     return refuse(
       `Cannot leave phase "${state.activePhase}":\n${v.issues.join("\n")}`
-    );
-  }
-
-  // (B) Archive special case: the exit gate (checkArchiveCompletion via
-  // validatePhaseExit) already refused unless .phase-archive.json says
-  // completed, so reaching here means the flow is done.
-  if (state.activePhase === "archive") {
-    return ok(
-      { activePhase: "archive", activeIteration: null, repairCycleCount: 0 },
-      "Archive complete. Flow finished.",
-      true
     );
   }
 

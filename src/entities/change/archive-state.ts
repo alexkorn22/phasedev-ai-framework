@@ -209,3 +209,13 @@ export function findPendingArchiveState(projectPath: string): ArchiveState | nul
 
   return null;
 }
+
+export function findCompletedArchiveState(projectPath: string): string | null {
+  for (const directory of archiveDirectories(projectPath)) {
+    const state = readArchiveState(directory);
+    if (state?.status === "completed") {
+      return directory;
+    }
+  }
+  return null;
+}

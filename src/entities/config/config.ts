@@ -352,9 +352,11 @@ export function getConfigValue(config: Config, key: string): unknown | undefined
     return undefined;
   }
 
-  // Legacy: stages.<name>.<rest> → phases.<name>.<rest>
+  // Legacy: stages.<name>.<rest> → phases.<newName>.<rest>
   if (segments[0] === "stages") {
-    const mappedSegments = ["phases", ...segments.slice(1)];
+    const oldName = segments[1];
+    const newName = PHASE_NAME_MAP[oldName] ?? oldName;
+    const mappedSegments = ["phases", newName, ...segments.slice(2)];
     console.warn(`[config] Deprecated key "${key}" — use "${mappedSegments.join(".")}" instead.`);
     return getDeepValue(config as unknown as Record<string, unknown>, mappedSegments);
   }

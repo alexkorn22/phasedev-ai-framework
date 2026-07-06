@@ -377,6 +377,22 @@ stages:
     ).toBe(true);
   });
 
+  test("maps legacy stages.plan to phases.iteration_planning", () => {
+    const config = parseConfig(`
+stages:
+  iteration_planning:
+    skills:
+      main: ["test"]
+`);
+    const warnings = captureWarnings(() => {
+      const value = getConfigValue(config, "stages.plan.skills.main");
+      expect(value).toEqual(["test"]);
+    });
+    expect(
+      warnings.some(w => w.includes("Deprecated") && w.includes("stages.plan"))
+    ).toBe(true);
+  });
+
   test("returns undefined for removed codex.default.* keys", () => {
     const config = parseConfig(`{}`);
     expect(getConfigValue(config, "codex.default.model")).toBeUndefined();

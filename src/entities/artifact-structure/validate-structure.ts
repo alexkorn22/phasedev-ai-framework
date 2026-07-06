@@ -57,12 +57,13 @@ export function validateArtifactStructure(content: string, spec: ArtifactStructu
     issues.push(`${name} must start with YAML frontmatter.`);
   }
 
-  if (spec.checkHtmlComments && /<!--[\s\S]*?-->/.test(content)) {
+  if (spec.checkHtmlComments && /<!--[\s\S]*?-->/.test(lines.join("\n"))) {
     issues.push(`${name} must not contain HTML template comments.`);
   }
 
+  const blanked = lines.join("\n");
   for (const placeholder of BLOCKED_PLACEHOLDERS) {
-    if (placeholder.pattern.test(body)) {
+    if (placeholder.pattern.test(blanked)) {
       issues.push(`${name} must not contain placeholder text: ${placeholder.label}.`);
     }
   }

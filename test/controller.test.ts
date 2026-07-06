@@ -1309,6 +1309,36 @@ Complete API work.
     expect(result.message).toContain("3");
   });
 
+  test("advanceFlow returns 'Archive complete. Flow finished.' for completed archive", () => {
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-sample-change");
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    // Write state.json for the completed archive
+    fs.writeFileSync(
+      path.join(archiveDir, "state.json"),
+      JSON.stringify({ activePhase: "archive", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    // Write completed .phase-archive.json
+    fs.writeFileSync(
+      path.join(archiveDir, ".phase-archive.json"),
+      JSON.stringify({
+        status: "completed",
+        changeName: "sample-change",
+        archivePath: archiveDir,
+        startedAt: "2026-07-06T00:00:00.000Z",
+        completedAt: "2026-07-06T01:00:00.000Z"
+      }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Archive complete. Flow finished.");
+  });
+
   describe("reopen phase", () => {
     function writeState(changeDir: string, phase: string, iteration: number | null = null) {
       fs.writeFileSync(

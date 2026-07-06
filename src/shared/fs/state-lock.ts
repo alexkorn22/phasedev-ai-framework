@@ -36,12 +36,9 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-function isStale(lockPath: string, staleMs: number): boolean {
+function isStale(lockPath: string, _staleMs: number): boolean {
   const pid = readLockPid(lockPath);
-  if (!isProcessAlive(pid)) return true;
-
-  const mtimeMs = fs.statSync(lockPath, { throwIfNoEntry: false })?.mtimeMs;
-  return mtimeMs !== undefined && Date.now() - mtimeMs > staleMs;
+  return !isProcessAlive(pid);
 }
 
 /**
@@ -58,7 +55,14 @@ export function acquireLock(lockPath: string, staleMs: number = DEFAULT_STALE_MS
       const fd = fs.openSync(lockPath, "wx");
       fs.writeSync(fd, String(process.pid));
       fs.closeSync(fd);
-      return { path: lockPath, release: () => fs.rmSync(lockPath, { force: true }) };
+      return {
+        path: lockPath,
+        release: () => {
+          if (readLockPid(lockPath) === process.pid) {
+            fs.rmSync(lockPath, { force: true });
+          }
+        }
+      };
     } catch (error: unknown) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         throw error;

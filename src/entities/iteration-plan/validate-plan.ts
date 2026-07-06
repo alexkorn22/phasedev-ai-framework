@@ -39,7 +39,8 @@ function hasParsedPlanContent(iterations: Iteration[]): boolean {
 }
 
 function iterationHasSection(phase: Iteration, sectionName: string): boolean {
-  return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(phase.rawContent ?? "");
+  const content = blankFencedCodeLines((phase.rawContent ?? "").split("\n")).join("\n");
+  return new RegExp(`^###\\s+${sectionName}\\s*$`, "im").test(content);
 }
 
 function headingLevel(line: string): number | null {
@@ -330,7 +331,7 @@ export function validatePlanStructure(iterations: Iteration[], prdPath?: string,
   // Traceability checks against PRD
   if (prdPath && fs.existsSync(prdPath)) {
     const { requirements, criteria } = extractRequirementsAndCriteriaFromPrd(prdPath);
-    const planText = iterations.map(phase => phase.rawContent ?? "").join("\n");
+    const planText = blankFencedCodeLines(iterations.map(phase => phase.rawContent ?? "").join("\n").split("\n")).join("\n");
 
     for (const req of requirements) {
       const regex = new RegExp(`\\b${req}\\b`);

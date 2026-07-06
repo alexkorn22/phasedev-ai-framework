@@ -60,6 +60,20 @@ describe("validateArtifactStructure", () => {
     const { issues } = validateArtifactStructure(content, SPEC);
     expect(issues).toContain("sample.md must not contain headings deeper than `##`: `### Too deep`.");
   });
+
+  test("ignores placeholder inside fenced code block", () => {
+    const content = build("# Sample\n\n## Alpha\n\n```\nTBD: something\n```\n\n## Beta\n\n```\nTODO: something else\nunknown\n```\n");
+    const { issues } = validateArtifactStructure(content, SPEC);
+    expect(issues).not.toContain("sample.md must not contain placeholder text: TBD.");
+    expect(issues).not.toContain("sample.md must not contain placeholder text: TODO.");
+    expect(issues).not.toContain("sample.md must not contain placeholder text: unknown.");
+  });
+
+  test("ignores HTML comments inside fenced code block", () => {
+    const content = build("# Sample\n\n## Alpha\n\n```html\n<!-- this is a comment inside code -->\n```\n\n## Beta\n\nText.\n");
+    const { issues } = validateArtifactStructure(content, SPEC);
+    expect(issues).not.toContain("sample.md must not contain HTML template comments.");
+  });
 });
 
 describe("validateTableShape", () => {

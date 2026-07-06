@@ -26,7 +26,7 @@ export function resetChange(projectPath: string, force?: boolean): ResetChangeRe
     return {
       ok: false,
       blocked: true,
-      message: `WARNING: This will permanently remove the active change "${changeName}" at:\n  ${changeDir}\n\nUse --yes to confirm.`
+      message: `WARNING: This will move the active change "${changeName}" to .trash:\n  ${changeDir}\n\nUse --yes to confirm.`
     };
   }
 

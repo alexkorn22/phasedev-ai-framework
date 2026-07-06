@@ -45,16 +45,13 @@ describe("acquireLock", () => {
     lock.release();
   });
 
-  test("reclaims a lock file older than the stale threshold", () => {
+  test("does not reclaim a stale-by-mtime lock when the holder process is alive", () => {
     fs.mkdirSync(path.dirname(lockPath), { recursive: true });
     fs.writeFileSync(lockPath, String(process.pid), "utf-8");
     const past = new Date(Date.now() - 5_000);
     fs.utimesSync(lockPath, past, past);
 
-    const lock = acquireLock(lockPath, 1_000);
-
-    expect(fs.existsSync(lockPath)).toBe(true);
-    lock.release();
+    expect(() => acquireLock(lockPath, 1_000)).toThrow(LockHeldError);
   });
 
   test("release removes the lock file so it can be acquired again", () => {
@@ -66,5 +63,19 @@ describe("acquireLock", () => {
     const second = acquireLock(lockPath);
     expect(fs.existsSync(lockPath)).toBe(true);
     second.release();
+  });
+
+  test("release does not remove lock file if owned by a different pid", () => {
+    const lock = acquireLock(lockPath);
+    // Manually overwrite with a different PID to simulate a stolen lock
+    fs.writeFileSync(lockPath, "999999", "utf-8");
+
+    lock.release();
+
+    // The lock file should still exist because our PID no longer matches
+    expect(fs.existsSync(lockPath)).toBe(true);
+
+    // Clean up
+    fs.rmSync(lockPath, { force: true });
   });
 });

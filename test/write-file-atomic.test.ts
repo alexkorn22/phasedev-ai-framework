@@ -28,7 +28,7 @@ describe("writeFileAtomic", () => {
 
     writeFileAtomic(target, "content");
 
-    expect(fs.existsSync(`${target}.tmp`)).toBe(false);
+    expect(fs.existsSync(`${target}.tmp.${process.pid}`)).toBe(false);
     expect(fs.readdirSync(testTmpDir)).toEqual(["state.json"]);
   });
 
