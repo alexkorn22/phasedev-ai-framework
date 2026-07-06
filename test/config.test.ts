@@ -547,6 +547,90 @@ describe("setConfigValue", () => {
     const config = loadConfig(configPath);
     expect(config.phases.change_intake?.skills.main).toEqual(["dev-core", "other-skill"]);
   });
+
+  test("rejects maxIterations with scientific notation (1e3)", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxIterations", "1e3");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("maxIterations");
+  });
+
+  test("rejects maxIterations with negative value (-5)", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxIterations", "-5");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("maxIterations");
+  });
+
+  test("rejects maxIterations with decimal value (3.5)", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxIterations", "3.5");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("maxIterations");
+  });
+
+  test("rejects maxIterations with zero", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxIterations", "0");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("maxIterations");
+  });
+
+  test("accepts maxIterations with valid positive integer", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxIterations", "5");
+    expect(result.ok).toBe(true);
+  });
+
+  test("rejects runArchiveStage with non-boolean string", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "runArchiveStage", "hello");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("runArchiveStage");
+  });
+
+  test("rejects runArchiveStage with number 0", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "runArchiveStage", "0");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("runArchiveStage");
+  });
+
+  test("accepts runArchiveStage with boolean true", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "runArchiveStage", "true");
+    expect(result.ok).toBe(true);
+  });
+
+  test("accepts runArchiveStage with boolean false", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "runArchiveStage", "false");
+    expect(result.ok).toBe(true);
+  });
+
+  test("rejects autoApprove with non-boolean value", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "autoApprove", "yes");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("autoApprove");
+  });
+
+  test("accepts autoApprove with boolean true", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "autoApprove", "true");
+    expect(result.ok).toBe(true);
+  });
 });
 
 // initProject creates only the flow config (runner config was removed with the deprecated runner)

@@ -58,8 +58,8 @@ export interface ValidationFindingsArtifact {
 
 const STRICT_HEADERS = ["id", "status", "severity", "class", "iteration", "finding", "requiredfix"];
 const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
-const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
-const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
+export const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
+export const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
 
 export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "unknown" {
   const verdict = readFrontmatterValue(filePath, "verdict")?.toLowerCase();

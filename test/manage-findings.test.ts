@@ -136,6 +136,80 @@ describe("addFinding/resolveFinding with well-formed frontmatter", () => {
   });
 });
 
+describe("addFinding severity/class validation", () => {
+  function wellFormedContent(): string {
+    return [
+      "---",
+      "verdict: repair_required",
+      "type: iteration",
+      "date: 2026-07-01",
+      "---",
+      "",
+      "| ID | Status | Severity | Class | Iteration | Finding | Required Fix |",
+      "|---|---|---|---|---|---|---|",
+      ""
+    ].join("\n");
+  }
+
+  test("accepts lowercase severity 'must-fix' (normalized to uppercase)", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "must-fix", "Fix it now", undefined, "Iteration 1");
+    expect(result.ok).toBe(true);
+  });
+
+  test("rejects unknown severity", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "CRITICAL", "Fix it now", undefined, "Iteration 1");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("severity");
+  });
+
+  test("rejects invalid class name", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "MUST-FIX", "Fix it now", "invalid_class", "Iteration 1");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("class");
+  });
+
+  test("accepts valid severity MUST-FIX", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "MUST-FIX", "Fix it now", "validation", "Iteration 1");
+    expect(result.ok).toBe(true);
+  });
+
+  test("accepts class with different casing", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "MUST-FIX", "Fix it now", "Implementation", "Iteration 1");
+    expect(result.ok).toBe(true);
+  });
+
+  test("accepts valid severity RECOMMENDED", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "RECOMMENDED", "Fix it now", "test", "Iteration 1");
+    expect(result.ok).toBe(true);
+  });
+
+  test("accepts valid severity NIT", () => {
+    const filePath = findingsPath();
+    fs.writeFileSync(filePath, wellFormedContent(), "utf-8");
+
+    const result = addFinding(filePath, "F1", "Test finding", "NIT", "Fix it now", "design", "Iteration 1");
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("isPlaceholderRequiredFix", () => {
   test("treats whitespace-only values as placeholders", () => {
     expect(isPlaceholderRequiredFix("   ")).toBe(true);

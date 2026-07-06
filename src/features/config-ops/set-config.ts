@@ -14,6 +14,24 @@ export interface SetConfigOptions {
   forceString?: boolean;
 }
 
+/**
+ * Validate parsed value against the expected type for known config leaf keys.
+ * Returns an error message or null if valid.
+ */
+function validateLeafValue(leafKey: string, value: unknown): string | null {
+  if (leafKey === "maxIterations") {
+    if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+      return `Config key \`${leafKey}\` must be a positive integer.`;
+    }
+  }
+  if (leafKey === "runArchiveStage" || leafKey === "autoApprove") {
+    if (typeof value !== "boolean") {
+      return `Config key \`${leafKey}\` must be true or false.`;
+    }
+  }
+  return null;
+}
+
 function typeLabel(value: unknown): string {
   return Array.isArray(value) ? "array" : typeof value;
 }
@@ -53,6 +71,13 @@ export function setConfigValue(configPath: string, key: string, rawValue: string
 
   if (segments.length === 0) {
     return { ok: false, message: "Key is required." };
+  }
+
+  // Validate typed leaf keys before writing
+  const leafKey = segments[segments.length - 1];
+  const validationError = validateLeafValue(leafKey, value);
+  if (validationError) {
+    return { ok: false, message: validationError };
   }
 
   // Navigate/create nested structure

@@ -35,14 +35,10 @@ export function setIterationStatus(
     }
   }
 
-  // Check if the iteration exists in the plan
-  const content = fs.readFileSync(filePath, "utf-8");
-  const iterationRegex = new RegExp(`##\\s*Iteration\\s*${iterationId}\\s*:`, "i");
-  if (!iterationRegex.test(content)) {
-    return { ok: false, message: `Iteration ${iterationId} not found in the plan.` };
+  const updated = updateIterationStatus(filePath, iterationId, status);
+  if (!updated) {
+    return { ok: false, message: `Iteration ${iterationId} not found in plan or heading already has the requested status` };
   }
-
-  updateIterationStatus(filePath, iterationId, status);
 
   const statusLabels: Record<string, string> = {
     completed: "[x]",

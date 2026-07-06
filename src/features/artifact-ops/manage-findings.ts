@@ -3,6 +3,7 @@ import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
+import { ALLOWED_SEVERITIES, ALLOWED_CLASSES } from "../../entities/validation-findings/parse-validation-findings";
 
 export interface ManageFindingsResult {
   ok: boolean;
@@ -109,6 +110,18 @@ export function addFinding(
     return { ok: false, message: `File not found: ${filePath}` };
   }
 
+  // Validate severity
+  const normalizedSeverity = severity.toUpperCase();
+  if (!ALLOWED_SEVERITIES.has(normalizedSeverity)) {
+    return { ok: false, message: `Invalid severity \`${severity}\`. Must be one of: MUST-FIX, RECOMMENDED, NIT.` };
+  }
+
+  // Validate class (case-insensitive, match against canonical lowercase)
+  const normalizedClass = (className ?? "validation").toLowerCase();
+  if (!ALLOWED_CLASSES.has(normalizedClass)) {
+    return { ok: false, message: `Invalid class \`${className}\`. Must be one of: implementation, test, plan, design, requirements, validation, security, code_review.` };
+  }
+
   const content = fs.readFileSync(filePath, "utf-8");
   const { frontmatter, rows, bodyBeforeTable, bodyAfterTable } = parseTable(content);
 
@@ -120,8 +133,8 @@ export function addFinding(
   const newRow: FindingTableRow = {
     id,
     status: "open",
-    severity,
-    className: className ?? "validation",
+    severity: normalizedSeverity,
+    className: normalizedClass,
     iteration,
     finding: title,
     requiredFix
