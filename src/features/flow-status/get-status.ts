@@ -30,7 +30,7 @@ export function getFlowStatus(projectPath: string): FlowStatus {
     state = { phase: resolved.phase, routeKind: resolved.routeKind };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "error" };
+    state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "invalid_state" };
   }
   const changeDir = findActiveChangeDir(projectPath);
 
