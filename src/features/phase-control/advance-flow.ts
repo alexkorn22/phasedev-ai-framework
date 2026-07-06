@@ -195,15 +195,33 @@ function applyStateSideEffects(
 
 
 /**
- * Main advance function.
+ * Main advance function: transition from the current phase to the next.
+ *
+ * Responsibility split across three cooperating modules:
+ *
+ * | Module                | Role                                                |
+ * |-----------------------|-----------------------------------------------------|
+ * | validatePhaseExit     | Check the CURRENT phase's output is structurally    |
+ * |                       | valid and complete (exit gate). Artifact shape,     |
+ * |                       | required sections, frontmatter — not routing.       |
+ * | resolveRoute          | Determine the NEXT phase from artifact files on     |
+ * |                       | disk. Answers "where should we go?" by scanning     |
+ * |                       | artifacts, checking approvals, iteration states.    |
+ * | detectStateRouteConflict | Detect when state.json (phase lock) and the    |
+ * |                       | artifact-derived route disagree, preventing silent  |
+ * |                       | regression below the locked phase.                  |
+ * | advanceFlow (here)    | Orchestrate: run exit gates (A), run route (C),     |
+ * |                       | then apply state side-effects and save (E). Stop    |
+ * |                       | at approval gates, invalid artifacts, and archive   |
+ * |                       | readiness boundaries.                               |
  *
  * Algorithm:
  * 1. Load flow state. If none → refuse.
- * 2. validatePhaseExit for active phase. If the phase is not finished → refuse.
+ * 2. validatePhaseExit for active phase. If not finished → refuse.
  * 3. If activePhase === "archive" → flow is finished (exit gate already passed).
  * 4. resolveRoute():
  *    - invalid_* → refuse.
- *    - *_approval → refuse with approval prompt.
+ *    - *_approval → refuse with approval prompt (or autoApprove).
  *    - archive_readiness_blocked → refuse.
  *    - archive_ready → if runArchiveStage → mutate, else refuse.
  *    - else → routeToState + applyStateSideEffects + saveFlowState.
@@ -384,6 +402,16 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     return refuse(
       `Nothing to advance: flow still resolves to ${state.activePhase}${iterNote}. ` +
       "Complete the current phase output first (for iteration_validation: mark the iteration [x] in iteration_plan.md when the verdict allows it), then run advance again."
+    );
+  }
+
+  // maxIterations guard: the resolved route targets an iteration beyond
+  // the configured limit. Refuse rather than silently overflowing.
+  if (route.kind === "iteration" && route.activeIteration.id > config.maxIterations) {
+    return refuse(
+      `Max iterations (${config.maxIterations}) reached. ` +
+      `Route targets iteration ${route.activeIteration.id}. ` +
+      `Increase maxIterations in config.yaml or mark the remaining iterations as not_started.`
     );
   }
 

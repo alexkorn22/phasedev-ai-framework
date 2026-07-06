@@ -223,13 +223,13 @@ When `phasedev config autoApprove` (from Initialization) is `true`, the orchestr
 **How it works for each approval gate:**
 
 When `phasedev advance` refuses with an `*_approval` refusal:
-- `change_intake_approval` → Run `phasedev approve <prd.md> --by "PhaseDev Orchestrator"` and `phasedev approve <execution_contract.md> --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
-- `technical_design_approval` → Run `phasedev approve <design.md> --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
-- `iteration_planning_approval` → Run `phasedev approve <iteration_plan.md> --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
+- `change_intake_approval` → Run `phasedev approve prd.md --by "PhaseDev Orchestrator"` and `phasedev approve execution_contract.md --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
+- `technical_design_approval` → Run `phasedev approve design.md --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
+- `iteration_planning_approval` → Run `phasedev approve iteration_plan.md --by "PhaseDev Orchestrator"`, then retry `phasedev advance`.
 
 **Auto-approve procedure (use `phasedev approve` instead of spawning a sub-agent):**
 
-1. Run `phasedev approve <file>` for each approval artifact (from the project root, paths relative to the change directory).
+1. Run `phasedev approve <file>` for each approval artifact (from the project root; filenames auto-resolve to the active change directory).
 2. Run `phasedev advance` to move past the approval gate.
 3. If advance succeeds → continue the main loop normally.
 4. If advance still refuses with the same `*_approval` → **STOP**. Report "Auto-approve failed to advance after approving artifacts." Do not loop.

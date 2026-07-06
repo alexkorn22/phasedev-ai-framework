@@ -84,9 +84,11 @@ export function renderChangeIntake(projectPath: string, config: Config, activeCh
   const selfCheckCommand = flowCheckCommand(projectPath);
 
   let taskContext = "";
-  const taskFile = process.env.FLOW_TASK_FILE;
-  if (taskFile && fs.existsSync(taskFile)) {
-    taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${fs.readFileSync(taskFile, "utf-8")}\n================================`;
+  if (activeChangePath) {
+    const taskFilePath = path.join(activeChangePath, "intake_task.md");
+    if (fs.existsSync(taskFilePath)) {
+      taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${fs.readFileSync(taskFilePath, "utf-8")}\n================================`;
+    }
   }
 
   return renderPhaseTemplate("change_intake", "phase1_change_intake", {
@@ -146,7 +148,13 @@ export function renderImplementation(projectPath: string, config: Config, paths:
   const testCommands = parseTestCommands(paths.executionContractPath).commands;
 
   if (!currentPhase) {
-    return `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan.`;
+    return {
+      command: "next",
+      phase: "implementation",
+      prompt: `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan. Check state.json and iteration_plan.md.`,
+      blocked: true,
+      reason: "Iteration not found in plan"
+    };
   }
 
   // The iteration's required check commands come from execution_contract.md.

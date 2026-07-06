@@ -2,7 +2,7 @@ import { shellQuote } from "../../shared/shell/shell-quote";
 import { buildChangePaths } from "../../entities/change/paths";
 import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
-import { renderTemplate, resolveTemplatePath } from "../../shared/templates/render-template";
+import { renderTemplate } from "../../shared/templates/render-template";
 import { toFileUrl } from "./prompt-formatters";
 import { renderSkillComplianceLine, renderSkillPolicy, renderPhaseSkillNote, renderPhaseSkillStep } from "./skill-policy";
 import { Iteration } from "../../entities/iteration-plan/types";
@@ -85,12 +85,6 @@ export function renderPhaseTemplate(
     path_resolution_rule: PATH_RESOLUTION_RULE,
     phase_opening_summary: renderPhaseOpeningSummary(phase),
     self_check_fallback: SELF_CHECK_FALLBACK,
-    prd_template_path: toFileUrl(resolveTemplatePath("artifacts/prd")),
-    research_template_path: toFileUrl(resolveTemplatePath("artifacts/research_facts")),
-    design_template_path: toFileUrl(resolveTemplatePath("artifacts/design")),
-    implementation_plan_template_path: toFileUrl(resolveTemplatePath("artifacts/iteration_plan")),
-    rules_template_path: toFileUrl(resolveTemplatePath("artifacts/execution_contract")),
-    validation_findings_template_path: toFileUrl(resolveTemplatePath("artifacts/validation_findings")),
     validation_common_contract: renderValidationCommonContract(phase, config),
     skill_policy: renderSkillPolicy(phase, config),
     skill_compliance_line: renderSkillComplianceLine(phase, config),

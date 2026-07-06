@@ -33,7 +33,7 @@ export interface CreateChangeResult {
  * 4. Creates directory + architecture subdirectory.
  * 5. Writes state.json with activePhase: change_intake, activeIteration: null.
  */
-export function createChange(projectPath: string, name: string): CreateChangeResult {
+export function createChange(projectPath: string, name: string, taskText?: string): CreateChangeResult {
   if (!name || name.trim().length === 0) {
     return { ok: false, message: "Change name is required." };
   }
@@ -82,9 +82,15 @@ export function createChange(projectPath: string, name: string): CreateChangeRes
   const statePath = path.join(changeDir, "state.json");
   const initialState = {
     activePhase: "change_intake" as const,
-    activeIteration: null
+    activeIteration: null,
+    repairCycleCount: 0
   };
   writeFileAtomic(statePath, JSON.stringify(initialState, null, 2) + "\n");
+
+  if (taskText) {
+    const taskPath = path.join(changeDir, "intake_task.md");
+    writeFileAtomic(taskPath, taskText + "\n");
+  }
 
   return {
     ok: true,

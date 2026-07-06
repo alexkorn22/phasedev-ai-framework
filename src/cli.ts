@@ -200,15 +200,27 @@ function main(): void {
       return;
     }
     const approvedBy = parseStringOption(args, "--by");
+    let resolvedPath = filePath;
+    if (!fs.existsSync(resolvedPath)) {
+      try {
+        const activeDir = findActiveChangeDir(projectPath);
+        if (activeDir) {
+          const candidate = path.join(activeDir, filePath);
+          if (fs.existsSync(candidate)) {
+            resolvedPath = candidate;
+          }
+        }
+      } catch { /* ignore MultipleActiveChangesError etc. */ }
+    }
     runWithStateLock(projectPath, () => {
-      const result = approveArtifact(filePath, approvedBy);
+      const result = approveArtifact(resolvedPath, approvedBy);
       const prefix = result.ok ? "[PHASEDEV APPROVE] OK" : "[PHASEDEV APPROVE] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
         kind: "approve",
         humanMessage: `${prefix}: ${result.message}`,
         jsonMessage: result.message,
-        data: { file: filePath, approvedBy: approvedBy ?? null }
+        data: { file: resolvedPath, approvedBy: approvedBy ?? null }
       });
     });
     return;
@@ -279,14 +291,26 @@ function main(): void {
       });
       return;
     }
-    const result = validateArtifact(filePath);
+    let resolvedPath = filePath;
+    if (!fs.existsSync(resolvedPath)) {
+      try {
+        const activeDir = findActiveChangeDir(projectPath);
+        if (activeDir) {
+          const candidate = path.join(activeDir, filePath);
+          if (fs.existsSync(candidate)) {
+            resolvedPath = candidate;
+          }
+        }
+      } catch { /* ignore MultipleActiveChangesError etc. */ }
+    }
+    const result = validateArtifact(resolvedPath);
     const prefix = result.ok ? "[PHASEDEV VALIDATE-ARTIFACT] OK" : "[PHASEDEV VALIDATE-ARTIFACT] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "validate-artifact",
       humanMessage: `${prefix}: ${result.message}`,
       jsonMessage: result.message,
-      data: { file: filePath }
+      data: { file: resolvedPath }
     });
     return;
   }
@@ -569,12 +593,13 @@ function main(): void {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "create-change",
-        humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>]"
+        humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>]"
       });
       return;
     }
 
-    const result = createChange(projectPath, name);
+    const taskText = parseStringOption(args, "--task");
+    const result = createChange(projectPath, name, taskText);
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "create-change",
@@ -597,6 +622,9 @@ function main(): void {
       jsonMessage: result.blocked ? (result.reason ?? "Blocked") : `Phase contract for ${result.phase}.`,
       data: { prompt: result.prompt }
     });
+    if (result.blocked) {
+      process.exitCode = 1;
+    }
     return;
   }
 

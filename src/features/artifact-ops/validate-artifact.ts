@@ -20,7 +20,12 @@ const ARTIFACT_DISPATCH: Array<{
   { pattern: /prd\.md$/, validator: (f: string) => validatePrdArtifact(f) },
   { pattern: /execution_contract\.md$/, validator: (f: string) => validateRulesArtifact(f) },
   { pattern: /research_facts\.md$/, validator: (f: string, prdPath?: string) => validateResearchFacts(f, prdPath) },
-  { pattern: /design\.md$/, validator: (f: string) => validateDesign(f) },
+  { pattern: /design\.md$/, validator: (f: string, prdPath?: string, researchPath?: string) => {
+    const opts: { prdPath?: string; researchPath?: string } = {};
+    if (prdPath && fs.existsSync(prdPath)) opts.prdPath = prdPath;
+    if (researchPath && fs.existsSync(researchPath)) opts.researchPath = researchPath;
+    return validateDesign(f, opts);
+  }},
   { pattern: /iteration_plan\.md$/, validator: (f: string) => validatePlanArtifact(f) },
   { pattern: /validation_findings\.md$/, validator: (f: string) => {
     const result = parseValidationFindingsArtifact(f);
@@ -43,8 +48,12 @@ export function validateArtifact(filePath: string): ValidateArtifactResult {
     };
   }
 
-  const prdPath = path.join(path.dirname(filePath), "prd.md");
-  const issues = dispatch.validator(filePath, prdPath);
+  const dirName = path.dirname(filePath);
+  const parentDir = path.basename(dirName);
+  const changeRoot = parentDir === "architecture" ? path.dirname(dirName) : dirName;
+  const prdPath = path.join(changeRoot, "prd.md");
+  const researchPath = path.join(changeRoot, "research_facts.md");
+  const issues = dispatch.validator(filePath, prdPath, researchPath);
 
   if (issues.length === 0) {
     return { ok: true, message: `${fileName}: validation passed.` };
