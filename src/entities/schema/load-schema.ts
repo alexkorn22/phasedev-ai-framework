@@ -57,7 +57,7 @@ export function loadSchema(name: string): ArtifactSchema | null {
  *
  * @param content - Full artifact markdown content
  * @param schema - Loaded schema
- * @param mode - "partial" (optional sections may be absent) or "full" (all sections required)
+ * @param mode - "partial" or "full"; both modes respect the schema's `required` field
  * @returns List of issues (empty = valid)
  */
 export function validateSchemaSections(
@@ -73,7 +73,7 @@ export function validateSchemaSections(
     .map(section => section.toLowerCase());
 
   for (const [sectionName, sectionDef] of Object.entries(schema.sections)) {
-    const isRequired = mode === "full" ? true : sectionDef.required;
+    const isRequired = sectionDef.required;
     const sectionExists = actualSections.includes(sectionName.toLowerCase());
 
     if (isRequired && !sectionExists) {

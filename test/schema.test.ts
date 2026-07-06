@@ -116,18 +116,23 @@ describe("validateSchemaSections (partial mode)", () => {
 describe("validateSchemaSections (full mode)", () => {
   const schema = loadSchema("design") as ArtifactSchema;
 
-  test("missing optional section returns issue in full mode", () => {
-    const body = bodyWithout("Contracts, Interfaces & Boundaries");
-    const issues = validateSchemaSections(body, schema, "full");
-    expect(issues.length).toBe(1);
-    expect(issues[0]).toContain("Contracts, Interfaces & Boundaries");
-  });
-
-  test("missing required section returns issue in full mode", () => {
+  test("missing required section (Executive Summary) returns issue in full mode", () => {
     const body = bodyWithout("Executive Summary");
     const issues = validateSchemaSections(body, schema, "full");
     expect(issues.length).toBe(1);
     expect(issues[0]).toContain("Executive Summary");
+  });
+
+  test("missing optional section (API Specification) produces no issue in full mode", () => {
+    const body = bodyWithout("API Specification");
+    const issues = validateSchemaSections(body, schema, "full");
+    expect(issues).toEqual([]);
+  });
+
+  test("missing optional section (Data Model) produces no issue in full mode", () => {
+    const body = bodyWithout("Data Model");
+    const issues = validateSchemaSections(body, schema, "full");
+    expect(issues).toEqual([]);
   });
 
   test("multiple missing sections return all issues in full mode", () => {
@@ -141,6 +146,14 @@ describe("validateSchemaSections (full mode)", () => {
 
   test("all sections present returns no issues in full mode", () => {
     const issues = validateSchemaSections(allSectionsBody, schema, "full");
+    expect(issues).toEqual([]);
+  });
+
+  test("six-section design (no API/Data Model) passes full mode validation", () => {
+    const body = allSectionsBody
+      .replace(/## API Specification[^#]*/s, "")
+      .replace(/## Data Model[^#]*/s, "");
+    const issues = validateSchemaSections(body, schema, "full");
     expect(issues).toEqual([]);
   });
 });
