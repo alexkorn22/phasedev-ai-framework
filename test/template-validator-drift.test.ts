@@ -47,6 +47,7 @@ function findLine(content: string, substring: string): string {
 function extractTableFirstColumn(content: string, sectionHeading: string): string[] {
   const lines = content.split("\n");
   let inSection = false;
+  let separatorSeen = false;
   const fields: string[] = [];
 
   for (const line of lines) {
@@ -59,8 +60,12 @@ function extractTableFirstColumn(content: string, sectionHeading: string): strin
     }
 
     if (inSection) {
+      if (line.includes("---")) {
+        separatorSeen = true;
+        continue;
+      }
       const match = line.match(/^\| ([^|]+) \|/);
-      if (match && !line.includes("---")) {
+      if (match && separatorSeen) {
         fields.push(match[1].trim());
       }
     }
