@@ -130,7 +130,6 @@ Agent types are defined by the Claude Code environment (see the available agent 
 - The main agent should act as an orchestrator: decompose the request, delegate each piece to the right subagent/model, then integrate results — rather than doing the implementation itself when delegation is feasible.
 - If a subagent's output reveals the task was more complex than expected, escalate the remaining work to a stronger model rather than forcing the same subagent to continue.
 - Subagents cannot ask the user questions mid-task: put all needed context, constraints, and acceptance criteria into the delegation prompt, and require a concrete report (what changed, what was verified) as the final message.
-- Do not use `isolation: "worktree"` — all work happens on the current branch in the shared working tree. When parallel subagents would edit the same files, split the work by file/module or run those subtasks sequentially instead.
 
 ## Coding Rules
 
