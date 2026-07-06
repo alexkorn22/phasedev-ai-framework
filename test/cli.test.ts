@@ -1,5 +1,4 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { getConfigValue, parseConfig, DEFAULT_CONFIG } from "../src/entities/config/config";
@@ -9,6 +8,7 @@ import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
+import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -25,7 +25,7 @@ function cleanupTestDir() {
 function writeArtifact(filePath: string, body: string, approved = true) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   if (approved) {
-    const contentHash = createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
+    const contentHash = approvalContentHash(body);
     fs.writeFileSync(filePath, `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${body}`, "utf-8");
   } else {
     fs.writeFileSync(filePath, `---\napproved: false\n---\n${body}`, "utf-8");
@@ -2374,7 +2374,7 @@ stages:
     expect(archiveTemplate).toContain("[prd.md]({{prd_path}})");
     expect(archiveTemplate).toContain("[execution_contract.md]({{rules_path}})");
     expect(archiveTemplate).toContain("[research_facts.md]({{research_path}})");
-    expect(archiveTemplate).toContain("[design.md]({{design_path}})");
+    expect(archiveTemplate).toContain("[architecture/design.md]({{design_path}})");
     expect(archiveTemplate).toContain("[iteration_plan.md]({{plan_path}})");
     expect(archiveTemplate).toContain("{{archive_path}}/specs/<capability>/spec.md");
     expect(archiveTemplate).toContain("{{archive_state_path}}");

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
+import { approvalContentHash, matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
 import { bodyAfterFrontmatter } from "../src/shared/markdown/headings";
 
 let tmpDir: string;
@@ -49,5 +49,51 @@ describe("unified frontmatter policy", () => {
   test("content without frontmatter returns null / passthrough", () => {
     expect(matchFrontmatterBlock("# Title\n")).toBeNull();
     expect(bodyAfterFrontmatter("# Title\n")).toEqual({ body: "# Title\n", hasFrontmatter: false });
+  });
+});
+
+describe("approvalContentHash iteration heading normalization", () => {
+  function makeContent(status: string): string {
+    return `---
+approved: true
+---
+
+## Iteration 1: Test [${status}]
+
+Some body content here.
+`;
+  }
+
+  test("all status markers ([x], [~], [ ], [/]) normalize to the same hash", () => {
+    const hashX = approvalContentHash(makeContent("x"));
+    const hashTilde = approvalContentHash(makeContent("~"));
+    const hashSpace = approvalContentHash(makeContent(" "));
+    const hashSlash = approvalContentHash(makeContent("/"));
+
+    expect(hashTilde).toBe(hashX);
+    expect(hashSpace).toBe(hashX);
+    expect(hashSlash).toBe(hashX);
+  });
+
+  test("different body text produces different hash", () => {
+    const hash1 = approvalContentHash(makeContent("x"));
+    const differentContent = makeContent("x").replace(
+      "Some body content here.",
+      "Different body content here.",
+    );
+    const hash2 = approvalContentHash(differentContent);
+    expect(hash1).not.toBe(hash2);
+  });
+
+  test("content with no iteration headings produces consistent hash", () => {
+    const content = `---
+approved: true
+---
+
+# Just a title
+
+Some text.
+`;
+    expect(approvalContentHash(content)).toBe(approvalContentHash(content));
   });
 });

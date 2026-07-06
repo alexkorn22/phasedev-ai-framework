@@ -52,7 +52,14 @@ export function readFrontmatterValue(filePath: string, key: string): string | nu
 export function approvalContentHash(content: string): string {
   const normalized = normalizeLineEndings(content);
   const block = matchFrontmatterBlock(normalized);
-  const body = block ? normalized.slice(block.endIndex) : normalized;
+  let body = block ? normalized.slice(block.endIndex) : normalized;
+  // Normalize iteration status markers in headings ([x], [~], [ ], [/] → [ ])
+  // so that status changes don't invalidate the approval hash while actual
+  // content changes still do.
+  body = body.replace(
+    /(##\s*Iteration\s+\d+\s*:\s*.+?)\s*\[\s*(?:x|~| |\/)\s*\]/gi,
+    "$1 [ ]",
+  );
   return createHash("sha256").update(body.trim(), "utf-8").digest("hex").slice(0, 12);
 }
 
