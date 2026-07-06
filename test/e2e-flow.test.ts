@@ -497,7 +497,7 @@ Additional checks:
     );
     writeFile(planPath, planContent);
 
-    // Re-approve the plan (hash changed after body edits)
+    // Re-approve the plan after body edits
     const reapprovePlan = run(["approve", planPath]);
     expect(reapprovePlan.code).toBe(0);
 

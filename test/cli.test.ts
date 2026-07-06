@@ -2536,6 +2536,7 @@ describe("new CLI commands", () => {
     const content = fs.readFileSync(filePath, "utf-8");
     expect(content).toContain("approved: true");
     expect(content).toContain("approved_by:");
+    expect(content).not.toContain("approved_hash");
   });
 
   test("approve fails when file does not exist", () => {

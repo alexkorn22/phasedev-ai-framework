@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
+import { isApproved, matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
 import { bodyAfterFrontmatter } from "../src/shared/markdown/headings";
 
 let tmpDir: string;
@@ -49,5 +49,13 @@ describe("unified frontmatter policy", () => {
   test("content without frontmatter returns null / passthrough", () => {
     expect(matchFrontmatterBlock("# Title\n")).toBeNull();
     expect(bodyAfterFrontmatter("# Title\n")).toEqual({ body: "# Title\n", hasFrontmatter: false });
+  });
+
+  test("approved: true survives a body edit made after approval", () => {
+    const filePath = writeFile("---\napproved: true\n---\n\nOriginal body.\n");
+    expect(isApproved(filePath)).toBe(true);
+
+    fs.writeFileSync(filePath, "---\napproved: true\n---\n\nBody changed after approval.\n", "utf-8");
+    expect(isApproved(filePath)).toBe(true);
   });
 });
