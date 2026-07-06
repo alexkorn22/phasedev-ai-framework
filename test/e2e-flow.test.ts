@@ -2,7 +2,6 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-workspace";
-import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -49,10 +48,7 @@ function changeDir(): string {
 function simulateAgent(file: string, body: string, approved = false): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   if (approved) {
-    // Write with approved: false first to compute hash over the same body
-    const temp = `---\napproved: false\n---\n${body}`;
-    const hash = approvalContentHash(temp);
-    fs.writeFileSync(file, `---\napproved: true\napproved_hash: "${hash}"\n---\n${body}`, "utf-8");
+    fs.writeFileSync(file, `---\napproved: true\n---\n${body}`, "utf-8");
   } else {
     fs.writeFileSync(file, `---\napproved: false\n---\n${body}`, "utf-8");
   }
@@ -388,10 +384,10 @@ date: 2026-07-06
 None.
 `;
     const designPath = path.join(cdir, "architecture", "design.md");
-    // Write without approval in frontmatter; then use simulateAgent for correct hash
+    // Write without approval in frontmatter; approve via CLI below
     writeFile(designPath, designBody);
 
-    // Approve via CLI to get proper approved_hash
+    // Approve via CLI
     const approveDesign = run(["approve", designPath]);
     expect(approveDesign.code).toBe(0);
 
@@ -472,7 +468,7 @@ Additional checks:
     const planPath = path.join(cdir, "iteration_plan.md");
     writeFile(planPath, planBody);
 
-    // Approve plan via CLI to get proper approved_hash
+    // Approve plan via CLI
     const approvePlan = run(["approve", planPath]);
     expect(approvePlan.code).toBe(0);
 

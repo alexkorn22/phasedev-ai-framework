@@ -12,7 +12,6 @@ import { loadFlowState } from "../src/entities/change/flow-state";
 import { validatePhase } from "../src/features/phase-control/phase-validators";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
-import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 
@@ -29,8 +28,7 @@ function cleanupTestDir() {
 function writeArtifact(filePath: string, body: string, approved = true) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   if (approved) {
-    const contentHash = approvalContentHash(body);
-    fs.writeFileSync(filePath, `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${body}`, "utf-8");
+    fs.writeFileSync(filePath, `---\napproved: true\n---\n${body}`, "utf-8");
   } else {
     fs.writeFileSync(filePath, `---\napproved: false\n---\n${body}`, "utf-8");
   }

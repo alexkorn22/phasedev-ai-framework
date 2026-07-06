@@ -8,7 +8,6 @@ import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";
 import { renderTemplate } from "../src/shared/templates/render-template";
-import { approvalContentHash } from "../src/shared/markdown/frontmatter";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -25,8 +24,7 @@ function cleanupTestDir() {
 function writeArtifact(filePath: string, body: string, approved = true) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   if (approved) {
-    const contentHash = approvalContentHash(body);
-    fs.writeFileSync(filePath, `---\napproved: true\napproved_hash: "${contentHash}"\n---\n${body}`, "utf-8");
+    fs.writeFileSync(filePath, `---\napproved: true\n---\n${body}`, "utf-8");
   } else {
     fs.writeFileSync(filePath, `---\napproved: false\n---\n${body}`, "utf-8");
   }
