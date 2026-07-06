@@ -6,7 +6,7 @@ Your task is to decompose the approved technical design into a step-by-step impl
 
 Input artifacts (you must read them):
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Approved design: [design.md]({{design_path}})
+- Approved design: [architecture/design.md]({{design_path}})
 - Development rules: [execution_contract.md]({{rules_path}})
 
 ## Context retrieval protocol

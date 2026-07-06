@@ -7,7 +7,7 @@ Phase contract: process open validation findings and prepare the change for vali
 Input artifacts:
 - Validation report: [validation_findings.md]({{findings_path}})
 - Implementation plan: [iteration_plan.md]({{plan_path}})
-- Technical design: [design.md]({{design_path}})
+- Technical design: [architecture/design.md]({{design_path}})
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Research results: [research_facts.md]({{research_path}})
 - Test command rules: [execution_contract.md]({{rules_path}})

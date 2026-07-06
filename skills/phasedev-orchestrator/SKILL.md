@@ -42,7 +42,7 @@ If a goal is provided, it is passed to the first `change_intake` sub-agent. Othe
 
 ## Command Invocation (mandatory)
 
-`phasedev` is a **globally installed CLI** on `PATH`. Always invoke it directly as `phasedev <command>` — e.g. `phasedev create-change`, `phasedev phase`, `phasedev check`, `phasedev advance`, `phasedev approve`, `phasedev config <key>`. **NEVER** wrap it in `npx`, `bunx`, `npm exec`, `npm run`, `bun run`, or `bun run src/cli.ts`. There is nothing to resolve and no fallback to try. This applies to the orchestrator and to every sub-agent prompt.
+`phasedev` is a **globally installed CLI** on `PATH`. Always invoke it directly as `phasedev <command>` — e.g. `phasedev create-change`, `phasedev phase`, `phasedev check`, `phasedev advance`, `phasedev approve`, `phasedev config <key>`. **NEVER** wrap it in `npx`, `bunx`, `npm exec`, `npm run`, `bun run`, or `bun run src/cli.ts`. There is nothing to resolve and no fallback to try (except when the phase controller's self-check fallback block provides explicit alternatives — in that case, follow the controller's instructions). This applies to the orchestrator and to every sub-agent prompt.
 
 **Core orchestrator commands:**
 - `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`.

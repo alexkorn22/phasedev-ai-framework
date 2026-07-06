@@ -40,7 +40,7 @@ Artifact requirements:
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
-- `execution_contract.md` records only concrete gate commands or named methods for `unit`, `phase`, and `full`.
+- `execution_contract.md` requires at minimum concrete gate commands for `unit`, `phase`, and `full`; the validator requires all five sections: Test Commands, Constraints, Verification Gates, Manual Checks, and Environment Notes.
 - For each `execution_contract.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method when repository evidence or an explicit user answer supports it.
 - Use the controller-supported fallback `manual: inspect Phase 1 artifacts against accepted task constraints` for missing gates only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method. Otherwise ask the user for that gate method and stop. Do not invent commands.
 - Named manual methods in `execution_contract.md` must use machine-readable wording: `manual: <named method supported by user/repo evidence>`, for example `manual: compare generated prompt against Phase 1 acceptance notes`. Do not use vague manual labels such as `manual review`, `check manually`, or `n/a`.

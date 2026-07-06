@@ -7,7 +7,7 @@ Phase contract: complete only the current iteration of the approved implementati
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [execution_contract.md]({{rules_path}})
-- Approved design: [design.md]({{design_path}})
+- Approved design: [architecture/design.md]({{design_path}})
 - Implementation plan write-back path: [iteration_plan.md]({{plan_path}}); use the embedded full-plan orientation and current iteration excerpt below as the implementation-plan read surface.
 
 Full-plan orientation:

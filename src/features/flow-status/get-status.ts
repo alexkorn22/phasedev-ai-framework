@@ -24,7 +24,14 @@ function artifactStatus(changeDir: string, relPath: string): { name: string; exi
 }
 
 export function getFlowStatus(projectPath: string): FlowStatus {
-  const state = resolveCurrentState(projectPath);
+  let state: { phase: string; routeKind: string };
+  try {
+    const resolved = resolveCurrentState(projectPath);
+    state = { phase: resolved.phase, routeKind: resolved.routeKind };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "error" };
+  }
   const changeDir = findActiveChangeDir(projectPath);
 
   const artifacts: Array<{ name: string; exists: boolean; approved: boolean }> = [];

@@ -15,7 +15,7 @@ Input requirement and design artifacts (you must read them):
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [execution_contract.md]({{rules_path}})
 - Research facts: [research_facts.md]({{research_path}})
-- Approved design: [design.md]({{design_path}})
+- Approved design: [architecture/design.md]({{design_path}})
 - Implementation plan, including `Generation Bundle` and `Check Evidence`: [iteration_plan.md]({{plan_path}})
 
 Gate-status file:

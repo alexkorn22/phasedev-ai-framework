@@ -44,8 +44,8 @@ function isStale(lockPath: string, _staleMs: number): boolean {
 /**
  * Acquire an exclusive advisory lock file. Uses O_EXCL (open flag "wx") so
  * creation fails atomically when the file already exists. A pre-existing lock
- * is reclaimed only when its owner process is gone or the file is older than
- * `staleMs`; otherwise a LockHeldError naming the path and holder pid is thrown.
+ * is reclaimed only when its owner process is gone (PID-liveness check);
+ * otherwise a LockHeldError naming the path and holder pid is thrown.
  */
 export function acquireLock(lockPath: string, staleMs: number = DEFAULT_STALE_MS): FileLock {
   fs.mkdirSync(path.dirname(lockPath), { recursive: true });

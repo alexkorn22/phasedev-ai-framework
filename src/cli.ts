@@ -35,7 +35,7 @@ const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--f
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
     const token = args[i];
-    if (!token.startsWith("--")) {
+    if (!token.startsWith("-")) {
       return token;
     }
     if (!BOOLEAN_FLAGS.has(token)) {

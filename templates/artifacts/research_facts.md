@@ -14,7 +14,7 @@ Authoring instructions for the research agent:
 - Code evidence is primary. Specs are context and cannot confirm actual implementation behavior by themselves.
 - `F#` is only for code, config, tests, or runtime wiring facts.
 - `S#` is only for facts from `.phasedev/specs`.
-- `prd-only` is allowed only in PRD Intent Trace Evidence for intent fields that are not repository facts.
+- `prd-only` is allowed only for `Change type` and `Why` (intent fields that are not repository facts).
 - If `.phasedev/specs` is absent, use `none` or `not_applicable` in Spec Context without placeholder prose.
 - Source Facts Supports must use R#/SC#; do not use none/not_applicable.
 - In Research Gaps & Blockers, explicitly declare any remaining unresolved gaps or disputed facts.

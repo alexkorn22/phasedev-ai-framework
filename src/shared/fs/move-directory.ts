@@ -1,6 +1,9 @@
 import * as fs from "fs";
 
 export function moveDirectory(source: string, target: string): void {
+  if (fs.existsSync(target)) {
+    throw new Error(`Target path already exists: ${target}`);
+  }
   try {
     fs.renameSync(source, target);
     return;

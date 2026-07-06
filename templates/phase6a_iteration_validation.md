@@ -7,7 +7,7 @@ Phase contract: validate current iteration readiness against the implementation 
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [execution_contract.md]({{rules_path}})
-- Approved design: [design.md]({{design_path}})
+- Approved design: [architecture/design.md]({{design_path}})
 - Implementation plan: [iteration_plan.md]({{plan_path}})
 
 Current iteration:

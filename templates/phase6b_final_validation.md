@@ -7,7 +7,7 @@ Phase contract: validate the implemented working code before Archive.
 Input artifacts:
 - PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
 - Test command rules: [execution_contract.md]({{rules_path}})
-- Approved design: [design.md]({{design_path}})
+- Approved design: [architecture/design.md]({{design_path}})
 - Implementation plan: [iteration_plan.md]({{plan_path}})
 
 {{controller_changed_files_inventory}}

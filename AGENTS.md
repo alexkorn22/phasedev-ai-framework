@@ -33,7 +33,7 @@ Dependency direction should be:
 Keep these contracts stable unless the user explicitly changes them:
 
 - Phase routing before Archive (previously Stage routing before Archive).
-- `state.json = { activePhase, activeIteration }` — lock of the current phase.
+- `state.json = { activePhase, activeIteration, repairCycleCount }` — lock of the current phase.
 - Iteration heading format: `## Iteration N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`.
 - `config.yaml` shape: `phases:` instead of `stages:`, with legacy alias for `stages:` and `codex.stages:`.

@@ -22,7 +22,7 @@ export function renderTemplate(templateName: string, variables: Record<string, s
   // and must never be treated as unresolved placeholders.
   const unresolved = Array.from(content.matchAll(placeholderPattern))
     .map(match => match[1].trim())
-    .filter(key => !(key in variables));
+    .filter(key => !Object.prototype.hasOwnProperty.call(variables, key));
   if (unresolved.length > 0) {
     throw new Error(`Template ${templateName}.md has unresolved placeholder(s): ${Array.from(new Set(unresolved)).join(", ")}.`);
   }
