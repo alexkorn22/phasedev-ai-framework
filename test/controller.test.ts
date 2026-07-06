@@ -991,6 +991,50 @@ Complete API work.
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
   });
 
+  test("advanceFlow recovers from pre-move crash: activePhase=archive with .phase-archive.json in active dir", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+
+    // Simulate a crash after startArchiveStage wrote both markers but before the directory move.
+    createArchiveState("sample-change", archiveDir, new Date(), changeDir);
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "archive", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    // Verify pre-condition: change dir still active, no archive dir yet.
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.existsSync(archiveDir)).toBe(false);
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.advanced).toBe(true);
+    expect(result.message).toContain("recovered from pre-move crash");
+    expect(result.newState?.activePhase).toBe("archive");
+
+    // Directory should have been moved to archive.
+    expect(fs.existsSync(changeDir)).toBe(false);
+    expect(fs.existsSync(archiveDir)).toBe(true);
+
+    const statePath = path.join(archiveDir, ".phase-archive.json");
+    expect(fs.existsSync(statePath)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8"))).toMatchObject({
+      status: "in_progress",
+      changeName: "sample-change",
+      archivePath: archiveDir
+    });
+    expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
+  });
+
   test("advanceFlow with autoApprove approves the gated artifact and advances", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1155,7 +1199,7 @@ Complete API work.
     expect(result.newState?.repairCycleCount).toBe(1);
   });
 
-  test("repairCycleCount resets to 0 when advancing from finding_repair to normal phase", () => {
+  test("repairCycleCount preserved when advancing from finding_repair to iteration_validation", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1173,7 +1217,75 @@ Complete API work.
 
     expect(result.ok).toBe(true);
     expect(result.newState?.activePhase).toBe("iteration_validation");
-    expect(result.newState?.repairCycleCount).toBe(0);
+    expect(result.newState?.repairCycleCount).toBe(2);
+  });
+
+  test("repair cycle accumulates through repair↔validation loop and blocks after 3 attempts", () => {
+    // This test verifies the full cycle works end-to-end: the counter
+    // increments through repair, stays preserved when returning to validation,
+    // and blocks the 4th repair attempt (3rd re-entry).
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
+    });
+    const statePath = path.join(changeDir, "state.json");
+
+    // Helper: write state and run advance
+    function advanceFrom(phase: string, iter: number | null, count: number, findingsVerdict: string, findingsRows = ""): ReturnType<typeof advanceFlow> {
+      fs.writeFileSync(
+        statePath,
+        JSON.stringify({ activePhase: phase, activeIteration: iter, repairCycleCount: count }, null, 2) + "\n",
+        "utf-8"
+      );
+      // Write findings to drive the route
+      const findingsPath = path.join(changeDir, "validation_findings.md");
+      if (findingsVerdict === "repair_required") {
+        fs.writeFileSync(findingsPath, validationFindings("repair_required", "iteration", findingsRows), "utf-8");
+      } else {
+        fs.writeFileSync(findingsPath, validationFindings("repaired", "iteration"), "utf-8");
+      }
+      return advanceFlow(testTmpDir, DEFAULT_CONFIG);
+    }
+
+    const findingsRow = "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n";
+
+    // Cycle 1: validation → repair (count 0→1)
+    let r = advanceFrom("iteration_validation", 1, 0, "repair_required", findingsRow);
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("finding_repair");
+    expect(r.newState?.repairCycleCount).toBe(1);
+
+    // Cycle 1: repair → validation (count stays 1)
+    r = advanceFrom("finding_repair", 1, 1, "repaired");
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("iteration_validation");
+    expect(r.newState?.repairCycleCount).toBe(1);
+
+    // Cycle 2: validation → repair (count 1→2)
+    r = advanceFrom("iteration_validation", 1, 1, "repair_required", findingsRow);
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("finding_repair");
+    expect(r.newState?.repairCycleCount).toBe(2);
+
+    // Cycle 2: repair → validation (count stays 2)
+    r = advanceFrom("finding_repair", 1, 2, "repaired");
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("iteration_validation");
+    expect(r.newState?.repairCycleCount).toBe(2);
+
+    // Cycle 3: validation → repair (count 2→3)
+    r = advanceFrom("iteration_validation", 1, 2, "repair_required", findingsRow);
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("finding_repair");
+    expect(r.newState?.repairCycleCount).toBe(3);
+
+    // 4th repair attempt blocked: count is 3 which is >= MAX_REPAIR_CYCLES
+    r = advanceFrom("iteration_validation", 1, 3, "repair_required", findingsRow);
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain("Repair cycle limit reached");
+    expect(r.message).toContain("3");
   });
 
   test("repair cycle limit reached — advance refuses after 3 repair attempts", () => {

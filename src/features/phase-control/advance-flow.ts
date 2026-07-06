@@ -3,7 +3,7 @@ import * as path from "path";
 import { Config } from "../../entities/config/config";
 import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
-import { findInvalidArchiveState } from "../../entities/change/archive-state";
+import { findInvalidArchiveState, readArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
 import { approveArtifact } from "../artifact-ops/approve-artifact";
 import { resolveRoute, Route } from "./flow-route";
@@ -216,6 +216,25 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     return refuse("Cannot locate change directory for the current flow state.");
   }
 
+  // Pre-move crash recovery: if the archive phase has a pre-move marker
+  // (.phase-archive.json in_progress without movedAt) in the still-active
+  // change dir, complete the archive mutation before checking exit gates.
+  if (state.activePhase === "archive") {
+    const preMoveState = readArchiveState(changeDir);
+    if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
+      const archiveResult = startArchiveStage(projectPath, changeDir, new Date(), config);
+      if (archiveResult.blocked) {
+        return refuse(
+          `Cannot recover archive transition: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`
+        );
+      }
+      return ok(
+        { activePhase: "archive", activeIteration: null, repairCycleCount: 0 },
+        "Advanced to archive phase (recovered from pre-move crash)."
+      );
+    }
+  }
+
   const paths = buildChangePaths(changeDir);
 
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
@@ -371,10 +390,21 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     return refuse(`Cannot advance: ${sideEffect.reason}`);
   }
 
-  // Increment repair cycle count when entering finding_repair, reset otherwise
-  const nextRepairCount = nextState.activePhase === "finding_repair"
-    ? state.repairCycleCount + 1
-    : 0;
+  // Preserve repair cycle count through repair↔validation cycles.
+  // Increment when entering repair. Keep the count when stepping back to
+  // validation for re-checking. Reset only on true forward progress.
+  const enteringRepair = nextState.activePhase === "finding_repair";
+  const leavingRepair = state.activePhase === "finding_repair";
+  const goingToValidation = nextState.activePhase === "iteration_validation" || nextState.activePhase === "final_validation";
+
+  let nextRepairCount: number;
+  if (enteringRepair) {
+    nextRepairCount = state.repairCycleCount + 1;
+  } else if (leavingRepair && goingToValidation) {
+    nextRepairCount = state.repairCycleCount;
+  } else {
+    nextRepairCount = 0;
+  }
   const finalNextState = { ...nextState, repairCycleCount: nextRepairCount };
   saveFlowState(projectPath, finalNextState);
 

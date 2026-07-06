@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { findActiveChangeDir } from "./active-change";
-import { findInvalidArchiveState, findPendingArchiveState } from "./archive-state";
+import { findInvalidArchiveState, findPendingArchiveState, readArchiveState } from "./archive-state";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
 export type ActivePhase =
@@ -132,6 +132,18 @@ export function locateChangeDir(projectPath: string, state: FlowState): string |
   if (state.activePhase === "archive") {
     const pending = findPendingArchiveState(projectPath);
     if (pending) return pending.archivePath;
+
+    // Pre-move crash recovery: the archive state marker was written into the
+    // active change dir but the directory was never moved. Return the active
+    // dir so startArchiveStage can complete the move idempotently.
+    const activeDir = findActiveChangeDir(projectPath);
+    if (activeDir) {
+      const preMoveState = readArchiveState(activeDir);
+      if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
+        return activeDir;
+      }
+    }
+
     return null;
   }
 
