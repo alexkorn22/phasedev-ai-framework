@@ -97,3 +97,54 @@ Some text.
     expect(approvalContentHash(content)).toBe(approvalContentHash(content));
   });
 });
+
+describe("approvalContentHash task and Check Evidence normalization", () => {
+  function makePlan(taskMarker: string, result: string, evidence: string): string {
+    return `---
+approved: true
+---
+
+## Iteration 1: Test [~]
+
+### Tasks
+
+- [${taskMarker}] 1.1 Do the thing
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`npm test\` | ${result} | ${evidence} |  |
+`;
+  }
+
+  test("task checkbox marker changes do not invalidate the hash", () => {
+    const notStarted = approvalContentHash(makePlan(" ", "pending", ""));
+    const inProgress = approvalContentHash(makePlan("~", "pending", ""));
+    const completed = approvalContentHash(makePlan("x", "pending", ""));
+
+    expect(inProgress).toBe(notStarted);
+    expect(completed).toBe(notStarted);
+  });
+
+  test("task text changes still invalidate the hash", () => {
+    const original = makePlan(" ", "pending", "");
+    const renamed = original.replace("Do the thing", "Do a different thing");
+
+    expect(approvalContentHash(renamed)).not.toBe(approvalContentHash(original));
+  });
+
+  test("Check Evidence Result and Evidence changes do not invalidate the hash", () => {
+    const pending = approvalContentHash(makePlan(" ", "pending", ""));
+    const passed = approvalContentHash(makePlan("x", "passed", "44 tests pass"));
+
+    expect(passed).toBe(pending);
+  });
+
+  test("Check Evidence Check or Command changes still invalidate the hash", () => {
+    const original = makePlan(" ", "pending", "");
+    const differentCommand = original.replace("`npm test`", "`npm run test:unit`");
+
+    expect(approvalContentHash(differentCommand)).not.toBe(approvalContentHash(original));
+  });
+});

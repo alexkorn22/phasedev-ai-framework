@@ -178,13 +178,19 @@ export function renderImplementation(projectPath: string, config: Config, paths:
   }, config);
 }
 
-export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string {
+export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string | Prompt {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
 
   if (!currentPhase) {
-    return `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan.`;
+    return {
+      command: "next",
+      phase: "iteration_validation",
+      prompt: `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan. Check state.json and iteration_plan.md.`,
+      blocked: true,
+      reason: "Iteration not found in plan"
+    };
   }
 
   const phaseLabel = `Iteration ${currentPhase.id}: ${currentPhase.name}`;
@@ -338,10 +344,14 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (activeIteration === null) {
         return missingActiveIterationBlocker("iteration_validation");
       }
+      const rendered = renderIterationValidation(projectPath, config, paths, activeIteration);
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
       return {
         command: "next",
         phase: "iteration_validation",
-        prompt: renderIterationValidation(projectPath, config, paths, activeIteration),
+        prompt: rendered,
         blocked: false
       };
     }

@@ -93,7 +93,11 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
       );
     case "iteration": {
       if (route.phase === "iteration_validation") {
-        return prompt("next", "iteration_validation", renderIterationValidation(projectPath, config, route.paths, route.activeIteration.id));
+        const rendered = renderIterationValidation(projectPath, config, route.paths, route.activeIteration.id);
+        if (typeof rendered !== "string") {
+          return rendered;
+        }
+        return prompt("next", "iteration_validation", rendered);
       }
       const rendered = renderImplementation(projectPath, config, route.paths, route.activeIteration.id);
       if (typeof rendered !== "string") {

@@ -11,7 +11,8 @@
       "Bash(xxd)",
       "Bash(grep -E \"cli.ts$|shared/\\(cli|env|fs|shell|markdown|templates|prompt|telegram\\)|features/logger\")",
       "Read(//Users/oleksandr/.claude/plugins/**)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Read(//Users/oleksandr/WORK/jira-dashboard/.phasedev/**)"
     ]
   },
   "enabledPlugins": {

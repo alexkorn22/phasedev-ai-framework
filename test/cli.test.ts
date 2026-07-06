@@ -3071,3 +3071,130 @@ describe("CLI robustness fixes", () => {
     expect(envelope.data.storedType).toBe("number");
   });
 });
+
+describe("code review finding tests", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  // ── create-change --task ────────────────────────────────────
+
+  test("create-change --task flag creates intake_task.md with the task text", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "task-test", "--project-path", testTmpDir, "--task", "do something important"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV CREATE-CHANGE] OK");
+
+    const taskPath = path.join(testTmpDir, ".phasedev", "changes", "task-test", "intake_task.md");
+    expect(fs.existsSync(taskPath)).toBe(true);
+    expect(fs.readFileSync(taskPath, "utf-8").trim()).toBe("do something important");
+  });
+
+  test("create-change without --task does not create intake_task.md", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "no-task-test", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const taskPath = path.join(testTmpDir, ".phasedev", "changes", "no-task-test", "intake_task.md");
+    expect(fs.existsSync(taskPath)).toBe(false);
+  });
+
+  // ── approve auto-resolution ─────────────────────────────────
+
+  test("approve resolves bare filename to active change directory", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "my-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    fs.writeFileSync(path.join(changeDir, "prd.md"), "---\napproved: false\n---\n\n# PRD\n\n## Intent\n\nContent\n", "utf-8");
+    writeStateJson(changeDir, "change_intake");
+
+    const result = runCli(["approve", "prd.md", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV APPROVE] OK");
+
+    const content = fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8");
+    expect(content).toContain("approved: true");
+  });
+
+  test("approve with bare filename fails when there is no active change", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["approve", "prd.md", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV APPROVE] FAILED");
+  });
+
+  // ── validate-artifact auto-resolution ───────────────────────
+
+  test("validate-artifact resolves bare filename to active change directory", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "my-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
+    writeStateJson(changeDir, "change_intake");
+
+    const result = runCli(["validate-artifact", "prd.md", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("validation passed");
+  });
+
+  test("validate-artifact with bare filename fails when file is not found and no active change", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["validate-artifact", "prd.md", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("File not found");
+  });
+
+  // ── maxIterations guard ─────────────────────────────────────
+
+  test("advance refuses when plan has more iterations than config.maxIterations", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+    const changeDir = setupChange(`
+## Iteration 1: First [x]
+- [x] 1.1 Complete first
+
+## Iteration 2: Second [ ]
+- [ ] 2.1 Complete second
+`, {
+      findings: validationFindings("ready", "iteration")
+    });
+    // maxIterations with value 1 means iteration 2 (id=2) is beyond the limit
+    writeProjectConfig(`
+maxIterations: 1
+phases: {}
+`);
+    writeStateJson(changeDir, "iteration_validation", 1);
+
+    const result = runCli(["advance", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Max iterations (1) reached");
+    expect(result.output).toContain("iteration 2");
+  });
+
+  test("advance succeeds when plan iterations do not exceed maxIterations", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+    const changeDir = setupChange(`
+## Iteration 1: First [x]
+- [x] 1.1 Complete first
+
+## Iteration 2: Second [ ]
+- [ ] 2.1 Complete second
+`, {
+      findings: validationFindings("ready", "iteration")
+    });
+    // maxIterations with value 10 means iteration 2 (id=2) is within the limit
+    writeProjectConfig(`
+maxIterations: 10
+phases: {}
+`);
+    writeStateJson(changeDir, "iteration_validation", 1);
+
+    const result = runCli(["advance", "--project-path", testTmpDir]);
+    // Advance works: iteration 2 is within the maxIterations limit
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Advanced");
+    expect(result.output).not.toContain("Max iterations");
+  });
+});
