@@ -104,7 +104,17 @@
 - `templates/phase6r_finding_repair.md`: резолв только через `phasedev resolve-finding` с evidence (файлы + проверка «command -> result»); мутации строк только через CLI; запрет стирать чужой Resolution. Правило «do not change stable fields … unless needed to fix an explicit error» УДАЛЯЕТСЯ (конфликтует с baseline-гейтом) и заменяется на: стабильные поля неизменяемы; фактически ошибочная строка закрывается `resolve-finding` с resolution `inaccurate finding: <why>` + добавляется корректная строка через `add-finding`.
 - `get-phase-prompt.ts` (`validationFindingsContract`) и `prompt-render-helpers.ts` (`finalValidationArtifactContract`): `canonicalFillRules` — «edit in place, never recreate; template defines structure for a missing file only» + «registry is append-only; the controller diffs it against a baseline snapshot».
 
-### 5.6 Скилл оркестратора
+### 5.6 Лимит repair-циклов — в конфиг (`maxRepairCycles`)
+
+Захардкоженная константа `MAX_REPAIR_CYCLES = 3` (`advance-flow.ts:382`) выносится в конфиг по образцу существующего `maxIterations`. Это НЕ дубликаты: `maxIterations` ограничивает число итераций плана (route `iteration`, `advance-flow.ts:410`), `maxRepairCycles` — число последовательных repair-циклов без прогресса; оба лимита сохраняются.
+
+- `src/entities/config/config.ts`: поле `maxRepairCycles: number` в `PhasedevConfig`, дефолт `3` в `DEFAULT_CONFIG`, парсинг root-ключа через `readPositiveInteger` (как у `maxIterations`).
+- `src/features/phase-control/advance-flow.ts`: константа заменяется на `config.maxRepairCycles` (`config` уже доступен в этой функции — им пользуется maxIterations-guard). Текст отказа обновляется: «Repair cycle limit reached (N). … Increase maxRepairCycles in config.yaml or intervene manually.»
+- `src/features/config-ops/set-config.ts`: разрешить `phasedev config set maxRepairCycles <n>` (по образцу ветки `maxIterations`).
+- `skills/phasedev-orchestrator/SKILL.md`: `phasedev config maxRepairCycles` в примерах config-команд; в перечне стоп-условий рядом с «Max iterations» — «Repair cycle limit».
+- Замороженный контракт `state.json` не меняется: поле `repairCycleCount` и его семантика остаются; конфигурируется только порог.
+
+### 5.7 Скилл оркестратора
 
 `skills/phasedev-orchestrator/SKILL.md` — секция User Feedback Handling является прямым источником инцидента (велит руками «add findings … set verdict to repair_required»):
 
@@ -122,12 +132,13 @@ TDD по каждой задаче (падающий тест → реализа
 - Baseline: снапшот (пустой при отсутствии файла); легальные переходы без issues; удалённая строка → issue с ID; изменённое стабильное поле → issue; `resolved → open` → issue; отсутствующий baseline → нет issues; толерантность к добавлению префикса reopened в Finding.
 - Advance/гейты: advance в validation/repair фазы создаёт/обновляет `.findings-baseline.json`; удаление строки после baseline → `checkValidationCompletion` ok:false и refuse `advance`; без baseline — прежнее поведение; `reopen-phase`/`reset-change` удаляют baseline; `.findings-baseline.json` не попадает в changed-file inventory (лежит под `.phasedev/**`).
 - Шаблоны/скилл: `test/template-validator-drift.test.ts`, `test/e2e-flow.test.ts` (обновление фикстур на 8 колонок), `test/skill-md-drift.test.ts` (route-kinds не меняются — остаётся зелёным).
+- `maxRepairCycles`: дефолт 3 без ключа в config.yaml; override из config.yaml применяется; `phasedev config set maxRepairCycles` работает; отказ `advance` использует настроенный порог (тест с порогом 1).
 
 ## 7. Принятые остаточные риски
 
 - **Правки кода в review-фазах программно не детектируются** (write-guard исключён решением пользователя): защита — только промпт-контракты §5.5/§5.6 (граница записи, обязательное наследование при делегировании, canonical-путь late-фидбэка). При появлении рабочей git-интеграции слой можно добавить отдельным изменением.
 - **Findings-команды не под state-lock** (в отличие от `approve`): read-modify-write гонка при одновременных мутациях таблицы двумя процессами возможна; `writeFileAtomic` спасает от порванного файла, но не от потерянного апдейта. Существующее поведение, риск низкий (мутации последовательны по природе flow).
-- **repairCycleCount = 3** распространяется и на циклы late-фидбэка: три раунда «фидбэк → repair → validation» без прогресса → отказ advance с требованием ручного вмешательства — желаемый стоп, не баг.
+- **Лимит repair-циклов (`maxRepairCycles`, дефолт 3)** распространяется и на циклы late-фидбэка: три раунда «фидбэк → repair → validation» без прогресса → отказ advance с требованием ручного вмешательства — желаемый стоп, не баг; порог настраивается в config.yaml.
 - **Текстовый (не смысловой) ключ дедупликации**: `canonicalFindingKey` ловит только совпадение после нормализации; перефразированный дубль остаётся на совести промпт-правила «compare by meaning with EVERY existing row».
 - **Ручная правка frontmatter остаётся разрешённой** (первичная запись вердикта валидатором) — страхуется verdict-консистентностью парсера и `check-validation`.
 
@@ -139,6 +150,7 @@ TDD по каждой задаче (падающий тест → реализа
 2. **Автокоррекция вердикта получает guard** (§5.2): отсутствующая/невалидная строка `verdict:` → пропуск коррекции. В Task 2 добавляется соответствующий тест.
 3. **Очистка `.findings-baseline.json` при архивации** (§5.4): удаление перед перемещением папки change (в плане при архиве удалялся только guard-файл).
 4. Точка вставки в `advance-flow.ts` — строки 418–439 (между `applyStateSideEffects` и `saveFlowState`); `paths` в `checkValidationCompletion` — локальная переменная, не параметр.
+5. **Новая задача: `maxRepairCycles` в конфиг** (§5.6) — в плане лимит repair-циклов не затрагивался; добавлена задача Task 7c.
 
 ## 9. Замороженные контракты (не меняются)
 
