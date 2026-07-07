@@ -38,7 +38,7 @@ Required phase-contract checks:
 - full-gate execution: run the `full` gate command from `execution_contract.md` exactly once before deciding the verdict; `verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed; if the full gate fails, add a `MUST-FIX` finding with the exact command and a short failure summary and set `verdict: repair_required`; if the command or environment is unavailable, add a `MUST-FIX` finding with `Class = validation` recording the exact command and error class; do not rerun `unit`, `phase`, or additional checks;
 - completeness of production/test/source/config changes from the approved plan is checked through review methods; the single `full` gate run above is the only allowed execution;
 - `Check Evidence` across all iterations in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran, but it is not a requirements source and does not replace independent read-only review;
-- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure; `phasedev check-validation` catches every structural violation.
+- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure, record rows and the verdict only through the phasedev findings commands (add-finding / resolve-finding / reopen-finding / set-verdict); `phasedev check-validation` catches every structural violation.
 
 {{path_resolution_rule}}
 
@@ -51,6 +51,9 @@ Required phase-contract checks:
 Allowed persistent artifacts for this phase:
 - active change folder `validation_findings.md` at the Artifact Build Contract Output path
 
+Any file not listed above is read-only for this phase.
+
 Phase completion:
 - After writing `validation_findings.md`, stop.
 - Tell the user the verdict, whether the full change is confirmed correctly solved, and the next transition through `phasedev advance`.
+- If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then run `phasedev advance` — the flow will route to finding_repair where the fix is implemented.

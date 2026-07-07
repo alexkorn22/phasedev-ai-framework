@@ -968,8 +968,8 @@ stages:
     expect(phaseValidationPrompt).toContain("Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root");
     expect(phaseValidationPrompt).toContain("including, where applicable to changed files, user/input handling");
     expect(phaseValidationPrompt).toContain("proceed with filesystem reads as fallback");
-    expect(phaseValidationPrompt).toContain("Preserve every existing finding row, including `resolved` rows");
-    expect(phaseValidationPrompt).toContain("Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number");
+    expect(phaseValidationPrompt).toContain("Preserve every existing row, including `resolved` rows");
+    expect(phaseValidationPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
     expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: iteration\ndate:");
     expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
@@ -2365,11 +2365,11 @@ stages:
     expect(planTemplate).toContain("Check Evidence contract:");
     expect(planTemplate).toContain("| Area / Path Pattern | Change Type | Ownership | Trace |");
     expect(findingsTemplate).toContain("verdict: <set_after_review>");
-    expect(findingsTemplate).toContain("Replace `<set_after_review>` with the verdict selected after evidence review");
+    expect(findingsTemplate).toContain("This file is created and mutated ONLY by phasedev commands");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened MUST-FIX finding exists.");
     expect(findingsTemplate).toContain("Security rows must always use Severity: MUST-FIX, including resolved rows.");
     expect(findingsTemplate).toContain("type: {{artifact_type}}");
-    expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Iteration | Finding | Required Fix |");
+    expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |");
   });
 
   test("validation templates preserve registry scope markers", () => {

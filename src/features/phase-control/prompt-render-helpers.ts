@@ -159,6 +159,12 @@ export function renderValidationFindingsTemplate(type: "iteration" | "final", da
   });
 }
 
+export const VALIDATION_FINDINGS_CANONICAL_FILL_RULES = [
+  "- Never write this artifact by hand: `phasedev add-finding` and `phasedev set-verdict` create it when missing, and every row or verdict change goes through the phasedev findings commands. The embedded template only documents the structure the CLI maintains.",
+  "- If the Output path already exists, it is edited in place through those commands: never recreate it from the embedded template and never drop existing table rows.",
+  "- The findings registry is append-only; the controller diffs it against a baseline snapshot and fails the self-check if rows were deleted or rewritten."
+];
+
 export function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
   const date = todayIsoDate();
 
@@ -170,6 +176,7 @@ export function finalValidationArtifactContract(findingsPath: string, projectPat
     selfCheckCommand: flowFinalValidationCheckCommand(projectPath),
     selfCheckFailureGuidance:
       "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
+    canonicalFillRules: VALIDATION_FINDINGS_CANONICAL_FILL_RULES,
     date,
   });
 }

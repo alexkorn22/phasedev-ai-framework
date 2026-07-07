@@ -37,8 +37,10 @@ Finding handling rules:
 - if the fixing path requires a material approval-scope change to `Target state`, a concrete `R#`, a concrete `SC#`, an `Evidence` type, or risk boundaries from the PRD, stop for user discussion and reset approval only on artifacts actually changed after that discussion;
 - if a requirements/design detail is ambiguous but does not change approval scope, make the smallest conservative artifact-local repair and record precise evidence in the updated finding row instead of blocking;
 - do not delete finding rows;
-- record a fixed finding by changing the existing row `Status` to `resolved`;
-- do not change stable fields in an existing row unless needed to fix an explicit error in the row;
+- record a fixed finding with `phasedev resolve-finding <id> --resolution "<what changed; verification command -> result>"`; the Resolution cell must name the changed files/artifacts and the check that proves the repair;
+- stable fields (Severity, Class, Iteration, Finding, Required Fix) of an existing row are immutable; if a row is factually wrong, close it with `phasedev resolve-finding <id> --resolution "inaccurate finding: <why>"` and add a corrected row with `phasedev add-finding`;
+- mutate the registry ONLY through the phasedev commands (add-finding / resolve-finding / reopen-finding / set-verdict); never hand-edit table rows, the verdict, or any frontmatter value;
+- never clear or rewrite another finding's Resolution content;
 - if repair reruns checks or changes evidence for the affected iteration, update `Check Evidence` in [iteration_plan.md]({{plan_path}});
 - in `Check Evidence`, use only these `Result` values: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - do not leave relevant repair evidence as `pending` or `failed`, except for an external blocker recorded as `blocked` with a reason;
@@ -60,8 +62,8 @@ Repair class map:
 
 Verdict rule:
 - preserve `type` in YAML frontmatter as the scope of the latest validation: `iteration` for Iteration Validation repair, `final` for Final Validation repair; do not reset a final repair to the template default `iteration`;
-- do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`;
-- when all current blocking findings have latest status `resolved`, set `verdict: repaired` and update the date;
+- do not change `verdict: repair_required` while any current blocking finding does not have latest status `resolved`; the verdict is recorded only with phasedev set-verdict;
+- when all current blocking findings have latest status `resolved`, run `phasedev set-verdict repaired` (the command validates consistency and updates the date);
 - do not set `ready` or `ready_with_risks` during the Repair Loop phase.
 
 Human reapproval:

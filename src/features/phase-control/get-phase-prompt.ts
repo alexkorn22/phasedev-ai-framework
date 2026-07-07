@@ -22,7 +22,7 @@ import { detectStateRouteConflict } from "./state-route-consistency";
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
-import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract } from "./prompt-render-helpers";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES } from "./prompt-render-helpers";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation"): Prompt {
   return {
@@ -72,6 +72,7 @@ function validationFindingsContract(findingsPath: string, projectPath: string, i
     selfCheckFailureGuidance: iterationId === undefined
       ? undefined
       : "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md` and the current phase status in `iteration_plan.md` when allowed by the validation verdict, then rerun the same command.",
+    canonicalFillRules: VALIDATION_FINDINGS_CANONICAL_FILL_RULES,
     date
   });
 }

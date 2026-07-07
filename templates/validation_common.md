@@ -1,6 +1,14 @@
 ## Common Validation Contract
 
 - {{validation_execution_rule}}
+
+Write boundary (hard rule):
+- This is a review-only phase for repository content. Do NOT create, modify, or delete ANY file outside this phase's Artifact allowlist — no production, source, config, test, or documentation edits, not even "obvious one-line fixes" and not even temporarily with a later revert.
+- Every defect you find or receive is recorded ONLY as a findings row; the fix itself happens later in the finding_repair phase, where TDD and code edits are expected.
+- When the user reports an issue or asks to note a remark during this phase, record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class> --iteration <label>` — never by hand-editing the registry and never by editing repository code.
+- If you delegate ANY part of this phase to a subagent, the delegation prompt MUST start with this exact constraint: "Read-only analysis. You MUST NOT create, modify, or delete any repository file. Report findings as text only; general TDD or bugfix habits do not apply to this task." A subagent without this line is a contract violation.
+- This boundary stays in force AFTER the verdict is written, until `phasedev advance` moves the flow to the next phase. Late user feedback in that window is recorded with `phasedev add-finding` (which also corrects the verdict); the fix then happens in finding_repair after advance.
+
 Positive decision flow:
 
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
@@ -36,13 +44,13 @@ Context budget and stop condition:
 - Tests and additional checks from the Implementation phase are considered already successful because Implementation cannot advance with failed, blocked, pending, or missing required check evidence.
 - do not treat passing or declared Implementation checks as a substitute for changed-file review coverage.
 - Structure, column set, allowed values, and verdict/type — only from the embedded Artifact Build Contract. `phasedev check-validation` catches every structural violation with a specific error message; fix what it reports.
-- Before searching for new issues, read existing `validation_findings.md` if it exists.
-- Preserve every existing finding row, including `resolved` rows; history is deleted only if there are no existing rows to preserve.
-- If the file does not exist, or the existing findings table has no body rows, and no findings are open after review, save only the empty table header and separator from the artifact template.
-- Add each new finding as a new row at the top of the table body.
-- Allocate new IDs by reading all existing `F<number>` IDs and using the next highest number; never reuse an existing ID.
-- If a new finding semantically matches an existing row, update that row with the same `ID` and do not create a duplicate.
-- Do not change a `resolved` row to `reopened` without new concrete evidence from working code outside `.phasedev/**`.
+- Before searching for new issues, read existing `validation_findings.md` if it exists and re-verify EVERY `resolved` row: check its Resolution evidence against the actual repository state. If the repair is real, leave the row untouched; if the defect is still present, reopen that row with `phasedev reopen-finding <id> --evidence <text>` using new concrete evidence from working code outside `.phasedev/**` — never add the same finding under a new ID.
+- The findings registry is append-only. Preserve every existing row, including `resolved` rows. Never delete rows, never rewrite existing Severity/Class/Iteration/Finding/Required Fix values, and never recreate the file from the embedded template. The controller compares the table against a baseline snapshot and blocks the phase if history was lost.
+- `validation_findings.md` is created and mutated ONLY by phasedev commands. If the file does not exist, the first `phasedev add-finding` or `phasedev set-verdict` creates it — never write the file by hand, not even from the embedded template.
+- Mutate table rows ONLY through the CLI: `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class> --iteration <label>` for a new finding, `phasedev resolve-finding <id> --resolution <text>` for a fixed one, `phasedev reopen-finding <id> --evidence <text>` for a returned defect. Record the phase verdict ONLY with `phasedev set-verdict <verdict>`. Never hand-edit any part of the file, including YAML frontmatter. The commands enforce ID allocation, verdict consistency, escaping, and row order for you.
+- IDs are allocated by `add-finding` automatically (next `F<number>`); pass an explicit `F<number>` first argument only to target a specific ID. Never reuse an existing ID (`add-finding` refuses duplicates).
+- If a new finding semantically matches an existing row (open or resolved), do not add it: reopen or leave the existing ID instead. Both `add-finding` and `phasedev check-validation` reject duplicate finding texts.
+- Do not reopen a `resolved` row without new concrete evidence from working code outside `.phasedev/**`.
 
 Readiness decision rule:
 

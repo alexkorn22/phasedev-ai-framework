@@ -32,7 +32,7 @@ Required phase-contract checks:
 - completeness of production/test/source/config changes for the current iteration and current iteration task statuses is checked through review methods without running tests;
 - `Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
 - do not rerun tests or additional checks at this phase;
-- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure; `phasedev check-validation` catches every structural violation.
+- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure, record rows and the verdict only through the phasedev findings commands (add-finding / resolve-finding / reopen-finding / set-verdict); `phasedev check-validation` catches every structural violation.
 - if the final verdict is `ready` or `ready_with_risks`, change the current iteration status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;
 - if the final verdict is `repair_required`, keep the current iteration status as `[~]`.
 
@@ -49,6 +49,9 @@ Allowed persistent artifacts for this phase:
 - active change folder `validation_findings.md` at the Artifact Build Contract Output path
 - iteration status in active change folder `iteration_plan.md`, only when allowed by validation verdict
 
+Any file not listed above is read-only for this phase.
+
 Phase completion:
 - After writing `validation_findings.md` and possibly updating the iteration status, stop.
 - Tell the user the verdict, whether the iteration is confirmed correctly solved, and the next transition through `phasedev advance`.
+- If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then run `phasedev advance` — the flow will route to finding_repair where the fix is implemented.
