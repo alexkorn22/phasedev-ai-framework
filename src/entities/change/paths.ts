@@ -10,6 +10,7 @@ export interface ChangePaths {
   designPath: string;
   iterationPlanPath: string;
   findingsPath: string;
+  findingsBaselinePath: string;
 }
 
 export function buildChangePaths(changeDir: string): ChangePaths {
@@ -20,7 +21,8 @@ export function buildChangePaths(changeDir: string): ChangePaths {
     researchPath: path.join(changeDir, "research_facts.md"),
     designPath: path.join(changeDir, "architecture", "design.md"),
     iterationPlanPath: path.join(changeDir, "iteration_plan.md"),
-    findingsPath: path.join(changeDir, "validation_findings.md")
+    findingsPath: path.join(changeDir, "validation_findings.md"),
+    findingsBaselinePath: path.join(changeDir, ".findings-baseline.json")
   };
 }
 
