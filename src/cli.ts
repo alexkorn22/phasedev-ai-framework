@@ -32,6 +32,7 @@ import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
 import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-phase";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
+import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
@@ -735,6 +736,21 @@ function main(): void {
       phase: result.phase,
       humanMessage: result.prompt,
       jsonMessage: result.blocked ? (result.reason ?? "Blocked") : `Phase contract for ${result.phase}.`,
+      data: { prompt: result.prompt }
+    });
+    if (result.blocked) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "feedback") {
+    const result = getFeedbackPrompt(projectPath);
+    reportCliResult(jsonMode, {
+      ok: !result.blocked,
+      kind: "feedback",
+      humanMessage: result.prompt,
+      jsonMessage: result.blocked ? (result.reason ?? "Blocked") : "Feedback contract ready.",
       data: { prompt: result.prompt }
     });
     if (result.blocked) {

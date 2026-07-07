@@ -3329,3 +3329,33 @@ phases: {}
     expect(result.output).not.toContain("Max iterations");
   });
 });
+
+describe("feedback command", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("feedback prints the feedback contract with live flow context", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "feedback-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeStateJson(changeDir, "final_validation");
+    fs.writeFileSync(path.join(changeDir, "validation_findings.md"), validationFindings("ready", "final"), "utf-8");
+
+    const result = runCli(["feedback", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("phasedev add-finding");
+    expect(result.output).toContain("phasedev reopen-finding");
+    expect(result.output).toContain("approved: false");
+    expect(result.output).toContain("Do NOT run `phasedev advance`");
+    expect(result.output).toContain("phasedev check");
+    expect(result.output).toContain("final_validation");
+    expect(result.output).toContain("ready");
+    expect(result.output).not.toContain("Skill policy");
+    expect(result.output).not.toContain("skill_policy");
+  });
+
+  test("feedback is blocked without an active change", () => {
+    const result = runCli(["feedback", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("No active change");
+  });
+});

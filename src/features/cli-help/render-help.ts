@@ -56,6 +56,11 @@ Commands:
       Validate artifacts for the active phase (or --phase override).
       Side effects: none.
 
+  phasedev feedback [--project-path <path>]
+      Print the user-feedback processing contract for the active change (read-only).
+      Defines how an agent classifies feedback (implementation defect vs scope change)
+      and which phasedev commands to use. Side effects: none.
+
   phasedev advance [--project-path <path>] [--config <path>]
       Validate the active phase and transition to the next phase.
       Refuses if artifacts are invalid, require approval, or archives are blocked.
