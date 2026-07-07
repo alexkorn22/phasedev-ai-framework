@@ -278,7 +278,7 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 
 1. **NEVER execute phase work directly** — always spawn a sub-agent via `Agent`.
 2. **ALWAYS invoke `phasedev` directly as a global command** — never `npx`/`bunx`/`npm exec`/`npm run`/`bun run`. Restate this in every sub-agent prompt.
-3. **NEVER run `phasedev advance` yourself** — the orchestrator does.
+3. **Sub-agents NEVER run `phasedev advance`** — only the orchestrator calls it, after sub-agents report passing self-checks.
 4. **ALWAYS use `phasedev check` to validate the active phase** — never read `.phasedev/` files directly.
 5. **ALWAYS use `phasedev config` to read settings** — never read `config.yaml` directly.
 6. **NEVER validate or fix phase artifacts yourself** — the owning sub-agent creates, self-checks, and self-heals each artifact. An `invalid_*` phase after "complete" is a self-check violation: one recovery spawn, then stop.
