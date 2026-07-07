@@ -33,6 +33,14 @@ function cleanupTestDir() {
   cleanupTempWorkspace(testTmpDir);
 }
 
+let tmpFileCounter = 0;
+function writeTmp(content: string): string {
+  setupTestDir();
+  const filePath = path.join(testTmpDir, `tmp_findings_${++tmpFileCounter}.md`);
+  fs.writeFileSync(filePath, content, "utf-8");
+  return filePath;
+}
+
 const canonicalTaskSyntaxIssue =
   "Use exactly `- [ ] <iteration>.<task> Task name` for top-level tasks and `  - [ ] <iteration>.<task>.<subtask> Subtask name` for subtasks.";
 const canonicalPhaseHeadingSyntaxIssue =
@@ -2075,7 +2083,8 @@ date: 2026-05-30
         blocksPr: true,
         phase: "Iteration 1",
         finding: "API response omits required error handling.",
-        requiredFix: "Add error mapping."
+        requiredFix: "Add error mapping.",
+        resolution: ""
       },
       {
         id: "F3",
@@ -2085,7 +2094,8 @@ date: 2026-05-30
         blocksPr: true,
         phase: "Phase 2",
         finding: "Design does not cover retry behavior.",
-        requiredFix: "Document retry behavior."
+        requiredFix: "Document retry behavior.",
+        resolution: ""
       }
     ]);
   });
@@ -2156,7 +2166,7 @@ date: 2026-05-30
 
     const issues = parseValidationFindingsArtifact(invalidFile).issues.map(i => i.message);
 
-    expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix.");
+    expect(issues).toContain("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix, Resolution (legacy 7-column tables without Resolution are accepted).");
   });
 
   test("parseValidationFindingsArtifact rejects duplicate IDs and invalid strict values", () => {
@@ -2357,7 +2367,8 @@ date: 2026-05-30
         phase: "Iteration 1",
         canonicalFinding: "API response omits required error handling.",
         requiredFix: "Keep the error mapping fix.",
-        latestEvidence: "API response omits required error handling."
+        latestEvidence: "API response omits required error handling.",
+        resolution: ""
       },
       {
         id: "F2",
@@ -2368,7 +2379,8 @@ date: 2026-05-30
         phase: "Final",
         canonicalFinding: "Non-blocking naming note.",
         requiredFix: "Rename in a follow-up.",
-        latestEvidence: "Non-blocking naming note."
+        latestEvidence: "Non-blocking naming note.",
+        resolution: ""
       },
       {
         id: "F3",
@@ -2379,9 +2391,81 @@ date: 2026-05-30
         phase: "Final",
         canonicalFinding: "Missing auth failure coverage!!!",
         requiredFix: "Add auth failure coverage.",
-        latestEvidence: "reopened/regression: Missing auth failure coverage!!!"
+        latestEvidence: "reopened/regression: Missing auth failure coverage!!!",
+        resolution: ""
       }
     ]);
+  });
+
+  test("accepts 8-column table and exposes resolution", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard in parser | Add guard |  |\n" +
+      "| F1 | resolved | NIT | test | Iteration 1 | Weak assertion | Strengthen assertion | Fixed in test/parser.test.ts; bun test parser -> pass |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.rows[1].resolution).toContain("Fixed in test/parser.test.ts");
+  });
+
+  test("accepts legacy 7-column table with empty resolution and no resolution issues", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR7 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR7 +
+      "| F1 | resolved | NIT | test | Iteration 1 | Weak assertion | Strengthen assertion |\n" +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard | Add guard |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues).toEqual([]);
+    expect(artifact.rows[0].resolution).toBe("");
+  });
+
+  test("resolved row in 8-column table requires non-placeholder Resolution", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard | Add guard |  |\n" +
+      "| F1 | resolved | NIT | test | Iteration 1 | Weak assertion | Strengthen assertion |  |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues.some(i => i.message.includes("F1") && i.message.includes("Resolution"))).toBe(true);
+  });
+
+  test("open row must have empty Resolution", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F1 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard | Add guard | already fixed |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues.some(i => i.message.includes("F1") && i.message.includes("must be empty"))).toBe(true);
+  });
+
+  test("two OPEN rows with the same canonical finding text are flagged as duplicates", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Missing   null guard in parser | Add guard |  |\n" +
+      "| F1 | reopened | MUST-FIX | implementation | Iteration 1 | missing null guard in parser | Add guard | reopened: still broken |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues.some(i => i.message.includes("duplicate finding"))).toBe(true);
+  });
+
+  test("open row duplicating a RESOLVED row is NOT a parser issue", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard in parser | Add guard |  |\n" +
+      "| F1 | resolved | MUST-FIX | implementation | Iteration 1 | missing null guard in parser | Add guard | Fixed in src/x.ts; bun test -> pass |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.issues).toEqual([]);
+  });
+
+  test("empty trailing Resolution cell survives row splitting", () => {
+    const FM = "---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-07\n---\n\n";
+    const HDR8 = "| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |\n|---|---|---|---|---|---|---|---|\n";
+    const file = writeTmp(FM + HDR8 +
+      "| F1 | open | MUST-FIX | implementation | Iteration 1 | Missing null guard | Add guard |  |\n");
+    const artifact = parseValidationFindingsArtifact(file);
+    expect(artifact.rows.length).toBe(1);
+    expect(artifact.rows[0].resolution).toBe("");
   });
 
   test("parseTestCommands extracts unit, phase, and full commands from rules markdown", () => {

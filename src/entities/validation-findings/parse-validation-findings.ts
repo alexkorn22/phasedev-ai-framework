@@ -15,6 +15,7 @@ export interface ValidationFindingState {
   canonicalFinding: string;
   requiredFix: string;
   latestEvidence: string;
+  resolution: string;
 }
 
 export type ValidationFindingStatus = "open" | "reopened" | "resolved";
@@ -43,6 +44,7 @@ export interface ValidationFindingRow {
   phase: string;
   finding: string;
   requiredFix: string;
+  resolution: string;
 }
 
 export interface ValidationFindingsArtifact {
@@ -56,7 +58,9 @@ export interface ValidationFindingsArtifact {
   openNonBlockingRows: ValidationFindingRow[];
 }
 
-const STRICT_HEADERS = ["id", "status", "severity", "class", "iteration", "finding", "requiredfix"];
+const STRICT_HEADERS = ["id", "status", "severity", "class", "iteration", "finding", "requiredfix", "resolution"];
+const LEGACY_HEADERS = STRICT_HEADERS.slice(0, 7);
+const PLACEHOLDER_RESOLUTION = /^(?:TBD|TODO|n\/a|none|-)$/i;
 const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
 export const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
 export const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
@@ -86,6 +90,14 @@ function normalizeHeader(value: string): string {
 function canonicalFindingFor(value: string): string {
   return value
     .replace(/^reopened\s*\/\s*regression\s*:\s*/i, "")
+    .trim();
+}
+
+export function canonicalFindingKey(finding: string): string {
+  return finding
+    .replace(/^reopened\s*\/\s*regression\s*:\s*/i, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -163,9 +175,16 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
 
   const headerCells = splitMarkdownTableRow(bodyLines[tableBlock.start]);
   const normalizedHeaders = headerCells.map(normalizeHeader);
-  if (normalizedHeaders.length !== STRICT_HEADERS.length || !STRICT_HEADERS.every((header, index) => normalizedHeaders[index] === header)) {
-    issues.push(genericIssue("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix."));
+
+  let hasResolutionColumn = false;
+  const isStrictHeaders = normalizedHeaders.length === STRICT_HEADERS.length && STRICT_HEADERS.every((header, index) => normalizedHeaders[index] === header);
+  const isLegacyHeaders = normalizedHeaders.length === LEGACY_HEADERS.length && LEGACY_HEADERS.every((header, index) => normalizedHeaders[index] === header);
+
+  if (!isStrictHeaders && !isLegacyHeaders) {
+    issues.push(genericIssue("Findings table columns must be exactly: ID, Status, Severity, Class, Iteration, Finding, Required Fix, Resolution (legacy 7-column tables without Resolution are accepted)."));
   }
+
+  hasResolutionColumn = isStrictHeaders;
 
   const separatorIndex = tableBlock.start + 1;
   if (separatorIndex > tableBlock.end || !isMarkdownTableSeparatorRow(splitMarkdownTableRow(bodyLines[separatorIndex]))) {
@@ -174,6 +193,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
 
   const seenIds = new Set<string>();
   const dataStart = separatorIndex + 1;
+  const expectedCellCount = hasResolutionColumn ? 8 : 7;
   for (let rowIndex = dataStart; rowIndex <= tableBlock.end; rowIndex++) {
     const cells = splitMarkdownTableRow(bodyLines[rowIndex]);
     if (isMarkdownTableSeparatorRow(cells)) {
@@ -181,12 +201,13 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
       continue;
     }
 
-    if (cells.length !== STRICT_HEADERS.length) {
-      issues.push(genericIssue(`Findings table row ${rowIndex + 1} must have exactly ${STRICT_HEADERS.length} cells.`));
+    if (cells.length !== expectedCellCount) {
+      issues.push(genericIssue(`Findings table row ${rowIndex + 1} must have exactly ${expectedCellCount} cells.`));
       continue;
     }
 
-    const [id = "", rawStatus = "", rawSeverity = "", rawClassName = "", phase = "", finding = "", requiredFix = ""] = cells;
+    const [id = "", rawStatus = "", rawSeverity = "", rawClassName = "", phase = "", finding = "", requiredFix = "", rawResolution = ""] = cells;
+    const resolution = (rawResolution ?? "").trim();
     const status = rawStatus.toLowerCase();
     const severity = rawSeverity;
     const className = rawClassName.toLowerCase();
@@ -220,6 +241,15 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
       issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} has an empty Required Fix.`));
     }
 
+    if (hasResolutionColumn) {
+      if (status === "resolved" && (resolution.length === 0 || PLACEHOLDER_RESOLUTION.test(resolution))) {
+        issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} is resolved but Resolution is empty or a placeholder; record what was changed and how it was verified.`));
+      }
+      if (status === "open" && resolution.length > 0) {
+        issues.push(genericIssue(`Finding ${id || `row ${rowIndex + 1}`} is open but Resolution must be empty until the finding is repaired.`));
+      }
+    }
+
     if (
       id.length > 0 &&
       ALLOWED_STATUSES.has(status) &&
@@ -238,8 +268,21 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
         blocksPr: severity === "MUST-FIX",
         phase,
         finding,
-        requiredFix
+        requiredFix,
+        resolution
       });
+    }
+  }
+
+  // Detect duplicate finding text among open/reopened rows
+  const byCanonical = new Map<string, string[]>();
+  for (const row of rows.filter(r => r.status === "open" || r.status === "reopened")) {
+    const key = canonicalFindingKey(row.finding);
+    byCanonical.set(key, [...(byCanonical.get(key) ?? []), row.id]);
+  }
+  for (const ids of byCanonical.values()) {
+    if (ids.length > 1) {
+      issues.push(genericIssue(`Findings table contains duplicate finding text for IDs ${ids.join(", ")}; merge them into one row (update/reopen the earliest ID).`));
     }
   }
 
@@ -288,7 +331,8 @@ export function parseCurrentValidationFindings(filePath: string): ValidationFind
       phase: row.phase,
       canonicalFinding,
       requiredFix: row.requiredFix,
-      latestEvidence: row.finding
+      latestEvidence: row.finding,
+      resolution: row.resolution
     };
   });
 }
