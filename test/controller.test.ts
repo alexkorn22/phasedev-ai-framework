@@ -1263,57 +1263,61 @@ Complete API work.
     });
     const statePath = path.join(changeDir, "state.json");
 
-    // Helper: write state and run advance
-    function advanceFrom(phase: string, iter: number | null, count: number, findingsVerdict: string, findingsRows = ""): ReturnType<typeof advanceFlow> {
+    // Helper: write state and run advance. Each repair round uses a fresh
+    // finding ID and rows accumulate (never deleted): the append-only baseline
+    // gate rejects both a resolved finding going back to open and a row
+    // disappearing, so reopening the same ID or dropping prior rows across
+    // cycles is not a realistic simulation.
+    const resolvedRows: string[] = [];
+    function advanceFrom(phase: string, iter: number | null, count: number, findingsVerdict: string, findingId = "F1"): ReturnType<typeof advanceFlow> {
       fs.writeFileSync(
         statePath,
         JSON.stringify({ activePhase: phase, activeIteration: iter, repairCycleCount: count }, null, 2) + "\n",
         "utf-8"
       );
-      // Write findings to drive the route
       const findingsPath = path.join(changeDir, "validation_findings.md");
       if (findingsVerdict === "repair_required") {
-        fs.writeFileSync(findingsPath, validationFindings("repair_required", "iteration", findingsRows), "utf-8");
+        const openRow = `| ${findingId} | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n`;
+        fs.writeFileSync(findingsPath, validationFindings("repair_required", "iteration", resolvedRows.join("") + openRow), "utf-8");
       } else {
-        fs.writeFileSync(findingsPath, validationFindings("repaired", "iteration"), "utf-8");
+        resolvedRows.push(`| ${findingId} | resolved | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n`);
+        fs.writeFileSync(findingsPath, validationFindings("repaired", "iteration", resolvedRows.join("")), "utf-8");
       }
       return advanceFlow(testTmpDir, DEFAULT_CONFIG);
     }
 
-    const findingsRow = "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n";
-
     // Cycle 1: validation → repair (count 0→1)
-    let r = advanceFrom("iteration_validation", 1, 0, "repair_required", findingsRow);
+    let r = advanceFrom("iteration_validation", 1, 0, "repair_required", "F1");
     expect(r.ok).toBe(true);
     expect(r.newState?.activePhase).toBe("finding_repair");
     expect(r.newState?.repairCycleCount).toBe(1);
 
     // Cycle 1: repair → validation (count stays 1)
-    r = advanceFrom("finding_repair", 1, 1, "repaired");
+    r = advanceFrom("finding_repair", 1, 1, "repaired", "F1");
     expect(r.ok).toBe(true);
     expect(r.newState?.activePhase).toBe("iteration_validation");
     expect(r.newState?.repairCycleCount).toBe(1);
 
-    // Cycle 2: validation → repair (count 1→2)
-    r = advanceFrom("iteration_validation", 1, 1, "repair_required", findingsRow);
+    // Cycle 2: validation → repair (count 1→2), new finding surfaces
+    r = advanceFrom("iteration_validation", 1, 1, "repair_required", "F2");
     expect(r.ok).toBe(true);
     expect(r.newState?.activePhase).toBe("finding_repair");
     expect(r.newState?.repairCycleCount).toBe(2);
 
     // Cycle 2: repair → validation (count stays 2)
-    r = advanceFrom("finding_repair", 1, 2, "repaired");
+    r = advanceFrom("finding_repair", 1, 2, "repaired", "F2");
     expect(r.ok).toBe(true);
     expect(r.newState?.activePhase).toBe("iteration_validation");
     expect(r.newState?.repairCycleCount).toBe(2);
 
-    // Cycle 3: validation → repair (count 2→3)
-    r = advanceFrom("iteration_validation", 1, 2, "repair_required", findingsRow);
+    // Cycle 3: validation → repair (count 2→3), new finding surfaces
+    r = advanceFrom("iteration_validation", 1, 2, "repair_required", "F3");
     expect(r.ok).toBe(true);
     expect(r.newState?.activePhase).toBe("finding_repair");
     expect(r.newState?.repairCycleCount).toBe(3);
 
     // 4th repair attempt blocked: count is 3 which is >= MAX_REPAIR_CYCLES
-    r = advanceFrom("iteration_validation", 1, 3, "repair_required", findingsRow);
+    r = advanceFrom("iteration_validation", 1, 3, "repair_required", "F3");
     expect(r.ok).toBe(false);
     expect(r.message).toContain("Repair cycle limit reached");
     expect(r.message).toContain("3");
@@ -1576,6 +1580,40 @@ Complete API work.
 
       // Delete the row
       fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", ""), "utf-8");
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("append-only");
+    });
+
+    test("advanceFlow refuses from finding_repair when a row is deleted after baseline", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        // The row was deleted instead of resolved: verdict claims repaired,
+        // but the append-only baseline check must still catch the deletion.
+        findings: validationFindings("repaired", "iteration", "")
+      });
+
+      const paths = buildChangePaths(changeDir);
+
+      fs.writeFileSync(
+        paths.findingsBaselinePath,
+        JSON.stringify({
+          rows: [
+            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
+          ]
+        }, null, 2),
+        "utf-8"
+      );
+
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "finding_repair", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
+        "utf-8"
+      );
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 

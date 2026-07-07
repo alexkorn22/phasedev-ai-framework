@@ -199,6 +199,10 @@ export function validatePhase(
         issues.push(...findings.issues.map(issue => issue.message));
       }
 
+      if (fs.existsSync(paths.findingsBaselinePath)) {
+        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
+      }
+
       // finding_repair is valid in two states: repair ongoing (open blocking
       // findings remain) or repair finished (verdict: repaired with all blocking
       // findings resolved — the exit state advance routes onward from). Anything
