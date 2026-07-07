@@ -131,10 +131,10 @@ function correctedVerdict(current: string, addedSeverity: string): string | null
 }
 
 /**
- * Открытая строка делает «готовый» вердикт противоречивым; команда чинит его
- * атомарно. Guard: отсутствующая или невалидная строка verdict (например,
- * плейсхолдер шаблона до записи вердикта валидатором) — коррекция молча
- * пропускается, файл не трогается.
+ * An open row makes a "ready" verdict contradictory; the command fixes it atomically.
+ * Guard: a missing or invalid verdict line (e.g., a template placeholder before the
+ * verdict is written by the validator) causes the correction to be silently skipped,
+ * and the file is not modified.
  */
 function applyVerdictCorrection(parsed: ReturnType<typeof parseTable>, addedSeverity: string): string {
   const current = readVerdictLine(parsed.frontmatter);
