@@ -386,11 +386,10 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   }
 
   // Repair cycle guard: refuse after N consecutive repair attempts
-  const MAX_REPAIR_CYCLES = 3;
-  if (route.kind === "finding_repair" && state.repairCycleCount >= MAX_REPAIR_CYCLES) {
+  if (route.kind === "finding_repair" && state.repairCycleCount >= config.maxRepairCycles) {
     return refuse(
-      `Repair cycle limit reached (${MAX_REPAIR_CYCLES}). ` +
-      "Manual intervention required. Review the findings, resolve them directly, then run advance again."
+      `Repair cycle limit reached (${config.maxRepairCycles}). ` +
+      "Review the findings and resolve them manually, or increase maxRepairCycles in config.yaml, then run advance again."
     );
   }
 

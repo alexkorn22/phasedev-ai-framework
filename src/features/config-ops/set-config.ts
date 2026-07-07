@@ -19,7 +19,7 @@ export interface SetConfigOptions {
  * Returns an error message or null if valid.
  */
 function validateLeafValue(leafKey: string, value: unknown): string | null {
-  if (leafKey === "maxIterations") {
+  if (leafKey === "maxIterations" || leafKey === "maxRepairCycles") {
     if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
       return `Config key \`${leafKey}\` must be a positive integer.`;
     }

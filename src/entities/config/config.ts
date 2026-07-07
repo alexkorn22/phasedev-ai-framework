@@ -19,6 +19,7 @@ export interface Config {
   runArchiveStage: boolean;
   autoApprove: boolean;
   maxIterations: number;
+  maxRepairCycles: number;
 }
 
 export const EMPTY_PHASE_SKILLS: PhaseSkillConfig = {
@@ -31,7 +32,8 @@ export const DEFAULT_CONFIG: Config = {
   phases: {},
   runArchiveStage: true,
   autoApprove: false,
-  maxIterations: 10
+  maxIterations: 10,
+  maxRepairCycles: 3
 };
 
 const PHASE_NAME_MAP: Record<string, string> = {
@@ -284,7 +286,8 @@ export function parseConfig(content: string): Config {
     phases,
     runArchiveStage: readBoolean(root.runArchiveStage, DEFAULT_CONFIG.runArchiveStage, "runArchiveStage"),
     autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
-    maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations")
+    maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations"),
+    maxRepairCycles: readPositiveInteger(root.maxRepairCycles, DEFAULT_CONFIG.maxRepairCycles, "maxRepairCycles")
   };
 }
 

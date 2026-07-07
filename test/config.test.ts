@@ -243,6 +243,24 @@ stages:
     // Should warn about conflict and that phases: takes precedence
     expect(warnings.some(w => w.includes("both") || w.includes("Both"))).toBe(true);
   });
+
+  test("defaults maxRepairCycles to 3 when absent", () => {
+    const config = parseConfig("");
+    expect(config.maxRepairCycles).toBe(3);
+  });
+
+  test("parses explicit maxRepairCycles", () => {
+    const config = parseConfig("maxRepairCycles: 5");
+    expect(config.maxRepairCycles).toBe(5);
+  });
+
+  test("rejects maxRepairCycles of zero", () => {
+    expect(() => parseConfig("maxRepairCycles: 0")).toThrow("must be a positive integer");
+  });
+
+  test("rejects non-numeric maxRepairCycles", () => {
+    expect(() => parseConfig("maxRepairCycles: abc")).toThrow("must be a positive integer");
+  });
 });
 
 // ============================================================================
@@ -585,6 +603,22 @@ describe("setConfigValue", () => {
 
     const result = setConfigValue(configPath, "maxIterations", "5");
     expect(result.ok).toBe(true);
+  });
+
+  test("accepts maxRepairCycles with valid positive integer", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxRepairCycles", "4");
+    expect(result.ok).toBe(true);
+    expect(loadConfig(configPath).maxRepairCycles).toBe(4);
+  });
+
+  test("rejects maxRepairCycles with zero", () => {
+    const configPath = writeProjectConfig(dir, "phases: {}\n");
+
+    const result = setConfigValue(configPath, "maxRepairCycles", "0");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("maxRepairCycles");
   });
 
   test("rejects runArchiveStage with non-boolean string", () => {

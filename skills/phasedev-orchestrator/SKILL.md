@@ -75,6 +75,11 @@ phasedev config maxIterations
 → Safety iteration limit. Default to **10** if empty/invalid. Stop with "Max iterations reached" when reached.
 
 ```bash
+phasedev config maxRepairCycles
+```
+→ Safety limit for consecutive repair cycles without progress. Default to **3** if empty/invalid.
+
+```bash
 phasedev config runArchiveStage
 ```
 → Remember for the archive phase check below.
@@ -244,6 +249,7 @@ Stop when any is met:
 - **Blocked** — approval gate, blocker, or invalid state. Approval gates (`change_intake_approval`, `technical_design_approval`, `iteration_planning_approval`): when `autoApprove` is true, follow [Auto-Approval](#auto-approval); otherwise tell the user to approve and wait.
 - **No progress** — after sub-agents, `phasedev advance` still refuses with the same reason (invalid artifact, approval gate, or blocked). `phasedev check` returns same issues after a sub-agent reported "complete" — apply Invalid-artifact recovery policy.
 - **Max iterations** — `maxIterations` reached.
+- **Repair cycle limit** — advance refuses with "Repair cycle limit reached"; manual intervention or a higher maxRepairCycles in config.yaml is required.
 - **Unrecoverable error** — sub-agent error after one retry.
 - **User interrupt**.
 

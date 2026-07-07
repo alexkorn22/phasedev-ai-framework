@@ -1344,6 +1344,27 @@ Complete API work.
     expect(result.message).toContain("3");
   });
 
+  test("repair cycle limit honors configured maxRepairCycles", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, maxRepairCycles: 1 });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Repair cycle limit reached");
+    expect(result.message).toContain("maxRepairCycles");
+  });
+
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
