@@ -9,6 +9,7 @@ import { approveArtifact } from "../artifact-ops/approve-artifact";
 import { resolveRoute, Route } from "./flow-route";
 import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
+import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
@@ -361,6 +362,12 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
       return refuse("Archive is disabled (runArchiveStage=false).");
     }
 
+    // The baseline is a working snapshot for the repair gate; it has no
+    // meaning once archived and a manual rollback out of archive is not
+    // supported, so it must not travel into the archived directory. Remove
+    // it before the move — startArchiveStage relocates changeDir itself.
+    fs.rmSync(paths.findingsBaselinePath, { force: true });
+
     // startArchiveStage creates .phase-archive.json, writes activePhase:"archive"
     // into state.json, then moves the change dir — so the phase lock travels with
     // the directory. It returns a blocker (without moving anything) when the
@@ -418,6 +425,14 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   const sideEffect = applyStateSideEffects(projectPath, paths, state, nextState, route);
   if (!sideEffect.ok) {
     return refuse(`Cannot advance: ${sideEffect.reason}`);
+  }
+
+  // Snapshot the findings table as the repair-gate baseline whenever entering
+  // a phase that reads or writes validation_findings.md, so later gates diff
+  // against what the validator/repairer produced, not a stale earlier pass.
+  const BASELINE_PHASES: ReadonlySet<ActivePhase> = new Set(["iteration_validation", "final_validation", "finding_repair"]);
+  if (BASELINE_PHASES.has(nextState.activePhase)) {
+    writeFindingsBaseline(paths.findingsPath, paths.findingsBaselinePath);
   }
 
   // Preserve repair cycle count through repair↔validation cycles.

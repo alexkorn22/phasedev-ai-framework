@@ -1407,6 +1407,109 @@ Complete API work.
     expect(result).toBeNull();
   });
 
+  describe("findings baseline snapshot lifecycle", () => {
+    test("advance into iteration_validation writes findings baseline with empty rows when no findings file exists yet", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`);
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "implementation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("iteration_validation");
+
+      const baselinePath = path.join(changeDir, ".findings-baseline.json");
+      expect(fs.existsSync(baselinePath)).toBe(true);
+      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
+      expect(baseline.rows).toEqual([]);
+    });
+
+    test("advance into finding_repair overwrites the findings baseline with the current findings table", () => {
+      const findingsRow = "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n";
+      const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", findingsRow)
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const baselinePath = path.join(changeDir, ".findings-baseline.json");
+      fs.writeFileSync(
+        baselinePath,
+        JSON.stringify({ rows: [{ id: "STALE", status: "open", severity: "x", className: "x", iteration: "x", finding: "x", requiredFix: "x" }] }, null, 2),
+        "utf-8"
+      );
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("finding_repair");
+
+      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
+      expect(baseline.rows).toHaveLength(1);
+      expect(baseline.rows[0].id).toBe("F1");
+    });
+
+    test("advance from archive_ready to archive removes the findings baseline before the archive move", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "final")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("archive");
+
+      const today = new Date().toISOString().split("T")[0];
+      const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+      expect(fs.existsSync(archiveDir)).toBe(true);
+      expect(fs.existsSync(path.join(archiveDir, ".findings-baseline.json"))).toBe(false);
+    });
+
+    test("reopenPhase(plan) removes an existing findings baseline", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { planApproved: true });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+      const baselinePath = path.join(changeDir, ".findings-baseline.json");
+      fs.writeFileSync(baselinePath, JSON.stringify({ rows: [] }, null, 2), "utf-8");
+
+      const result = reopenPhase(testTmpDir, "plan");
+
+      expect(result.ok).toBe(true);
+      expect(fs.existsSync(baselinePath)).toBe(false);
+    });
+  });
+
   describe("reopen phase", () => {
     function writeState(changeDir: string, phase: string, iteration: number | null = null) {
       fs.writeFileSync(

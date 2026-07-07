@@ -72,6 +72,10 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase): Reopen
   const newContent = `${block.prefix}---\n${newYaml}\n---${content.slice(block.endIndex)}`;
   writeFileAtomic(artifactPath, newContent);
 
+  // The baseline would otherwise compare the findings table against a
+  // snapshot from before this manual rollback, rejecting legitimate rework.
+  fs.rmSync(paths.findingsBaselinePath, { force: true });
+
   // Move state back to the target phase
   saveFlowState(projectPath, { activePhase: config.targetPhase, activeIteration: null, repairCycleCount: 0 });
 

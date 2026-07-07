@@ -38,6 +38,9 @@ export function resetChange(projectPath: string, force?: boolean): ResetChangeRe
   const trashPath = path.join(trashDir, `${Date.now()}-${changeName}`);
 
   try {
+    // The baseline is a working snapshot for the repair gate, not a valid
+    // artifact to preserve in .trash — drop it before the move.
+    fs.rmSync(path.join(changeDir, ".findings-baseline.json"), { force: true });
     fs.renameSync(changeDir, trashPath);
     return {
       ok: true,
