@@ -50,6 +50,11 @@ If a goal is provided, it is passed to the first `change_intake` sub-agent. Othe
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate active phase, compute next phase via `resolveRoute`, and switch `state.json`. Refuses on invalid/approval/blocked. Single mutation point for flow state.
 - `phasedev approve <file>` — set `approved: true` and `approved_by` in an artifact's YAML frontmatter. Used for auto-approval (see [Auto-Approval](#auto-approval)).
+- `phasedev add-finding "<finding>" <severity> --required-fix <text> [--class <class>] [--iteration <label>]` — append a finding row to validation_findings.md. Allocates the ID automatically, creates the file when missing, and corrects the YAML `verdict` (e.g. ready -> repair_required for an open MUST-FIX). The ONLY way to add a finding; never hand-edit the findings registry.
+- `phasedev reopen-finding <id> --evidence <text>` — reopen a resolved finding with new evidence.
+- `phasedev resolve-finding <id> --resolution <text>` — mark a finding resolved with repair evidence (used by repair sub-agents; listed for completeness).
+- `phasedev set-verdict <verdict>` — record the validation verdict in validation_findings.md (validates consistency with the current rows; used by validation sub-agents).
+- `phasedev feedback` — print the user-feedback processing contract for a sub-agent.
 - `phasedev status` — print a summary of the current flow state (active change, phase, artifacts, iteration statuses, validation findings).
 - `phasedev config <key>` — read config values.
 
@@ -171,11 +176,17 @@ The orchestrator chooses N sub-agents (1 or more) for the current phase dynamica
 
 ## User Feedback Handling
 
-At any STOP point (approval gate, `archive_ready` with `runArchiveStage=false`, blocker, or after user interrupt), the user may give feedback — a correction, a new requirement, a bug report, or a rejection of the current output. The orchestrator does not classify or fix anything itself; it delegates to a sub-agent.
+At any STOP point (approval gate, `archive_ready` with `runArchiveStage=false`, blocker, or after user interrupt), the user may give feedback — a correction, a new requirement, a bug report, or a rejection of the current output.
 
-**Procedure for processing feedback:**
+**Fast path (no sub-agent).** When the feedback is a concrete, already-formulated implementation defect ("here is a bug, put it into the findings"), do NOT spawn a sub-agent. Record it yourself with a single deterministic call (same precedent as Auto-Approval — a controller operation without interpretation):
 
-1. Spawn a dedicated sub-agent (general-purpose or the best-fit user agent) with this prompt:
+```bash
+phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>" --class implementation
+```
+
+The command allocates the ID, creates validation_findings.md when missing, and corrects the verdict (e.g. ready -> repair_required). Then continue the loop — `phasedev advance` routes to finding_repair where the fix is implemented. Never hand-edit the findings registry and never edit repository code to handle feedback.
+
+**Delegated path (feedback needs analysis).** When it is unclear whether the feedback is an implementation defect or a scope/design/plan change, or it is mixed, spawn a dedicated sub-agent:
 
 ```javascript
 Agent(
@@ -184,27 +195,19 @@ Agent(
 
 Feedback: <user's full feedback text>
 
-Read the current PhaseDev artifacts (prd.md, execution_contract.md, research_facts.md, architecture/design.md, iteration_plan.md, validation_findings.md) and determine what needs to change.
+phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
 
-Decide based on the feedback:
-- **Feedback about implementation** (bugs, quality, incorrect behaviour) — add findings to validation_findings.md. Set verdict to repair_required and type to iteration (or final if it spans the whole change). Reference the relevant iteration in the finding row.
-- **Feedback about scope, design, or plan** (requirements change, different architecture, re-planning) — update the relevant artifacts directly (prd.md, execution_contract.md, architecture/design.md, iteration_plan.md). Set approved: false on any changed artifact so the flow re-enters approval. Do NOT write this type of feedback into validation_findings.md — it is not a repair finding, it is a change to the plan.
-- **Mixed feedback** — do both: write implementation feedback into validation_findings.md and update scope/design/plan artifacts directly.
-
-The default is to write implementation-related feedback into validation_findings.md. Only update other artifacts when the feedback genuinely changes the scope, design, or execution plan.
-
+Run: phasedev feedback — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, and the write boundary.
 Do NOT run phasedev advance — the orchestrator continues the loop after you finish.
-After making changes, run: phasedev check
-Report: what you changed, which artifacts were modified and their approval status, and the result of phasedev check.`
+Report: recorded finding IDs, changed artifacts and their approval status, and the result of phasedev check.`
 )
 ```
 
-2. After the sub-agent returns, run `phasedev check` to check the phase state.
-3. Continue the main loop from that state — `phasedev check` will guide the next action (e.g. `finding_repair` if findings were added, approval gate if approvals were reset, iteration work if phase is active).
+After the fast path or the sub-agent return, run `phasedev check` and continue the main loop from that state — `phasedev check` will guide the next action (e.g. `finding_repair` if findings were added, approval gate if approvals were reset, iteration work if a phase is active).
 
-The same mechanism applies whether the orchestrator stopped at an approval gate, before archive, or after user interrupt. It also applies when a new session starts and the user says "I have feedback on this change" — the orchestrator runs `phasedev check` and `phasedev advance` to determine the current state, and spawns this feedback sub-agent instead of the normal phase spawn.
+The same mechanism applies whether the orchestrator stopped at an approval gate, before archive, or after user interrupt. It also applies when a new session starts and the user says "I have feedback on this change" — the orchestrator runs `phasedev check` to determine the current state, then uses the fast path or the feedback sub-agent instead of the normal phase spawn.
 
-**No special state needed.** The orchestrator intercepts user feedback at any STOP or at the start of a fresh invocation with feedback, spawns the feedback sub-agent, and continues the normal loop. The framework's existing flow handles the rest.
+**No special state needed.** The framework's existing flow handles the rest.
 
 ## Invalid-artifact recovery policy
 
