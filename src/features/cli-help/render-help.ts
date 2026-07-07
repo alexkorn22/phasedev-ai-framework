@@ -103,13 +103,26 @@ Commands:
       Validate an artifact file without modifying flow state.
       Side effects: none.
 
-  phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]
-      Add a finding row to validation_findings.md.
+  phasedev add-finding [F<number>] <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]
+      Add a finding row to validation_findings.md. The ID is allocated automatically
+      (next F<number>); pass an explicit F<number> first argument only to target a specific ID
+      (a title that is literally "F<number>" is not supported). Creates the file when missing
+      and corrects the YAML verdict to stay consistent with the new row.
+      Side effects: modifies or creates validation_findings.md.
+
+  phasedev resolve-finding <id> --resolution <text> [--file <path>]
+      Mark a finding as resolved with repair evidence (what changed, how it was verified).
       Side effects: modifies validation_findings.md.
 
-  phasedev resolve-finding <id> [--file <path>]
-      Mark a finding as resolved in validation_findings.md.
+  phasedev reopen-finding <id> --evidence <text> [--file <path>]
+      Reopen a resolved finding with new concrete evidence; evidence is appended to Resolution.
       Side effects: modifies validation_findings.md.
+
+  phasedev set-verdict <verdict> [--file <path>]
+      Record the validation verdict (ready | ready_with_risks | repair_required | repaired)
+      in validation_findings.md frontmatter; validates consistency with the current rows.
+      Creates the file with an empty table when missing. Updates the date field.
+      Side effects: modifies or creates validation_findings.md.
 
   phasedev version
       Print the PhaseDev framework version.
@@ -143,10 +156,12 @@ Options:
   --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
   --by <name>                 Approver name for approve command.
-  --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding.
+  --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
-  --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json.
+  --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
+  --evidence <text>           New evidence for reopen-finding.
+  --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json, or "Final" during final validation.
   --tail N                    Show last N log entries.
   --yes, --force              Confirm destructive operations (reset-change).
   --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.

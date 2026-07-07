@@ -11,7 +11,16 @@ import { getFlowStatus, renderFlowStatus } from "./features/flow-status/get-stat
 import { approveArtifact } from "./features/artifact-ops/approve-artifact";
 import { setIterationStatus } from "./features/iteration-ops/set-iteration-status";
 import { validateArtifact } from "./features/artifact-ops/validate-artifact";
-import { addFinding, resolveFinding, isPlaceholderRequiredFix } from "./features/artifact-ops/manage-findings";
+import {
+  addFinding,
+  resolveFinding,
+  reopenFinding,
+  setFindingsVerdict,
+  isPlaceholderRequiredFix,
+  FindingsCreateContext
+} from "./features/artifact-ops/manage-findings";
+import { todayIsoDate } from "./shared/time/today-iso-date";
+import { readFrontmatterValue } from "./shared/markdown/frontmatter";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
@@ -118,6 +127,14 @@ function resolveFindingsPath(projectPath: string): string {
   } catch {
     return "";
   }
+}
+
+function findingsCreateContext(projectPath: string): FindingsCreateContext {
+  const state = loadFlowState(projectPath);
+  return {
+    type: state?.activePhase === "final_validation" ? "final" : "iteration",
+    date: todayIsoDate()
+  };
 }
 
 /**
@@ -316,14 +333,15 @@ function main(): void {
   }
 
   if (command === "add-finding") {
-    const id = args[1];
-    const title = args[2];
-    const severity = args[3];
-    if (!id || !title || !severity || id.startsWith("--") || title.startsWith("--") || severity.startsWith("--")) {
+    const looksLikeId = typeof args[1] === "string" && /^F\d+$/i.test(args[1]);
+    const id = looksLikeId ? args[1] : null;
+    const title = looksLikeId ? args[2] : args[1];
+    const severity = looksLikeId ? args[3] : args[2];
+    if (!title || !severity || title.startsWith("--") || severity.startsWith("--")) {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "add-finding",
-        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: <id>, <title>, and <severity> are required.\nUsage: phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: <title> and <severity> are required.\nUsage: phasedev add-finding [F<number>] <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
       });
       return;
     }
@@ -333,7 +351,7 @@ function main(): void {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "add-finding",
-        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: --required-fix <text> is required.\nUsage: phasedev add-finding <id> <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: --required-fix <text> is required.\nUsage: phasedev add-finding [F<number>] <title> <severity> --required-fix <text> [--class <class>] [--iteration <iteration>] [--file <path>]"
       });
       return;
     }
@@ -347,19 +365,6 @@ function main(): void {
     }
 
     const className = parseStringOption(args, "--class");
-    let iteration = parseStringOption(args, "--iteration");
-    if (!iteration) {
-      const state = loadFlowState(projectPath);
-      iteration = state?.activeIteration ? `Iteration ${state.activeIteration}` : undefined;
-    }
-    if (!iteration) {
-      reportCliResult(jsonMode, {
-        ok: false,
-        kind: "add-finding",
-        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: could not derive the iteration from state.json. Pass --iteration (for example \"Iteration 1\" or \"Final\")."
-      });
-      return;
-    }
     const filePath = parseStringOption(args, "--file") || "";
     const targetFile = filePath || resolveFindingsPath(projectPath);
 
@@ -372,14 +377,34 @@ function main(): void {
       return;
     }
 
-    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration);
+    let iteration = parseStringOption(args, "--iteration");
+    if (!iteration) {
+      const state = loadFlowState(projectPath);
+      if (state?.activeIteration) {
+        iteration = `Iteration ${state.activeIteration}`;
+      } else if (state?.activePhase === "final_validation") {
+        iteration = "Final";
+      } else if (state?.activePhase === "finding_repair" && readFrontmatterValue(targetFile, "type") === "final") {
+        iteration = "Final";
+      }
+    }
+    if (!iteration) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "add-finding",
+        humanMessage: "[PHASEDEV ADD-FINDING] FAILED: could not derive the iteration from state.json. Pass --iteration (for example \"Iteration 1\" or \"Final\")."
+      });
+      return;
+    }
+
+    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath));
     const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "add-finding",
       humanMessage: `${prefix}: ${result.message}`,
       jsonMessage: result.message,
-      data: { file: targetFile, id }
+      data: { file: targetFile, id: id ?? null }
     });
     return;
   }
@@ -425,6 +450,86 @@ function main(): void {
       humanMessage: `${prefix}: ${result.message}`,
       jsonMessage: result.message,
       data: { file: targetFile, id }
+    });
+    return;
+  }
+
+  if (command === "reopen-finding") {
+    const id = args[1];
+    if (!id || id.startsWith("--")) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "reopen-finding",
+        humanMessage: "[PHASEDEV REOPEN-FINDING] FAILED: <id> is required.\nUsage: phasedev reopen-finding <id> --evidence <text> [--file <path>]"
+      });
+      return;
+    }
+
+    const evidence = parseStringOption(args, "--evidence");
+    if (!evidence) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "reopen-finding",
+        humanMessage: "[PHASEDEV REOPEN-FINDING] FAILED: --evidence <text> is required and must record concrete new evidence.\nUsage: phasedev reopen-finding <id> --evidence <text> [--file <path>]"
+      });
+      return;
+    }
+
+    const filePath = parseStringOption(args, "--file") || "";
+    const targetFile = filePath || resolveFindingsPath(projectPath);
+
+    if (!targetFile) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "reopen-finding",
+        humanMessage: "[PHASEDEV REOPEN-FINDING] FAILED: could not determine validation_findings.md path. Specify --file <path>."
+      });
+      return;
+    }
+
+    const result = reopenFinding(targetFile, id, evidence);
+    const prefix = result.ok ? "[PHASEDEV REOPEN-FINDING] OK" : "[PHASEDEV REOPEN-FINDING] FAILED";
+    reportCliResult(jsonMode, {
+      ok: result.ok,
+      kind: "reopen-finding",
+      humanMessage: `${prefix}: ${result.message}`,
+      jsonMessage: result.message,
+      data: { file: targetFile, id }
+    });
+    return;
+  }
+
+  if (command === "set-verdict") {
+    const verdict = args[1];
+    if (!verdict || verdict.startsWith("--")) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: "[PHASEDEV SET-VERDICT] FAILED: <verdict> is required.\nUsage: phasedev set-verdict <verdict> [--file <path>]  (verdict: ready | ready_with_risks | repair_required | repaired)"
+      });
+      return;
+    }
+
+    const filePath = parseStringOption(args, "--file") || "";
+    const targetFile = filePath || resolveFindingsPath(projectPath);
+
+    if (!targetFile) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: "[PHASEDEV SET-VERDICT] FAILED: could not determine validation_findings.md path. Specify --file <path>."
+      });
+      return;
+    }
+
+    const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath));
+    const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
+    reportCliResult(jsonMode, {
+      ok: result.ok,
+      kind: "set-verdict",
+      humanMessage: `${prefix}: ${result.message}`,
+      jsonMessage: result.message,
+      data: { file: targetFile, verdict }
     });
     return;
   }

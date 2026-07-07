@@ -2739,6 +2739,59 @@ ${rows ?? ""}`;
     expect(content).toContain("Iteration 2");
   });
 
+  test("add-finding without positional ID auto-allocates and reports the ID", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath);
+
+    const result = runCli(["add-finding", "Some defect", "MUST-FIX", "--required-fix", "Fix it", "--class", "implementation", "--iteration", "Iteration 1", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("F1 added");
+  });
+
+  test("add-finding keeps the legacy explicit-ID form", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath);
+
+    const result = runCli(["add-finding", "F7", "Some defect", "MUST-FIX", "--required-fix", "Fix it", "--class", "implementation", "--iteration", "Iteration 1", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("F7 added");
+  });
+
+  test("add-finding creates validation_findings.md when missing", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    writeStateJson(changeDir, "final_validation");
+
+    const result = runCli(["add-finding", "Some defect", "MUST-FIX", "--required-fix", "Fix it", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    expect(fs.existsSync(findingsPath)).toBe(true);
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    expect(content).toContain("type: final");
+    expect(content).toContain("verdict: repair_required");
+  });
+
+  test("add-finding defaults --iteration to Final in final_validation", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { findings: `---\nverdict: repair_required\ntype: iteration\ndate: 2026-07-01\n---\n\n| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n|---|---|---|---|---|---|---|\n` });
+    writeStateJson(changeDir, "final_validation");
+
+    const result = runCli(["add-finding", "Some defect", "MUST-FIX", "--required-fix", "Fix it", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const content = fs.readFileSync(path.join(changeDir, "validation_findings.md"), "utf-8");
+    expect(content).toContain("| Final |");
+  });
+
   test("resolve-finding sets finding status to resolved", () => {
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
@@ -2759,6 +2812,85 @@ ${rows ?? ""}`;
     const result = runCli(["resolve-finding", "F99", "--resolution", "Fixed in src/x.ts; bun test -> pass", "--file", findingsPath]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("not found");
+  });
+
+  test("resolve-finding fails without --resolution with usage text", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
+
+    const result = runCli(["resolve-finding", "F1", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("--resolution <text>");
+  });
+
+  test("resolve-finding writes resolution evidence into the 8th column", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
+
+    const result = runCli(["resolve-finding", "F1", "--resolution", "Fixed in src/x.ts; bun test -> pass", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    const row = content.split("\n").find(line => line.startsWith("| F1 "));
+    expect(row).toBeDefined();
+    const cells = (row as string).split("|").map(c => c.trim());
+    expect(cells[8]).toBe("Fixed in src/x.ts; bun test -> pass");
+  });
+
+  test("reopen-finding reopens a resolved finding with evidence", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | resolved | MUST-FIX | validation | Phase 1 | Broken thing | Fix it | Fixed already |\n");
+
+    const result = runCli(["reopen-finding", "F1", "--evidence", "Still fails: bun test -> fail", "--file", findingsPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV REOPEN-FINDING] OK");
+
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    expect(content).toContain("reopened");
+    expect(content).toContain("Fixed already; reopened: Still fails: bun test -> fail");
+  });
+
+  test("reopen-finding fails without --evidence", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | resolved | MUST-FIX | validation | Phase 1 | Broken thing | Fix it | Fixed already |\n");
+
+    const result = runCli(["reopen-finding", "F1", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("--evidence <text>");
+  });
+
+  test("set-verdict rejects an invalid value", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath);
+
+    const result = runCli(["set-verdict", "done", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Invalid verdict");
+  });
+
+  test("set-verdict ready refuses while open findings exist", () => {
+    const findingsPath = path.join(testTmpDir, "validation_findings.md");
+    writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
+
+    const result = runCli(["set-verdict", "ready", "--file", findingsPath]);
+    expect(result.exitCode).toBe(1);
+  });
+
+  test("set-verdict creates the file when missing", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+
+    const result = runCli(["set-verdict", "ready", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    expect(fs.existsSync(findingsPath)).toBe(true);
+    const content = fs.readFileSync(findingsPath, "utf-8");
+    expect(content).toContain("verdict: ready");
   });
 
   // --- changes ---
