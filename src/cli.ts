@@ -390,7 +390,17 @@ function main(): void {
       reportCliResult(jsonMode, {
         ok: false,
         kind: "resolve-finding",
-        humanMessage: "[PHASEDEV RESOLVE-FINDING] FAILED: <id> is required.\nUsage: phasedev resolve-finding <id> [--file <path>]"
+        humanMessage: "[PHASEDEV RESOLVE-FINDING] FAILED: <id> is required.\nUsage: phasedev resolve-finding <id> --resolution <text> [--file <path>]"
+      });
+      return;
+    }
+
+    const resolution = parseStringOption(args, "--resolution");
+    if (!resolution) {
+      reportCliResult(jsonMode, {
+        ok: false,
+        kind: "resolve-finding",
+        humanMessage: "[PHASEDEV RESOLVE-FINDING] FAILED: --resolution <text> is required and must record what was changed and how it was verified.\nUsage: phasedev resolve-finding <id> --resolution <text> [--file <path>]"
       });
       return;
     }
@@ -407,7 +417,7 @@ function main(): void {
       return;
     }
 
-    const result = resolveFinding(targetFile, id);
+    const result = resolveFinding(targetFile, id, resolution);
     const prefix = result.ok ? "[PHASEDEV RESOLVE-FINDING] OK" : "[PHASEDEV RESOLVE-FINDING] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,

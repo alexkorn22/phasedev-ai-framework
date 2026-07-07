@@ -2743,7 +2743,7 @@ ${rows ?? ""}`;
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath, "| F1 | open | MUST-FIX | validation | Phase 1 | Broken thing | Fix it |\n");
 
-    const result = runCli(["resolve-finding", "F1", "--file", findingsPath]);
+    const result = runCli(["resolve-finding", "F1", "--resolution", "Fixed in src/x.ts; bun test -> pass", "--file", findingsPath]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV RESOLVE-FINDING] OK");
 
@@ -2756,7 +2756,7 @@ ${rows ?? ""}`;
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath);
 
-    const result = runCli(["resolve-finding", "F99", "--file", findingsPath]);
+    const result = runCli(["resolve-finding", "F99", "--resolution", "Fixed in src/x.ts; bun test -> pass", "--file", findingsPath]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("not found");
   });
