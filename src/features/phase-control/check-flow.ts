@@ -2,6 +2,7 @@ import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
+import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { Route, resolveRoute } from "./flow-route";
 import { findActiveChangeDir } from "../../entities/change/active-change";
 import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
@@ -119,6 +120,10 @@ export function checkValidationCompletion(projectPath: string, options: Validati
 
   if (findings) {
     issues.push(...findings.issues.map(issue => issue.message));
+  }
+
+  if (paths && findings?.exists) {
+    issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
   }
 
   if (findings?.exists && options.scope === "iteration") {

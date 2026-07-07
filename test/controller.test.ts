@@ -1430,7 +1430,7 @@ Complete API work.
       expect(baseline.rows).toEqual([]);
     });
 
-    test("advance into finding_repair overwrites the findings baseline with the current findings table", () => {
+    test("advance into finding_repair writes the findings baseline with the current findings table", () => {
       const findingsRow = "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n";
       const changeDir = setupChange(`
 ## Iteration 1: API [~]
@@ -1445,11 +1445,7 @@ Complete API work.
       );
 
       const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      fs.writeFileSync(
-        baselinePath,
-        JSON.stringify({ rows: [{ id: "STALE", status: "open", severity: "x", className: "x", iteration: "x", finding: "x", requiredFix: "x" }] }, null, 2),
-        "utf-8"
-      );
+      // Do not pre-write a baseline; let advanceFlow create it
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
@@ -1507,6 +1503,106 @@ Complete API work.
 
       expect(result.ok).toBe(true);
       expect(fs.existsSync(baselinePath)).toBe(false);
+    });
+
+    test("checkValidationCompletion returns ok:false when a row is deleted after baseline is written", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Row to delete. | n/a |\n")
+      });
+
+      const paths = buildChangePaths(changeDir);
+
+      // First, write the baseline
+      fs.writeFileSync(
+        paths.findingsBaselinePath,
+        JSON.stringify({
+          rows: [
+            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
+          ]
+        }, null, 2),
+        "utf-8"
+      );
+
+      // Now delete the row from findings
+      fs.writeFileSync(
+        paths.findingsPath,
+        validationFindings("ready", "iteration", ""),
+        "utf-8"
+      );
+
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const checkFlowModule = require("../src/features/phase-control/check-flow");
+      const result = checkFlowModule.checkValidationCompletion(testTmpDir, { scope: "iteration", iterationId: 1 });
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("append-only");
+    });
+
+    test("advanceFlow refuses from iteration_validation when a row is deleted after baseline", () => {
+      const findingsRow = "| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Row to delete. | n/a |\n";
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "iteration", findingsRow)
+      });
+
+      const paths = buildChangePaths(changeDir);
+
+      // Write the baseline
+      fs.writeFileSync(
+        paths.findingsBaselinePath,
+        JSON.stringify({
+          rows: [
+            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
+          ]
+        }, null, 2),
+        "utf-8"
+      );
+
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      // Delete the row
+      fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", ""), "utf-8");
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("append-only");
+    });
+
+    test("checkValidationCompletion passes when no baseline file exists and findings are valid", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | Iteration 1 | A finding. | Fix it. |\n")
+      });
+
+      // No baseline file is written, so behavior should be unchanged
+
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const checkFlowModule = require("../src/features/phase-control/check-flow");
+      const result = checkFlowModule.checkValidationCompletion(testTmpDir, { scope: "iteration", iterationId: 1 });
+
+      expect(result.ok).toBe(true);
     });
   });
 

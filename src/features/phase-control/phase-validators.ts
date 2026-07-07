@@ -9,6 +9,7 @@ import { validatePlanArtifact } from "../../entities/iteration-plan/validate-pla
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
+import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { checkArchiveCompletion } from "./check-archive";
 import { loadSchema, validateSchemaSections } from "../../entities/schema/load-schema";
 
@@ -118,6 +119,10 @@ export function validatePhase(
         issues.push(...findings.issues.map(issue => issue.message));
       }
 
+      if (fs.existsSync(paths.findingsBaselinePath)) {
+        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
+      }
+
       if (findings.type !== "iteration") {
         issues.push("YAML field `type` must be `iteration` for iteration validation.");
       }
@@ -154,6 +159,10 @@ export function validatePhase(
 
       if (findings.issues.length > 0) {
         issues.push(...findings.issues.map(issue => issue.message));
+      }
+
+      if (fs.existsSync(paths.findingsBaselinePath)) {
+        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
       }
 
       if (findings.type !== "final") {
