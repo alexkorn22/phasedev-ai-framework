@@ -340,7 +340,7 @@ Test fixture only.
     expect(fs.existsSync(archiveDir)).toBe(false);
   });
 
-  test("init prompt blocks invalid active change state without throwing", () => {
+  test("init prompt blocks ambiguous active change state without throwing", () => {
     fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "first-change"), { recursive: true });
     fs.mkdirSync(path.join(testTmpDir, ".phasedev", "changes", "second-change"), { recursive: true });
 
@@ -349,10 +349,10 @@ Test fixture only.
     expect(result.command).toBe("init");
     expect(result.phase).toBe("init");
     expect(result.blocked).toBe(true);
-    expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
+    expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Ambiguous flow state");
     expect(result.prompt).toContain("Multiple changes exist: first-change, second-change. Pass --change <name>.");
     expect(result.prompt).toContain("phasedev init performed no filesystem changes");
-    expect(result.prompt).toContain("Fix the flow state before running `phasedev phase` or `phasedev advance`.");
+    expect(result.prompt).toContain("Tip: Use `phasedev list` to see all changes and their status.");
   });
 
   test("missing active change routes to setup stage", () => {

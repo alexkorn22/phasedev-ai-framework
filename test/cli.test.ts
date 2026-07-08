@@ -570,6 +570,20 @@ stages:
     expect(output).not.toContain("Config key");
   });
 
+  test("init reports ambiguous flow state when multiple changes exist", () => {
+    for (const name of ["change-a", "change-b"]) {
+      const dir = path.join(testTmpDir, ".phasedev", "changes", name);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 }));
+    }
+
+    const output = runInit();
+
+    expect(output).toContain("BLOCKED: Ambiguous flow state");
+    expect(output).toContain("Multiple changes exist: change-a, change-b. Pass --change <name>.");
+    expect(output).toContain("phasedev list");
+  });
+
   test("implementation prompt uses config skills without requiring a router", () => {
     setupChange(`
 # Plan

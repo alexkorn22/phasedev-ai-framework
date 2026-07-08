@@ -155,7 +155,7 @@ Commands:
 Options:
   --json                       Emit a single JSON envelope to stdout instead of human text. All commands.
   --project-path, -p <path>   Target project path. Defaults to the current directory.
-  --change <name>    Target change when several exist (defaults to the only change)
+  --change <name>             Target change when several exist (defaults to the only change)
   --config <path>             Explicit PhaseDev config path for phase/advance/config.
   --phase <phase>             Phase override for check.
   --scope iteration|final         Validation scope for check-validation.

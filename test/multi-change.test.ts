@@ -184,6 +184,18 @@ describe("createChange with multiple changes", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain('already exists');
   });
+
+  test("a broken archive of another name does not block creation, but blocks its own name", () => {
+    const brokenDir = path.join(root, ".phasedev", "changes", "archive", "2026-07-08-broken-x");
+    fs.mkdirSync(brokenDir, { recursive: true });
+    fs.writeFileSync(path.join(brokenDir, ".phase-archive.json"), "{broken");
+
+    expect(createChange(root, "beta").ok).toBe(true);
+
+    const result = createChange(root, "broken-x");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Archive state is invalid");
+  });
 });
 
 describe("listChanges multi-change", () => {

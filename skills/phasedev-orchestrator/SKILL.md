@@ -184,7 +184,7 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 1. Check the `runArchiveStage` value from Initialization before calling `advance`. If `false`, **do not call advance** — stop and report:
    > "Archive execution is paused by config (runArchiveStage=false). Set runArchiveStage=true in config.yaml to enable archive."
 2. If `true`, call `phasedev advance --change <change>`. It performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`), and switches `state.json` to `activePhase: archive`.
-3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, writes delta specs, and sets `.phase-archive.json` `status: "completed"`.
+3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
 4. After the sub-agent returns, call `phasedev advance --change <change>`:
    - If it returns `finished=true` → the archive is complete → **flow complete** → STOP.
    - If it refuses ("Archive not complete") → sub-agent did not finish → no-progress → STOP and report.
