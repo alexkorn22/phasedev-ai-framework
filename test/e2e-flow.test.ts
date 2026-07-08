@@ -6,7 +6,12 @@ import { createChange } from "../src/features/phase-control/create-change";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { loadFlowState } from "../src/entities/change/flow-state";
-import { loadConfig } from "../src/entities/config/config";
+import { loadConfig, Config } from "../src/entities/config/config";
+import { approveArtifact } from "../src/features/artifact-ops/approve-artifact";
+import { setIterationStatus } from "../src/features/iteration-ops/set-iteration-status";
+import { findPendingArchiveState } from "../src/entities/change/archive-state";
+import { listChanges } from "../src/features/flow-status/list-changes";
+import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -57,6 +62,334 @@ function simulateAgent(file: string, body: string, approved = false): void {
   } else {
     fs.writeFileSync(file, `---\napproved: false\n---\n${body}`, "utf-8");
   }
+}
+
+function writeFile(file: string, content: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content, "utf-8");
+}
+
+// -----------------------------------------------------------------------
+// Shared full-lifecycle artifact fixtures, reused by the single-change
+// happy-path e2e and the paired multi-change e2e below.
+// -----------------------------------------------------------------------
+
+function makePrdBody(params: { why: string; targetState: string; requirement: string; criterion: string }): string {
+  return `\
+# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | feature |
+| Why | ${params.why} |
+| Target state | ${params.targetState} |
+| Risk boundaries | None beyond normal project risk |
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | ${params.requirement} |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | ${params.criterion} | full |
+`;
+}
+
+function makeExecutionContractBody(): string {
+  return `\
+# Rules
+
+## Test Commands
+
+| Gate | Command |
+|---|---|
+| unit | \`echo unit\` |
+| phase | \`echo phase\` |
+| full | \`echo full\` |
+
+## Constraints
+
+No special constraints.
+
+## Verification Gates
+
+Standard verification gates.
+
+## Manual Checks
+
+None required.
+
+## Environment Notes
+
+None.
+`;
+}
+
+function makeResearchFactsBody(params: { why: string; targetState: string }): string {
+  return `\
+# Research Facts
+
+## PRD Intent Trace
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | feature | not_applicable | prd-only | n/a |
+| Why | ${params.why} | not_applicable | prd-only | n/a |
+| Target state | ${params.targetState} | confirmed | F1 | n/a |
+| Risk boundaries | None beyond normal project risk | confirmed | F1 | n/a |
+
+## Requirements & Success Criteria Trace
+
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | not_applicable | none |
+| SC1 | confirmed | F1 | not_applicable | none |
+
+## Source Facts
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | test/e2e-flow.test.ts:1 | E2E test verifies full flow | R1, SC1 |
+
+## Research Gaps & Blockers
+
+No non-blocking gaps.
+`;
+}
+
+function makeDesignBody(): string {
+  return `\
+---
+approved: false
+approved_by: ""
+date: 2026-07-06
+---
+# Design
+
+## Executive Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Full flow E2E |
+| Out of scope | None |
+| Key decision | Use minimal valid content |
+| Reviewer attention | Verify hash computation |
+| Validation | full |
+
+## Traceability Mapping
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 | Full | Iteration 1 |
+| SC1 | not_applicable:test | D1 | Full | Iteration 1 |
+
+## Architecture Package Map
+
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map | high |
+
+## Key Design Decisions
+
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Execute full flow | Validate end-to-end | R1 | Iteration 1 |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| E2E flow | Complete without re-approvals | D1 |
+
+## Risks & Open Questions
+
+None.
+`;
+}
+
+function makeIterationPlanBody(): string {
+  return `\
+---
+approved: false
+approved_by: ""
+date: 2026-07-06
+---
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Full E2E flow |
+| Out of scope | Nothing |
+| Sequencing risk | none |
+| Validation | full |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | no | No code changes needed |
+| Tests | yes | E2E test verifies flow |
+| Docs/specs | no | No docs needed |
+| Migrations | no | No migrations needed |
+| Feature flags/rollout | no | No feature flags needed |
+| Observability | no | No observability changes |
+| Rollback path | no | No rollback needed |
+
+## Iteration Overview
+
+| Iteration | Goal | Main work items | Required checks |
+|---|---|---|---|
+| 1 | Complete flow | Go through all phases | unit |
+
+## Iteration 1: Full Flow [ ]
+
+### Goal
+
+Complete the full PhaseDev flow.
+
+### Expected Change Surface
+
+| Area / Path Pattern | Change Type | Ownership | Trace |
+|---|---|---|---|
+| .phasedev/ | create | test | R1, SC1, D1 |
+
+### Tasks
+
+- [ ] 1.1 Execute full flow through all phases
+
+### Checks
+
+- unit: \`echo unit\`
+
+Additional checks:
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`echo unit\` | pending |  |  |
+`;
+}
+
+function markIterationOneDone(planContent: string): string {
+  return planContent
+    .replace("- [ ] 1.1 Execute full flow", "- [x] 1.1 Execute full flow")
+    .replace(
+      "| unit | `echo unit` | pending |  |  |",
+      "| unit | `echo unit` | passed | All tasks completed |  |",
+    );
+}
+
+function makeValidationFindingsBody(verdict: string, type: string): string {
+  return `\
+---\n\
+verdict: ${verdict}\n\
+type: ${type}\n\
+date: 2026-07-06\n\
+---\n
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n\
+|---|---|---|---|---|---|---|---|\n\
+`;
+}
+
+interface LifecycleFixture {
+  why: string;
+  targetState: string;
+  requirement: string;
+  criterion: string;
+}
+
+/**
+ * One closure per phase transition, driving a single change from
+ * change_intake all the way to the archive move (7 steps total). Used to
+ * interleave two changes' lifecycles step-by-step in the paired
+ * multi-change e2e below.
+ */
+function buildLifecycleSteps(root: string, config: Config, name: string, fixture: LifecycleFixture): Array<() => void> {
+  const changeDir = path.join(root, ".phasedev", "changes", name);
+  const paths = buildChangePaths(changeDir);
+
+  return [
+    // 1. change_intake -> code_research
+    () => {
+      simulateAgent(paths.prdPath, makePrdBody(fixture), true);
+      simulateAgent(paths.executionContractPath, makeExecutionContractBody(), true);
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("code_research");
+    },
+    // 2. code_research -> technical_design
+    () => {
+      writeFile(paths.researchPath, makeResearchFactsBody(fixture));
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("technical_design");
+    },
+    // 3. technical_design -> iteration_planning
+    () => {
+      writeFile(paths.designPath, makeDesignBody());
+      approveArtifact(paths.designPath, "test");
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("iteration_planning");
+    },
+    // 4. iteration_planning -> implementation
+    () => {
+      writeFile(paths.iterationPlanPath, makeIterationPlanBody());
+      approveArtifact(paths.iterationPlanPath, "test");
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("implementation");
+      expect(result.newState?.activeIteration).toBe(1);
+    },
+    // 5. implementation -> iteration_validation
+    () => {
+      const planContent = markIterationOneDone(fs.readFileSync(paths.iterationPlanPath, "utf-8"));
+      writeFile(paths.iterationPlanPath, planContent);
+      approveArtifact(paths.iterationPlanPath, "test");
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("iteration_validation");
+    },
+    // 6. iteration_validation -> final_validation
+    () => {
+      writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "iteration"));
+      expect(setIterationStatus(root, 1, "completed", undefined, name).ok).toBe(true);
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("final_validation");
+    },
+    // 7. final_validation -> archive (mutates: moves change dir into archive/)
+    () => {
+      writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+      const result = advanceFlow(root, config, name);
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("archive");
+    },
+  ];
+}
+
+function archiveDirFor(root: string, name: string): string {
+  const archiveRoot = archiveRootPath(root);
+  const match = fs.readdirSync(archiveRoot).find(entry => entry.endsWith(`-${name}`));
+  if (!match) throw new Error(`No archive directory found for change "${name}" under ${archiveRoot}`);
+  return path.join(archiveRoot, match);
+}
+
+function completeArchive(archiveDir: string): void {
+  const statePath = path.join(archiveDir, ".phase-archive.json");
+  const current = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+  current.status = "completed";
+  current.completedAt = new Date().toISOString();
+  writeFile(statePath, JSON.stringify(current, null, 2) + "\n");
 }
 
 describe("E2E flow via CLI subprocess", () => {
@@ -205,14 +538,6 @@ describe("E2E flow via CLI subprocess", () => {
 
   test("E2E: Full happy-path flow without re-approvals", () => {
     // -----------------------------------------------------------------------
-    // Helper: write a file with plain content (no frontmatter)
-    // -----------------------------------------------------------------------
-    function writeFile(file: string, content: string): void {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, content, "utf-8");
-    }
-
-    // -----------------------------------------------------------------------
     // 1. Init project and create change
     // -----------------------------------------------------------------------
     expect(run(["init-project"]).code).toBe(0);
@@ -226,58 +551,14 @@ describe("E2E flow via CLI subprocess", () => {
     const cdir = changeDir();
     expect(cdir).not.toBe("");
 
-    const prdBody = `\
-# PRD
+    const prdBody = makePrdBody({
+      why: "Verify the full flow without re-approvals",
+      targetState: "Flow completes from start to archive",
+      requirement: "The system must pass through all phases without re-approvals",
+      criterion: "Full flow completes in one pass",
+    });
 
-## Intent
-
-| Field | Value |
-|---|---|
-| Change type | feature |
-| Why | Verify the full flow without re-approvals |
-| Target state | Flow completes from start to archive |
-| Risk boundaries | None beyond normal project risk |
-
-## Requirements
-
-| ID | Requirement |
-|---|---|
-| R1 | The system must pass through all phases without re-approvals |
-
-## Success Criteria
-
-| ID | Verifies | Criterion | Evidence |
-|---|---|---|---|
-| SC1 | R1 | Full flow completes in one pass | full |
-`;
-
-    const ecBody = `\
-# Rules
-
-## Test Commands
-
-| Gate | Command |
-|---|---|
-| unit | \`echo unit\` |
-| phase | \`echo phase\` |
-| full | \`echo full\` |
-
-## Constraints
-
-No special constraints.
-
-## Verification Gates
-
-Standard verification gates.
-
-## Manual Checks
-
-None required.
-
-## Environment Notes
-
-None.
-`;
+    const ecBody = makeExecutionContractBody();
 
     const prdPath = path.join(cdir, "prd.md");
     const ecPath = path.join(cdir, "execution_contract.md");
@@ -298,35 +579,10 @@ None.
     // -----------------------------------------------------------------------
     // 3. Phase 2: code_research — research_facts.md
     // -----------------------------------------------------------------------
-    const researchBody = `\
-# Research Facts
-
-## PRD Intent Trace
-
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | feature | not_applicable | prd-only | n/a |
-| Why | Verify the full flow without re-approvals | not_applicable | prd-only | n/a |
-| Target state | Flow completes from start to archive | confirmed | F1 | n/a |
-| Risk boundaries | None beyond normal project risk | confirmed | F1 | n/a |
-
-## Requirements & Success Criteria Trace
-
-| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
-|---|---|---|---|---|
-| R1 | confirmed | F1 | not_applicable | none |
-| SC1 | confirmed | F1 | not_applicable | none |
-
-## Source Facts
-
-| Fact ID | Type | Source | Fact | Supports |
-|---|---|---|---|---|
-| F1 | code | test/e2e-flow.test.ts:1 | E2E test verifies full flow | R1, SC1 |
-
-## Research Gaps & Blockers
-
-No non-blocking gaps.
-`;
+    const researchBody = makeResearchFactsBody({
+      why: "Verify the full flow without re-approvals",
+      targetState: "Flow completes from start to archive",
+    });
     const researchPath = path.join(cdir, "research_facts.md");
     writeFile(researchPath, researchBody);
 
@@ -341,53 +597,7 @@ No non-blocking gaps.
     // -----------------------------------------------------------------------
     // 4. Phase 3: technical_design — architecture/design.md
     // -----------------------------------------------------------------------
-    const designBody = `\
----
-approved: false
-approved_by: ""
-date: 2026-07-06
----
-# Design
-
-## Executive Summary
-
-| Area | Decision |
-|---|---|
-| Approval scope | Full flow E2E |
-| Out of scope | None |
-| Key decision | Use minimal valid content |
-| Reviewer attention | Verify hash computation |
-| Validation | full |
-
-## Traceability Mapping
-
-| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
-|---|---|---|---|---|
-| R1 | F1 | D1 | Full | Iteration 1 |
-| SC1 | not_applicable:test | D1 | Full | Iteration 1 |
-
-## Architecture Package Map
-
-| File | Purpose | Visual content | Review priority |
-|---|---|---|---|
-| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval summary, package map | high |
-
-## Key Design Decisions
-
-| Decision ID | Decision | Rationale | Applies To | Impacts |
-|---|---|---|---|---|
-| D1 | Execute full flow | Validate end-to-end | R1 | Iteration 1 |
-
-## Contracts, Interfaces & Boundaries
-
-| Boundary | Contract | Applies To |
-|---|---|---|
-| E2E flow | Complete without re-approvals | D1 |
-
-## Risks & Open Questions
-
-None.
-`;
+    const designBody = makeDesignBody();
     const designPath = path.join(cdir, "architecture", "design.md");
     // Write without approval in frontmatter; approve via CLI below
     writeFile(designPath, designBody);
@@ -407,69 +617,7 @@ None.
     // -----------------------------------------------------------------------
     // 5. Phase 4: iteration_planning — iteration_plan.md
     // -----------------------------------------------------------------------
-    const planBody = `\
----
-approved: false
-approved_by: ""
-date: 2026-07-06
----
-# Implementation Plan
-
-## Approval Summary
-
-| Area | Decision |
-|---|---|
-| Approval scope | Full E2E flow |
-| Out of scope | Nothing |
-| Sequencing risk | none |
-| Validation | full |
-
-## Generation Bundle
-
-| Area | Required | Plan |
-|---|---|---|
-| Production code | no | No code changes needed |
-| Tests | yes | E2E test verifies flow |
-| Docs/specs | no | No docs needed |
-| Migrations | no | No migrations needed |
-| Feature flags/rollout | no | No feature flags needed |
-| Observability | no | No observability changes |
-| Rollback path | no | No rollback needed |
-
-## Iteration Overview
-
-| Iteration | Goal | Main work items | Required checks |
-|---|---|---|---|
-| 1 | Complete flow | Go through all phases | unit |
-
-## Iteration 1: Full Flow [ ]
-
-### Goal
-
-Complete the full PhaseDev flow.
-
-### Expected Change Surface
-
-| Area / Path Pattern | Change Type | Ownership | Trace |
-|---|---|---|---|
-| .phasedev/ | create | test | R1, SC1, D1 |
-
-### Tasks
-
-- [ ] 1.1 Execute full flow through all phases
-
-### Checks
-
-- unit: \`echo unit\`
-
-Additional checks:
-
-### Check Evidence
-
-| Check | Command Or Method | Result | Evidence | Notes |
-|---|---|---|---|---|
-| unit | \`echo unit\` | pending |  |  |
-`;
+    const planBody = makeIterationPlanBody();
     const planPath = path.join(cdir, "iteration_plan.md");
     writeFile(planPath, planBody);
 
@@ -494,12 +642,7 @@ Additional checks:
     // 6. Phase 5: implementation — mark tasks done, update check evidence
     // -----------------------------------------------------------------------
     // Read current plan, update task [ ] -> [x], check evidence pending -> passed with non-empty evidence
-    let planContent = fs.readFileSync(planPath, "utf-8");
-    planContent = planContent.replace("- [ ] 1.1 Execute full flow", "- [x] 1.1 Execute full flow");
-    planContent = planContent.replace(
-      "| unit | `echo unit` | pending |  |  |",
-      "| unit | `echo unit` | passed | All tasks completed |  |",
-    );
+    const planContent = markIterationOneDone(fs.readFileSync(planPath, "utf-8"));
     writeFile(planPath, planContent);
 
     // Re-approve the plan after body edits
@@ -518,15 +661,7 @@ Additional checks:
     // -----------------------------------------------------------------------
     // 7. Phase 6a: iteration_validation — validation_findings.md
     // -----------------------------------------------------------------------
-    const ivFindingsBody = `\
----\n\
-verdict: ready\n\
-type: iteration\n\
-date: 2026-07-06\n\
----\n
-| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n\
-|---|---|---|---|---|---|---|---|\n\
-`;
+    const ivFindingsBody = makeValidationFindingsBody("ready", "iteration");
     const findingsPath = path.join(cdir, "validation_findings.md");
     writeFile(findingsPath, ivFindingsBody);
 
@@ -545,15 +680,7 @@ date: 2026-07-06\n\
     // -----------------------------------------------------------------------
     // 8. Phase 6b: final_validation — update validation_findings.md
     // -----------------------------------------------------------------------
-    const fvFindingsBody = `\
----\n\
-verdict: ready\n\
-type: final\n\
-date: 2026-07-06\n\
----\n
-| ID | Status | Severity | Class | Iteration | Finding | Required Fix |\n\
-|---|---|---|---|---|---|---|---|\n\
-`;
+    const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
 
     expect(run(["check"]).code).toBe(0);
@@ -712,5 +839,107 @@ None.
 
     // 5. Unscoped advance refuses due to ambiguity between alpha and beta.
     expect(() => advanceFlow(root, config)).toThrow("Multiple changes exist");
+  });
+
+  test("alpha and beta interleave through the full lifecycle to two completed archives", () => {
+    // 1. Create both changes and confirm archive is enabled by default.
+    expect(createChange(root, "alpha").ok).toBe(true);
+    expect(createChange(root, "beta").ok).toBe(true);
+
+    const config = loadConfig();
+    expect(config.runArchiveStage).toBe(true);
+
+    const alphaSteps = buildLifecycleSteps(root, config, "alpha", {
+      why: "Verify alpha advances through the full lifecycle while beta runs alongside it",
+      targetState: "Alpha reaches a completed archive independently of beta",
+      requirement: "Alpha must reach final_validation and archive without depending on beta",
+      criterion: "Alpha's own artifacts and state drive its own advance",
+    });
+    const betaSteps = buildLifecycleSteps(root, config, "beta", {
+      why: "Verify beta advances through the full lifecycle while alpha runs alongside it",
+      targetState: "Beta reaches a completed archive independently of alpha",
+      requirement: "Beta must reach final_validation and archive without depending on alpha",
+      criterion: "Beta's own artifacts and state drive its own advance",
+    });
+
+    const betaStatePath = path.join(root, ".phasedev", "changes", "beta", "state.json");
+
+    // 2. Drive alpha and beta forward interleaved (alpha one phase, then beta
+    // one phase) through change_intake .. final_validation (steps 0-5), so
+    // neither change ever runs two phases back-to-back before the other moves.
+    for (let i = 0; i < 6; i++) {
+      const betaStateBeforeAlphaStep = i === 2 ? fs.readFileSync(betaStatePath, "utf-8") : null;
+
+      alphaSteps[i]();
+
+      if (betaStateBeforeAlphaStep !== null) {
+        // Mid-flow snapshot: alpha just advanced past beta. Prove beta's
+        // state.json was untouched and the two changes sit in different phases.
+        expect(fs.readFileSync(betaStatePath, "utf-8")).toBe(betaStateBeforeAlphaStep);
+        const alphaPhase = loadFlowState(root, "alpha")?.activePhase;
+        const betaPhase = loadFlowState(root, "beta")?.activePhase;
+        expect(alphaPhase).not.toBe(betaPhase);
+        expect(alphaPhase).toBe("iteration_planning");
+        expect(betaPhase).toBe("technical_design");
+      }
+
+      betaSteps[i]();
+    }
+
+    // Both changes are now at final_validation. Bring alpha to archive_ready
+    // and advance, without touching beta yet.
+    alphaSteps[6]();
+
+    // 3. Alpha's dir moved to the archive; beta is still active, untouched.
+    expect(fs.existsSync(path.join(root, ".phasedev", "changes", "alpha"))).toBe(false);
+    const alphaArchiveDir = archiveDirFor(root, "alpha");
+    const alphaArchiveState = JSON.parse(fs.readFileSync(path.join(alphaArchiveDir, ".phase-archive.json"), "utf-8"));
+    expect(alphaArchiveState.status).toBe("in_progress");
+
+    const betaDir = path.join(root, ".phasedev", "changes", "beta");
+    expect(fs.existsSync(betaDir)).toBe(true);
+    expect(loadFlowState(root, "beta")?.activePhase).toBe("final_validation");
+
+    // 4. Bring beta to archive too, without completing alpha's archive first.
+    betaSteps[6]();
+
+    // Two pending archives coexist.
+    expect(findPendingArchiveState(root, "alpha")?.status).toBe("in_progress");
+    expect(findPendingArchiveState(root, "beta")?.status).toBe("in_progress");
+
+    // 5. Complete alpha's archive first, then beta's.
+    completeArchive(alphaArchiveDir);
+    const alphaFinish = advanceFlow(root, config, "alpha");
+    expect(alphaFinish.ok).toBe(true);
+    expect(alphaFinish.finished).toBe(true);
+
+    // Beta's pending archive is unaffected by alpha's completion.
+    expect(findPendingArchiveState(root, "beta")?.status).toBe("in_progress");
+
+    const betaArchiveDir = archiveDirFor(root, "beta");
+    completeArchive(betaArchiveDir);
+    const betaFinish = advanceFlow(root, config, "beta");
+    expect(betaFinish.ok).toBe(true);
+    expect(betaFinish.finished).toBe(true);
+
+    // 6. Final state: both archives completed, no unfinished changes remain.
+    const finalAlphaState = JSON.parse(fs.readFileSync(path.join(alphaArchiveDir, ".phase-archive.json"), "utf-8"));
+    const finalBetaState = JSON.parse(fs.readFileSync(path.join(betaArchiveDir, ".phase-archive.json"), "utf-8"));
+    expect(finalAlphaState.status).toBe("completed");
+    expect(finalAlphaState.completedAt).toBeTruthy();
+    expect(finalBetaState.status).toBe("completed");
+    expect(finalBetaState.completedAt).toBeTruthy();
+
+    const remainingChangeDirs = fs.readdirSync(path.join(root, ".phasedev", "changes"), { withFileTypes: true })
+      .filter(d => d.isDirectory() && d.name !== "archive");
+    expect(remainingChangeDirs.length).toBe(0);
+
+    expect(listChanges(root)).toEqual([]);
+
+    const withArchived = listChanges(root, true);
+    expect(withArchived.length).toBe(2);
+    expect(withArchived.every(entry => entry.type === "archived" && entry.archiveStatus === "completed")).toBe(true);
+    expect(withArchived.some(entry => entry.name.endsWith("-alpha"))).toBe(true);
+    expect(withArchived.some(entry => entry.name.endsWith("-beta"))).toBe(true);
   });
 });
