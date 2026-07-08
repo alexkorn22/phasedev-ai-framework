@@ -121,9 +121,9 @@ function hasFlag(args: string[], ...flags: string[]): boolean {
   return args.some(arg => flags.includes(arg));
 }
 
-function resolveFindingsPath(projectPath: string): string {
+function resolveFindingsPath(projectPath: string, changeName?: string): string {
   try {
-    const changeDir = resolveChangeDir(projectPath);
+    const changeDir = resolveChangeDir(projectPath, changeName);
     if (!changeDir) return "";
     return buildChangePaths(changeDir).findingsPath;
   } catch {
@@ -131,8 +131,8 @@ function resolveFindingsPath(projectPath: string): string {
   }
 }
 
-function findingsCreateContext(projectPath: string): FindingsCreateContext {
-  const state = loadFlowState(projectPath);
+function findingsCreateContext(projectPath: string, changeName?: string): FindingsCreateContext {
+  const state = loadFlowState(projectPath, changeName);
   return {
     type: state?.activePhase === "final_validation" ? "final" : "iteration",
     date: todayIsoDate()
@@ -184,6 +184,7 @@ function main(): void {
   }
 
   const projectPath = parseProjectPath(args);
+  const changeName = parseStringOption(args, "--change");
 
   // --- Phase 3: User commands (simple, no project path needed) ---
 
@@ -196,7 +197,7 @@ function main(): void {
   // --- Phase 1: Orchestrator commands ---
 
   if (command === "status") {
-    const status = getFlowStatus(projectPath);
+    const status = getFlowStatus(projectPath, changeName);
     reportCliResult(jsonMode, {
       ok: true,
       kind: "status",
@@ -222,7 +223,7 @@ function main(): void {
     let resolvedPath = filePath;
     if (!fs.existsSync(resolvedPath)) {
       try {
-        const activeDir = resolveChangeDir(projectPath);
+        const activeDir = resolveChangeDir(projectPath, changeName);
         if (activeDir) {
           const candidate = path.join(activeDir, filePath);
           if (fs.existsSync(candidate)) {
@@ -285,7 +286,7 @@ function main(): void {
 
     const explicitFile = parseStringOption(args, "--file");
     runWithStateLock(projectPath, () => {
-      const result = setIterationStatus(projectPath, id, mappedStatus, explicitFile);
+      const result = setIterationStatus(projectPath, id, mappedStatus, explicitFile, changeName);
       const prefix = result.ok ? "[PHASEDEV SET-ITERATION-STATUS] OK" : "[PHASEDEV SET-ITERATION-STATUS] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
@@ -313,7 +314,7 @@ function main(): void {
     let resolvedPath = filePath;
     if (!fs.existsSync(resolvedPath)) {
       try {
-        const activeDir = resolveChangeDir(projectPath);
+        const activeDir = resolveChangeDir(projectPath, changeName);
         if (activeDir) {
           const candidate = path.join(activeDir, filePath);
           if (fs.existsSync(candidate)) {
@@ -368,7 +369,7 @@ function main(): void {
 
     const className = parseStringOption(args, "--class");
     const filePath = parseStringOption(args, "--file") || "";
-    const targetFile = filePath || resolveFindingsPath(projectPath);
+    const targetFile = filePath || resolveFindingsPath(projectPath, changeName);
 
     if (!targetFile) {
       reportCliResult(jsonMode, {
@@ -381,7 +382,7 @@ function main(): void {
 
     let iteration = parseStringOption(args, "--iteration");
     if (!iteration) {
-      const state = loadFlowState(projectPath);
+      const state = loadFlowState(projectPath, changeName);
       if (state?.activeIteration) {
         iteration = `Iteration ${state.activeIteration}`;
       } else if (state?.activePhase === "final_validation") {
@@ -399,7 +400,7 @@ function main(): void {
       return;
     }
 
-    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath));
+    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath, changeName));
     const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,
@@ -433,7 +434,7 @@ function main(): void {
     }
 
     const filePath = parseStringOption(args, "--file") || "";
-    const targetFile = filePath || resolveFindingsPath(projectPath);
+    const targetFile = filePath || resolveFindingsPath(projectPath, changeName);
 
     if (!targetFile) {
       reportCliResult(jsonMode, {
@@ -478,7 +479,7 @@ function main(): void {
     }
 
     const filePath = parseStringOption(args, "--file") || "";
-    const targetFile = filePath || resolveFindingsPath(projectPath);
+    const targetFile = filePath || resolveFindingsPath(projectPath, changeName);
 
     if (!targetFile) {
       reportCliResult(jsonMode, {
@@ -513,7 +514,7 @@ function main(): void {
     }
 
     const filePath = parseStringOption(args, "--file") || "";
-    const targetFile = filePath || resolveFindingsPath(projectPath);
+    const targetFile = filePath || resolveFindingsPath(projectPath, changeName);
 
     if (!targetFile) {
       reportCliResult(jsonMode, {
@@ -524,7 +525,7 @@ function main(): void {
       return;
     }
 
-    const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath));
+    const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath, changeName));
     const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,
@@ -640,7 +641,7 @@ function main(): void {
 
   if (command === "reset-change") {
     const force = hasFlag(args, "--yes", "--force");
-    const result = resetChange(projectPath, force);
+    const result = resetChange(projectPath, force, changeName);
     const prefix = result.ok ? "[PHASEDEV RESET-CHANGE] OK" : "[PHASEDEV RESET-CHANGE]";
     // "No active change" is informational (nothing to reset, not a failure to
     // act); withholding --yes on an existing change is a genuine refusal.
@@ -667,7 +668,7 @@ function main(): void {
     }
 
     runWithStateLock(projectPath, () => {
-      const result = reopenPhase(projectPath, phase as ReopenablePhase);
+      const result = reopenPhase(projectPath, phase as ReopenablePhase, changeName);
       const prefix = result.ok ? "[PHASEDEV REOPEN] OK" : "[PHASEDEV REOPEN] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
@@ -730,7 +731,7 @@ function main(): void {
   if (command === "phase") {
     const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
     const config = loadConfig(configPath);
-    const result = getPhasePrompt(projectPath, config);
+    const result = getPhasePrompt(projectPath, config, changeName);
     reportCliResult(jsonMode, {
       ok: !result.blocked,
       kind: "phase",
@@ -746,7 +747,7 @@ function main(): void {
   }
 
   if (command === "feedback") {
-    const result = getFeedbackPrompt(projectPath);
+    const result = getFeedbackPrompt(projectPath, changeName);
     reportCliResult(jsonMode, {
       ok: !result.blocked,
       kind: "feedback",
@@ -764,7 +765,7 @@ function main(): void {
     const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
     const config = loadConfig(configPath);
     runWithStateLock(projectPath, () => {
-      const result = advanceFlow(projectPath, config);
+      const result = advanceFlow(projectPath, config, changeName);
       reportCliResult(jsonMode, {
         ok: result.ok,
         kind: "advance",
@@ -805,7 +806,7 @@ function main(): void {
     }
 
     const phaseOverride = parseStringOption(args, "--phase");
-    const result = checkPhase(projectPath, phaseOverride);
+    const result = checkPhase(projectPath, phaseOverride, changeName);
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "check",
@@ -827,7 +828,7 @@ function main(): void {
       return;
     }
 
-    const result = checkValidationCompletion(projectPath, parsed.options);
+    const result = checkValidationCompletion(projectPath, parsed.options, changeName);
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "check-validation",

@@ -3038,6 +3038,65 @@ ${rows ?? ""}`;
   });
 });
 
+function mkBareChange(name: string): string {
+  const dir = path.join(testTmpDir, ".phasedev", "changes", name);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "state.json"),
+    JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 })
+  );
+  return dir;
+}
+
+describe("--change flag", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("status --change beta targets the named change among several", () => {
+    mkBareChange("alpha");
+    mkBareChange("beta");
+
+    const result = runCli(["status", "--project-path", testTmpDir, "--change", "beta"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("beta");
+  });
+
+  test("status without --change is ambiguous when several changes exist", () => {
+    mkBareChange("alpha");
+    mkBareChange("beta");
+
+    const result = runCli(["status", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("Multiple changes exist: alpha, beta. Pass --change <name>.");
+  });
+
+  test("status --change nope reports the unknown change", () => {
+    mkBareChange("alpha");
+
+    const result = runCli(["status", "--project-path", testTmpDir, "--change", "nope"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Unknown change "nope". Available changes: alpha.');
+  });
+
+  test("check --change beta runs against the named change", () => {
+    mkBareChange("alpha");
+    mkBareChange("beta");
+
+    const result = runCli(["check", "--project-path", testTmpDir, "--change", "beta"]);
+    expect(result.output).toContain("change_intake");
+  });
+
+  test("list shows every change regardless of --change", () => {
+    mkBareChange("alpha");
+    mkBareChange("beta");
+
+    const result = runCli(["list", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("alpha");
+    expect(result.output).toContain("beta");
+  });
+});
+
 describe("--json envelope", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
