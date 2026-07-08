@@ -55,8 +55,6 @@ Pass `--change <change>` on EVERY change-scoped command (`phase`, `check`, `adva
 
 After selecting the change, read orchestrator-safe settings via `phasedev config <key>`:
 
-- `maxIterations` — safety iteration limit; default **10** if empty/invalid. Stop with "Max iterations reached" when reached.
-- `maxRepairCycles` — limit for consecutive repair cycles without progress; default **3** if empty/invalid.
 - `runArchiveStage` — remember for [Archive Handling](#archive-handling).
 - `autoApprove` — default `false` if empty/invalid; remember for [Auto-Approval](#auto-approval).
 
@@ -178,8 +176,7 @@ Stop when any is met:
 - **Flow complete** — `phasedev advance` returns `finished=true` (archive complete: `state.json` `activePhase: archive`, `.phase-archive.json` `status: completed`). Stop and report success.
 - **Blocked** — approval gate, blocker (verify with `phasedev check`), or invalid state. At an approval gate: follow [Auto-Approval](#auto-approval) when `autoApprove` is true, otherwise tell the user to approve and wait.
 - **No progress** — after sub-agents, `phasedev advance` still refuses with the same reason; for a repeated `invalid_*` this is the stop step of the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
-- **Max iterations** — `maxIterations` reached.
-- **Repair cycle limit** — advance refuses with "Repair cycle limit reached"; manual intervention or a higher maxRepairCycles in config.yaml is required.
+- **CLI limit reached** — `advance` refuses with "Max iterations (N) reached" or "Repair cycle limit reached" (both enforced by the CLI from config.yaml `maxIterations` / `maxRepairCycles`); stop and report the refusal — raising the limit in config.yaml is the user's call.
 - **Unrecoverable error** — sub-agent error after one retry.
 - **User interrupt**.
 
