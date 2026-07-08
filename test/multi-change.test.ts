@@ -5,6 +5,7 @@ import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-worksp
 import { resolveChangeDir } from "../src/entities/change/active-change";
 import { AmbiguousChangeError, UnknownChangeError } from "../src/entities/change/change-errors";
 import { findPendingArchiveState, findCompletedArchiveState, findArchiveStateForChange } from "../src/entities/change/archive-state";
+import { loadFlowState, saveFlowState } from "../src/entities/change/flow-state";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -93,5 +94,31 @@ describe("name-scoped archive state", () => {
     mkArchived(root, "old-done", "completed");
     expect(findArchiveStateForChange(root, "old-done")?.status).toBe("completed");
     expect(findArchiveStateForChange(root, "missing")).toBeNull();
+  });
+});
+
+describe("flow state with changeName", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("state"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("loads and saves the named change's state independently", () => {
+    mkChange(root, "alpha");
+    mkChange(root, "beta");
+    saveFlowState(root, { activePhase: "code_research", activeIteration: null, repairCycleCount: 0 }, "beta");
+    expect(loadFlowState(root, "beta")?.activePhase).toBe("code_research");
+    expect(loadFlowState(root, "alpha")?.activePhase).toBe("change_intake");
+  });
+
+  test("loads a pending-archive change's state by name", () => {
+    mkChange(root, "alpha");
+    const dir = mkArchived(root, "old-pending", "in_progress");
+    fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify({ activePhase: "archive", activeIteration: null, repairCycleCount: 0 }));
+    expect(loadFlowState(root, "old-pending")?.activePhase).toBe("archive");
+  });
+
+  test("returns null for a completed archived change", () => {
+    mkArchived(root, "old-done", "completed");
+    expect(loadFlowState(root, "old-done")).toBeNull();
   });
 });

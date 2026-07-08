@@ -46,17 +46,17 @@ export const FLOW_STATE_FILE = "state.json";
  * 2. Archive with pending (in_progress) archive state.
  * Returns null if neither exists.
  */
-export function locateFlowStatePath(projectPath: string): string | null {
-  const active = resolveChangeDir(projectPath);
+export function locateFlowStatePath(projectPath: string, changeName?: string): string | null {
+  const active = resolveChangeDir(projectPath, changeName);
   if (active) return path.join(active, FLOW_STATE_FILE);
 
-  const pending = findPendingArchiveState(projectPath);
+  const pending = findPendingArchiveState(projectPath, changeName);
   if (pending) return path.join(pending.archivePath, FLOW_STATE_FILE);
 
   // A broken .phase-archive.json makes findPendingArchiveState skip its directory
   // silently. Fall back to that directory's state.json (if any) so advanceFlow can
   // still load state and report the invalid archive state instead of "no active change".
-  const invalid = findInvalidArchiveState(projectPath);
+  const invalid = findInvalidArchiveState(projectPath, changeName);
   if (invalid) {
     const fallbackStatePath = path.join(path.dirname(invalid.statePath), FLOW_STATE_FILE);
     if (fs.existsSync(fallbackStatePath)) {
@@ -73,8 +73,8 @@ export function locateFlowStatePath(projectPath: string): string | null {
  * throws: silently treating the phase lock as "no active change" would let
  * the next saveFlowState overwrite the corrupt file and destroy evidence.
  */
-export function loadFlowState(projectPath: string): FlowState | null {
-  const p = locateFlowStatePath(projectPath);
+export function loadFlowState(projectPath: string, changeName?: string): FlowState | null {
+  const p = locateFlowStatePath(projectPath, changeName);
   if (!p || !fs.existsSync(p)) return null;
 
   const invalid = (reason: string): never => {
@@ -112,8 +112,8 @@ export function writeFlowState(statePath: string, state: FlowState): void {
   writeFileAtomic(statePath, JSON.stringify(state, null, 2) + "\n");
 }
 
-export function saveFlowState(projectPath: string, state: FlowState): void {
-  const p = locateFlowStatePath(projectPath);
+export function saveFlowState(projectPath: string, state: FlowState, changeName?: string): void {
+  const p = locateFlowStatePath(projectPath, changeName);
   if (!p) throw new Error("No active change: cannot save flow state. Run create-change first.");
   writeFlowState(p, state);
 }
@@ -128,15 +128,15 @@ export function saveFlowState(projectPath: string, state: FlowState): void {
  * findInvalidArchiveState when this returns null for an archive phase, so that
  * diagnostic path stays in one place instead of drifting across call sites.
  */
-export function locateChangeDir(projectPath: string, state: FlowState): string | null {
+export function locateChangeDir(projectPath: string, state: FlowState, changeName?: string): string | null {
   if (state.activePhase === "archive") {
-    const pending = findPendingArchiveState(projectPath);
+    const pending = findPendingArchiveState(projectPath, changeName);
     if (pending) return pending.archivePath;
 
     // Pre-move crash recovery: the archive state marker was written into the
     // active change dir but the directory was never moved. Return the active
     // dir so startArchiveStage can complete the move idempotently.
-    const activeDir = resolveChangeDir(projectPath);
+    const activeDir = resolveChangeDir(projectPath, changeName);
     if (activeDir) {
       const preMoveState = readArchiveState(activeDir);
       if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
@@ -147,5 +147,5 @@ export function locateChangeDir(projectPath: string, state: FlowState): string |
     return null;
   }
 
-  return resolveChangeDir(projectPath);
+  return resolveChangeDir(projectPath, changeName);
 }
