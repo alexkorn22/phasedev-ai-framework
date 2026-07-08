@@ -59,16 +59,17 @@ function artifactContractSimple(
 }
 
 
-function validationFindingsContract(findingsPath: string, projectPath: string, iterationId?: number): string {
+function validationFindingsContract(findingsPath: string, projectPath: string, changeName?: string, iterationId?: number): string {
   const date = todayIsoDate();
+  const changeFlag = changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
     templateContent: renderValidationFindingsTemplate("iteration", date),
     selfCheckCommand: iterationId === undefined
-      ? flowCheckCommand(projectPath)
-      : `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope iteration --iteration-id ${iterationId}`,
+      ? flowCheckCommand(projectPath, changeName)
+      : `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope iteration --iteration-id ${iterationId}${changeFlag}`,
     selfCheckFailureGuidance: iterationId === undefined
       ? undefined
       : "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md` and the current phase status in `iteration_plan.md` when allowed by the validation verdict, then rerun the same command.",
@@ -79,10 +80,10 @@ function validationFindingsContract(findingsPath: string, projectPath: string, i
 
 // ── Render Functions ───────────────────────────────────────
 
-export function renderChangeIntake(projectPath: string, config: Config, activeChangePath: string | null): string {
+export function renderChangeIntake(projectPath: string, config: Config, activeChangePath: string | null, changeName?: string): string {
   const date = todayIsoDate();
   const changeRoot = activeChangePath ?? path.join(projectPath, SYSTEM_DIR, "changes", "<derive-slug-from-final-task>");
-  const selfCheckCommand = flowCheckCommand(projectPath);
+  const selfCheckCommand = flowCheckCommand(projectPath, changeName);
 
   let taskContext = "";
   if (activeChangePath) {
@@ -101,7 +102,7 @@ export function renderChangeIntake(projectPath: string, config: Config, activeCh
   }, config) + taskContext;
 }
 
-export function renderCodeResearch(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderCodeResearch(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("code_research", "phase2_code_research", {
     prd_path: urls.prd_path,
@@ -109,12 +110,12 @@ export function renderCodeResearch(projectPath: string, config: Config, paths: R
     project_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
     project_path: projectPath,
     research_path: urls.research_path,
-    research_artifact_contract: researchArtifactContract(paths.researchPath, projectPath),
-    self_check_command: flowCheckCommand(projectPath)
+    research_artifact_contract: researchArtifactContract(paths.researchPath, projectPath, changeName),
+    self_check_command: flowCheckCommand(projectPath, changeName)
   }, config);
 }
 
-export function renderTechnicalDesign(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderTechnicalDesign(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("technical_design", "phase3_technical_design", {
     prd_path: urls.prd_path,
@@ -122,15 +123,15 @@ export function renderTechnicalDesign(projectPath: string, config: Config, paths
     research_path: urls.research_path,
     design_path: urls.design_path,
     date: todayIsoDate(),
-    design_artifact_contract: artifactContractSimple("architecture/design.md", paths.designPath, "artifacts/design", flowCheckCommand(projectPath)),
-    self_check_command: flowCheckCommand(projectPath)
+    design_artifact_contract: artifactContractSimple("architecture/design.md", paths.designPath, "artifacts/design", flowCheckCommand(projectPath, changeName)),
+    self_check_command: flowCheckCommand(projectPath, changeName)
   }, config);
 }
 
-export function renderIterationPlanning(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderIterationPlanning(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   const date = todayIsoDate();
-  const selfCheckCommand = flowCheckCommand(projectPath);
+  const selfCheckCommand = flowCheckCommand(projectPath, changeName);
   return renderPhaseTemplate("iteration_planning", "phase4_iteration_planning", {
     prd_path: urls.prd_path,
     design_path: urls.design_path,
@@ -142,7 +143,7 @@ export function renderIterationPlanning(projectPath: string, config: Config, pat
   }, config);
 }
 
-export function renderImplementation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string | Prompt {
+export function renderImplementation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number, changeName?: string): string | Prompt {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
@@ -171,7 +172,7 @@ export function renderImplementation(projectPath: string, config: Config, paths:
     plan_map: formatPlanMap(plan, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     test_command: testCommand,
-    self_check_command: flowCheckCommand(projectPath),
+    self_check_command: flowCheckCommand(projectPath, changeName),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
     design_path: urls.design_path,
@@ -179,7 +180,7 @@ export function renderImplementation(projectPath: string, config: Config, paths:
   }, config);
 }
 
-export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number): string | Prompt {
+export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number, changeName?: string): string | Prompt {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
@@ -205,11 +206,11 @@ export function renderIterationValidation(projectPath: string, config: Config, p
     findings_path: urls.findings_path,
     date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, { phase: currentPhase }),
-    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, currentPhase.id)
+    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, changeName, currentPhase.id)
   }, config);
 }
 
-export function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("final_validation", "phase6b_final_validation", {
     prd_path: urls.prd_path,
@@ -219,11 +220,11 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     findings_path: urls.findings_path,
     date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath),
-    validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath)
+    validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, changeName)
   }, config);
 }
 
-export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>): string {
+export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(paths.findingsPath),
@@ -233,7 +234,7 @@ export function renderFindingRepair(projectPath: string, config: Config, paths: 
     prd_path: urls.prd_path,
     research_path: urls.research_path,
     rules_path: urls.rules_path,
-    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath)
+    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, changeName)
   }, config);
 }
 
@@ -297,7 +298,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderChangeIntake(projectPath, config, changeDir),
+        prompt: renderChangeIntake(projectPath, config, changeDir, changeName),
         blocked: false
       };
 
@@ -305,7 +306,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderCodeResearch(projectPath, config, paths),
+        prompt: renderCodeResearch(projectPath, config, paths, changeName),
         blocked: false
       };
 
@@ -313,7 +314,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderTechnicalDesign(projectPath, config, paths),
+        prompt: renderTechnicalDesign(projectPath, config, paths, changeName),
         blocked: false
       };
 
@@ -321,7 +322,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderIterationPlanning(projectPath, config, paths),
+        prompt: renderIterationPlanning(projectPath, config, paths, changeName),
         blocked: false
       };
 
@@ -329,7 +330,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (activeIteration === null) {
         return missingActiveIterationBlocker("implementation");
       }
-      const rendered = renderImplementation(projectPath, config, paths, activeIteration);
+      const rendered = renderImplementation(projectPath, config, paths, activeIteration, changeName);
       if (typeof rendered !== "string") {
         return rendered;
       }
@@ -345,7 +346,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (activeIteration === null) {
         return missingActiveIterationBlocker("iteration_validation");
       }
-      const rendered = renderIterationValidation(projectPath, config, paths, activeIteration);
+      const rendered = renderIterationValidation(projectPath, config, paths, activeIteration, changeName);
       if (typeof rendered !== "string") {
         return rendered;
       }
@@ -361,7 +362,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderFinalValidation(projectPath, config, paths),
+        prompt: renderFinalValidation(projectPath, config, paths, changeName),
         blocked: false
       };
 
@@ -369,7 +370,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: activePhase,
-        prompt: renderFindingRepair(projectPath, config, paths),
+        prompt: renderFindingRepair(projectPath, config, paths, changeName),
         blocked: false
       };
 

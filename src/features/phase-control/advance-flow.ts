@@ -306,22 +306,22 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   // (C1) invalid_* → refuse with rich blocker
   if (route.kind === "invalid_prd") {
-    return refuse(invalidPrdBlocker(route.paths.prdPath, route.issues).prompt);
+    return refuse(invalidPrdBlocker(route.paths.prdPath, route.issues, changeName).prompt);
   }
   if (route.kind === "invalid_execution_contract") {
-    return refuse(invalidRulesBlocker(route.paths.executionContractPath, route.issues).prompt);
+    return refuse(invalidRulesBlocker(route.paths.executionContractPath, route.issues, changeName).prompt);
   }
   if (route.kind === "invalid_code_research") {
-    return refuse(invalidResearchBlocker(route.paths.researchPath, route.issues).prompt);
+    return refuse(invalidResearchBlocker(route.paths.researchPath, route.issues, changeName).prompt);
   }
   if (route.kind === "invalid_technical_design") {
-    return refuse(invalidDesignBlocker(route.paths.designPath, route.issues).prompt);
+    return refuse(invalidDesignBlocker(route.paths.designPath, route.issues, changeName).prompt);
   }
   if (route.kind === "invalid_iteration_planning") {
-    return refuse(invalidPlanBlocker(route.paths.iterationPlanPath, route.issues).prompt);
+    return refuse(invalidPlanBlocker(route.paths.iterationPlanPath, route.issues, changeName).prompt);
   }
   if (route.kind === "invalid_findings") {
-    return refuse(validationFindingsBlocker(route.paths.findingsPath, route.issues).prompt);
+    return refuse(validationFindingsBlocker(route.paths.findingsPath, route.issues, changeName).prompt);
   }
   // Fallback for any remaining invalid_ kind (e.g. invalid_archive_state)
   if (route.kind.startsWith("invalid_")) {
@@ -332,13 +332,13 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   // (C2) *_approval → refuse with rich blocker
   if (route.kind === "change_intake_approval") {
-    return refuse(approvalBlocker(route.phase, "Setup Approval Required", route.paths.prdPath, "prd.md and execution_contract.md").prompt);
+    return refuse(approvalBlocker(route.phase, "Setup Approval Required", route.paths.prdPath, "prd.md and execution_contract.md", changeName).prompt);
   }
   if (route.kind === "technical_design_approval") {
-    return refuse(approvalBlocker(route.phase, "Design Approval Required", route.paths.designPath, "design.md").prompt);
+    return refuse(approvalBlocker(route.phase, "Design Approval Required", route.paths.designPath, "design.md", changeName).prompt);
   }
   if (route.kind === "iteration_planning_approval") {
-    return refuse(approvalBlocker(route.phase, "Plan Approval Required", route.paths.iterationPlanPath, "iteration_plan.md").prompt);
+    return refuse(approvalBlocker(route.phase, "Plan Approval Required", route.paths.iterationPlanPath, "iteration_plan.md", changeName).prompt);
   }
   // Fallback for any remaining *_approval kind
   if (route.kind.endsWith("_approval")) {
@@ -352,7 +352,8 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     return refuse(archiveReadinessBlocker(
       "Not all iterations are completed",
       route.paths.iterationPlanPath,
-      "Complete validation for each iteration and mark it [x] in iteration_plan.md."
+      "Complete validation for each iteration and mark it [x] in iteration_plan.md.",
+      changeName
     ).prompt);
   }
 

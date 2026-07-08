@@ -14,6 +14,7 @@ import { getFlowStatus } from "../src/features/flow-status/get-status";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig } from "../src/entities/config/config";
+import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -309,5 +310,26 @@ describe("mutating features with changeName", () => {
     expect(prompt.blocked ?? false).toBe(false);
     expect(fs.existsSync(beta)).toBe(false); // moved into archive
     expect(findPendingArchiveState(root, "beta")?.status).toBe("in_progress");
+  });
+});
+
+describe("rendered self-check commands carry --change for multi-change projects", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("cmd"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("getPhasePrompt for a named change among several renders the self-check with --change", () => {
+    mkChange(root, "alpha");
+    mkChange(root, "beta");
+    const result = getPhasePrompt(root, loadConfig(), "beta");
+    expect(result.prompt).toContain("phasedev check");
+    expect(result.prompt).toMatch(/phasedev check --project-path "[^"]*" --change "beta"/);
+  });
+
+  test("getPhasePrompt on a single-change project renders the self-check without --change", () => {
+    mkChange(root, "alpha");
+    const result = getPhasePrompt(root, loadConfig());
+    expect(result.prompt).toContain("phasedev check");
+    expect(result.prompt).not.toContain("--change");
   });
 });

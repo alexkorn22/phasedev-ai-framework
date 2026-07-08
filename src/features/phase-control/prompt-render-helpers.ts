@@ -53,12 +53,16 @@ export function urlsFor(paths: ReturnType<typeof buildChangePaths>) {
   };
 }
 
-export function flowCheckCommand(projectPath: string): string {
-  return `phasedev check --project-path ${shellQuote(projectPath)}`;
+function changeFlag(changeName?: string): string {
+  return changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
 }
 
-export function flowFinalValidationCheckCommand(projectPath: string): string {
-  return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope final`;
+export function flowCheckCommand(projectPath: string, changeName?: string): string {
+  return `phasedev check --project-path ${shellQuote(projectPath)}${changeFlag(changeName)}`;
+}
+
+export function flowFinalValidationCheckCommand(projectPath: string, changeName?: string): string {
+  return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope final${changeFlag(changeName)}`;
 }
 
 export const PATH_RESOLUTION_RULE = [
@@ -129,12 +133,12 @@ export function renderRequiredCheckCommands(currentPhase: Iteration, testCommand
 
 // ── Artifact Contracts ─────────────────────────────────────
 
-export function researchArtifactContract(researchPath: string, projectPath: string): string {
+export function researchArtifactContract(researchPath: string, projectPath: string, changeName?: string): string {
   return renderArtifactContract({
     artifactId: "research_facts.md",
     resolvedOutputPath: researchPath,
     templateName: "artifacts/research_facts",
-    selfCheckCommand: flowCheckCommand(projectPath),
+    selfCheckCommand: flowCheckCommand(projectPath, changeName),
     includeSelfCheck: false,
     blockedFinalArtifactContent: RESEARCH_TEMPLATE_SAMPLE_VALUES,
     date: todayIsoDate(),
@@ -165,7 +169,7 @@ export const VALIDATION_FINDINGS_CANONICAL_FILL_RULES = [
   "- The findings registry is append-only; the controller diffs it against a baseline snapshot and fails the self-check if rows were deleted or rewritten."
 ];
 
-export function finalValidationArtifactContract(findingsPath: string, projectPath: string): string {
+export function finalValidationArtifactContract(findingsPath: string, projectPath: string, changeName?: string): string {
   const date = todayIsoDate();
 
   return renderArtifactContract({
@@ -173,7 +177,7 @@ export function finalValidationArtifactContract(findingsPath: string, projectPat
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
     templateContent: renderValidationFindingsTemplate("final", date),
-    selfCheckCommand: flowFinalValidationCheckCommand(projectPath),
+    selfCheckCommand: flowFinalValidationCheckCommand(projectPath, changeName),
     selfCheckFailureGuidance:
       "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
     canonicalFillRules: VALIDATION_FINDINGS_CANONICAL_FILL_RULES,
