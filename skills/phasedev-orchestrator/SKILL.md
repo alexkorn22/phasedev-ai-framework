@@ -103,16 +103,14 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 
 You work ONLY on the change "<change>". Never pass a different --change value.
 
-1. Run command: phasedev phase --change <change> — get the active phase contract.
-2. Work on the artifacts of the active phase according to your role and the contract.
-3. Self-validate before reporting (mandatory): run phasedev check --change <change>. If it fails, read the reported issues, fix the artifact, and rerun phasedev check --change <change> until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
-4. Do NOT report the phase as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
-5. Do NOT run phasedev advance — that is the orchestrator's job. Only the self-check command (phasedev check --change <change>) may be rerun.
-6. Report: the phase completed, the EXACT self-check command and its final result (PASS/FAIL), and any blockers.`
+1. Run: phasedev phase --change <change> — get the active phase contract.
+2. Do the phase work per your role and the contract. The contract defines the artifacts, the self-check that gates completion, and your final-response format — follow it exactly; do not report success while its self-check fails.
+3. Do NOT run phasedev advance — that is the orchestrator's job.
+4. Report back with the contract's final response (it already includes the self-check command and result); state any blockers explicitly.`
 )
 ```
 
-That is the entire prompt — no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation is the sub-agent's duty; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop.
+That is the entire prompt — no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop.
 
 ## User Feedback Handling
 
@@ -141,9 +139,7 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
 
 You work ONLY on the change "<change>". Never pass a different --change value.
 
-Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, and the write boundary.
-Do NOT run phasedev advance — the orchestrator continues the loop after you finish.
-Report: recorded finding IDs, changed artifacts and their approval status, and the result of phasedev check.`
+Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, the write boundary, and your final report.`
 )
 ```
 
