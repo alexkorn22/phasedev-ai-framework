@@ -30,12 +30,12 @@ function hasPaths(route: Route): route is Route & { paths: ChangePaths } {
   return "paths" in route;
 }
 
-function pathsForValidation(projectPath: string, route: Route): ChangePaths | null {
+function pathsForValidation(projectPath: string, route: Route, changeName?: string): ChangePaths | null {
   if (hasPaths(route)) {
     return route.paths;
   }
 
-  const activeChangeDir = resolveChangeDir(projectPath);
+  const activeChangeDir = resolveChangeDir(projectPath, changeName);
   return activeChangeDir ? buildChangePaths(activeChangeDir) : null;
 }
 
@@ -61,9 +61,10 @@ function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: 
  */
 export function checkPhase(
   projectPath: string,
-  phaseOverride?: string
+  phaseOverride?: string,
+  changeName?: string
 ): PhaseCheckResult {
-  const state = loadFlowState(projectPath);
+  const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return {
       ok: false,
@@ -81,7 +82,7 @@ export function checkPhase(
     };
   }
 
-  const changeDir = locateChangeDir(projectPath, state);
+  const changeDir = locateChangeDir(projectPath, state, changeName);
   if (!changeDir) {
     return {
       ok: false,
@@ -104,9 +105,9 @@ export function checkPhase(
 
 // ── check-validation (specialized, unchanged) ──────────────
 
-export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions): ValidationCheckResult {
-  const route = resolveRoute(projectPath);
-  const paths = pathsForValidation(projectPath, route);
+export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions, changeName?: string): ValidationCheckResult {
+  const route = resolveRoute(projectPath, changeName);
+  const paths = pathsForValidation(projectPath, route, changeName);
   const issues: string[] = [];
 
   if (!paths) {

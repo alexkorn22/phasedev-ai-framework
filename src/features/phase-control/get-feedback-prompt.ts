@@ -11,9 +11,9 @@ export interface FeedbackPrompt {
   reason?: string;
 }
 
-export function getFeedbackPrompt(projectPath: string): FeedbackPrompt {
-  const state = loadFlowState(projectPath);
-  const changeDir = resolveChangeDir(projectPath);
+export function getFeedbackPrompt(projectPath: string, changeName?: string): FeedbackPrompt {
+  const state = loadFlowState(projectPath, changeName);
+  const changeDir = resolveChangeDir(projectPath, changeName);
   if (!state || !changeDir) {
     return {
       prompt: "[PHASEDEV] No active change. Run: phasedev create-change <name>.",

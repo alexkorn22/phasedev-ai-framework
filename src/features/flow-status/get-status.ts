@@ -23,16 +23,16 @@ function artifactStatus(changeDir: string, relPath: string): { name: string; exi
   return { name: relPath, exists, approved };
 }
 
-export function getFlowStatus(projectPath: string): FlowStatus {
+export function getFlowStatus(projectPath: string, changeName?: string): FlowStatus {
   let state: { phase: string; routeKind: string };
   try {
-    const resolved = resolveCurrentState(projectPath);
+    const resolved = resolveCurrentState(projectPath, changeName);
     state = { phase: resolved.phase, routeKind: resolved.routeKind };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "invalid_state" };
   }
-  const changeDir = resolveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath, changeName);
 
   const artifacts: Array<{ name: string; exists: boolean; approved: boolean }> = [];
   if (changeDir) {

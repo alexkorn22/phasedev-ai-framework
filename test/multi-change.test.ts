@@ -9,6 +9,8 @@ import { loadFlowState, saveFlowState } from "../src/entities/change/flow-state"
 import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { createChange } from "../src/features/phase-control/create-change";
 import { listChanges, renderChanges } from "../src/features/flow-status/list-changes";
+import { checkPhase } from "../src/features/phase-control/check-flow";
+import { getFlowStatus } from "../src/features/flow-status/get-status";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -222,5 +224,24 @@ describe("listChanges multi-change", () => {
 
   test("renderChanges prints the empty-state hint", () => {
     expect(renderChanges([])).toBe("No changes. Run: phasedev create-change <name>.");
+  });
+});
+
+describe("read-side features with changeName", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("read"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("checkPhase validates the named change among several", () => {
+    mkChange(root, "alpha");
+    mkChange(root, "beta");
+    const result = checkPhase(root, undefined, "beta");
+    expect(result.phase).toBe("change_intake");
+  });
+
+  test("getFlowStatus reports the named change", () => {
+    mkChange(root, "alpha");
+    mkChange(root, "beta");
+    expect(getFlowStatus(root, "beta").activeChange).toBe("beta");
   });
 });

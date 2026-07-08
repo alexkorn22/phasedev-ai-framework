@@ -250,8 +250,8 @@ export function renderArchiveContract(projectPath: string, config: Config, activ
  * missing-test-command blocker for implementation, because that contract
  * cannot be rendered without the commands from execution_contract.md.
  */
-export function getPhasePrompt(projectPath: string, config: Config = loadConfig()): Prompt {
-  const state = loadFlowState(projectPath);
+export function getPhasePrompt(projectPath: string, config: Config = loadConfig(), changeName?: string): Prompt {
+  const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return {
       command: "next",
@@ -265,8 +265,8 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   const activePhase = state.activePhase as ActivePhase;
   const activeIteration: number | null = state.activeIteration ?? null;
 
-  const activeChangeDir = resolveChangeDir(projectPath);
-  const pendingArchive = findPendingArchiveState(projectPath);
+  const activeChangeDir = resolveChangeDir(projectPath, changeName);
+  const pendingArchive = findPendingArchiveState(projectPath, changeName);
   const changeDir = activeChangeDir ?? pendingArchive?.archivePath ?? null;
 
   if (!changeDir) {
@@ -279,7 +279,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     };
   }
 
-  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath));
+  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName));
   if (conflict) {
     return {
       command: "next",
