@@ -6,6 +6,7 @@ import { resolveChangeDir } from "../src/entities/change/active-change";
 import { AmbiguousChangeError, UnknownChangeError } from "../src/entities/change/change-errors";
 import { findPendingArchiveState, findCompletedArchiveState, findArchiveStateForChange } from "../src/entities/change/archive-state";
 import { loadFlowState, saveFlowState } from "../src/entities/change/flow-state";
+import { resolveRoute } from "../src/features/phase-control/flow-route";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -120,5 +121,28 @@ describe("flow state with changeName", () => {
   test("returns null for a completed archived change", () => {
     mkArchived(root, "old-done", "completed");
     expect(loadFlowState(root, "old-done")).toBeNull();
+  });
+});
+
+describe("resolveRoute with changeName", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("route"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("routes each named change independently", () => {
+    const alpha = mkChange(root, "alpha");
+    mkChange(root, "beta");
+    const routeAlpha = resolveRoute(root, "alpha");
+    expect(routeAlpha.kind).toBe("change_intake");
+    expect(routeAlpha.activeChangePath).toBe(alpha);
+    expect(resolveRoute(root, "beta").kind).toBe("change_intake");
+  });
+
+  test("a pending archive of another change does not hijack the named route", () => {
+    mkArchived(root, "old-pending", "in_progress");
+    const alpha = mkChange(root, "alpha");
+    const route = resolveRoute(root, "alpha");
+    expect(route.kind).toBe("change_intake");
+    expect(route.activeChangePath).toBe(alpha);
   });
 });

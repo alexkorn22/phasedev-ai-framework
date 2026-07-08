@@ -8,7 +8,7 @@ export interface CurrentState {
   activeChangePath: string | null;
 }
 
-export function resolveCurrentState(projectPath: string): CurrentState {
-  const route = resolveRoute(projectPath);
+export function resolveCurrentState(projectPath: string, changeName?: string): CurrentState {
+  const route = resolveRoute(projectPath, changeName);
   return { phase: route.phase, routeKind: route.kind, activeChangePath: route.activeChangePath };
 }

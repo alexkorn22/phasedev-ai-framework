@@ -50,8 +50,8 @@ function isVerdictOnlyOpenBlockingIssue(issue: ValidationFindingIssue): boolean 
   return VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES.has(issue.code);
 }
 
-export function resolveRoute(projectPath: string): Route {
-  const invalidArchiveState = findInvalidArchiveState(projectPath);
+export function resolveRoute(projectPath: string, changeName?: string): Route {
+  const invalidArchiveState = findInvalidArchiveState(projectPath, changeName);
   if (invalidArchiveState) {
     return {
       kind: "invalid_archive_state",
@@ -62,7 +62,7 @@ export function resolveRoute(projectPath: string): Route {
     };
   }
 
-  const pendingArchive = findPendingArchiveState(projectPath);
+  const pendingArchive = findPendingArchiveState(projectPath, changeName);
   if (pendingArchive) {
     return {
       kind: "pending_archive",
@@ -72,7 +72,7 @@ export function resolveRoute(projectPath: string): Route {
     };
   }
 
-  const changeDir = resolveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath, changeName);
   if (!changeDir) {
     return { kind: "change_intake", phase: "change_intake", activeChangePath: null };
   }
@@ -154,7 +154,7 @@ export function resolveRoute(projectPath: string): Route {
   // through iterationPhase() which may return "implementation" due to
   // stale Check Evidence that the repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
-    const flowState = loadFlowState(projectPath);
+    const flowState = loadFlowState(projectPath, changeName);
 
     // 1. Prefer the state-tracked iteration (when non-null)
     let targetIteration: Iteration | undefined;
