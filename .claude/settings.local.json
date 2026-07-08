@@ -12,7 +12,9 @@
       "Bash(grep -E \"cli.ts$|shared/\\(cli|env|fs|shell|markdown|templates|prompt|telegram\\)|features/logger\")",
       "Read(//Users/oleksandr/.claude/plugins/**)",
       "Read(//tmp/**)",
-      "Read(//Users/oleksandr/WORK/jira-dashboard/.phasedev/**)"
+      "Read(//Users/oleksandr/WORK/jira-dashboard/.phasedev/**)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'docs: multi-change support design spec \\(--change flag, list rework, orchestrator start protocol\\) *)"
     ]
   },
   "enabledPlugins": {
