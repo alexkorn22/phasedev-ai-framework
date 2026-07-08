@@ -92,7 +92,7 @@ Changed files/artifacts: <paths>
 Checks: <targeted checks and results>
 Self-check: <exact command> -> <result>
 {{skill_compliance_line}}
-Next: run phasedev advance.
+Next transition: phasedev advance (run by the user or orchestrator).
 ```
 
 - For a blocker, do not use the success template. State the blocked finding IDs, the missing material decision/evidence or external failure, targeted checks already attempted, self-check status if reached, and skill compliance in no more than five bullets.

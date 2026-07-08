@@ -54,4 +54,4 @@ Any file not listed above is read-only for this phase.
 Phase completion:
 - After writing `validation_findings.md` and possibly updating the iteration status, stop.
 - Tell the user the verdict, whether the iteration is confirmed correctly solved, and the next transition through `phasedev advance`.
-- If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then run `phasedev advance` — the flow will route to finding_repair where the fix is implemented.
+- If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then stop — you do not run `phasedev advance`; the flow driver (user or orchestrator) advances, and the flow routes to finding_repair where the fix is implemented.
