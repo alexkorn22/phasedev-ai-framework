@@ -7,6 +7,7 @@ import { AmbiguousChangeError, UnknownChangeError } from "../src/entities/change
 import { findPendingArchiveState, findCompletedArchiveState, findArchiveStateForChange } from "../src/entities/change/archive-state";
 import { loadFlowState, saveFlowState } from "../src/entities/change/flow-state";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
+import { createChange } from "../src/features/phase-control/create-change";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -144,5 +145,37 @@ describe("resolveRoute with changeName", () => {
     const route = resolveRoute(root, "alpha");
     expect(route.kind).toBe("change_intake");
     expect(route.activeChangePath).toBe(alpha);
+  });
+});
+
+describe("createChange with multiple changes", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("create"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("creates a second change while another is unfinished", () => {
+    mkChange(root, "alpha");
+    const result = createChange(root, "beta");
+    expect(result.ok).toBe(true);
+    expect(fs.existsSync(path.join(root, ".phasedev", "changes", "beta", "state.json"))).toBe(true);
+  });
+
+  test("a pending archive of another change does not block creation", () => {
+    mkArchived(root, "old-pending", "in_progress");
+    expect(createChange(root, "beta").ok).toBe(true);
+  });
+
+  test("refuses a name that has a pending archive", () => {
+    mkArchived(root, "old-pending", "in_progress");
+    const result = createChange(root, "old-pending");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Archive of "old-pending" is still in progress');
+  });
+
+  test("refuses a name colliding with an existing change", () => {
+    mkChange(root, "alpha");
+    const result = createChange(root, "alpha");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('already exists');
   });
 });

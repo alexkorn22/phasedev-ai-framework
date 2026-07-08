@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
-import { resolveChangeDir } from "../../entities/change/active-change";
+import { listActiveChangeDirs } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState } from "../../entities/change/archive-state";
 
 /**
@@ -44,24 +44,20 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   }
 
   try {
-    const activeDir = resolveChangeDir(projectPath);
-    if (activeDir) {
-      const activeName = path.basename(activeDir);
-      return { ok: false, message: `Active change already exists: ${activeName}. Complete or reset it before creating a new one.` };
+    if (listActiveChangeDirs(projectPath).includes(slug)) {
+      return { ok: false, message: `Change "${slug}" already exists at ${path.join(projectPath, SYSTEM_DIR, "changes", slug)}.` };
     }
 
-    // A pending archive still owns the flow state (state.json lives in the
-    // archived change). Creating a new change now would fork the source of
-    // truth: locateFlowStatePath would prefer the new change while
-    // resolveRoute keeps routing to the pending archive.
-    const pendingArchive = findPendingArchiveState(projectPath);
-    if (pendingArchive) {
-      return { ok: false, message: `Archive of "${pendingArchive.changeName}" is still in progress at ${pendingArchive.archivePath}. Complete the archive phase (set .phase-archive.json status=completed) before creating a new change.` };
+    // A pending archive still owns this change name (state.json lives in the
+    // archived directory). Reusing the name would make --change ambiguous.
+    const pendingSameName = findPendingArchiveState(projectPath, slug);
+    if (pendingSameName) {
+      return { ok: false, message: `Archive of "${slug}" is still in progress at ${pendingSameName.archivePath}. Complete the archive phase (set .phase-archive.json status=completed) before reusing this name.` };
     }
 
-    const invalidArchive = findInvalidArchiveState(projectPath);
-    if (invalidArchive) {
-      return { ok: false, message: `Archive state is invalid: ${invalidArchive.reason} (${invalidArchive.statePath}). Fix it before creating a new change.` };
+    const invalidSameName = findInvalidArchiveState(projectPath, slug);
+    if (invalidSameName) {
+      return { ok: false, message: `Archive state is invalid: ${invalidSameName.reason} (${invalidSameName.statePath}). Fix it before reusing this name.` };
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
