@@ -84,11 +84,14 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Agent type selection:** The orchestrator picks the agent type best suited to each phase: if a custom agent in the environment (e.g. in `.claude/agents/`) fits better than the default general-purpose agent, pass its name as `subagent_type`.
 
+**Model selection:** Every `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive) model. Exception: custom agents that pin their model in their definition — do not pass `model` for those and do not override it. Choosing the tier is the orchestrator's per-phase, per-change decision, made from the complexity of the work the phase contract actually requires — the same dynamic judgment as agent count. Guidance: cheap tier (e.g. `"haiku"`) for mechanical, narrowly-scoped work (like writing delta specs in the archive phase); standard tier (e.g. `"sonnet"`) for routine single-phase artifact work; the strongest available tier (e.g. `"opus"`) for design-heavy, validation-heavy, or repair work requiring real analysis. Never a static phase→model table; if a sub-agent's report reveals the work was harder than expected, re-dispatch the remaining work on a stronger model. A too-cheap model on multi-step work often takes 2-3× the turns and costs more overall — match the tier to the whole phase task, not the cheapest line item.
+
 **Sub-agent prompt** (the single canonical prompt; goal and role lines are optional slots):
 
 ```javascript
 Agent(
   description: "<phase-name>: execute phase contract",
+  model: "<explicit tier — see Model selection>",
   prompt: `Execute the current PhaseDev phase (run from the project root).
 
 <goal description — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
@@ -200,4 +203,4 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 7. **NEVER pass context between phases** — sub-agents read artifact files directly; the filesystem is the durable state.
 8. **NEVER re-describe phase contracts** — sub-agents get them from `phasedev phase`.
 9. **NEVER log iterations to `.phasedev/logs/`** — the orchestrator is ephemeral; state is visible in chat.
-10. **Report clearly** — after each iteration: phase completed, the sub-agent's self-check result, and the next phase `phasedev check` reports.
+10. **Report clearly** — after each iteration: phase completed, the model each phase sub-agent ran on, the sub-agent's self-check result, and the next phase `phasedev check` reports.
