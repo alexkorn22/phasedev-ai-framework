@@ -27,6 +27,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 
 **Core orchestrator commands:**
 - `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`.
+- `phasedev list` — list unfinished changes with phase, iteration, and task summary. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. The single mutation point for flow state.
@@ -38,11 +39,23 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 
 Findings commands `reopen-finding`, `resolve-finding`, `set-verdict` are for sub-agents (see `phasedev help`); the orchestrator does not run them.
 
+Every change-scoped command below is invoked with `--change <change>` (see [Initialization](#initialization)).
+
 All commands run from the **project root**. `phasedev` defaults to `process.cwd()`, so `--project-path` is omitted throughout.
 
 ## Initialization
 
-Before the loop, create the change once — `phasedev create-change <name>`, `<name>` slugified from the user's goal, required **before** the first `phase` and skipped if the change already exists — then read orchestrator-safe settings via `phasedev config <key>`:
+**Change selection.** Before the loop, select the change:
+
+1. Run `phasedev list`.
+2. If it reports no changes → create one: `phasedev create-change <name>` (`<name>` slugified from the user's goal).
+3. If any unfinished changes exist → ALWAYS stop and ask the user one question: list each change (name, phase, iteration, task summary — from `list` output only) plus the option "create a new change for the current goal". This applies both with and without a goal argument.
+4. Fix the selected name as `<change>` for the whole session: one orchestrator — one change. Switching changes mid-session is a new orchestrator run.
+5. A change marked `archive in progress` or with an error marker may be selected; the normal loop handles it.
+
+Pass `--change <change>` on EVERY change-scoped command (`phase`, `check`, `advance`, `approve`, `add-finding`, `feedback`, `status`), even when only one change exists. `config` is not change-scoped.
+
+After selecting the change, read orchestrator-safe settings via `phasedev config <key>`:
 
 - `maxIterations` — safety iteration limit; default **10** if empty/invalid. Stop with "Max iterations reached" when reached.
 - `maxRepairCycles` — limit for consecutive repair cycles without progress; default **3** if empty/invalid.
@@ -59,7 +72,7 @@ Each iteration:
    - If `check` returns issues, or advance refuses with `invalid_*` (artifact issues), `*_approval` (needs approval), or `archive_readiness_blocked` (iterations not complete) → spawn sub-agents on the **current** active phase.
 3. **Verify:** when all sub-agents for the phase have reported with passing self-checks, run `phasedev advance`. If it accepts, loop from step 1. If it refuses, handle per [Auto-Approval](#auto-approval), [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), or [Termination](#termination).
 
-**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Sub-agents run **sequentially**; each reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. The framework guarantees only the invariant: `phasedev phase` returns the same contract for every sub-agent until `advance` is called — this lock enables N sequential agents on any phase.
+**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Sub-agents run **sequentially**; each reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock enables N sequential agents on any phase.
 
 What NOT to do:
 - **Do not introduce** any phase→agent-count or phase→agent-type table, and do not hardcode per-phase counts ("for design — 3 agents").
@@ -84,11 +97,13 @@ Agent(
 
 phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, bun run, or bun run src/cli.ts to launch it — just run "phasedev ...".
 
-1. Run command: phasedev phase — get the active phase contract.
+You work ONLY on the change "<change>". Never pass a different --change value.
+
+1. Run command: phasedev phase --change <change> — get the active phase contract.
 2. Work on the artifacts of the active phase according to your role and the contract.
-3. Self-validate before reporting (mandatory): run phasedev check. If it fails, read the reported issues, fix the artifact, and rerun phasedev check until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
+3. Self-validate before reporting (mandatory): run phasedev check --change <change>. If it fails, read the reported issues, fix the artifact, and rerun phasedev check --change <change> until it passes. You create the artifact — you validate it; the orchestrator does not validate artifacts for you.
 4. Do NOT report the phase as complete while the self-check is failing or has not been run. If it cannot pass after you fix the artifact, report a blocker with the exact failing command and output.
-5. Do NOT run phasedev advance — that is the orchestrator's job. Only the self-check command (phasedev check) may be rerun.
+5. Do NOT run phasedev advance — that is the orchestrator's job. Only the self-check command (phasedev check --change <change>) may be rerun.
 6. Report: the phase completed, the EXACT self-check command and its final result (PASS/FAIL), and any blockers.`
 )
 ```
@@ -102,7 +117,7 @@ At any STOP point (approval gate, `archive_ready` with `runArchiveStage=false`, 
 **Fast path (no sub-agent).** When the feedback is a concrete, already-formulated implementation defect ("here is a bug, put it into the findings"), do NOT spawn a sub-agent. Record it yourself with a single deterministic call:
 
 ```bash
-phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>" --class implementation
+phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>" --class implementation --change <change>
 ```
 
 (Command semantics are in the `add-finding` entry under [Command Invocation](#command-invocation-mandatory).) Then continue the loop — `phasedev advance` routes to finding_repair where the fix is implemented. Never hand-edit the findings registry and never edit repository code to handle feedback.
@@ -118,7 +133,9 @@ Feedback: <user's full feedback text>
 
 phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
 
-Run: phasedev feedback — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, and the write boundary.
+You work ONLY on the change "<change>". Never pass a different --change value.
+
+Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, and the write boundary.
 Do NOT run phasedev advance — the orchestrator continues the loop after you finish.
 Report: recorded finding IDs, changed artifacts and their approval status, and the result of phasedev check.`
 )
@@ -126,7 +143,7 @@ Report: recorded finding IDs, changed artifacts and their approval status, and t
 
 After the fast path or the sub-agent return, run `phasedev check` and continue the main loop from that state — it guides the next action (`finding_repair` if findings were added, an approval gate if approvals were reset, iteration work if a phase is active).
 
-This applies equally on a fresh session where the user says "I have feedback on this change": run `phasedev check` to determine the current state, then use the fast path or feedback sub-agent instead of the normal phase spawn.
+This applies equally on a fresh session where the user says "I have feedback on this change": run `phasedev list` first; if several unfinished changes exist and the user did not name one, ask which change the feedback targets. Then run `phasedev check` to determine the current state, then use the fast path or feedback sub-agent instead of the normal phase spawn.
 
 ## Invalid-artifact recovery policy
 
@@ -142,7 +159,7 @@ An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid
 
 When `phasedev config autoApprove` (from Initialization) is `true`, the orchestrator automatically approves change_intake, technical_design, and iteration_planning artifacts at approval gates instead of stopping to ask the user.
 
-When `phasedev advance` refuses with an `*_approval` refusal, run `phasedev approve <file> --by "PhaseDev Orchestrator"` (from the project root; filenames auto-resolve to the active change directory) instead of spawning a sub-agent, then retry `phasedev advance`:
+When `phasedev advance` refuses with an `*_approval` refusal, run `phasedev approve <file> --by "PhaseDev Orchestrator" --change <change>` (from the project root; filenames auto-resolve to the active change directory) instead of spawning a sub-agent, then retry `phasedev advance --change <change>`:
 - `change_intake_approval` → approve `prd.md` and `execution_contract.md`.
 - `technical_design_approval` → approve `design.md`.
 - `iteration_planning_approval` → approve `iteration_plan.md`.
@@ -166,9 +183,9 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 
 1. Check the `runArchiveStage` value from Initialization before calling `advance`. If `false`, **do not call advance** — stop and report:
    > "Archive execution is paused by config (runArchiveStage=false). Set runArchiveStage=true in config.yaml to enable archive."
-2. If `true`, call `phasedev advance`. It performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`), and switches `state.json` to `activePhase: archive`.
-3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase`, writes delta specs, and sets `.phase-archive.json` `status: "completed"`.
-4. After the sub-agent returns, call `phasedev advance`:
+2. If `true`, call `phasedev advance --change <change>`. It performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`), and switches `state.json` to `activePhase: archive`.
+3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, writes delta specs, and sets `.phase-archive.json` `status: "completed"`.
+4. After the sub-agent returns, call `phasedev advance --change <change>`:
    - If it returns `finished=true` → the archive is complete → **flow complete** → STOP.
    - If it refuses ("Archive not complete") → sub-agent did not finish → no-progress → STOP and report.
 
