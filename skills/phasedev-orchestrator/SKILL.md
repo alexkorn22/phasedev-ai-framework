@@ -80,9 +80,9 @@ What NOT to do:
 
 For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Never execute phase work in the main agent.
 
-**Agent type selection:** The orchestrator picks the agent type best suited to each phase: if a custom agent in the environment (e.g. in `.claude/agents/`) fits better than the default general-purpose agent, pass its name as `subagent_type`.
+**Agent type selection:** Before the first spawn, review the list of available agent types for the `Agent` tool in the current session environment (the tool's agent-type list itself — NOT a directory on disk; `.claude/agents/` may not reflect what the running session actually exposes). For each phase, prefer the custom agent type whose description matches that phase's work over the default general-purpose type; fall back to general-purpose only when no available custom type fits. This is a per-phase, per-change judgment, made fresh each time — never fixed into a static phase→type table.
 
-**Model selection:** Every `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). Exception: custom agents that pin their model in their definition — do not pass or override `model` for those.
+**Model selection:** When dispatching a `subagent_type` that has no pinned model (general-purpose and similar catch-all types), the `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). When dispatching a custom agent that pins its model in its own definition, do NOT pass or override `model` for it.
 
 The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. Guidance: `"haiku"` for mechanical, narrowly-scoped work (e.g. archive delta specs); `"sonnet"` for routine single-phase artifact work; the strongest available tier (`"opus"`) for design-heavy, validation-heavy, or repair work needing real analysis. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
@@ -91,7 +91,8 @@ The tier is the orchestrator's per-phase, per-change judgment (like agent count)
 ```javascript
 Agent(
   description: "<phase-name>: execute phase contract",
-  model: "<explicit tier — see Model selection>",
+  subagent_type: "<custom agent type matching the phase — see Agent type selection; OMIT for general-purpose>",
+  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
   prompt: `Execute the current PhaseDev phase (run from the project root).
 
 <goal description — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
@@ -130,6 +131,8 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 ```javascript
 Agent(
   description: "process user feedback on PhaseDev change",
+  subagent_type: "<custom agent type matching this work — see Agent type selection; OMIT for general-purpose>",
+  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
   prompt: `The user has feedback on the current PhaseDev change.
 
 Feedback: <user's full feedback text>
