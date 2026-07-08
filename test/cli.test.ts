@@ -2921,7 +2921,7 @@ ${rows ?? ""}`;
     expect(result.output).toContain("No changes. Run: phasedev create-change <name>.");
   });
 
-  test("changes shows active changes and pending archives, but hides completed archives by default", () => {
+  test("changes shows only active changes by default, hiding pending and completed archives", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "active-change");
     fs.mkdirSync(changeDir, { recursive: true });
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }));
@@ -2943,12 +2943,13 @@ ${rows ?? ""}`;
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("--- Changes ---");
     expect(result.output).toContain("active-change");
-    expect(result.output).toContain("pending-change");
-    expect(result.output).toContain("[archive in progress]");
+    expect(result.output).not.toContain("pending-change");
     expect(result.output).not.toContain("archived-change");
 
     const withArchived = runCli(["changes", "--project-path", testTmpDir, "--archived"]);
     expect(withArchived.output).toContain("Archived Changes");
+    expect(withArchived.output).toContain("pending-change");
+    expect(withArchived.output).toContain("status: in_progress");
     expect(withArchived.output).toContain("archived-change");
   });
 

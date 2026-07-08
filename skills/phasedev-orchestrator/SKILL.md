@@ -27,7 +27,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 
 **Core orchestrator commands:**
 - `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`.
-- `phasedev list` — list unfinished changes with phase, iteration, and task summary. Run first at session start.
+- `phasedev list` — list active changes with phase, iteration, and task summary; archived changes (including pending archives) are hidden unless `--archived`. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. The single mutation point for flow state.
@@ -51,7 +51,7 @@ All commands run from the **project root**. `phasedev` defaults to `process.cwd(
 2. If it reports no changes → create one: `phasedev create-change <name>` (`<name>` slugified from the user's goal).
 3. If any unfinished changes exist → ALWAYS stop and ask the user one question: list each change (name, phase, iteration, task summary — from `list` output only) plus the option "create a new change for the current goal". This applies both with and without a goal argument.
 4. Fix the selected name as `<change>` for the whole session: one orchestrator — one change. Switching changes mid-session is a new orchestrator run.
-5. A change marked `archive in progress` or with an error marker may be selected; the normal loop handles it.
+5. A change with an error marker in `list` may be selected; the normal loop handles it. A change pending archive is not in the default `list`; check `phasedev list --archived` (status `in_progress`) and select it by its original slug via `--change`.
 
 Pass `--change <change>` on EVERY change-scoped command (`phase`, `check`, `advance`, `approve`, `add-finding`, `feedback`, `status`), even when only one change exists. `config` is not change-scoped.
 

@@ -23,9 +23,9 @@ PhaseDev currently enforces a single unfinished change per project: `findActiveC
 The existing command (`src/features/flow-status/list-changes.ts`) is single-change-centric: it resolves one global route via `resolveRoute` and stamps the same phase onto every directory. Rework:
 
 - For each unfinished change directory in `.phasedev/changes/` (excluding `archive` and dot-directories), read that change's own `state.json` and report: slug, `activePhase`, `activeIteration`, and a one-line task summary (first heading or first non-empty line of `intake_task.md`; fall back to `prd.md`; empty when neither exists). No global `resolveRoute` call.
-- Pending archives (`changes/archive/<date>-<slug>` with `.phase-archive.json` `status: "in_progress"`) appear in the main list, marked `archive (in progress)` — they are still work in progress. Their `--change` name is the original slug from `.phase-archive.json.changeName`.
-- A change whose state cannot be read (broken `state.json` or broken `.phase-archive.json`) still appears, with an error marker instead of phase details; the listing never crashes on one bad entry.
-- `--archived` additionally lists completed archives (directory name + date + status).
+- (revised 2026-07-08: everything under `changes/archive/` — completed, pending, and broken — counts as archived and is hidden from the default list entirely; the default list only reads the active-change directories.) Pending archives (`changes/archive/<date>-<slug>` with `.phase-archive.json` `status: "in_progress"`) no longer appear in the main list. Their `--change` name (for `phase`/`check`/`advance`/etc. resolution) is still the original slug from `.phase-archive.json.changeName`.
+- A change whose state cannot be read (broken `state.json`) still appears in the default list, with an error marker instead of phase details; the listing never crashes on one bad entry.
+- (revised 2026-07-08) `--archived` lists ALL archive directories: completed (status + date), pending (original slug, status `in_progress`, date), and broken `.phase-archive.json` (directory name + error marker) — none of these appear without the flag.
 - Empty list prints an explicit "No changes. Run create-change." message.
 - `--json` output carries the same fields in `data.entries`.
 

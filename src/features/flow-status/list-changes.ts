@@ -6,7 +6,7 @@ import { archiveDirectories, readArchiveState } from "../../entities/change/arch
 
 export interface ChangeEntry {
   name: string;
-  type: "active" | "pending_archive" | "archived";
+  type: "active" | "archived";
   phase?: string;
   activeIteration?: number | null;
   taskSummary?: string;
@@ -56,34 +56,27 @@ export function listChanges(projectPath: string, includeArchived = false): Chang
     entries.push({ name, type: "active", taskSummary: readTaskSummary(changeDir), ...state });
   }
 
+  if (!includeArchived) {
+    return entries;
+  }
+
   for (const directory of archiveDirectories(projectPath)) {
     const state = readArchiveState(directory);
     if (state === null) {
-      // Unreadable .phase-archive.json: still unfinished work — surface it.
       entries.push({
         name: path.basename(directory),
-        type: "pending_archive",
+        type: "archived",
         archiveDate: archiveDateOf(directory),
         error: ".phase-archive.json is missing or malformed"
       });
       continue;
     }
-    if (state.status === "in_progress") {
-      entries.push({
-        name: state.changeName,
-        type: "pending_archive",
-        phase: "archive",
-        taskSummary: readTaskSummary(directory),
-        archiveDate: archiveDateOf(directory)
-      });
-    } else if (includeArchived) {
-      entries.push({
-        name: path.basename(directory),
-        type: "archived",
-        archiveDate: archiveDateOf(directory),
-        archiveStatus: state.status
-      });
-    }
+    entries.push({
+      name: state.status === "in_progress" ? state.changeName : path.basename(directory),
+      type: "archived",
+      archiveDate: archiveDateOf(directory),
+      archiveStatus: state.status
+    });
   }
 
   return entries;
@@ -95,14 +88,13 @@ export function renderChanges(entries: ChangeEntry[]): string {
   }
 
   const lines: string[] = ["=== PhaseDev Changes ===", ""];
-  const unfinished = entries.filter(e => e.type !== "archived");
+  const active = entries.filter(e => e.type === "active");
   const archived = entries.filter(e => e.type === "archived");
 
-  if (unfinished.length > 0) {
+  if (active.length > 0) {
     lines.push("--- Changes ---");
-    for (const entry of unfinished) {
-      const marker = entry.type === "pending_archive" ? " [archive in progress]" : "";
-      lines.push(`  ${entry.name}${marker}`);
+    for (const entry of active) {
+      lines.push(`  ${entry.name}`);
       if (entry.error) {
         lines.push(`    ERROR: ${entry.error}`);
         continue;
@@ -122,7 +114,8 @@ export function renderChanges(entries: ChangeEntry[]): string {
     lines.push("--- Archived Changes ---");
     for (const entry of archived) {
       const dateStr = entry.archiveDate ? ` [${entry.archiveDate}]` : "";
-      lines.push(`  ${entry.name}${dateStr} (status: ${entry.archiveStatus})`);
+      const status = entry.error ? `error: ${entry.error}` : `status: ${entry.archiveStatus}`;
+      lines.push(`  ${entry.name}${dateStr} (${status})`);
     }
     lines.push("");
   }

@@ -218,16 +218,37 @@ describe("listChanges multi-change", () => {
     expect(b?.activeIteration).toBe(2);
   });
 
-  test("includes pending archives, excludes completed unless includeArchived", () => {
+  test("default list ignores the archive folder entirely, including pending archives", () => {
     mkArchived(root, "old-pending", "in_progress");
     mkArchived(root, "old-done", "completed");
 
     const entries = listChanges(root);
-    expect(entries.find(e => e.name === "old-pending")?.type).toBe("pending_archive");
+    expect(entries.find(e => e.name === "old-pending")).toBeUndefined();
     expect(entries.find(e => e.name?.includes("old-done"))).toBeUndefined();
+  });
+
+  test("--archived lists pending archives by their original slug and completed archives", () => {
+    mkArchived(root, "old-pending", "in_progress");
+    mkArchived(root, "old-done", "completed");
 
     const all = listChanges(root, true);
+    const pending = all.find(e => e.name === "old-pending");
+    expect(pending?.type).toBe("archived");
+    expect(pending?.archiveStatus).toBe("in_progress");
     expect(all.some(e => e.type === "archived" && e.archiveStatus === "completed")).toBe(true);
+  });
+
+  test("--archived surfaces a broken .phase-archive.json with an error marker, absent by default", () => {
+    const brokenDir = path.join(root, ".phasedev", "changes", "archive", "2026-07-08-broken-x");
+    fs.mkdirSync(brokenDir, { recursive: true });
+    fs.writeFileSync(path.join(brokenDir, ".phase-archive.json"), "{broken");
+
+    expect(listChanges(root)).toEqual([]);
+
+    const all = listChanges(root, true);
+    const broken = all.find(e => e.name === "2026-07-08-broken-x");
+    expect(broken?.type).toBe("archived");
+    expect(broken?.error).toContain(".phase-archive.json");
   });
 
   test("a broken state.json becomes an error marker, not a crash", () => {
