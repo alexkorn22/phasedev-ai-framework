@@ -2,6 +2,11 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-workspace";
+import { createChange } from "../src/features/phase-control/create-change";
+import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { resolveRoute } from "../src/features/phase-control/flow-route";
+import { loadFlowState } from "../src/entities/change/flow-state";
+import { loadConfig } from "../src/entities/config/config";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -613,4 +618,99 @@ The E2E flow SHALL complete without re-approvals.
     expect(typeof finalArchiveState.completedAt).toBe("string");
   });
 
+});
+
+// ── E2E: Independent multi-change flows ─────────────────────
+
+describe("multi-change e2e", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = createTempWorkspace("multi-change-e2e");
+  });
+
+  afterEach(() => {
+    cleanupTempWorkspace(root);
+  });
+
+  test("alpha and beta advance independently, and unscoped advance refuses on ambiguity", () => {
+    // 1. Create alpha and beta in one workspace.
+    expect(createChange(root, "alpha").ok).toBe(true);
+    expect(createChange(root, "beta").ok).toBe(true);
+
+    const config = loadConfig();
+
+    // 2. Drive alpha forward one phase: change_intake -> code_research.
+    const alphaDir = path.join(root, ".phasedev", "changes", "alpha");
+    const prdBody = `\
+# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | feature |
+| Why | Verify multi-change isolation |
+| Target state | Alpha advances without touching beta |
+| Risk boundaries | None beyond normal project risk |
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | Alpha and beta must advance independently |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Alpha advances while beta stays put | full |
+`;
+    const ecBody = `\
+# Rules
+
+## Test Commands
+
+| Gate | Command |
+|---|---|
+| unit | \`echo unit\` |
+| phase | \`echo phase\` |
+| full | \`echo full\` |
+
+## Constraints
+
+No special constraints.
+
+## Verification Gates
+
+Standard verification gates.
+
+## Manual Checks
+
+None required.
+
+## Environment Notes
+
+None.
+`;
+    simulateAgent(path.join(alphaDir, "prd.md"), prdBody, true);
+    simulateAgent(path.join(alphaDir, "execution_contract.md"), ecBody, true);
+
+    const alphaAdvance = advanceFlow(root, config, "alpha");
+    expect(alphaAdvance.ok).toBe(true);
+    expect(alphaAdvance.newState?.activePhase).toBe("code_research");
+
+    // 3. Beta must not have moved, and must not have alpha's artifacts.
+    expect(loadFlowState(root, "beta")?.activePhase).toBe("change_intake");
+    const betaDir = path.join(root, ".phasedev", "changes", "beta");
+    expect(fs.existsSync(path.join(betaDir, "prd.md"))).toBe(false);
+    expect(fs.existsSync(path.join(betaDir, "execution_contract.md"))).toBe(false);
+
+    // 4. Routes diverge: beta still at change_intake, alpha moved on.
+    expect(resolveRoute(root, "beta").kind).toBe("change_intake");
+    expect(resolveRoute(root, "alpha").kind).not.toBe("change_intake");
+
+    // 5. Unscoped advance refuses due to ambiguity between alpha and beta.
+    expect(() => advanceFlow(root, config)).toThrow("Multiple changes exist");
+  });
 });
