@@ -27,7 +27,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 
 **Core orchestrator commands:**
 - `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`.
-- `phasedev list` — list active changes with phase, iteration, and task summary; archived changes (including pending archives) are hidden unless `--archived`. Run first at session start.
+- `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. The single mutation point for flow state.
@@ -38,8 +38,6 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev config <key>` — read config values.
 
 Findings commands `reopen-finding`, `resolve-finding`, `set-verdict` are for sub-agents (see `phasedev help`); the orchestrator does not run them.
-
-Every change-scoped command below is invoked with `--change <change>` (see [Initialization](#initialization)).
 
 All commands run from the **project root**. `phasedev` defaults to `process.cwd()`, so `--project-path` is omitted throughout.
 
@@ -84,7 +82,9 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Agent type selection:** The orchestrator picks the agent type best suited to each phase: if a custom agent in the environment (e.g. in `.claude/agents/`) fits better than the default general-purpose agent, pass its name as `subagent_type`.
 
-**Model selection:** Every `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive) model. Exception: custom agents that pin their model in their definition — do not pass `model` for those and do not override it. Choosing the tier is the orchestrator's per-phase, per-change decision, made from the complexity of the work the phase contract actually requires — the same dynamic judgment as agent count. Guidance: cheap tier (e.g. `"haiku"`) for mechanical, narrowly-scoped work (like writing delta specs in the archive phase); standard tier (e.g. `"sonnet"`) for routine single-phase artifact work; the strongest available tier (e.g. `"opus"`) for design-heavy, validation-heavy, or repair work requiring real analysis. Never a static phase→model table; if a sub-agent's report reveals the work was harder than expected, re-dispatch the remaining work on a stronger model. A too-cheap model on multi-step work often takes 2-3× the turns and costs more overall — match the tier to the whole phase task, not the cheapest line item.
+**Model selection:** Every `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). Exception: custom agents that pin their model in their definition — do not pass or override `model` for those.
+
+The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. Guidance: `"haiku"` for mechanical, narrowly-scoped work (e.g. archive delta specs); `"sonnet"` for routine single-phase artifact work; the strongest available tier (`"opus"`) for design-heavy, validation-heavy, or repair work needing real analysis. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
 **Sub-agent prompt** (the single canonical prompt; goal and role lines are optional slots):
 
