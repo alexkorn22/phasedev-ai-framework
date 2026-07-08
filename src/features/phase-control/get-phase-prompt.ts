@@ -24,14 +24,15 @@ import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
 import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES } from "./prompt-render-helpers";
 
-function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation"): Prompt {
+function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
+  const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
   return {
     command: "next",
     phase,
     prompt: [
       `[PHASEDEV] BLOCKED: state.json is missing activeIteration for phase "${phase}".`,
       `Phase "${phase}" requires a numeric activeIteration to render an iteration-scoped contract.`,
-      `Recovery: fix state.json to set activeIteration to the current iteration id, or run phasedev advance to resync state.`
+      `Recovery: fix state.json to set activeIteration to the current iteration id, or run ${advanceCommand} to resync state.`
     ].join("\n"),
     blocked: true,
     reason: "Missing activeIteration in state.json"
@@ -328,7 +329,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "implementation": {
       if (activeIteration === null) {
-        return missingActiveIterationBlocker("implementation");
+        return missingActiveIterationBlocker("implementation", changeName);
       }
       const rendered = renderImplementation(projectPath, config, paths, activeIteration, changeName);
       if (typeof rendered !== "string") {
@@ -344,7 +345,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "iteration_validation": {
       if (activeIteration === null) {
-        return missingActiveIterationBlocker("iteration_validation");
+        return missingActiveIterationBlocker("iteration_validation", changeName);
       }
       const rendered = renderIterationValidation(projectPath, config, paths, activeIteration, changeName);
       if (typeof rendered !== "string") {

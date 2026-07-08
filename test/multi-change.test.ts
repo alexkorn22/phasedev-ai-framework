@@ -23,6 +23,202 @@ function mkChange(root: string, name: string): string {
   return dir;
 }
 
+function writeArtifact(filePath: string, body: string, approved = true): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `---\napproved: ${approved}\n---\n${body}`, "utf-8");
+}
+
+function validPrdBody(): string {
+  return `# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep flow routing grounded in approved requirements. |
+| Target state | Exercise the flow controller stage prompt. |
+| Risk boundaries | Test fixture only; no production risk. |
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | Route the flow according to approved artifacts. |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | The expected stage prompt is rendered. | review |
+`;
+}
+
+function validResearchBody(): string {
+  return `# Research Facts
+
+## PRD Intent Trace
+
+| Field | PRD Value | Status | Evidence | Notes |
+|---|---|---|---|---|
+| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
+| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+
+## Requirements & Success Criteria Trace
+
+| ID | Status | Code Evidence | Spec Context | Gaps/Blockers |
+|---|---|---|---|---|
+| R1 | confirmed | F1 | none | none |
+| SC1 | confirmed | F2 | none | none |
+
+## Source Facts
+
+| Fact ID | Type | Source | Fact | Supports |
+|---|---|---|---|---|
+| F1 | code | \`src/features/phase-control/flow-route.ts:94\` | Missing research routes to the research stage. | R1 |
+| F2 | code | \`test/multi-change.test.ts:1\` | Fixture asserts design follows valid research. | SC1 |
+
+## Research Gaps & Blockers
+
+No non-blocking gaps.
+`;
+}
+
+function validDesignBody(): string {
+  return `# Design
+
+## Executive Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Approve the fixture flow routing design. |
+| Out of scope | Unrelated product behavior. |
+| Key decision | D1 keeps routing grounded in approved artifacts. |
+| Validation | Review evidence covers R1 and SC1. |
+
+## Traceability Mapping
+
+| PRD ID | Research Evidence | Design Decisions | Design Coverage | Plan Impact |
+|---|---|---|---|---|
+| R1 | F1 | D1 | Route selection uses approved artifacts as the design boundary. | Plan phase implements routing behavior. |
+| SC1 | F2 | D1 | Prompt rendering remains the observable success path. | Plan checks verify prompt rendering. |
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point and approval summary for this design package. | approval snapshot, traceability map, decision table | high |
+
+## Key Design Decisions
+
+| Decision ID | Decision | Rationale | Applies To | Impacts |
+|---|---|---|---|---|
+| D1 | Keep routing driven by approved artifacts. | This preserves the positive PRD contract. | R1, SC1 | flow route, plan decomposition |
+
+## Contracts, Interfaces & Boundaries
+
+| Boundary | Contract | Applies To |
+|---|---|---|
+| Flow routing | The controller advances only when approved artifacts pass validation. | D1 |
+
+## Risks & Open Questions
+None.
+`;
+}
+
+function withImplementationPlanContract(planContent: string): string {
+  const normalizedPlanContent = planContent.trim().replace(/^#\s+.*\n+/, "").trim();
+  const withBundle = `
+# Implementation Plan
+
+## Approval Summary
+
+| Area | Decision |
+|---|---|
+| Approval scope | Exercise the flow controller fixture path. |
+| Out of scope | Unrelated product behavior. |
+| Sequencing risk | none |
+| Validation | Use fixture unit, phase, and full commands. |
+
+## Generation Bundle
+
+| Area | Required | Plan |
+|---|---|---|
+| Production code | yes | Exercise the test fixture production path. |
+| Tests | yes | Use fixture commands from execution_contract.md. |
+| Docs/specs | not_applicable | No documentation behavior is part of this fixture. |
+| Migrations | not_applicable | No persistence changes are part of this fixture. |
+| Feature flags/rollout | not_applicable | No rollout controls are part of this fixture. |
+| Observability | not_applicable | No observability changes are part of this fixture. |
+| Rollback path | not_applicable | Revert the fixture change if needed. |
+
+## Iteration Overview
+
+| Iteration | Goal | Main work items | Required checks |
+|---|---|---|---|
+| Iteration 1 | Complete fixture phase. | 1.1 | unit |
+
+${normalizedPlanContent}`;
+
+  return withBundle.replace(/^## Iteration \d+:.*(?:\n(?!## Iteration \d+:).*)*/gm, section => {
+    let nextSection = section;
+    if (!/^###\s+Goal\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Goal\n\nComplete the fixture phase. Satisfies R1 and SC1.";
+    }
+    if (!/^###\s+Expected Change Surface\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Expected Change Surface\n\n| Area / Path Pattern | Change Type | Ownership | Trace |\n|---|---|---|---|\n| `src/**` | update | Fixture implementation area | R1, SC1, D1 |";
+    }
+    if (!/^###\s+Tasks\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Tasks\n";
+    }
+    if (!/^###\s+Checks\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Checks\n\n- unit: `bun test unit`";
+    }
+    if (!/^###\s+Check Evidence\s*$/im.test(nextSection)) {
+      nextSection += "\n\n### Check Evidence\n\n| Check | Command Or Method | Result | Evidence | Notes |\n|---|---|---|---|---|\n| unit | `bun test unit` | pending |  |  |";
+    }
+    return nextSection;
+  });
+}
+
+function mkImplementationReadyChange(root: string, name: string): string {
+  const changeDir = path.join(root, ".phasedev", "changes", name);
+  fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+
+  writeArtifact(path.join(changeDir, "prd.md"), validPrdBody());
+  writeArtifact(path.join(changeDir, "execution_contract.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
+`);
+  fs.writeFileSync(path.join(changeDir, "research_facts.md"), validResearchBody(), "utf-8");
+  writeArtifact(path.join(changeDir, "architecture", "design.md"), validDesignBody());
+  writeArtifact(path.join(changeDir, "iteration_plan.md"), withImplementationPlanContract(`
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`));
+  fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }));
+  return changeDir;
+}
+
 function mkArchived(root: string, name: string, status: "in_progress" | "completed"): string {
   const dir = path.join(root, ".phasedev", "changes", "archive", `2026-07-08-${name}`);
   fs.mkdirSync(dir, { recursive: true });
@@ -331,5 +527,15 @@ describe("rendered self-check commands carry --change for multi-change projects"
     const result = getPhasePrompt(root, loadConfig());
     expect(result.prompt).toContain("phasedev check");
     expect(result.prompt).not.toContain("--change");
+  });
+
+  test("missingActiveIterationBlocker for a named change among several carries --change in the advance recovery command", () => {
+    mkChange(root, "alpha");
+    mkImplementationReadyChange(root, "beta");
+
+    const result = getPhasePrompt(root, loadConfig(), "beta");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("state.json is missing activeIteration");
+    expect(result.prompt).toMatch(/phasedev advance --change "beta"/);
   });
 });
