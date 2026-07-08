@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 
@@ -23,7 +23,7 @@ export function setIterationStatus(
     }
     filePath = explicitFile;
   } else {
-    const changeDir = findActiveChangeDir(projectPath);
+    const changeDir = resolveChangeDir(projectPath);
     if (!changeDir) {
       return { ok: false, message: "No active change found." };
     }

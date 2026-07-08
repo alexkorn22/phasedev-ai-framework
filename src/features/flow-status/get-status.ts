@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { resolveCurrentState } from "../phase-control/current-flow-state";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
@@ -32,7 +32,7 @@ export function getFlowStatus(projectPath: string): FlowStatus {
     const message = error instanceof Error ? error.message : String(error);
     state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "invalid_state" };
   }
-  const changeDir = findActiveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath);
 
   const artifacts: Array<{ name: string; exists: boolean; approved: boolean }> = [];
   if (changeDir) {

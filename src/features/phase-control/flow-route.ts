@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/change/approval";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, InvalidArchiveState } from "../../entities/change/archive-state";
 import { loadFlowState } from "../../entities/change/flow-state";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
@@ -72,7 +72,7 @@ export function resolveRoute(projectPath: string): Route {
     };
   }
 
-  const changeDir = findActiveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath);
   if (!changeDir) {
     return { kind: "change_intake", phase: "change_intake", activeChangePath: null };
   }

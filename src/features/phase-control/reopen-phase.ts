@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { loadFlowState, saveFlowState, ActivePhase } from "../../entities/change/flow-state";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
@@ -25,7 +25,7 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase): Reopen
     return { ok: false, message: "No active change. Run: phasedev create-change <name>." };
   }
 
-  const changeDir = findActiveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath);
   if (!changeDir) {
     return { ok: false, message: "Cannot locate active change directory." };
   }

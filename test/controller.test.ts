@@ -350,7 +350,7 @@ Test fixture only.
     expect(result.phase).toBe("init");
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("[FLOW CONTROLLER] BLOCKED: Invalid flow state");
-    expect(result.prompt).toContain("Multiple active changes found in .phasedev/changes");
+    expect(result.prompt).toContain("Multiple changes exist: first-change, second-change. Pass --change <name>.");
     expect(result.prompt).toContain("phasedev init performed no filesystem changes");
     expect(result.prompt).toContain("Fix the flow state before running `phasedev phase` or `phasedev advance`.");
   });
@@ -1406,12 +1406,12 @@ Complete API work.
     expect(result.message).toBe("No active change. Run: phasedev create-change <name>.");
   });
 
-  test("findCompletedArchiveState returns null when there is an active change (not in archive)", () => {
+  test("findCompletedArchiveState finds a completed archive even when an unrelated active change exists", () => {
     // Create an active change
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
 
-    // Create a completed archive directory alongside, which should be ignored
+    // Create a completed archive directory alongside
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-06-sample-change");
     fs.mkdirSync(archiveDir, { recursive: true });
     fs.writeFileSync(
@@ -1426,10 +1426,10 @@ Complete API work.
       "utf-8"
     );
 
-    // With an active change present, findCompletedArchiveState should return null
-    // (the active change takes precedence over a completed archive)
+    // findCompletedArchiveState is name-scoped now; it no longer special-cases
+    // the presence of an unrelated active change (see change-errors task 1).
     const result = findCompletedArchiveState(testTmpDir);
-    expect(result).toBeNull();
+    expect(result).toBe(archiveDir);
   });
 
   describe("findings baseline snapshot lifecycle", () => {

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState } from "../../entities/change/archive-state";
 
 /**
@@ -44,7 +44,7 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   }
 
   try {
-    const activeDir = findActiveChangeDir(projectPath);
+    const activeDir = resolveChangeDir(projectPath);
     if (activeDir) {
       const activeName = path.basename(activeDir);
       return { ok: false, message: `Active change already exists: ${activeName}. Complete or reset it before creating a new one.` };

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { archiveRootPath } from "./paths";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
-import { findActiveChangeDir } from "./active-change";
+import { AmbiguousChangeError } from "./change-errors";
 
 export interface ArchiveState {
   status: "in_progress" | "completed";
@@ -185,8 +185,13 @@ export function archiveDirectories(projectPath: string): string[] {
     .sort();
 }
 
-export function findInvalidArchiveState(projectPath: string): InvalidArchiveState | null {
+export function findInvalidArchiveState(projectPath: string, changeName?: string): InvalidArchiveState | null {
   for (const directory of archiveDirectories(projectPath)) {
+    // A broken .phase-archive.json has no readable changeName; match the
+    // date-prefixed directory suffix instead.
+    if (changeName !== undefined && !path.basename(directory).endsWith(`-${changeName}`)) {
+      continue;
+    }
     const invalid = parseArchiveState(directory).invalid;
     if (invalid) {
       return invalid;
@@ -196,7 +201,8 @@ export function findInvalidArchiveState(projectPath: string): InvalidArchiveStat
   return null;
 }
 
-export function findPendingArchiveState(projectPath: string): ArchiveState | null {
+export function findPendingArchiveState(projectPath: string, changeName?: string): ArchiveState | null {
+  const pending: ArchiveState[] = [];
   for (const directory of archiveDirectories(projectPath)) {
     const state = readArchiveState(directory);
     if (state?.status === "in_progress") {
@@ -204,24 +210,34 @@ export function findPendingArchiveState(projectPath: string): ArchiveState | nul
       // stored archivePath: the stored value is an absolute path that goes
       // stale when the project is moved/cloned or when a crash-retry landed
       // in a different date-prefixed directory.
-      return { ...state, archivePath: directory };
+      pending.push({ ...state, archivePath: directory });
     }
   }
 
+  if (changeName !== undefined) {
+    return pending.find(state => state.changeName === changeName) ?? null;
+  }
+  if (pending.length > 1) {
+    throw new AmbiguousChangeError(pending.map(state => state.changeName));
+  }
+  return pending[0] ?? null;
+}
+
+export function findCompletedArchiveState(projectPath: string, changeName?: string): string | null {
+  for (const directory of archiveDirectories(projectPath)) {
+    const state = readArchiveState(directory);
+    if (state?.status !== "completed") continue;
+    if (changeName !== undefined && state.changeName !== changeName) continue;
+    return directory;
+  }
   return null;
 }
 
-export function findCompletedArchiveState(projectPath: string): string | null {
-  // If there is an active change (in changes/ not changes/archive/), prefer it
-  // and don't report a completed archive — the active change takes precedence.
-  if (findActiveChangeDir(projectPath)) {
-    return null;
-  }
-
+export function findArchiveStateForChange(projectPath: string, changeName: string): ArchiveState | null {
   for (const directory of archiveDirectories(projectPath)) {
     const state = readArchiveState(directory);
-    if (state?.status === "completed") {
-      return directory;
+    if (state?.changeName === changeName) {
+      return { ...state, archivePath: directory };
     }
   }
   return null;

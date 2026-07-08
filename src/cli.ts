@@ -25,7 +25,8 @@ import { listChanges, renderChanges } from "./features/flow-status/list-changes"
 import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
 import { resetChange } from "./features/flow-state/reset-change";
-import { findActiveChangeDir, MultipleActiveChangesError } from "./entities/change/active-change";
+import { resolveChangeDir } from "./entities/change/active-change";
+import { AmbiguousChangeError, UnknownChangeError } from "./entities/change/change-errors";
 import { loadFlowState } from "./entities/change/flow-state";
 import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
@@ -122,7 +123,7 @@ function hasFlag(args: string[], ...flags: string[]): boolean {
 
 function resolveFindingsPath(projectPath: string): string {
   try {
-    const changeDir = findActiveChangeDir(projectPath);
+    const changeDir = resolveChangeDir(projectPath);
     if (!changeDir) return "";
     return buildChangePaths(changeDir).findingsPath;
   } catch {
@@ -221,14 +222,14 @@ function main(): void {
     let resolvedPath = filePath;
     if (!fs.existsSync(resolvedPath)) {
       try {
-        const activeDir = findActiveChangeDir(projectPath);
+        const activeDir = resolveChangeDir(projectPath);
         if (activeDir) {
           const candidate = path.join(activeDir, filePath);
           if (fs.existsSync(candidate)) {
             resolvedPath = candidate;
           }
         }
-      } catch { /* ignore MultipleActiveChangesError etc. */ }
+      } catch { /* ignore AmbiguousChangeError etc. */ }
     }
     runWithStateLock(projectPath, () => {
       const result = approveArtifact(resolvedPath, approvedBy);
@@ -312,14 +313,14 @@ function main(): void {
     let resolvedPath = filePath;
     if (!fs.existsSync(resolvedPath)) {
       try {
-        const activeDir = findActiveChangeDir(projectPath);
+        const activeDir = resolveChangeDir(projectPath);
         if (activeDir) {
           const candidate = path.join(activeDir, filePath);
           if (fs.existsSync(candidate)) {
             resolvedPath = candidate;
           }
         }
-      } catch { /* ignore MultipleActiveChangesError etc. */ }
+      } catch { /* ignore AmbiguousChangeError etc. */ }
     }
     const result = validateArtifact(resolvedPath);
     const prefix = result.ok ? "[PHASEDEV VALIDATE-ARTIFACT] OK" : "[PHASEDEV VALIDATE-ARTIFACT] FAILED";
@@ -873,16 +874,21 @@ try {
   main();
 } catch (error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  if (error instanceof MultipleActiveChangesError) {
+  if (error instanceof AmbiguousChangeError) {
     if (globalJsonMode) {
-      console.log(JSON.stringify({ ok: false, kind: "multiple-active-changes", message, data: { directories: error.directories } }));
+      console.log(JSON.stringify({ ok: false, kind: "ambiguous-change", message, data: { changeNames: error.changeNames } }));
     } else {
       console.error([
         `[PHASEDEV] BLOCKED: ${message}`,
-        ...error.directories.map(dir => `- ${dir}`),
-        "Keep exactly one active change. Move the extra directories out of .phasedev/changes/ (for example into .phasedev/changes/.trash/) or archive them, then rerun the command.",
-        "Tip: Use `phasedev changes` to list all changes and their status."
+        "Tip: Use `phasedev list` to see all changes and their status."
       ].join("\n"));
+    }
+    process.exitCode = 1;
+  } else if (error instanceof UnknownChangeError) {
+    if (globalJsonMode) {
+      console.log(JSON.stringify({ ok: false, kind: "unknown-change", message, data: { changeName: error.changeName, available: error.available } }));
+    } else {
+      console.error(`[PHASEDEV] FAILED: ${message}`);
     }
     process.exitCode = 1;
   } else if (globalJsonMode) {

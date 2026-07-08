@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 
 export interface ResetChangeResult {
@@ -15,7 +15,7 @@ export interface ResetChangeResult {
 }
 
 export function resetChange(projectPath: string, force?: boolean): ResetChangeResult {
-  const changeDir = findActiveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath);
 
   if (!changeDir) {
     return { ok: false, message: "No active change found. Nothing to reset." };

@@ -1,5 +1,5 @@
 import { loadFlowState } from "../../entities/change/flow-state";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { parseValidationVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { renderTemplate } from "../../shared/templates/render-template";
@@ -13,7 +13,7 @@ export interface FeedbackPrompt {
 
 export function getFeedbackPrompt(projectPath: string): FeedbackPrompt {
   const state = loadFlowState(projectPath);
-  const changeDir = findActiveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath);
   if (!state || !changeDir) {
     return {
       prompt: "[PHASEDEV] No active change. Run: phasedev create-change <name>.",

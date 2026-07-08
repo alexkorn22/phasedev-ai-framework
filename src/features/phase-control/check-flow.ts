@@ -4,7 +4,7 @@ import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { Route, resolveRoute } from "./flow-route";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
 import { validatePhase } from "./phase-validators";
 
@@ -35,7 +35,7 @@ function pathsForValidation(projectPath: string, route: Route): ChangePaths | nu
     return route.paths;
   }
 
-  const activeChangeDir = findActiveChangeDir(projectPath);
+  const activeChangeDir = resolveChangeDir(projectPath);
   return activeChangeDir ? buildChangePaths(activeChangeDir) : null;
 }
 

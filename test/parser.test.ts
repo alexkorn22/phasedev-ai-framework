@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { findActiveChangeDir } from "../src/entities/change/active-change";
+import { resolveChangeDir } from "../src/entities/change/active-change";
 import { parsePlan } from "../src/entities/iteration-plan/parse-plan";
 import type { Iteration } from "../src/entities/iteration-plan/types";
 import { validatePlanArtifact } from "../src/entities/iteration-plan/validate-plan-artifact";
@@ -2673,27 +2673,27 @@ Example table format:
     expect(criteria).toEqual(["SC1"]);
   });
 
-  test("findActiveChangeDir ignores archive directory when selecting active change", () => {
+  test("resolveChangeDir ignores archive directory when selecting active change", () => {
     const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
     setupTestDir();
     fs.mkdirSync(path.join(changesDir, "archive"), { recursive: true });
     fs.mkdirSync(path.join(changesDir, "sample-change"), { recursive: true });
 
-    expect(findActiveChangeDir(testTmpDir)).toBe(path.join(changesDir, "sample-change"));
+    expect(resolveChangeDir(testTmpDir)).toBe(path.join(changesDir, "sample-change"));
   });
 
-  test("findActiveChangeDir throws error when multiple active changes exist", () => {
+  test("resolveChangeDir throws error when multiple active changes exist", () => {
     const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
     setupTestDir();
     fs.mkdirSync(path.join(changesDir, "change-1"), { recursive: true });
     fs.mkdirSync(path.join(changesDir, "change-2"), { recursive: true });
 
-    expect(() => findActiveChangeDir(testTmpDir)).toThrow("Multiple active changes found in .phasedev/changes");
+    expect(() => resolveChangeDir(testTmpDir)).toThrow("Multiple changes exist: change-1, change-2. Pass --change <name>.");
   });
 
-  test("findActiveChangeDir propagates unrelated filesystem errors instead of masking them as null", () => {
+  test("resolveChangeDir propagates unrelated filesystem errors instead of masking them as null", () => {
     const changesDir = path.join(testTmpDir, ".phasedev", "changes");
     cleanupTestDir();
     setupTestDir();
@@ -2708,7 +2708,7 @@ Example table format:
     });
 
     try {
-      expect(() => findActiveChangeDir(testTmpDir)).toThrow("EACCES");
+      expect(() => resolveChangeDir(testTmpDir)).toThrow("EACCES");
     } finally {
       spy.mockRestore();
     }

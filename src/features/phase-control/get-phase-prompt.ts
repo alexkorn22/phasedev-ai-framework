@@ -13,7 +13,7 @@ import { parseTestCommands } from "../../entities/test-commands/parse-test-comma
 import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Prompt } from "../../entities/phase/types";
 import { shellQuote } from "../../shared/shell/shell-quote";
-import { findActiveChangeDir } from "../../entities/change/active-change";
+import { resolveChangeDir } from "../../entities/change/active-change";
 import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { archiveTemplateVariables } from "./archive-stage";
 import { resolveRoute } from "./flow-route";
@@ -265,7 +265,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   const activePhase = state.activePhase as ActivePhase;
   const activeIteration: number | null = state.activeIteration ?? null;
 
-  const activeChangeDir = findActiveChangeDir(projectPath);
+  const activeChangeDir = resolveChangeDir(projectPath);
   const pendingArchive = findPendingArchiveState(projectPath);
   const changeDir = activeChangeDir ?? pendingArchive?.archivePath ?? null;
 

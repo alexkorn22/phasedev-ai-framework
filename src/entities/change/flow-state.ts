@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { findActiveChangeDir } from "./active-change";
+import { resolveChangeDir } from "./active-change";
 import { findInvalidArchiveState, findPendingArchiveState, readArchiveState } from "./archive-state";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 
@@ -42,12 +42,12 @@ export const FLOW_STATE_FILE = "state.json";
 /**
  * Locate state.json path.
  * Priority:
- * 1. Active change directory (findActiveChangeDir).
+ * 1. Active change directory (resolveChangeDir).
  * 2. Archive with pending (in_progress) archive state.
  * Returns null if neither exists.
  */
 export function locateFlowStatePath(projectPath: string): string | null {
-  const active = findActiveChangeDir(projectPath);
+  const active = resolveChangeDir(projectPath);
   if (active) return path.join(active, FLOW_STATE_FILE);
 
   const pending = findPendingArchiveState(projectPath);
@@ -136,7 +136,7 @@ export function locateChangeDir(projectPath: string, state: FlowState): string |
     // Pre-move crash recovery: the archive state marker was written into the
     // active change dir but the directory was never moved. Return the active
     // dir so startArchiveStage can complete the move idempotently.
-    const activeDir = findActiveChangeDir(projectPath);
+    const activeDir = resolveChangeDir(projectPath);
     if (activeDir) {
       const preMoveState = readArchiveState(activeDir);
       if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
@@ -147,5 +147,5 @@ export function locateChangeDir(projectPath: string, state: FlowState): string |
     return null;
   }
 
-  return findActiveChangeDir(projectPath);
+  return resolveChangeDir(projectPath);
 }

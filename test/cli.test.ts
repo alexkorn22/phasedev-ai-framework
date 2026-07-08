@@ -459,10 +459,10 @@ describe("flow-cli state machine", () => {
     const result = runCli(["status", "--project-path", testTmpDir]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("Multiple active changes found in .phasedev/changes");
+    expect(result.output).toContain("Multiple changes exist: change-a, change-b. Pass --change <name>.");
     expect(result.output).toContain("change-a");
     expect(result.output).toContain("change-b");
-    expect(result.output).toContain("Keep exactly one active change");
+    expect(result.output).toContain("Tip: Use `phasedev list`");
   });
 
   test("init-project creates PhaseDev workspace structure and project config", () => {
