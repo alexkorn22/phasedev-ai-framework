@@ -13,7 +13,8 @@ export function setIterationStatus(
   projectPath: string,
   iterationId: number,
   status: "completed" | "in_progress" | "not_started",
-  explicitFile?: string
+  explicitFile?: string,
+  changeName?: string
 ): SetIterationStatusResult {
   let filePath: string;
 
@@ -23,7 +24,7 @@ export function setIterationStatus(
     }
     filePath = explicitFile;
   } else {
-    const changeDir = resolveChangeDir(projectPath);
+    const changeDir = resolveChangeDir(projectPath, changeName);
     if (!changeDir) {
       return { ok: false, message: "No active change found." };
     }

@@ -37,18 +37,18 @@ export function archivePrompt(projectPath: string, state: ArchiveState, config: 
   return prompt("next", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath, config)));
 }
 
-export function getPendingArchivePrompt(projectPath: string, config: Config = loadConfig()): Prompt | null {
-  const pendingState = findPendingArchiveState(projectPath);
+export function getPendingArchivePrompt(projectPath: string, config: Config = loadConfig(), changeName?: string): Prompt | null {
+  const pendingState = findPendingArchiveState(projectPath, changeName);
   return pendingState ? archivePrompt(projectPath, pendingState, config) : null;
 }
 
 export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: Config = loadConfig()): Prompt {
-  const pendingPrompt = getPendingArchivePrompt(projectPath, config);
+  const changeName = path.basename(changeDir);
+  const pendingPrompt = getPendingArchivePrompt(projectPath, config, changeName);
   if (pendingPrompt) {
     return pendingPrompt;
   }
 
-  const changeName = path.basename(changeDir);
   const today = now.toISOString().split("T")[0];
   let archiveTarget = archiveTargetPath(projectPath, changeName, today);
 

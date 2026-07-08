@@ -19,13 +19,13 @@ export interface ReopenResult {
   message: string;
 }
 
-export function reopenPhase(projectPath: string, phase: ReopenablePhase): ReopenResult {
-  const state = loadFlowState(projectPath);
+export function reopenPhase(projectPath: string, phase: ReopenablePhase, changeName?: string): ReopenResult {
+  const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return { ok: false, message: "No active change. Run: phasedev create-change <name>." };
   }
 
-  const changeDir = resolveChangeDir(projectPath);
+  const changeDir = resolveChangeDir(projectPath, changeName);
   if (!changeDir) {
     return { ok: false, message: "Cannot locate active change directory." };
   }
@@ -77,7 +77,7 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase): Reopen
   fs.rmSync(paths.findingsBaselinePath, { force: true });
 
   // Move state back to the target phase
-  saveFlowState(projectPath, { activePhase: config.targetPhase, activeIteration: null, repairCycleCount: 0 });
+  saveFlowState(projectPath, { activePhase: config.targetPhase, activeIteration: null, repairCycleCount: 0 }, changeName);
 
   return {
     ok: true,

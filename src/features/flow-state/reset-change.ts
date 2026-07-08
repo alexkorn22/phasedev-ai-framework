@@ -14,19 +14,20 @@ export interface ResetChangeResult {
   blocked?: boolean;
 }
 
-export function resetChange(projectPath: string, force?: boolean): ResetChangeResult {
-  const changeDir = resolveChangeDir(projectPath);
+export function resetChange(projectPath: string, force?: boolean, changeName?: string): ResetChangeResult {
+  const changeDir = resolveChangeDir(projectPath, changeName);
 
   if (!changeDir) {
     return { ok: false, message: "No active change found. Nothing to reset." };
   }
 
+  const resolvedName = path.basename(changeDir);
+
   if (!force) {
-    const changeName = path.basename(changeDir);
     return {
       ok: false,
       blocked: true,
-      message: `WARNING: This will move the active change "${changeName}" to .trash:\n  ${changeDir}\n\nUse --yes to confirm.`
+      message: `WARNING: This will move the active change "${resolvedName}" to .trash:\n  ${changeDir}\n\nUse --yes to confirm.`
     };
   }
 
@@ -34,8 +35,7 @@ export function resetChange(projectPath: string, force?: boolean): ResetChangeRe
   const trashDir = path.join(projectPath, SYSTEM_DIR, "changes", ".trash");
   fs.mkdirSync(trashDir, { recursive: true });
 
-  const changeName = path.basename(changeDir);
-  const trashPath = path.join(trashDir, `${Date.now()}-${changeName}`);
+  const trashPath = path.join(trashDir, `${Date.now()}-${resolvedName}`);
 
   try {
     // The baseline is a working snapshot for the repair gate, not a valid
@@ -44,7 +44,7 @@ export function resetChange(projectPath: string, force?: boolean): ResetChangeRe
     fs.renameSync(changeDir, trashPath);
     return {
       ok: true,
-      message: `Active change "${changeName}" has been moved to .trash.\n  ${trashPath}`
+      message: `Active change "${resolvedName}" has been moved to .trash.\n  ${trashPath}`
     };
   } catch (e) {
     return {

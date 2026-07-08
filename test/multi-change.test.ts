@@ -11,6 +11,9 @@ import { createChange } from "../src/features/phase-control/create-change";
 import { listChanges, renderChanges } from "../src/features/flow-status/list-changes";
 import { checkPhase } from "../src/features/phase-control/check-flow";
 import { getFlowStatus } from "../src/features/flow-status/get-status";
+import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { startArchiveStage } from "../src/features/phase-control/archive-stage";
+import { loadConfig } from "../src/entities/config/config";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -243,5 +246,35 @@ describe("read-side features with changeName", () => {
     mkChange(root, "alpha");
     mkChange(root, "beta");
     expect(getFlowStatus(root, "beta").activeChange).toBe("beta");
+  });
+});
+
+describe("mutating features with changeName", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("mut"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("advanceFlow on the named change refuses without touching the other change", () => {
+    mkChange(root, "alpha");
+    mkChange(root, "beta");
+    const result = advanceFlow(root, loadConfig(), "beta");
+    expect(result.ok).toBe(false); // change_intake artifacts are missing — refusal is correct
+    expect(loadFlowState(root, "alpha")?.activePhase).toBe("change_intake");
+  });
+
+  test("advanceFlow --change on a completed archive reports finished", () => {
+    mkArchived(root, "old-done", "completed");
+    mkChange(root, "alpha");
+    const result = advanceFlow(root, loadConfig(), "old-done");
+    expect(result.finished).toBe(true);
+  });
+
+  test("startArchiveStage archives change B even while change A has a pending archive", () => {
+    mkArchived(root, "stuck", "in_progress");
+    const beta = mkChange(root, "beta");
+    const prompt = startArchiveStage(root, beta, new Date("2026-07-08T12:00:00Z"));
+    expect(prompt.blocked ?? false).toBe(false);
+    expect(fs.existsSync(beta)).toBe(false); // moved into archive
+    expect(findPendingArchiveState(root, "beta")?.status).toBe("in_progress");
   });
 });

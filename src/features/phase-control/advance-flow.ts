@@ -227,20 +227,20 @@ function applyStateSideEffects(
  *    - archive_ready → if runArchiveStage → mutate, else refuse.
  *    - else → routeToState + applyStateSideEffects + saveFlowState.
  */
-export function advanceFlow(projectPath: string, config: Config): AdvanceResult {
-  const state = loadFlowState(projectPath);
+export function advanceFlow(projectPath: string, config: Config, changeName?: string): AdvanceResult {
+  const state = loadFlowState(projectPath, changeName);
   if (!state) {
-    const completedArchive = findCompletedArchiveState(projectPath);
+    const completedArchive = findCompletedArchiveState(projectPath, changeName);
     if (completedArchive) {
       return done("Archive complete. Flow finished.");
     }
     return refuse("No active change. Run: phasedev create-change <name>.");
   }
 
-  const changeDir = locateChangeDir(projectPath, state);
+  const changeDir = locateChangeDir(projectPath, state, changeName);
   if (!changeDir) {
     if (state.activePhase === "archive") {
-      const invalid = findInvalidArchiveState(projectPath);
+      const invalid = findInvalidArchiveState(projectPath, changeName);
       if (invalid) {
         return refuse(`Archive state is invalid: ${invalid.reason} (${invalid.statePath}).`);
       }
@@ -272,7 +272,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
   // must not point at different phases in a way that means the artifacts
   // regressed below the locked phase. Refuse rather than guess.
-  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath));
+  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName));
   if (conflict) {
     return refuse(conflict);
   }
@@ -287,7 +287,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
   }
 
   // (C) Resolve next route from files
-  let route = resolveRoute(projectPath);
+  let route = resolveRoute(projectPath, changeName);
 
   // autoApprove: approval gates are reached only after the artifacts passed
   // validation (resolveRoute checks invalid_* first), so approving here is
@@ -301,7 +301,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     for (const artifactPath of approvalTargets) {
       approveArtifact(artifactPath, "PhaseDev autoApprove");
     }
-    route = resolveRoute(projectPath);
+    route = resolveRoute(projectPath, changeName);
   }
 
   // (C1) invalid_* → refuse with rich blocker
@@ -450,7 +450,7 @@ export function advanceFlow(projectPath: string, config: Config): AdvanceResult 
     nextRepairCount = 0;
   }
   const finalNextState = { ...nextState, repairCycleCount: nextRepairCount };
-  saveFlowState(projectPath, finalNextState);
+  saveFlowState(projectPath, finalNextState, changeName);
 
   const iterSuffix = finalNextState.activeIteration
     ? ` (iter ${finalNextState.activeIteration})`
