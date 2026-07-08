@@ -2898,33 +2898,44 @@ ${rows ?? ""}`;
   test("changes shows no changes for empty project", () => {
     const result = runCli(["changes", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("No changes found");
+    expect(result.output).toContain("No changes. Run: phasedev create-change <name>.");
   });
 
   test("list alias works same as changes", () => {
     const result = runCli(["list", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("No changes found");
+    expect(result.output).toContain("No changes. Run: phasedev create-change <name>.");
   });
 
-  test("changes shows active and archived changes", () => {
-    // Create active change
+  test("changes shows active changes and pending archives, but hides completed archives by default", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "active-change");
-    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
-    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }));
 
-    // Create archived change
+    const pendingDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-01-pending-change");
+    fs.mkdirSync(pendingDir, { recursive: true });
+    fs.writeFileSync(path.join(pendingDir, ".phase-archive.json"), JSON.stringify({
+      status: "in_progress", changeName: "pending-change", archivePath: pendingDir, startedAt: "2026-07-01T00:00:00.000Z"
+    }), "utf-8");
+
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", "2026-07-01-archived-change");
     fs.mkdirSync(archiveDir, { recursive: true });
-    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({ status: "completed" }), "utf-8");
+    fs.writeFileSync(path.join(archiveDir, ".phase-archive.json"), JSON.stringify({
+      status: "completed", changeName: "archived-change", archivePath: archiveDir,
+      startedAt: "2026-07-01T00:00:00.000Z", completedAt: "2026-07-01T01:00:00.000Z"
+    }), "utf-8");
 
     const result = runCli(["changes", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("Active Changes");
+    expect(result.output).toContain("--- Changes ---");
     expect(result.output).toContain("active-change");
-    expect(result.output).toContain("Archived Changes");
-    expect(result.output).toContain("archived-change");
+    expect(result.output).toContain("pending-change");
+    expect(result.output).toContain("[archive in progress]");
+    expect(result.output).not.toContain("archived-change");
+
+    const withArchived = runCli(["changes", "--project-path", testTmpDir, "--archived"]);
+    expect(withArchived.output).toContain("Archived Changes");
+    expect(withArchived.output).toContain("archived-change");
   });
 
   // --- config set ---

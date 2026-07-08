@@ -1,82 +1,87 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "../../entities/change/paths";
-import { resolveRoute } from "../phase-control/flow-route";
+import { listActiveChangeDirs } from "../../entities/change/active-change";
+import { archiveDirectories, readArchiveState } from "../../entities/change/archive-state";
 
 export interface ChangeEntry {
   name: string;
-  type: "active" | "archived";
+  type: "active" | "pending_archive" | "archived";
   phase?: string;
-  routeKind?: string;
+  activeIteration?: number | null;
+  taskSummary?: string;
+  error?: string;
   archiveDate?: string;
   archiveStatus?: string;
 }
 
-export function listChanges(projectPath: string): ChangeEntry[] {
-  const changesDir = path.join(projectPath, SYSTEM_DIR, "changes");
-  const archiveDir = path.join(changesDir, "archive");
+function readChangeState(changeDir: string): { phase?: string; activeIteration?: number | null; error?: string } {
+  const statePath = path.join(changeDir, "state.json");
+  if (!fs.existsSync(statePath)) return { error: "state.json is missing" };
+  try {
+    const raw = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    if (typeof raw !== "object" || raw === null || typeof raw.activePhase !== "string") {
+      return { error: "state.json has no activePhase" };
+    }
+    return { phase: raw.activePhase, activeIteration: raw.activeIteration ?? null };
+  } catch {
+    return { error: "state.json is not valid JSON" };
+  }
+}
+
+function readTaskSummary(changeDir: string): string {
+  for (const file of ["intake_task.md", "prd.md"]) {
+    const filePath = path.join(changeDir, file);
+    if (!fs.existsSync(filePath)) continue;
+    const firstLine = fs.readFileSync(filePath, "utf-8")
+      .split("\n")
+      .map(line => line.trim())
+      .find(line => line.length > 0 && line !== "---");
+    if (firstLine) return firstLine.replace(/^#+\s*/, "");
+  }
+  return "";
+}
+
+function archiveDateOf(directory: string): string {
+  const match = path.basename(directory).match(/^(\d{4}-\d{2}-\d{2})-/);
+  return match ? match[1] : "";
+}
+
+export function listChanges(projectPath: string, includeArchived = false): ChangeEntry[] {
   const entries: ChangeEntry[] = [];
 
-  // Active changes. resolveRoute resolves the single global route; with more
-  // than one active directory (an anomaly this listing should surface) it can
-  // throw, so resolve it once and degrade to an error marker instead of
-  // crashing the whole listing.
-  if (fs.existsSync(changesDir)) {
-    const items = fs.readdirSync(changesDir);
-    const activeItems = items.filter(item => {
-      if (item === "archive" || item.startsWith(".")) return false;
-      const fullPath = path.join(changesDir, item);
-      return fs.statSync(fullPath, { throwIfNoEntry: false })?.isDirectory() ?? false;
-    });
-
-    let phase: string | undefined;
-    let routeKind: string | undefined;
-    if (activeItems.length > 0) {
-      try {
-        const route = resolveRoute(projectPath);
-        phase = route.phase;
-        routeKind = route.kind;
-      } catch (error: unknown) {
-        routeKind = `error: ${error instanceof Error ? error.message : String(error)}`;
-      }
-    }
-
-    for (const item of activeItems) {
-      entries.push({ name: item, type: "active", phase, routeKind });
-    }
+  for (const name of listActiveChangeDirs(projectPath).sort()) {
+    const changeDir = path.join(projectPath, SYSTEM_DIR, "changes", name);
+    const state = readChangeState(changeDir);
+    entries.push({ name, type: "active", taskSummary: readTaskSummary(changeDir), ...state });
   }
 
-  // Archived changes
-  if (fs.existsSync(archiveDir)) {
-    const archivedItems = fs.readdirSync(archiveDir);
-    for (const item of archivedItems) {
-      const fullPath = path.join(archiveDir, item);
-      if (!(fs.statSync(fullPath, { throwIfNoEntry: false })?.isDirectory() ?? false)) continue;
-
-      const archiveJsonPath = path.join(fullPath, ".phase-archive.json");
-      let archiveStatus = "unknown";
-      let archiveDate = "";
-
-      if (fs.existsSync(archiveJsonPath)) {
-        try {
-          const data = JSON.parse(fs.readFileSync(archiveJsonPath, "utf-8"));
-          archiveStatus = data.status ?? "unknown";
-        } catch {
-          archiveStatus = "malformed";
-        }
-      }
-
-      // Extract date from folder name pattern YYYY-MM-DD-<name>
-      const dateMatch = item.match(/^(\d{4}-\d{2}-\d{2})-/);
-      if (dateMatch) {
-        archiveDate = dateMatch[1];
-      }
-
+  for (const directory of archiveDirectories(projectPath)) {
+    const state = readArchiveState(directory);
+    if (state === null) {
+      // Unreadable .phase-archive.json: still unfinished work — surface it.
       entries.push({
-        name: item,
+        name: path.basename(directory),
+        type: "pending_archive",
+        archiveDate: archiveDateOf(directory),
+        error: ".phase-archive.json is missing or malformed"
+      });
+      continue;
+    }
+    if (state.status === "in_progress") {
+      entries.push({
+        name: state.changeName,
+        type: "pending_archive",
+        phase: "archive",
+        taskSummary: readTaskSummary(directory),
+        archiveDate: archiveDateOf(directory)
+      });
+    } else if (includeArchived) {
+      entries.push({
+        name: path.basename(directory),
         type: "archived",
-        archiveDate,
-        archiveStatus
+        archiveDate: archiveDateOf(directory),
+        archiveStatus: state.status
       });
     }
   }
@@ -86,25 +91,28 @@ export function listChanges(projectPath: string): ChangeEntry[] {
 
 export function renderChanges(entries: ChangeEntry[]): string {
   if (entries.length === 0) {
-    return "No changes found.";
+    return "No changes. Run: phasedev create-change <name>.";
   }
 
-  const lines: string[] = [];
-  lines.push("=== PhaseDev Changes ===");
-  lines.push("");
-
-  const active = entries.filter(e => e.type === "active");
+  const lines: string[] = ["=== PhaseDev Changes ===", ""];
+  const unfinished = entries.filter(e => e.type !== "archived");
   const archived = entries.filter(e => e.type === "archived");
 
-  if (active.length > 0) {
-    lines.push("--- Active Changes ---");
-    for (const entry of active) {
-      lines.push(`  ${entry.name}`);
-      if (entry.routeKind) {
-        lines.push(`    Route: ${entry.routeKind}`);
+  if (unfinished.length > 0) {
+    lines.push("--- Changes ---");
+    for (const entry of unfinished) {
+      const marker = entry.type === "pending_archive" ? " [archive in progress]" : "";
+      lines.push(`  ${entry.name}${marker}`);
+      if (entry.error) {
+        lines.push(`    ERROR: ${entry.error}`);
+        continue;
       }
       if (entry.phase) {
-        lines.push(`    Phase: ${entry.phase}`);
+        const iter = entry.activeIteration != null ? ` (iteration ${entry.activeIteration})` : "";
+        lines.push(`    Phase: ${entry.phase}${iter}`);
+      }
+      if (entry.taskSummary) {
+        lines.push(`    Task: ${entry.taskSummary}`);
       }
     }
     lines.push("");

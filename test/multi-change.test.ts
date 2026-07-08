@@ -8,6 +8,7 @@ import { findPendingArchiveState, findCompletedArchiveState, findArchiveStateFor
 import { loadFlowState, saveFlowState } from "../src/entities/change/flow-state";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { createChange } from "../src/features/phase-control/create-change";
+import { listChanges, renderChanges } from "../src/features/flow-status/list-changes";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -177,5 +178,49 @@ describe("createChange with multiple changes", () => {
     const result = createChange(root, "alpha");
     expect(result.ok).toBe(false);
     expect(result.message).toContain('already exists');
+  });
+});
+
+describe("listChanges multi-change", () => {
+  let root: string;
+  beforeEach(() => { root = createTempWorkspace("list"); });
+  afterEach(() => cleanupTempWorkspace(root));
+
+  test("reports each change's own phase and task summary", () => {
+    const alpha = mkChange(root, "alpha");
+    fs.writeFileSync(path.join(alpha, "intake_task.md"), "# Fix login flow\ndetails...\n");
+    const beta = mkChange(root, "beta");
+    fs.writeFileSync(path.join(beta, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 2, repairCycleCount: 0 }));
+
+    const entries = listChanges(root);
+    const a = entries.find(e => e.name === "alpha");
+    const b = entries.find(e => e.name === "beta");
+    expect(a?.phase).toBe("change_intake");
+    expect(a?.taskSummary).toBe("Fix login flow");
+    expect(b?.phase).toBe("implementation");
+    expect(b?.activeIteration).toBe(2);
+  });
+
+  test("includes pending archives, excludes completed unless includeArchived", () => {
+    mkArchived(root, "old-pending", "in_progress");
+    mkArchived(root, "old-done", "completed");
+
+    const entries = listChanges(root);
+    expect(entries.find(e => e.name === "old-pending")?.type).toBe("pending_archive");
+    expect(entries.find(e => e.name?.includes("old-done"))).toBeUndefined();
+
+    const all = listChanges(root, true);
+    expect(all.some(e => e.type === "archived" && e.archiveStatus === "completed")).toBe(true);
+  });
+
+  test("a broken state.json becomes an error marker, not a crash", () => {
+    const alpha = mkChange(root, "alpha");
+    fs.writeFileSync(path.join(alpha, "state.json"), "{broken");
+    const entry = listChanges(root).find(e => e.name === "alpha");
+    expect(entry?.error).toContain("state.json");
+  });
+
+  test("renderChanges prints the empty-state hint", () => {
+    expect(renderChanges([])).toBe("No changes. Run: phasedev create-change <name>.");
   });
 });

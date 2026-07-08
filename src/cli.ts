@@ -539,7 +539,7 @@ function main(): void {
   // --- Phase 3: User commands ---
 
   if (command === "changes" || command === "list") {
-    const entries = listChanges(projectPath);
+    const entries = listChanges(projectPath, hasFlag(args, "--archived"));
     reportCliResult(jsonMode, {
       ok: true,
       kind: "changes",
