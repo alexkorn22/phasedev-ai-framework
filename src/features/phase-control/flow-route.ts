@@ -10,7 +10,7 @@ import { isIterationReadyForValidation, iterationValidationBlockers } from "../.
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
-import { parseValidationFindingsArtifact, ValidationFindingIssue } from "../../entities/validation-findings/parse-validation-findings";
+import { parseFindingRowIteration, parseValidationFindingsArtifact, ValidationFindingIssue } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
 
@@ -168,19 +168,25 @@ export function resolveRoute(projectPath: string, changeName?: string): Route {
     //    that was completed [x] before the repair cycle started.
     if (!targetIteration) {
       const openFindingIteration = findings.openRows
-        .map(row => {
-          const num = parseInt(row.phase, 10);
-          return isNaN(num) ? null : num;
-        })
+        .map(row => parseFindingRowIteration(row.phase))
         .find((n): n is number => n != null);
       if (openFindingIteration != null) {
         targetIteration = planPhases.find(phase => phase.id === openFindingIteration);
       }
     }
 
-    // 3. Final fallback: first in_progress or not_started iteration
+    // 2b. A successful repair resolves every blocking row (the repair exit
+    //    condition), so openRows is empty exactly in that case. Fall back to
+    //    the highest-numbered MUST-FIX row across all rows: the just-repaired
+    //    findings identify which iteration was under repair.
     if (!targetIteration) {
-      targetIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+      const blockingIterations = findings.rows
+        .filter(row => row.severity === "MUST-FIX")
+        .map(row => parseFindingRowIteration(row.phase))
+        .filter((n): n is number => n != null);
+      if (blockingIterations.length > 0) {
+        targetIteration = planPhases.find(phase => phase.id === Math.max(...blockingIterations));
+      }
     }
 
     if (targetIteration) {
@@ -192,6 +198,22 @@ export function resolveRoute(projectPath: string, changeName?: string): Route {
         activeChangePath: changeDir
       };
     }
+
+    // 3. Final fallback: no state-tracked or findings-referenced iteration at
+    //    all. Route the first in_progress/not_started iteration through
+    //    iterationPhase() — a not_started iteration was never implemented and
+    //    must go to implementation, not iteration_validation.
+    const fallbackIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+    if (fallbackIteration) {
+      return {
+        kind: "iteration",
+        phase: iterationPhase(fallbackIteration),
+        paths,
+        activeIteration: fallbackIteration,
+        activeChangePath: changeDir
+      };
+    }
+
     return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };
   }
 

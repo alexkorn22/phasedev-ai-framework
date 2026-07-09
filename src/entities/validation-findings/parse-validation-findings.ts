@@ -105,6 +105,19 @@ function isOpenStatus(status: string): boolean {
   return status === "open" || status === "reopened";
 }
 
+/**
+ * Extract the iteration number from a findings row's Iteration column, which
+ * accepts both a bare number ("3") and a labeled form ("Iteration 3").
+ */
+export function parseFindingRowIteration(phase: string): number | null {
+  const match = phase.match(/(\d+)/);
+  if (!match || match[1] === undefined) {
+    return null;
+  }
+
+  return parseInt(match[1], 10);
+}
+
 function genericIssue(message: string): ValidationFindingIssue {
   return { code: "generic", message };
 }

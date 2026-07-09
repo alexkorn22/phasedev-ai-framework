@@ -837,6 +837,119 @@ Complete API work.
     }
   });
 
+  test("repaired verdict with all rows resolved and 'Iteration N' phase text re-validates the repaired iteration, not the next not_started one", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: Accounts [x]
+- [x] 1.1 Implement account endpoint
+
+## Iteration 2: Billing [x]
+- [x] 2.1 Implement billing endpoint
+
+## Iteration 3: Payments [x]
+- [x] 3.1 Implement charge endpoint
+
+## Iteration 4: Refunds [ ]
+- [ ] 4.1 Implement refund endpoint
+`, {
+      findings: validationFindings("repaired", "iteration", "| F1 | resolved | MUST-FIX | implementation | Iteration 3 | Charge endpoint omitted idempotency key. | Add idempotency key handling. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(3);
+      expect(route.phase).toBe("iteration_validation");
+    }
+  });
+
+  test("repaired verdict with all rows resolved and bare-number phase text ('3') re-validates the repaired iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: Accounts [x]
+- [x] 1.1 Implement account endpoint
+
+## Iteration 2: Billing [x]
+- [x] 2.1 Implement billing endpoint
+
+## Iteration 3: Payments [x]
+- [x] 3.1 Implement charge endpoint
+
+## Iteration 4: Refunds [ ]
+- [ ] 4.1 Implement refund endpoint
+`, {
+      findings: validationFindings("repaired", "iteration", "| F1 | resolved | MUST-FIX | implementation | 3 | Charge endpoint omitted idempotency key. | Add idempotency key handling. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(3);
+      expect(route.phase).toBe("iteration_validation");
+    }
+  });
+
+  test("advancing from iteration_validation into finding_repair preserves the active iteration in state.json", () => {
+    const changeDir = setupChange(`
+## Iteration 1: Payments [~]
+- [x] 1.1 Implement charge endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Iteration 1 | Charge endpoint omitted idempotency key. | Add idempotency key handling. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("finding_repair");
+    expect(result.newState?.activeIteration).toBe(1);
+  });
+
+  test("repaired verdict with no state iteration and no findings iteration reference routes the not_started fallback through implementation", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      findings: validationFindings("repaired", "iteration")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(2);
+      expect(route.phase).toBe("implementation");
+    }
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan

@@ -94,7 +94,7 @@ void NON_ADVANCEABLE_ROUTE_KIND_CHECK;
  * | iteration (implementation)        | implementation        | iteration.id    |
  * | iteration (iteration_validation)  | iteration_validation  | iteration.id    |
  * | final_validation              | final_validation      | null            |
- * | finding_repair                | finding_repair        | null            |
+ * | finding_repair                | finding_repair        | current state's activeIteration (preserved by advanceFlow, not this map) |
  * | pending_archive               | archive               | null            |
  */
 function routeToState(route: Route): FlowState {
@@ -395,7 +395,17 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   }
 
   // (E) Normal phase transition
-  const nextState = routeToState(route);
+  const routedState = routeToState(route);
+
+  // routeToState always clears activeIteration for finding_repair (it has no
+  // route-derived iteration of its own). Carry over the current state's
+  // activeIteration instead, so the repaired iteration survives the repair
+  // cycle: entering repair from iteration_validation preserves N, and staying
+  // in repair keeps the value equal so the same-state guard below still fires.
+  const nextState: FlowState =
+    routedState.activePhase === "finding_repair"
+      ? { ...routedState, activeIteration: state.activeIteration }
+      : routedState;
 
   // Refuse honestly instead of saving an identical state and reporting
   // "Advanced": the route still resolves to the current phase, so the phase
