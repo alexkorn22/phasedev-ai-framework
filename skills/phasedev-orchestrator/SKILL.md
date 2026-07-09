@@ -7,7 +7,7 @@ description: PhaseDev AI Framework orchestrator. Thin loop controller that spawn
 
 ## Overview
 
-The **PhaseDev Orchestrator** turns the main agent into a strict **flow controller** that delegates every PhaseDev phase — change_intake, code_research, technical_design, iteration_planning, implementation, validation, finding_repair, archive — to a dedicated sub-agent. Use it to run the full flow with strict phase separation, especially when one context cannot hold every phase.
+The **PhaseDev Orchestrator** turns the main agent into a strict **flow controller** that delegates every PhaseDev phase — change_intake, code_research, technical_design, iteration_planning, implementation, iteration_validation, finding_repair, final_validation, archive — to a dedicated sub-agent. Use it to run the full flow with strict phase separation, especially when one context cannot hold every phase.
 
 It is intentionally **thin**: it uses `phasedev check` to validate the active phase and `phasedev advance` to switch phases, and spawns sub-agents for phase work. It does **not** execute phase contracts, collect context, validate artifacts, fix invalid artifacts, or pass data between phases — artifact creation, self-validation, and self-repair belong to the owning sub-agent.
 
