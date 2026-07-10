@@ -3522,6 +3522,9 @@ describe("feedback command", () => {
     expect(result.output).toContain("ready");
     expect(result.output).not.toContain("Skill policy");
     expect(result.output).not.toContain("skill_policy");
+    expect(result.output).toContain("research_facts.md");
+    expect(result.output).toContain("phasedev sync-state");
+    expect(result.output).toContain("phasedev validate-artifact");
   });
 
   test("feedback is blocked without an active change", () => {
