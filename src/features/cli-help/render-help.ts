@@ -148,6 +148,12 @@ Commands:
       and resetting the active phase back to technical_design or iteration_planning.
       Side effects: modifies the artifact frontmatter and state.json.
 
+  phasedev sync-state [--project-path <path>] [--change <name>]
+      Non-destructively roll state.json back to the artifact-derived phase when
+      they disagree (e.g. after feedback reset artifact approvals). Artifacts
+      are never modified.
+      Side effects: modifies state.json; removes .findings-baseline.json.
+
   phasedev reset-change [--project-path <path>] [--yes|--force]
       Reset (move to .trash) the current active change. Requires --yes to confirm.
       Side effects: moves the active change directory to .trash.

@@ -32,6 +32,7 @@ import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
 import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-phase";
+import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
 import { advanceFlow } from "./features/phase-control/advance-flow";
@@ -676,6 +677,21 @@ function main(): void {
         humanMessage: `${prefix}: ${result.message}`,
         jsonMessage: result.message,
         data: { phase }
+      });
+    });
+    return;
+  }
+
+  if (command === "sync-state") {
+    runWithStateLock(projectPath, () => {
+      const result = syncState(projectPath, changeName);
+      const prefix = result.ok ? "[PHASEDEV SYNC-STATE] OK" : "[PHASEDEV SYNC-STATE] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "sync-state",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { changed: result.changed, fromPhase: result.fromPhase ?? null, toPhase: result.toPhase ?? null }
       });
     });
     return;

@@ -3051,6 +3051,80 @@ ${rows ?? ""}`;
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("No active change found");
   });
+
+  // --- sync-state ---
+
+  test("sync-state rolls state.json back and reports the transition", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "implementation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = runCli(["sync-state", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV SYNC-STATE] OK");
+    expect(result.output).toContain("implementation -> technical_design");
+    const state = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(state.activePhase).toBe("technical_design");
+  });
+
+  test("sync-state --json reports changed and phases", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "implementation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = runCli(["sync-state", "--project-path", testTmpDir, "--json"]);
+
+    expect(result.exitCode).toBe(0);
+    const envelope = JSON.parse(result.output);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.kind).toBe("sync-state");
+    expect(envelope.data.changed).toBe(true);
+    expect(envelope.data.fromPhase).toBe("implementation");
+    expect(envelope.data.toPhase).toBe("technical_design");
+  });
+
+  test("sync-state is a no-op when state and artifacts agree", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { designApproved: true, planApproved: true });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "implementation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = runCli(["sync-state", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("already consistent");
+  });
+
+  test("help lists sync-state", () => {
+    const result = runCli(["help"]);
+    expect(result.output).toContain("phasedev sync-state");
+  });
 });
 
 function mkBareChange(name: string): string {
