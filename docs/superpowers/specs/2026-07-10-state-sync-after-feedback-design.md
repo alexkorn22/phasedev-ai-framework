@@ -30,6 +30,7 @@ Behavior:
 - Otherwise, non-destructively rewrite `state.json` via `saveFlowState` to `{ activePhase: <route.phase>, activeIteration: null, repairCycleCount: 0 }`, delete `.findings-baseline.json` in the change directory (mirroring `reopen`, so a stale baseline does not reject legitimate rework), and print the transition, e.g. `activePhase: iteration_validation -> change_intake`.
 - No artifacts are touched or removed. No `--yes` confirmation is required: the operation is reversible by walking the phases forward again.
 - Supports `--json` like other commands.
+- Documented in the README command tables (Flow Control section); the `reset-change` row gains a warning that it discards the whole change and is not a state reset.
 
 ## 2. BLOCKED message rewording (`state-route-consistency.ts`)
 
@@ -67,7 +68,15 @@ In the change-resolution path (`resolveChangeDir` in `src/entities/change/active
 
 instead of `Unknown change "…". Available changes: none.`
 
-## 5. Tests
+## 5. Orchestrator skill updates (`skills/phasedev-orchestrator/SKILL.md`)
+
+The orchestrator playbook must know the new command and the feedback recovery flow:
+
+- **Command list** ("Commands the orchestrator runs" section): add `phasedev sync-state [--change <change>]` — non-destructive rollback of `state.json.activePhase` to the artifact-derived phase; explicitly note it is the correct fix for the state/route BLOCKED conflict, and that `reset-change` must NEVER be used for that (it trashes the whole change).
+- **User Feedback Handling, delegated path:** after the feedback sub-agent returns, the existing rule already runs `phasedev check`. Add a deterministic safety net: if `check` reports the "state.json and the change artifacts disagree" conflict (the sub-agent forgot to run `sync-state`), the orchestrator runs `phasedev sync-state --change <change>` itself — no sub-agent, no `reset-change` — then re-runs `phasedev check` and continues the loop from the resulting state.
+- **Expectation note in the same section:** after a scope change the loop legitimately resumes from an earlier phase (approval gates for the re-edited artifacts); this is normal convergence, not a failure.
+
+## 6. Tests
 
 - Unit tests for `sync-state`: conflict present (state rewritten, baseline deleted, transition printed), no conflict (no write), `--json` shape.
 - Update any tests asserting the old BLOCKED recovery text.
