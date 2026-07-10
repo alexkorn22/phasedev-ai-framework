@@ -122,6 +122,7 @@ phasedev advance --project-path /absolute/path/to/your-project
 | `phasedev check-validation --project-path <path> --scope final` | Validate final validation findings |
 | `phasedev check-archive --archive-path <path>` | Validate completed archive state and delta specs |
 | `phasedev reopen <design\|plan> [--project-path <path>]` | Reopen an approved design or plan phase for revision (resets approval) |
+| `phasedev sync-state [--project-path <path>] [--change <name>]` | Non-destructively roll `state.json` back to the artifact-derived phase when they disagree (artifacts untouched) |
 | `phasedev next [--project-path <path>]` | **Deprecated** — use `phase` and `advance` instead |
 
 ### Artifact Management
@@ -148,7 +149,7 @@ phasedev advance --project-path /absolute/path/to/your-project
 |---------|-------------|
 | `phasedev help` | Print this help (`--help`, `-h`) |
 | `phasedev version` | Print framework version (`--version`, `-V`) |
-| `phasedev reset-change [--project-path <path>] [--yes\|--force]` | Reset (move to `.trash`) the active change |
+| `phasedev reset-change [--project-path <path>] [--yes\|--force]` | Discard the active change (move to `.trash`). Destroys all change artifacts — NOT a state reset; use `sync-state` for that |
 
 ---
 

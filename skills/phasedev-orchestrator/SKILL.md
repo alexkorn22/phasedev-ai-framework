@@ -34,6 +34,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev approve <file>` — set `approved: true` and `approved_by` in an artifact's YAML frontmatter (see [Auto-Approval](#auto-approval)).
 - `phasedev add-finding "<finding>" <severity> --required-fix <text> [--class <class>] [--iteration <label>]` — append a finding row to validation_findings.md; allocates the ID, creates the file when missing, and corrects the YAML `verdict`. The ONLY way to add a finding; never hand-edit the findings registry.
 - `phasedev feedback` — print the user-feedback processing contract for a sub-agent.
+- `phasedev sync-state --change <change>` — non-destructively roll `state.json` back to the artifact-derived phase after feedback reset artifact approvals. This is the ONLY correct fix for a `state.json and the change artifacts disagree` blocker; NEVER use `reset-change` for it — `reset-change` moves the entire change to `.trash`.
 - `phasedev status` — print a summary of the current flow state.
 - `phasedev config <key>` — read config values.
 
@@ -143,7 +144,7 @@ Run: phasedev feedback --change <change> — and follow the printed contract exa
 )
 ```
 
-After the fast path or the sub-agent return, run `phasedev check` and continue the main loop from that state — it guides the next action (`finding_repair` if findings were added, an approval gate if approvals were reset, iteration work if a phase is active).
+After the fast path or the sub-agent return, run `phasedev check` and continue the main loop from that state — it guides the next action (`finding_repair` if findings were added, an approval gate if approvals were reset, iteration work if a phase is active). If `phasedev check` reports `state.json and the change artifacts disagree`, the feedback sub-agent forgot its final sync: run `phasedev sync-state --change <change>` yourself (deterministic, no sub-agent, never `reset-change`), then re-run `phasedev check`. After a scope change the loop legitimately resumes from an earlier phase (approval gates for the re-edited artifacts) — that is normal convergence, not a failure.
 
 This applies equally on a fresh session where the user says "I have feedback on this change": run `phasedev list` first; if several unfinished changes exist and the user did not name one, ask which change the feedback targets. Then run `phasedev check` to determine the current state, then use the fast path or feedback sub-agent instead of the normal phase spawn.
 
