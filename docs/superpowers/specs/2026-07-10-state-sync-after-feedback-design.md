@@ -44,16 +44,20 @@ Extend the "Scope / design / plan feedback" branch. When the feedback is a scope
 1. `prd.md` — apply the scope change itself.
 2. `execution_contract.md` — check whether the contract is affected; update if so.
 3. `research_facts.md` — mandatory trace sync: copy the new Intent values verbatim into the PRD Intent Trace, and reconcile the Requirements & Success Criteria Trace with the new set of PRD R#/SC# IDs so `validate-research` passes. New requirements without researched facts are honestly researched at this step.
-4. `architecture/design.md` — check whether the design covers the new/changed requirements; update if not.
-5. `iteration_plan.md` — check whether the plan reflects the changes (including valid Check Evidence enums); update if not.
+4. `architecture/design.md` — check whether the design covers the new/changed requirements; update if not (design validation hard-depends on prd.md and research_facts.md, so this step must follow step 3).
+5. `iteration_plan.md` — check whether the plan reflects the changes (including valid Check Evidence enums); update if not (plan validation hard-depends on prd.md and design.md).
+6. **Findings and iteration statuses** — the route re-enters the implementation tier through the old `validation_findings.md` and plan statuses (`flow-route.ts:138-150, 233`), so:
+   - review open findings and resolve the ones obsoleted by the scope change via `phasedev resolve-finding <id> --evidence "obsoleted by scope change: <reason>"` (never hand-edit `validation_findings.md` — existing rule preserved);
+   - reset the status of completed iterations invalidated by the scope change via `phasedev set-iteration-status`, so their rework is actually scheduled.
 
 Rules:
 
 - **Check first, change only what is actually affected.** Artifacts untouched by the scope change stay approved.
 - `approved: false` is set on every artifact actually changed (existing template rule, preserved).
-- After the cascade, the agent runs `phasedev sync-state` so `state.json` immediately agrees with the artifacts. The existing prohibition on running `phasedev advance` from the feedback flow remains.
+- **Self-verification loop:** after updating each artifact, run `phasedev validate-artifact` for it and fix the reported issues until clean — validator messages state the exact expected values (verbatim Intent copies, missing/unexpected PRD IDs), so the agent iterates against concrete errors instead of guessing.
+- After the cascade, the agent runs `phasedev sync-state` so `state.json` immediately agrees with the artifacts, and only then the final `phasedev check` (this order matters: `check` would otherwise report the state/route conflict). The existing prohibition on running `phasedev advance` from the feedback flow remains.
 
-Effect: the phase rolls back exactly to the earliest genuinely changed artifact instead of collapsing through forgotten dependencies.
+Effect: the phase rolls back exactly to the earliest genuinely changed artifact instead of collapsing through forgotten dependencies — `approved: false` on prd.md fails `isSetupApproved` and routes to `change_intake_approval`; a design-only change routes to `technical_design_approval`; and the flow converges forward through the normal approve → advance steps.
 
 ## 4. `--change` message outside a phasedev project
 
