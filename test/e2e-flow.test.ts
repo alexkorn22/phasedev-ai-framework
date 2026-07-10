@@ -512,7 +512,7 @@ describe("E2E flow via CLI subprocess", () => {
     const result = run(["advance"]);
 
     expect(result.code).toBe(1);
-    expect(result.out).toContain("No active change");
+    expect(result.out).toContain("No .phasedev directory found at");
   });
 
   // ── E2E: Partial smoke — create, phase, check, advance ─────

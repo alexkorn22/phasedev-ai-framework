@@ -3179,6 +3179,17 @@ describe("--change flag", () => {
     expect(result.output).not.toContain("Unknown change");
   });
 
+  test("sync-state outside a phasedev project explains the missing .phasedev directory without creating one", () => {
+    const emptyDir = path.join(testTmpDir, "not-a-phasedev-project-lock");
+    fs.mkdirSync(emptyDir, { recursive: true });
+
+    const result = runCli(["sync-state", "--project-path", emptyDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("No .phasedev directory found at");
+    expect(fs.existsSync(path.join(emptyDir, ".phasedev"))).toBe(false);
+  });
+
   test("check --change beta runs against the named change", () => {
     mkBareChange("alpha");
     mkBareChange("beta");

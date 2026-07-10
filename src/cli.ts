@@ -146,6 +146,10 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
  * action owns its own console output and exit code; only a held lock short-circuits.
  */
 function runWithStateLock(projectPath: string, action: () => void): void {
+  if (!fs.existsSync(path.join(projectPath, SYSTEM_DIR))) {
+    throw new MissingPhasedevDirError(projectPath);
+  }
+
   const lockPath = path.join(projectPath, SYSTEM_DIR, "state.lock");
   let lock: FileLock;
   try {
