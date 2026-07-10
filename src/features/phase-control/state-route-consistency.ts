@@ -41,6 +41,6 @@ export function detectStateRouteConflict(state: FlowState, route: Route): string
     `state.json phase: ${statePhase}`,
     `artifact-derived phase: ${routePhase}`,
     `An upstream artifact required by "${statePhase}" is missing or invalid, so the flow resolves back to "${routePhase}".`,
-    `Recovery: restore or remove the stale artifact, or reset state.json (phasedev reset-change), then retry.`
+    `Recovery: restore the stale artifact, or run \`phasedev sync-state\` to non-destructively roll state.json back to "${routePhase}", then retry.`
   ].join("\n");
 }

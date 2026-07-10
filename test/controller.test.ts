@@ -1285,6 +1285,8 @@ Complete API work.
     expect(result.ok).toBe(false);
     expect(result.message).toContain("state.json phase: implementation");
     expect(result.message).toContain("artifact-derived phase: technical_design");
+    expect(result.message).toContain("phasedev sync-state");
+    expect(result.message).not.toContain("reset-change");
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).activePhase).toBe("implementation");
   });
 
@@ -1303,6 +1305,8 @@ Complete API work.
     expect(result.blocked).toBe(true);
     expect(result.prompt).toContain("state.json phase: implementation");
     expect(result.prompt).toContain("artifact-derived phase: technical_design");
+    expect(result.prompt).toContain("phasedev sync-state");
+    expect(result.prompt).not.toContain("reset-change");
   });
 
   test("phase prompt blocks implementation when state.json is missing activeIteration", () => {
