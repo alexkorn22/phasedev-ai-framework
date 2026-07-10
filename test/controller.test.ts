@@ -1248,6 +1248,8 @@ Complete API work.
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain("iteration_plan.md could not be updated");
+    expect(result.message).toContain("phasedev sync-state");
+    expect(result.message).not.toContain("reset state.json");
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).activePhase).toBe("iteration_planning");
   });
 

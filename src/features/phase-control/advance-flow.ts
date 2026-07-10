@@ -134,7 +134,7 @@ function planUpdateFailure(iterationId: number, target: "in_progress" | "complet
     ok: false,
     reason:
       `iteration_plan.md could not be updated: Iteration ${iterationId} heading was not flipped to ${target} ` +
-      "(file missing or heading format drift). Restore the `## Iteration N: Name [ ]` heading, or reset state.json, then run advance again."
+      "(file missing or heading format drift). Restore the `## Iteration N: Name [ ]` heading, or run `phasedev sync-state` to non-destructively realign state.json with the artifacts, then run advance again."
   };
 }
 
