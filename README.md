@@ -111,6 +111,59 @@ With no goal, the orchestrator resumes from the current PhaseDev state. The orch
 `phasedev` to be a global command on `PATH` (step 1) and is always run from the working project's
 root.
 
+#### Project-specific orchestrator rules (optional)
+
+You can tailor the orchestrator per project by adding a dedicated section to the working
+project's system instruction file (`CLAUDE.md` / `AGENTS.md`). Project instructions take
+precedence over the skill, so this is the supported way to override or extend the orchestrator's
+defaults — e.g. mandate TDD, or pin a fixed sub-agent set for the validation phases. Example:
+
+````markdown
+## PhaseDev AI Framework (orchestrator only)
+
+The rules in this section apply **only** while the `phasedev-orchestrator` skill is running, and
+**only the orchestrator** executes them. They take **priority over the `phasedev-orchestrator`
+skill's own instructions**: where a rule here duplicates or conflicts with the skill, this
+section wins. In particular, for the validation phases below the sub-agent set is **fixed** as
+described here — this overrides the skill's "dynamic sub-agent count" / "no phase→agent-count
+table" rules for those phases only.
+
+### TDD
+
+- Development through the orchestrator is **always** test-driven (TDD): tests come before
+  implementation code, in every iteration. This binds the planning and coding phases —
+  `iteration_planning` plans the work test-first, and `implementation` (and `finding_repair`,
+  which writes code the same way) writes tests before the implementation. The
+  `iteration_validation` and `final_validation` phases are unrelated to TDD — they check
+  finished work, not develop it.
+
+### Iteration validation phase (`iteration_validation`)
+
+For each iteration's `iteration_validation` phase, spawn two sub-agents:
+
+1. **Requirements check** — verifies the implementation matches the assigned task: everything
+   the iteration plan / contract requires is actually done.
+2. **Code review** — reads the `dev-core` skill (and `fsd-2-1-architect` for frontend work),
+   then performs a careful code review of the iteration's changes.
+
+### Final validation phase (`final_validation`)
+
+For the `final_validation` phase (before archive), spawn:
+
+1. **Plan-completion check** — verifies the whole change is correctly finished: everything
+   planned is done.
+2. **Code review** — performs a code review and **must** use the `dev-core` skill (and
+   `fsd-2-1-architect` for frontend work).
+3. **Security review** — runs via the custom `sp-security-reviewer` agent.
+4. **Visual / UX tester (only when the change introduces visual changes on the site)** — acts
+   as a QA tester: verifies against the plan that the functionality works correctly from the
+   user's perspective on the site, evaluates UI and UX quality, and raises remarks — including
+   remarks not directly tied to the current change.
+````
+
+The skill names in the example (`dev-core`, `fsd-2-1-architect`, `sp-security-reviewer`) are
+project-specific — substitute the skills and custom agents available in your project.
+
 ### 3. Initialize PhaseDev in the working project
 
 ```bash
