@@ -6,6 +6,8 @@
 
 **PhaseDev AI Framework** is a state-driven, gated framework for autonomous AI software engineering. It coordinates AI agents through strict, isolated development phases by saving the process state directly in your project workspace rather than relying on unstable LLM chat histories.
 
+The intended way to use PhaseDev is through the bundled **orchestrator skill**: your main agent becomes a thin flow controller that drives the `phasedev` CLI, spawns a dedicated sub-agent for each phase in a clean context, and stops only at human approval gates. A manual mode exists for driving the loop yourself, but the orchestrator is the point — it executes the whole flow end to end.
+
 > [!IMPORTANT]
 > **Take control of your AI Agents.** Long chat histories lead to *Context Drift* (agents forgetting instructions), *Token Bloat* (skyrocketing API costs), and code regression. PhaseDev AI Framework solves this by splitting work into atomic phases, resetting the agent's context window on every step, and using the workspace files as the single source of truth.
 
@@ -13,12 +15,13 @@
 
 ## ⚙️ How It Works
 
-PhaseDev implements a strict phase state machine. In each iteration, it analyzes the files inside the active change directory (`.phasedev/changes/<change-name>`) to determine the current phase, prints the exact contract/prompt for that phase, executes the agent in a clean session, and records the results.
+PhaseDev implements a strict phase state machine. In each iteration, the controller analyzes the files inside the active change directory (`.phasedev/changes/<change-name>`) to determine the current phase and prints the exact contract/prompt for that phase; the orchestrator hands that contract to a fresh sub-agent, which executes the step and writes the results back into the workspace.
 
 ```mermaid
 flowchart LR
     StateFiles[(".phasedev/changes/*")] -->|Read state| Controller[PhaseDev Controller]
-    Controller -->|Determine phase & generate contract| Agent[Clean AI Session]
+    Controller -->|Determine phase & generate contract| Orchestrator[Orchestrator]
+    Orchestrator -->|Spawn per-phase sub-agent| Agent[Clean AI Session]
     Agent -->|Execute step & write results| StateFiles
     Agent -->|Reset context| End([Session Closed])
 ```
@@ -101,15 +104,7 @@ ln -s /absolute/path/to/phasedev/skills/phasedev-orchestrator ~/.claude/skills/p
 
 A symlink (rather than a copy) keeps the skill in sync with the framework: `git pull` in the
 PhaseDev repo updates both the CLI and the orchestrator contract at once. Verify the skill is
-visible by asking the agent to list its skills, then start the flow:
-
-```
-$phasedev-orchestrator <goal description>
-```
-
-With no goal, the orchestrator resumes from the current PhaseDev state. The orchestrator expects
-`phasedev` to be a global command on `PATH` (step 1) and is always run from the working project's
-root.
+visible by asking the agent to list its skills.
 
 #### Project-specific orchestrator rules (optional)
 
@@ -166,8 +161,10 @@ project-specific — substitute the skills and custom agents available in your p
 
 ### 3. Initialize PhaseDev in the working project
 
+From the working project's root:
+
 ```bash
-phasedev init-project --project-path /absolute/path/to/your-project
+phasedev init-project
 ```
 
 This creates `.phasedev/changes/`, `.phasedev/changes/archive/`, `.phasedev/specs/`,
@@ -176,42 +173,50 @@ change folder.
 
 ---
 
-## 🚀 Quick Start (Manual Mode)
+## 🚀 Quick Start
 
-Use manual mode when you drive the loop yourself instead of the orchestrator skill. All commands
-default to the current directory; pass `--project-path <path>` to target another project, and
-`--change <name>` when several unfinished changes exist.
+### Orchestrated mode (recommended)
 
-### 1. Create a Change
-```bash
-phasedev create-change my-change --project-path /absolute/path/to/your-project
+After installation, start the flow from the working project's root by invoking the skill with a
+goal:
+
 ```
-This creates `.phasedev/changes/my-change/` with an initial `state.json`
-(`activePhase: change_intake`). Creating a second change with a different name is allowed;
-duplicate names are refused.
-
-### 2. Run the Init Handshake
-Before sending executable phase prompts to an AI agent, print the context-only init handshake:
-```bash
-phasedev init --project-path /absolute/path/to/your-project
-```
-This command does not modify files. It only tells the agent to wait for the current phase contract.
-
-### 3. Get the Phase Contract and Advance
-Get the contract for the current phase to feed into your AI model:
-```bash
-phasedev phase --project-path /absolute/path/to/your-project
+$phasedev-orchestrator <goal description>
 ```
 
-After completing the phase work, validate and transition:
-```bash
-phasedev check --project-path /absolute/path/to/your-project
-phasedev advance --project-path /absolute/path/to/your-project
-```
+The orchestrator does everything itself: creates the change, walks it through every phase with a
+dedicated sub-agent per step, validates and advances between phases, runs the repair loop on
+findings, and archives the finished change. It stops only where a human is required — approval
+gates (PRD/contract, design, iteration plan; unless `autoApprove` is on) and unrecoverable
+blockers. Give feedback at any stop point in plain words; the orchestrator classifies it
+(implementation defect vs scope change) and routes it through the framework's feedback contract.
+
+With no goal, the orchestrator resumes from the current PhaseDev state — safe to restart at any
+time, because all state lives in `.phasedev/`, not in the chat.
+
+### Manual mode
+
+For driving the loop yourself (debugging, CI, or non-agent use), run the same commands the
+orchestrator runs. All commands run from the working project's root.
+
+1. Create a change:
+   ```bash
+   phasedev create-change my-change
+   ```
+2. Print the context-only init handshake for the agent (no file changes):
+   ```bash
+   phasedev init
+   ```
+3. Get the contract for the current phase, feed it to your AI model, then validate and advance:
+   ```bash
+   phasedev phase
+   phasedev check
+   phasedev advance
+   ```
 
 Repeat `phase` / `check` / `advance` until the change is archived. At approval gates, review the
 artifact and record the decision with `phasedev approve <file> --by <name>` (or enable
-`autoApprove` — see Configuration).
+`autoApprove` — see Configuration). Pass `--change <name>` when several unfinished changes exist.
 
 > **Note:** `phasedev next` is deprecated — use `phasedev phase` and `phasedev advance` instead.
 
@@ -219,29 +224,31 @@ artifact and record the decision with `phasedev approve <file> --by <name>` (or 
 
 ## 📋 Commands
 
-`phasedev help` prints the full, current reference with side effects per command. Every
-change-scoped command additionally accepts `--change <name>` and the global `--json` flag.
+`phasedev help` prints the full, current reference with side effects per command. All commands
+run against the current directory's `.phasedev/` (run them from the working project's root; a
+`--project-path <path>` / `-p` option exists to target another directory). Every change-scoped
+command additionally accepts `--change <name>`, and the global `--json` flag works everywhere.
 
 ### Project Setup
 | Command | Description |
 |---------|-------------|
-| `phasedev init-project [--project-path <path>]` | Create `.phasedev` workspace directories and `config.yaml` (idempotent) |
-| `phasedev init [--project-path <path>]` | Print the context-only handshake prompt (no file changes) |
-| `phasedev create-change <name> [--project-path <path>] [--task <text>]` | Create a new change directory and initialize flow state; refuses duplicate names |
+| `phasedev init-project` | Create `.phasedev` workspace directories and `config.yaml` (idempotent) |
+| `phasedev init` | Print the context-only handshake prompt (no file changes) |
+| `phasedev create-change <name> [--task <text>]` | Create a new change directory and initialize flow state; refuses duplicate names |
 
 ### Phase Flow
 | Command | Description |
 |---------|-------------|
-| `phasedev phase [--project-path <path>] [--config <path>]` | Resolve current flow state and print the phase contract (read-only) |
-| `phasedev check [--project-path <path>] [--phase <phase>]` | Validate current phase state (read-only) |
-| `phasedev advance [--project-path <path>] [--config <path>]` | Validate and transition to the next phase; refuses on invalid artifacts, pending approvals, or blocked archive |
-| `phasedev feedback [--project-path <path>]` | Print the user-feedback processing contract (classify defect vs scope change; read-only) |
-| `phasedev check-validation --project-path <path> --scope iteration --iteration-id <N>` | Validate iteration validation findings |
-| `phasedev check-validation --project-path <path> --scope final` | Validate final validation findings |
+| `phasedev phase [--config <path>]` | Resolve current flow state and print the phase contract (read-only) |
+| `phasedev check [--phase <phase>]` | Validate current phase state (read-only) |
+| `phasedev advance [--config <path>]` | Validate and transition to the next phase; refuses on invalid artifacts, pending approvals, or blocked archive |
+| `phasedev feedback` | Print the user-feedback processing contract (classify defect vs scope change; read-only) |
+| `phasedev check-validation --scope iteration --iteration-id <N>` | Validate iteration validation findings |
+| `phasedev check-validation --scope final` | Validate final validation findings |
 | `phasedev check-archive --archive-path <path>` | Validate completed archive state and delta specs |
-| `phasedev reopen <design\|plan> [--project-path <path>]` | Reopen an approved design or plan phase for revision (resets approval and rolls `state.json` back) |
-| `phasedev sync-state [--project-path <path>] [--change <name>]` | Non-destructively roll `state.json` back to the artifact-derived phase when they disagree (artifacts untouched) |
-| `phasedev next [--project-path <path>]` | **Deprecated** — use `phase` and `advance` instead |
+| `phasedev reopen <design\|plan>` | Reopen an approved design or plan phase for revision (resets approval and rolls `state.json` back) |
+| `phasedev sync-state [--change <name>]` | Non-destructively roll `state.json` back to the artifact-derived phase when they disagree (artifacts untouched) |
+| `phasedev next` | **Deprecated** — use `phase` and `advance` instead |
 
 ### Artifact Management
 | Command | Description |
@@ -257,19 +264,19 @@ change-scoped command additionally accepts `--change <name>` and the global `--j
 ### Flow Status & Info
 | Command | Description |
 |---------|-------------|
-| `phasedev status [--project-path <path>]` | Print current flow summary (change, phase, route, artifacts, findings) |
-| `phasedev list [--project-path <path>] [--archived]` | List unfinished changes; with `--archived`, archived ones too |
-| `phasedev changes [--project-path <path>]` | Alias for `list` |
-| `phasedev log [--project-path <path>] [--tail N]` | View flow log entries (`.phasedev/logs/ralph-log.jsonl`) |
-| `phasedev config [--project-path <path>] <key>` | Read a config key |
-| `phasedev config set <key> <value> [--project-path <path>] [--string]` | Write a config key (auto-coerces booleans/numbers unless `--string` forces raw string storage; echoes the stored type) |
+| `phasedev status` | Print current flow summary (change, phase, route, artifacts, findings) |
+| `phasedev list [--archived]` | List unfinished changes; with `--archived`, archived ones too |
+| `phasedev changes` | Alias for `list` |
+| `phasedev log [--tail N]` | View flow log entries (`.phasedev/logs/ralph-log.jsonl`) |
+| `phasedev config <key>` | Read a config key |
+| `phasedev config set <key> <value> [--string]` | Write a config key (auto-coerces booleans/numbers unless `--string` forces raw string storage; echoes the stored type) |
 
 ### Meta
 | Command | Description |
 |---------|-------------|
 | `phasedev help` | Print the full command reference (`--help`, `-h`) |
 | `phasedev version` | Print framework version (`--version`, `-V`) |
-| `phasedev reset-change [--project-path <path>] [--yes\|--force]` | Discard the active change (move to `.trash`). Destroys all change artifacts — NOT a state reset; use `sync-state` for that |
+| `phasedev reset-change [--yes\|--force]` | Discard the active change (move to `.trash`). Destroys all change artifacts — NOT a state reset; use `sync-state` for that |
 
 ---
 
@@ -279,7 +286,9 @@ change-scoped command additionally accepts `--change <name>` and the global `--j
   the agent to record implementation defects via `add-finding`/`reopen-finding`, or — for scope
   changes — to walk the artifact chain (`prd.md` → `execution_contract.md` → `research_facts.md`
   → `architecture/design.md` → `iteration_plan.md`), update only what is affected, reset
-  `approved: false` on changed artifacts, and finish with `phasedev sync-state`.
+  `approved: false` on changed artifacts, and finish with `phasedev sync-state`. When running
+  through the orchestrator, just describe the feedback at any stop point — it handles this flow
+  for you.
 - **`sync-state`** is the non-destructive fix when `state.json` and the artifacts disagree on the
   current phase (e.g. after a scope change unapproved an upstream artifact). It rolls
   `activePhase` back to the artifact-derived phase and never touches artifacts.
