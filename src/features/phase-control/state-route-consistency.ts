@@ -7,7 +7,7 @@ import { Route } from "./flow-route";
  * one rank because the flow legitimately cycles among them per iteration, and
  * archive sits above them.
  */
-const PHASE_RANK: Record<ActivePhase, number> = {
+export const PHASE_RANK: Record<ActivePhase, number> = {
   change_intake: 0,
   code_research: 1,
   technical_design: 2,

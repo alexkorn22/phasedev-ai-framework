@@ -14,6 +14,7 @@ import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
+import { syncState } from "../src/features/phase-control/sync-state";
 
 let testTmpDir: string;
 
@@ -1872,6 +1873,82 @@ Complete API work.
 
       expect(result.ok).toBe(false);
       expect(result.message).toContain("not approved");
+    });
+  });
+
+  describe("sync state", () => {
+    function writeState(changeDir: string, phase: string, iteration: number | null = null) {
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: phase, activeIteration: iteration, repairCycleCount: 2 }, null, 2) + "\n",
+        "utf-8"
+      );
+    }
+
+    test("syncState rolls state.json back to the artifact-derived phase", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+      writeState(changeDir, "implementation", 1);
+      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), "{}", "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(true);
+      expect(result.fromPhase).toBe("implementation");
+      expect(result.toPhase).toBe("technical_design");
+      expect(result.message).toContain("implementation -> technical_design");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state!.activePhase).toBe("technical_design");
+      expect(state!.activeIteration).toBeNull();
+      expect(state!.repairCycleCount).toBe(0);
+      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+    });
+
+    test("syncState is a no-op when state and route agree", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { designApproved: true, planApproved: true });
+      writeState(changeDir, "implementation", 1);
+      const before = fs.readFileSync(path.join(changeDir, "state.json"), "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.message).toContain("already consistent");
+      expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+
+    test("syncState reports no active change", () => {
+      const result = syncState(testTmpDir);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("No active change");
+    });
+
+    test("syncState does not modify any artifact files", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+      writeState(changeDir, "implementation", 1);
+      const prdBefore = fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8");
+
+      syncState(testTmpDir);
+
+      expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
     });
   });
 });
