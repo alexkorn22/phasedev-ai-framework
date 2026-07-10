@@ -26,13 +26,23 @@ export function syncState(projectPath: string, changeName?: string): SyncStateRe
 
   const route = resolveRoute(projectPath, changeName);
   const routePhase = route.phase as ActivePhase;
-  if (PHASE_RANK[routePhase] >= PHASE_RANK[state.activePhase]) {
+  if (routePhase === state.activePhase) {
     return {
       ok: true,
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
       message: `state.json is already consistent (activePhase: ${state.activePhase}, artifact-derived: ${routePhase}). Nothing to sync.`
+    };
+  }
+
+  if (PHASE_RANK[routePhase] >= PHASE_RANK[state.activePhase]) {
+    return {
+      ok: true,
+      changed: false,
+      fromPhase: state.activePhase,
+      toPhase: routePhase,
+      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; run \`phasedev advance\` to move forward. sync-state only rolls state.json backward and will not do that here.`
     };
   }
 

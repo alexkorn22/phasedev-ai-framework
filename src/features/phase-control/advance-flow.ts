@@ -10,6 +10,7 @@ import { resolveRoute, Route } from "./flow-route";
 import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
+import { setFindingsType } from "../artifact-ops/manage-findings";
 
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
@@ -435,6 +436,16 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   const sideEffect = applyStateSideEffects(projectPath, paths, state, nextState, route);
   if (!sideEffect.ok) {
     return refuse(`Cannot advance: ${sideEffect.reason}`);
+  }
+
+  // Entering final_validation promotes validation_findings.md from `type:
+  // iteration` to `type: final`: findingsFileSkeleton only writes `type:`
+  // once at creation (during iteration_validation), and the final_validation
+  // exit gate requires `type: final` — without this, the flow could never
+  // leave final_validation. One-way and idempotent: re-entering from
+  // finding_repair or iteration_validation always sets it to "final" again.
+  if (nextState.activePhase === "final_validation") {
+    setFindingsType(paths.findingsPath, "final");
   }
 
   // Snapshot the findings table as the repair-gate baseline whenever entering

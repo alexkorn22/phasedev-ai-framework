@@ -73,7 +73,8 @@ export function checkPhase(
     };
   }
 
-  const phase = phaseOverride ?? state.activePhase;
+  const route = phaseOverride ? null : resolveRoute(projectPath, changeName);
+  const phase = phaseOverride ?? route!.phase;
   if (!isActivePhase(phase)) {
     return {
       ok: false,
@@ -91,15 +92,21 @@ export function checkPhase(
     };
   }
 
+  const activeIteration = route?.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
+
   const paths = buildChangePaths(changeDir);
-  const v = validatePhase(projectPath, phase, paths, state.activeIteration);
+  const v = validatePhase(projectPath, phase, paths, activeIteration);
+
+  const divergenceNotice = route && phase !== state.activePhase
+    ? `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${phase}; run \`phasedev advance\` to move forward or \`phasedev sync-state\` to roll back.`
+    : "";
 
   return {
     ok: v.ok,
     phase,
-    message: v.ok
+    message: (v.ok
       ? `[PHASEDEV CHECK] OK: phase ${phase} is valid.`
-      : `[PHASEDEV CHECK] FAILED: phase ${phase} has issues.\n${v.issues.map(i => `- ${i}`).join("\n")}`
+      : `[PHASEDEV CHECK] FAILED: phase ${phase} has issues.\n${v.issues.map(i => `- ${i}`).join("\n")}`) + divergenceNotice
   };
 }
 

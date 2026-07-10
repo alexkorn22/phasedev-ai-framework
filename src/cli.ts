@@ -188,6 +188,14 @@ function main(): void {
     return;
   }
 
+  // Any subcommand invoked with --help/-h shows help instead of executing,
+  // so help never triggers the side effects of the command it is attached to.
+  if (hasFlag(args, "--help", "-h")) {
+    const helpText = renderHelp();
+    reportCliResult(jsonMode, { ok: true, kind: "help", humanMessage: helpText, data: { text: helpText } });
+    return;
+  }
+
   const projectPath = parseProjectPath(args);
   const changeName = parseStringOption(args, "--change");
 

@@ -55,6 +55,15 @@ function changeDir(): string {
     : "";
 }
 
+// The current phase's artifacts already satisfy the flow, so the artifact-derived
+// route has moved ahead of the still-locked state.json — check grades that ahead
+// phase (whose own artifacts don't exist yet) and points the agent at `advance`.
+function expectCheckSignalsReadyToAdvance(): void {
+  const result = run(["check"]);
+  expect(result.code).toBe(1);
+  expect(result.out).toContain("run `phasedev advance`");
+}
+
 function simulateAgent(file: string, body: string, approved = false): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   if (approved) {
@@ -566,8 +575,9 @@ describe("E2E flow via CLI subprocess", () => {
     simulateAgent(prdPath, prdBody, true);
     simulateAgent(ecPath, ecBody, true);
 
-    // check should pass
-    expect(run(["check"]).code).toBe(0);
+    // check now grades the artifact-derived route, which is already ahead of
+    // the still-locked change_intake state — it reports that and points to advance
+    expectCheckSignalsReadyToAdvance();
 
     // advance should work — goes to code_research
     const adv1 = run(["advance"]);
@@ -586,7 +596,7 @@ describe("E2E flow via CLI subprocess", () => {
     const researchPath = path.join(cdir, "research_facts.md");
     writeFile(researchPath, researchBody);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv2 = run(["advance"]);
     expect(adv2.code).toBe(0);
@@ -606,7 +616,7 @@ describe("E2E flow via CLI subprocess", () => {
     const approveDesign = run(["approve", designPath]);
     expect(approveDesign.code).toBe(0);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv3 = run(["advance"]);
     expect(adv3.code).toBe(0);
@@ -625,7 +635,7 @@ describe("E2E flow via CLI subprocess", () => {
     const approvePlan = run(["approve", planPath]);
     expect(approvePlan.code).toBe(0);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv4 = run(["advance"]);
     expect(adv4.code).toBe(0);
@@ -649,7 +659,7 @@ describe("E2E flow via CLI subprocess", () => {
     const reapprovePlan = run(["approve", planPath]);
     expect(reapprovePlan.code).toBe(0);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv5 = run(["advance"]);
     expect(adv5.code).toBe(0);
@@ -669,7 +679,7 @@ describe("E2E flow via CLI subprocess", () => {
     const setIterStatus = run(["set-iteration-status", "1", "x"]);
     expect(setIterStatus.code).toBe(0);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv6 = run(["advance"]);
     expect(adv6.code).toBe(0);
@@ -683,7 +693,7 @@ describe("E2E flow via CLI subprocess", () => {
     const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
 
-    expect(run(["check"]).code).toBe(0);
+    expectCheckSignalsReadyToAdvance();
 
     const adv7 = run(["advance"]);
     expect(adv7.code).toBe(0);

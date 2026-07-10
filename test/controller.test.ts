@@ -15,6 +15,8 @@ import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
+import { checkPhase } from "../src/features/phase-control/check-flow";
+import { addFinding } from "../src/features/artifact-ops/manage-findings";
 
 let testTmpDir: string;
 
@@ -1785,6 +1787,58 @@ Complete API work.
     });
   });
 
+  describe("findings type auto-promotion into final_validation", () => {
+    test("advance from iteration_validation to final_validation promotes type: iteration to type: final", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "iteration")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("final_validation");
+
+      const paths = buildChangePaths(changeDir);
+      const findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
+      expect(findingsContent).not.toContain("type: iteration");
+    });
+
+    test("a MUST-FIX finding added in final_validation routes to finding_repair instead of a type deadlock", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "final")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const paths = buildChangePaths(changeDir);
+      const addResult = addFinding(paths.findingsPath, null, "New defect found in final validation", "MUST-FIX", "Fix the defect", "validation", "Final");
+      expect(addResult.ok).toBe(true);
+
+      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("finding_repair");
+      expect(result.message).not.toContain("type` must be `final`");
+    });
+  });
+
   describe("reopen phase", () => {
     function writeState(changeDir: string, phase: string, iteration: number | null = null) {
       fs.writeFileSync(
@@ -1955,6 +2009,125 @@ Complete API work.
       syncState(testTmpDir);
 
       expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
+    });
+
+    test("syncState reports forward drift instead of a misleading no-op", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      writeState(changeDir, "change_intake");
+      const before = fs.readFileSync(path.join(changeDir, "state.json"), "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.message).not.toContain("Nothing to sync");
+      expect(result.message).toContain("advance");
+      expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+
+    test("syncState reports same-rank drift (finding_repair vs final_validation lock) instead of a misleading no-op", () => {
+      setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+      writeState(changeDir, "final_validation");
+      const before = fs.readFileSync(path.join(changeDir, "state.json"), "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.message).not.toContain("Nothing to sync");
+      expect(result.message).toContain("advance");
+      expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+  });
+
+  describe("checkPhase grades the artifact-derived route, not the stale lock", () => {
+    function writeState(changeDir: string, phase: string, iteration: number | null = null) {
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: phase, activeIteration: iteration, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+    }
+
+    test("forward drift: lock=change_intake but artifacts resolve further, checkPhase grades the route phase", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+      writeState(changeDir, "change_intake");
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.phase).toBe("technical_design");
+      expect(result.message).toContain("state.json is locked at change_intake");
+      expect(result.message).toContain("artifacts resolve to technical_design");
+      expect(result.message).toContain("phasedev advance");
+    });
+
+    test("same-rank drift: lock=final_validation but route=finding_repair, checkPhase grades finding_repair", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Phase 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "final_validation");
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.phase).toBe("finding_repair");
+      expect(result.message).toContain("state.json is locked at final_validation");
+      expect(result.message).toContain("artifacts resolve to finding_repair");
+      expect(result.message).toContain("phasedev advance");
+    });
+
+    test("no drift: lock matches route, message carries no divergence notice", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, { designApproved: true, planApproved: true });
+      writeState(changeDir, "implementation", 1);
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.phase).toBe("implementation");
+      expect(result.message).not.toContain("is locked at");
+    });
+
+    test("--phase override still grades the requested phase, ignoring route drift", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      fs.rmSync(path.join(changeDir, "architecture", "design.md"));
+      writeState(changeDir, "change_intake");
+
+      const result = checkPhase(testTmpDir, "change_intake");
+
+      expect(result.phase).toBe("change_intake");
+      expect(result.message).not.toContain("is locked at");
     });
   });
 });

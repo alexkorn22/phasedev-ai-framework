@@ -2584,6 +2584,19 @@ describe("new CLI commands", () => {
     expect(content).toContain("approved_by: \"TestUser\"");
   });
 
+  test("approve -h shows help instead of executing", () => {
+    const filePath = path.join(testTmpDir, "test-help.md");
+    fs.writeFileSync(filePath, "---\napproved: false\n---\n\n# Test\n", "utf-8");
+
+    const result = runCli(["approve", filePath, "-h"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("PhaseDev AI Framework");
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    expect(content).toContain("approved: false");
+    expect(content).not.toContain("approved_by:");
+  });
+
   // --- set-iteration-status ---
 
   test("set-iteration-status sets iteration to [x]", () => {
@@ -2905,6 +2918,29 @@ ${rows ?? ""}`;
     expect(fs.existsSync(findingsPath)).toBe(true);
     const content = fs.readFileSync(findingsPath, "utf-8");
     expect(content).toContain("verdict: ready");
+  });
+
+  test("set-verdict ready --help shows help without mutating validation_findings.md", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+
+    const result = runCli(["set-verdict", "ready", "--help", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("PhaseDev AI Framework");
+
+    const findingsPath = path.join(testTmpDir, ".phasedev", "changes", "sample-change", "validation_findings.md");
+    expect(fs.existsSync(findingsPath)).toBe(false);
+  });
+
+  test("set-verdict --help shows help instead of the missing-verdict error", () => {
+    const result = runCli(["set-verdict", "--help"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("PhaseDev AI Framework");
+    expect(result.output).not.toContain("is required");
   });
 
   // --- changes ---

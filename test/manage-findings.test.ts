@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, isPlaceholderRequiredFix } from "../src/features/artifact-ops/manage-findings";
+import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, setFindingsType, isPlaceholderRequiredFix } from "../src/features/artifact-ops/manage-findings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -409,6 +409,39 @@ describe("addFinding CLI-owned mutations", () => {
     const written = fs.readFileSync(file, "utf-8");
     expect(written).toContain("verdict: repaired");
     expect(written).toContain("date: 2026-07-07"); // date обновлён командой
+  });
+
+  test("setFindingsType promotes iteration to final, leaving other frontmatter keys and row data unchanged", () => {
+    const file = writeFindings(FM("ready") + HDR7 +
+      "| F1 | open | NIT | implementation | Iteration 1 | Defect | Fix it |\n");
+
+    setFindingsType(file, "final");
+
+    const after = fs.readFileSync(file, "utf-8");
+    expect(after).toContain("type: final");
+    expect(after).not.toContain("type: iteration");
+    expect(after).toContain("verdict: ready");
+    expect(after).toContain("date: 2026-07-01");
+    expect(after).toContain("F1");
+    expect(after).toContain("open");
+    expect(after).toContain("NIT");
+    expect(after).toContain("Defect");
+    expect(after).toContain("Fix it");
+  });
+
+  test("setFindingsType is idempotent when already final", () => {
+    const file = writeFindings(FM("ready").replace("type: iteration", "type: final") + HDR7);
+    setFindingsType(file, "final");
+    const after = fs.readFileSync(file, "utf-8");
+    expect(after).toContain("type: final");
+    expect((after.match(/type: final/g) ?? []).length).toBe(1);
+  });
+
+  test("setFindingsType is a no-op when the file does not exist", () => {
+    const missing = findingsPath();
+    expect(fs.existsSync(missing)).toBe(false);
+    setFindingsType(missing, "final");
+    expect(fs.existsSync(missing)).toBe(false);
   });
 
   test("setFindingsVerdict creates the file with an empty table when missing", () => {

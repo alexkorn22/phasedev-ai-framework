@@ -310,6 +310,20 @@ export function reopenFinding(filePath: string, id: string, evidence: string): M
   };
 }
 
+/**
+ * Rewrite only the `type:` frontmatter line, preserving verdict, date, and
+ * the findings table. No-op when the file does not exist (advance-flow calls
+ * this speculatively on every entry into final_validation).
+ */
+export function setFindingsType(filePath: string, type: "iteration" | "final"): void {
+  if (!fs.existsSync(filePath)) return;
+  const content = fs.readFileSync(filePath, "utf-8");
+  const parsed = parseTable(content);
+  if (!/^type:\s*/m.test(parsed.frontmatter)) return;
+  parsed.frontmatter = parsed.frontmatter.replace(/^type:\s*.*$/m, `type: ${type}`);
+  writeTable(filePath, parsed, parsed.rows);
+}
+
 export function setFindingsVerdict(filePath: string, verdict: string, context: FindingsCreateContext): ManageFindingsResult {
   if (!isKnownVerdict(verdict)) {
     return { ok: false, message: `Invalid verdict \`${verdict}\`. Must be one of: ${KNOWN_VERDICTS.join(", ")}.` };
