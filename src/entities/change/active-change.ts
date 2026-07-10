@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SYSTEM_DIR } from "./paths";
-import { AmbiguousChangeError, UnknownChangeError } from "./change-errors";
+import { AmbiguousChangeError, MissingPhasedevDirError, UnknownChangeError } from "./change-errors";
 import { findArchiveStateForChange } from "./archive-state";
 
 export function listActiveChangeDirs(projectRoot: string): string[] {
@@ -36,6 +36,9 @@ export function resolveChangeDir(projectRoot: string, changeName?: string): stri
     }
     if (findArchiveStateForChange(projectRoot, changeName)) {
       return null;
+    }
+    if (!fs.existsSync(path.join(projectRoot, SYSTEM_DIR))) {
+      throw new MissingPhasedevDirError(projectRoot);
     }
     throw new UnknownChangeError(changeName, names);
   }

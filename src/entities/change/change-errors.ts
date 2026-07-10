@@ -11,3 +11,10 @@ export class AmbiguousChangeError extends Error {
     this.name = "AmbiguousChangeError";
   }
 }
+
+export class MissingPhasedevDirError extends Error {
+  constructor(readonly projectRoot: string) {
+    super(`No .phasedev directory found at ${projectRoot}. Run from the project root or pass --project-path.`);
+    this.name = "MissingPhasedevDirError";
+  }
+}

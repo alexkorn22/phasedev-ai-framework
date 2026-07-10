@@ -3167,6 +3167,18 @@ describe("--change flag", () => {
     expect(result.output).toContain('Unknown change "nope". Available changes: alpha.');
   });
 
+  test("--change outside a phasedev project explains the missing .phasedev directory", () => {
+    const emptyDir = path.join(testTmpDir, "not-a-phasedev-project");
+    fs.mkdirSync(emptyDir, { recursive: true });
+
+    const result = runCli(["status", "--project-path", emptyDir, "--change", "some-change"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("No .phasedev directory found at");
+    expect(result.output).toContain("--project-path");
+    expect(result.output).not.toContain("Unknown change");
+  });
+
   test("check --change beta runs against the named change", () => {
     mkBareChange("alpha");
     mkBareChange("beta");

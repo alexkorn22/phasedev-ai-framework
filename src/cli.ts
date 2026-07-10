@@ -26,7 +26,7 @@ import { viewLog } from "./features/flow-status/view-log";
 import { setConfigValue } from "./features/config-ops/set-config";
 import { resetChange } from "./features/flow-state/reset-change";
 import { resolveChangeDir } from "./entities/change/active-change";
-import { AmbiguousChangeError, UnknownChangeError } from "./entities/change/change-errors";
+import { AmbiguousChangeError, MissingPhasedevDirError, UnknownChangeError } from "./entities/change/change-errors";
 import { loadFlowState } from "./entities/change/flow-state";
 import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
@@ -899,6 +899,13 @@ try {
         `[PHASEDEV] BLOCKED: ${message}`,
         "Tip: Use `phasedev list` to see all changes and their status."
       ].join("\n"));
+    }
+    process.exitCode = 1;
+  } else if (error instanceof MissingPhasedevDirError) {
+    if (globalJsonMode) {
+      console.log(JSON.stringify({ ok: false, kind: "missing-phasedev-dir", message, data: { projectRoot: error.projectRoot } }));
+    } else {
+      console.error(`[PHASEDEV] FAILED: ${message}`);
     }
     process.exitCode = 1;
   } else if (error instanceof UnknownChangeError) {
