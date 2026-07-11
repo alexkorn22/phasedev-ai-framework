@@ -52,7 +52,7 @@ export function quickPhasePrompt(projectPath: string, config: Config, state: Flo
       return {
         command: "next", phase: "archive", blocked: false,
         prompt: renderPhaseTemplate("archive", "quick_archive", {
-          change_name: path.basename(changeDir),
+          change_name: pending?.changeName ?? path.basename(changeDir),
           archive_path: changeDir,
           archive_state_path: toFileUrl(path.join(changeDir, ".phase-archive.json")),
           worklog_path: worklogUrl,
