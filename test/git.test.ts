@@ -48,5 +48,19 @@ describe("shared/shell/git", () => {
     const res = runGit(repo, ["diff", "--name-status", "0".repeat(40), "HEAD"]);
     expect(res.ok).toBe(false);
     expect(res.failureReason).toBeTruthy();
+    expect(res.status).toBeTruthy();
+  });
+
+  it("runGit exposes status and errorMessage for call-site error message construction", () => {
+    const repo = makeGitRepo(); dirs.push(repo);
+    fs.writeFileSync(path.join(repo, "a.txt"), "x");
+    gitCommitAll(repo, "init");
+    const res = runGit(repo, ["diff", "--name-status", "0".repeat(40), "HEAD"]);
+    expect(res.ok).toBe(false);
+    expect(typeof res.status).toBe("number");
+    expect(res.errorMessage).toBeNull();
+    // Call site can reconstruct error message as: errorMessage ?? (stderr.trim() || `git status exited with ${status}`)
+    const reconstructed = res.errorMessage ?? (res.stderr.trim() || `git status exited with ${res.status}`);
+    expect(reconstructed).toBeTruthy();
   });
 });

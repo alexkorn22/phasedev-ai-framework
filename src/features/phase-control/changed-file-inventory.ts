@@ -95,7 +95,7 @@ export function renderChangedFileInventory(projectPath: string, options: Changed
   const result = runGit(projectPath, ["status", "--short", "--untracked-files=all", "--", "."]);
 
   if (!result.ok) {
-    const reason = result.failureReason ?? `git status exited with an unknown error`;
+    const reason = result.errorMessage ?? (result.stderr.trim() || `git status exited with ${result.status}`);
     return [
       "## Controller Observed Changed Files",
       "",
