@@ -69,7 +69,7 @@ Each iteration:
    - If `check` returns issues, or advance refuses with `invalid_*` (artifact issues), `*_approval` (needs approval), or `archive_readiness_blocked` (iterations not complete) → spawn sub-agents on the **current** active phase.
 3. **Verify:** when all sub-agents for the phase have reported with passing self-checks, run `phasedev advance`. If it accepts, loop from step 1. If it refuses, handle per [Auto-Approval](#auto-approval), [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), or [Termination](#termination).
 
-**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Sub-agents run **sequentially**; each reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock enables N sequential agents on any phase.
+**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Whether the phase's sub-agents run **sequentially or in parallel** is also the orchestrator's per-phase decision — e.g., during a validation phase a code-review agent and a security-review agent may run concurrently. Each sub-agent reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. When several concurrent sub-agents would mutate the same artifact or registry (e.g., multiple `phasedev add-finding` writers on `validation_findings.md`), account for write races: either run those writers sequentially, or have the agents analyze in parallel and serialize the recording step. The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock keeps N agents on a phase safe whether they run sequentially or in parallel.
 
 What NOT to do:
 - **Do not introduce** any phase→agent-count or phase→agent-type table, and do not hardcode per-phase counts ("for design — 3 agents").
@@ -81,11 +81,11 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Two instruction layers.** The sub-agent works from two texts with distinct responsibilities. The **dispatch prompt** (below) owns the execution context: who the agent is (optional role), where it works (the change `<change>`, project root), how to invoke the CLI, what it must not do (no `advance`, no other `--change`), and how to report back. The **phase contract** (printed by `phasedev phase`) owns the work itself: the phase mission, artifacts and their formats, file write boundaries, methods and skill policy, readiness criteria, and the self-check. The two compose: the contract defines what "done" means and which self-check proves it; the dispatch prompt requires that proof before reporting.
 
-**Agent type selection:** Before the first spawn, review the list of available agent types for the `Agent` tool in the current session environment (the tool's agent-type list itself — NOT a directory on disk; `.claude/agents/` may not reflect what the running session actually exposes). For each phase, prefer the custom agent type whose description matches that phase's work over the default general-purpose type; fall back to general-purpose only when no available custom type fits. This is a per-phase, per-change judgment, made fresh each time — never fixed into a static phase→type table.
+**Agent type selection:** On EVERY run, review the list of available agent types for the `Agent` tool in the current session environment (the tool's agent-type list itself — NOT a static on-disk agent-definition folder, which may not reflect what the running session actually exposes). For each phase you MUST use a custom agent type whose description matches that phase's work when one exists; fall back to the generic/general-purpose type only when no available custom type fits. This is a per-phase, per-change judgment, made fresh each time — never fixed into a static phase→type table. If a custom agent's reports show it cannot access skills and the phase materially benefits from skills, you MAY prefer a generic agent (which has skill access by default) for that phase on the next dispatch — a per-phase judgment, not a fixed rule.
 
 **Model selection:** When dispatching a `subagent_type` that has no pinned model (general-purpose and similar catch-all types), the `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). When dispatching a custom agent that pins its model in its own definition, do NOT pass or override `model` for it.
 
-The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. Guidance: `"haiku"` for mechanical, narrowly-scoped work (e.g. archive delta specs); `"sonnet"` for routine single-phase artifact work; the strongest available tier (`"opus"`) for design-heavy, validation-heavy, or repair work needing real analysis. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
+The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. When dispatching a generic type, always pass an explicit model and pick the CHEAPEST tier the task complexity allows: mechanical, narrowly-scoped work (e.g. archive delta specs) → the cheapest tier; routine single-phase artifact work → the mid tier; design-heavy, validation-heavy, or repair work needing real analysis → the strongest available tier. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
 **Sub-agent prompt** (the single canonical prompt; goal and role lines are optional slots):
 
@@ -105,13 +105,14 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 You work ONLY on the change "<change>". Never pass a different --change value.
 
 1. Run: phasedev phase --change <change> — get the active phase contract.
-2. Do the phase work per your role and the contract. The contract defines the artifacts, the self-check that gates completion, and your final-response format — follow it exactly; do not report success while its self-check fails.
-3. Do NOT run phasedev advance — that is the orchestrator's job.
-4. Report back with the contract's final response (it already includes the self-check command and result); state any blockers explicitly.`
+2. Review the skills available in YOUR OWN runtime environment and select those whose purpose matches this phase's work; apply their methods as execution-method instructions. If the contract prints a Configured Skill Policy, that policy takes priority and any environment-discovered skill only supplements it under the same boundary — skills never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state); PhaseDev owns those. If no skills list is visible in your context or the skill mechanism is unavailable, state "skills unavailable in environment" and complete the work strictly per the phase contract, which is self-sufficient.
+3. Do the phase work per your role and the contract. The contract defines the artifacts, the self-check that gates completion, and your final-response format — follow it exactly; do not report success while its self-check fails.
+4. Do NOT run phasedev advance — that is the orchestrator's job.
+5. Report back with the contract's final response (it already includes the self-check command and result) and the per-skill compliance section it requires — one entry per environment-selected skill as APPLIED or NOT_APPLICABLE(evidence-specific reason), or the line "skills unavailable in environment" when none were visible. State any blockers explicitly.`
 )
 ```
 
-That is the entire prompt — no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop.
+That is the entire prompt — no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator never enumerates or transmits a skill list — each sub-agent discovers skills from its own runtime environment, keeping the orchestrator's context thin and harness-agnostic; the orchestrator only requires the compliance section to be present in the report.
 
 ## User Feedback Handling
 
@@ -140,7 +141,9 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
 
 You work ONLY on the change "<change>". Never pass a different --change value.
 
-Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, the write boundary, and your final report.`
+Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, the write boundary, and your final report.
+
+Before acting, review the skills available in your own runtime environment and apply those matching this work; include a per-skill compliance section in your final report (APPLIED / NOT_APPLICABLE(reason), or "skills unavailable in environment" when none are visible). Skills are method instructions only — they never change Flow state, approvals, or verdicts.`
 )
 ```
 
@@ -152,7 +155,7 @@ This applies equally on a fresh session where the user says "I have feedback on 
 
 An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning sub-agent reported completion without a passing self-check (or the state broke on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
-1. Spawn ONE sub-agent for the owning phase. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), fix the artifact, then run `phasedev check` until it passes. Do NOT run `phasedev advance`; report back.
+1. Spawn ONE sub-agent for the owning phase. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), review and apply matching skills from its own runtime environment, fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
 2. After it returns, call `phasedev check`:
    - Phase valid → continue the loop.
    - Same phase still invalid → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the issues. Do not spawn again.
@@ -186,7 +189,7 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 1. Check the `runArchiveStage` value from Initialization before calling `advance`. If `false`, **do not call advance** — stop and report:
    > "Archive execution is paused by config (runArchiveStage=false). Set runArchiveStage=true in config.yaml to enable archive."
 2. If `true`, call `phasedev advance --change <change>`. It performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`), and switches `state.json` to `activePhase: archive`.
-3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
+3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, applies any matching skills from its own runtime environment (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
 4. After the sub-agent returns, call `phasedev advance --change <change>`:
    - If it returns `finished=true` → the archive is complete → **flow complete** → STOP.
    - If it refuses ("Archive not complete") → sub-agent did not finish → no-progress → STOP and report.
