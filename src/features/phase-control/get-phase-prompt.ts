@@ -20,6 +20,7 @@ import { resolveRoute } from "./flow-route";
 import { detectStateRouteConflict } from "./state-route-consistency";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
+import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
 import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES } from "./prompt-render-helpers";
@@ -60,14 +61,14 @@ function artifactContractSimple(
 }
 
 
-function validationFindingsContract(findingsPath: string, projectPath: string, changeName?: string, iterationId?: number): string {
+function validationFindingsContract(findingsPath: string, projectPath: string, blockingSeverity: BlockingSeverity, changeName?: string, iterationId?: number): string {
   const date = todayIsoDate();
   const changeFlag = changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
-    templateContent: renderValidationFindingsTemplate("iteration", date),
+    templateContent: renderValidationFindingsTemplate("iteration", date, blockingSeverity),
     selfCheckCommand: iterationId === undefined
       ? flowCheckCommand(projectPath, changeName)
       : `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope iteration --iteration-id ${iterationId}${changeFlag}`,
@@ -207,7 +208,7 @@ export function renderIterationValidation(projectPath: string, config: Config, p
     findings_path: urls.findings_path,
     date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, { phase: currentPhase }),
-    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, changeName, currentPhase.id)
+    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName, currentPhase.id)
   }, config);
 }
 
@@ -221,21 +222,21 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     findings_path: urls.findings_path,
     date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath),
-    validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, changeName)
+    validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
   }, config);
 }
 
 export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
   const urls = urlsFor(paths);
   return renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
-    repair_queue: formatRepairQueue(paths.findingsPath),
+    repair_queue: formatRepairQueue(paths.findingsPath, config.blockingSeverity),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,
     design_path: urls.design_path,
     prd_path: urls.prd_path,
     research_path: urls.research_path,
     rules_path: urls.rules_path,
-    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, changeName)
+    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
   }, config);
 }
 
@@ -281,7 +282,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     };
   }
 
-  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName));
+  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName, config.blockingSeverity));
   if (conflict) {
     return {
       command: "next",
@@ -402,7 +403,7 @@ function isQueuedRepairFinding(finding: ValidationFindingState): boolean {
   return finding.blocksPr && ["open", "reopened"].includes(finding.latestStatus);
 }
 
-function formatRepairQueue(findingsPath: string): string {
+function formatRepairQueue(findingsPath: string, blockingSeverity: BlockingSeverity): string {
   if (!fs.existsSync(findingsPath)) {
     return [
       "## Current Repair Queue",
@@ -413,7 +414,7 @@ function formatRepairQueue(findingsPath: string): string {
     ].join("\n");
   }
 
-  const queue = parseCurrentValidationFindings(findingsPath).filter(isQueuedRepairFinding);
+  const queue = parseCurrentValidationFindings(findingsPath, blockingSeverity).filter(isQueuedRepairFinding);
   const registryLink = `Full findings registry: [validation_findings.md](${toFileUrl(findingsPath)})`;
 
   if (queue.length === 0) {

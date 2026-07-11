@@ -20,9 +20,10 @@ Frontmatter contract:
 
 Verdict contract:
 - ready: use only when there are no open or reopened findings.
-- ready_with_risks: use only when open/reopened findings are limited to RECOMMENDED or NIT.
-- repair_required: use when at least one open/reopened MUST-FIX finding exists.
+- ready_with_risks: use only when every open/reopened finding is below the blocking threshold (see blocking policy below).
+- repair_required: use when at least one open/reopened finding is at or above the blocking threshold.
 {{repaired_verdict_note}}
+{{blocking_severity_policy}}
 Table value contract:
 - ID: stable finding ID such as F1, F2, F3; allocated automatically by `phasedev add-finding`.
 - Status: exactly one of open, reopened, resolved.

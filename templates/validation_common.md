@@ -54,8 +54,9 @@ Context budget and stop condition:
 
 Readiness decision rule:
 
+- {{blocking_severity_policy}}
 - `verdict: ready` means the validation scope is confirmed correctly solved for approved requirements, full code review found no open findings, full security review found no open findings, and review coverage was complete.
-- `verdict: ready_with_risks` means the validation scope is confirmed correctly solved for blocking requirements, full code and security review coverage was complete, and open findings are limited to non-blocking `RECOMMENDED` or `NIT` rows.
+- `verdict: ready_with_risks` means the validation scope is confirmed correctly solved for blocking requirements, full code and security review coverage was complete, and open findings are limited to severities below the configured blocking threshold (see the blocking-severity policy above).
 - If the coverage block would report an incomplete code review pass, incomplete security review pass, unresolved contradictory Check Evidence, or non-empty evidence gaps that prevent readiness confirmation, do not use `verdict: ready` or `verdict: ready_with_risks`; set `verdict: repair_required` and record the blocking gap with `Class = validation`.
 - If the agent cannot truthfully provide readiness confirmation, set `verdict: repair_required` and record the blocking reason.
 

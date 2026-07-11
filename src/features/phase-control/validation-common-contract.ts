@@ -2,6 +2,7 @@ import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { renderSkillComplianceLine, renderSkillPolicyInlineRef } from "./skill-policy";
+import { renderBlockingSeverityPolicy } from "./blocking-severity-policy";
 
 type ValidationCommonVariableKey =
   | "validation_artifact_read_order"
@@ -45,6 +46,7 @@ export function renderValidationCommonContract(stage: Phase, config: Config): st
   return renderTemplate("validation_common", {
     ...variables,
     skill_policy_inline_ref: renderSkillPolicyInlineRef(stage, config),
-    skill_compliance_line: renderSkillComplianceLine(stage, config)
+    skill_compliance_line: renderSkillComplianceLine(stage, config),
+    blocking_severity_policy: renderBlockingSeverityPolicy(config.blockingSeverity)
   });
 }

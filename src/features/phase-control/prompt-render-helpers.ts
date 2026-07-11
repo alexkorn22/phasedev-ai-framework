@@ -13,6 +13,8 @@ import { renderValidationCommonContract } from "./validation-common-contract";
 import { renderArtifactContract } from "./artifact-contract";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
 import { RESEARCH_TEMPLATE_SAMPLE_VALUES } from "../../entities/research-facts/sample-values";
+import { renderBlockingSeverityPolicy } from "./blocking-severity-policy";
+import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 
 // ── Phase Opening Summary ──────────────────────────────────
 
@@ -154,12 +156,13 @@ const REPAIRED_VERDICT_NOTE =
  * Render validation_findings.md with the verdict list and `type` value bound
  * to the artifact variant, instead of string-patching prose after render.
  */
-export function renderValidationFindingsTemplate(type: "iteration" | "final", date: string): string {
+export function renderValidationFindingsTemplate(type: "iteration" | "final", date: string, blockingSeverity: BlockingSeverity): string {
   return renderTemplate("artifacts/validation_findings", {
     date,
     artifact_type: type,
     allowed_verdicts: type === "iteration" ? ITERATION_ALLOWED_VERDICTS : FINAL_ALLOWED_VERDICTS,
     repaired_verdict_note: type === "iteration" ? REPAIRED_VERDICT_NOTE : "",
+    blocking_severity_policy: renderBlockingSeverityPolicy(blockingSeverity)
   });
 }
 
@@ -169,14 +172,14 @@ export const VALIDATION_FINDINGS_CANONICAL_FILL_RULES = [
   "- The findings registry is append-only; the controller diffs it against a baseline snapshot and fails the self-check if rows were deleted or rewritten."
 ];
 
-export function finalValidationArtifactContract(findingsPath: string, projectPath: string, changeName?: string): string {
+export function finalValidationArtifactContract(findingsPath: string, projectPath: string, blockingSeverity: BlockingSeverity, changeName?: string): string {
   const date = todayIsoDate();
 
   return renderArtifactContract({
     artifactId: "validation_findings.md",
     resolvedOutputPath: findingsPath,
     templateName: "artifacts/validation_findings",
-    templateContent: renderValidationFindingsTemplate("final", date),
+    templateContent: renderValidationFindingsTemplate("final", date, blockingSeverity),
     selfCheckCommand: flowFinalValidationCheckCommand(projectPath, changeName),
     selfCheckFailureGuidance:
       "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
