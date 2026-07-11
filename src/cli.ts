@@ -487,14 +487,16 @@ function main(): void {
       return;
     }
 
-    const result = resolveFinding(targetFile, id, resolution);
-    const prefix = result.ok ? "[PHASEDEV RESOLVE-FINDING] OK" : "[PHASEDEV RESOLVE-FINDING] FAILED";
-    reportCliResult(jsonMode, {
-      ok: result.ok,
-      kind: "resolve-finding",
-      humanMessage: `${prefix}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { file: targetFile, id }
+    runWithOptionalStateLock(projectPath, () => {
+      const result = resolveFinding(targetFile, id, resolution);
+      const prefix = result.ok ? "[PHASEDEV RESOLVE-FINDING] OK" : "[PHASEDEV RESOLVE-FINDING] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "resolve-finding",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { file: targetFile, id }
+      });
     });
     return;
   }
