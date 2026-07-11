@@ -27,5 +27,25 @@ export function renderTemplate(templateName: string, variables: Record<string, s
     throw new Error(`Template ${templateName}.md has unresolved placeholder(s): ${Array.from(new Set(unresolved)).join(", ")}.`);
   }
 
-  return content.replace(placeholderPattern, (_match, key) => variables[key.trim()]);
+  return content.replace(placeholderPattern, (_match, key, offset: number) => {
+    const value = variables[key.trim()];
+    const lineStart = content.lastIndexOf("\n", offset - 1) + 1;
+    return indentContinuationLines(value, content.slice(lineStart, offset));
+  });
+}
+
+// A multi-line value substituted into a list item must keep its continuation
+// lines inside that item: markdown treats flush-left continuation lines as
+// leaving the list. Indent them to the item's content column; values on
+// flush-left lines (e.g. inside ```text blocks) stay untouched.
+function indentContinuationLines(value: string, linePrefix: string): string {
+  if (!value.includes("\n")) {
+    return value;
+  }
+  const listMarker = linePrefix.match(/^\s*(?:[-*+]|\d+[.)])\s+/);
+  const indentWidth = listMarker ? listMarker[0].length : /^\s+$/.test(linePrefix) ? linePrefix.length : 0;
+  if (indentWidth === 0) {
+    return value;
+  }
+  return value.split("\n").join(`\n${" ".repeat(indentWidth)}`);
 }

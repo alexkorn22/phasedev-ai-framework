@@ -2470,6 +2470,36 @@ stages:
     }
   });
 
+  test("template renderer indents multi-line values to the list item content column", () => {
+    const templatesDir = path.resolve(__dirname, "..", "templates");
+    const tempTemplateName = "__test_multiline_list_indent";
+    const tempTemplatePath = path.join(templatesDir, `${tempTemplateName}.md`);
+    fs.writeFileSync(
+      tempTemplatePath,
+      "- {{block}}\n  - {{block}}\n- Include {{block}}\n{{block}}\n",
+      "utf-8"
+    );
+
+    try {
+      const rendered = renderTemplate(tempTemplateName, { block: "first line\nsecond line" });
+      expect(rendered).toBe(
+        [
+          "- first line",
+          "  second line",
+          "  - first line",
+          "    second line",
+          "- Include first line",
+          "  second line",
+          "first line",
+          "second line",
+          ""
+        ].join("\n")
+      );
+    } finally {
+      fs.rmSync(tempTemplatePath, { force: true });
+    }
+  });
+
   describe("config command deprecation", () => {
     test("getConfigValue maps codex.stages.setup.skills.main to stages.change_intake.skills.main with deprecation hint", () => {
       const config = parseConfig(`
