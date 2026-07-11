@@ -42,4 +42,14 @@ describe("create-change commit-log start", () => {
     expect(res.ok).toBe(true);
     expect(fs.existsSync(buildChangePaths(res.changeDir!).commitLogPath)).toBe(false);
   });
+
+  it("records start = HEAD in a git repo for --quick changes too", () => {
+    const repo = makeGitRepo(); dirs.push(repo);
+    fs.writeFileSync(path.join(repo, "a.txt"), "x");
+    const head = gitCommitAll(repo, "init");
+    const res = createChange(repo, "My Quick Change", undefined, true);
+    expect(res.ok).toBe(true);
+    expect(fs.existsSync(buildChangePaths(res.changeDir!).commitLogPath)).toBe(true);
+    expect(readCommitLog(buildChangePaths(res.changeDir!).commitLogPath)?.start).toBe(head);
+  });
 });

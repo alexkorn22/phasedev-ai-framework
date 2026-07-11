@@ -43,7 +43,7 @@ import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans"]);
+const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans", "--quick"]);
 
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
@@ -688,14 +688,15 @@ function handleCreateChange(ctx: CommandContext): void {
     reportCliResult(ctx.jsonMode, {
       ok: false,
       kind: "create-change",
-      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>]"
+      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]"
     });
     return;
   }
 
   runWithOptionalStateLock(ctx.projectPath, () => {
     const taskText = parseStringOption(ctx.args, "--task");
-    const result = createChange(ctx.projectPath, name, taskText);
+    const quick = hasFlag(ctx.args, "--quick");
+    const result = createChange(ctx.projectPath, name, taskText, quick);
     reportCliResult(ctx.jsonMode, {
       ok: result.ok,
       kind: "create-change",

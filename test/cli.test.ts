@@ -3559,6 +3559,48 @@ describe("code review finding tests", () => {
     expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>]");
   });
 
+  test("create-change --quick writes a quick state and a worklog skeleton", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "qc", "--project-path", testTmpDir, "--quick"]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "qc");
+    const state = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(state.activePhase).toBe("quick_plan");
+    expect(state.flowMode).toBe("quick");
+
+    const worklog = fs.readFileSync(path.join(changeDir, "worklog.md"), "utf-8");
+    expect(worklog).toContain("## Task");
+    expect(worklog).toContain("## Short Specification");
+    expect(worklog).toContain("## Plan");
+  });
+
+  test("create-change without --quick does not write a worklog and uses change_intake", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "std", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "std");
+    const state = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(state.activePhase).toBe("change_intake");
+    expect(state.flowMode).toBeUndefined();
+    expect(fs.existsSync(path.join(changeDir, "worklog.md"))).toBe(false);
+  });
+
+  test("create-change --quick --task keeps writing intake_task.md", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "qc-task", "--project-path", testTmpDir, "--quick", "--task", "quick task text"]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "qc-task");
+    const taskPath = path.join(changeDir, "intake_task.md");
+    expect(fs.existsSync(taskPath)).toBe(true);
+    expect(fs.readFileSync(taskPath, "utf-8").trim()).toBe("quick task text");
+  });
+
   // ── approve auto-resolution ─────────────────────────────────
 
   test("approve resolves bare filename to active change directory", () => {
