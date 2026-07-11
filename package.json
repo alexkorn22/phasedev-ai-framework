@@ -7,6 +7,15 @@
     "phasedev": "./src/cli.ts"
   },
   "type": "module",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "src",
+    "templates",
+    "config.yaml",
+    "README.md"
+  ],
   "scripts": {
     "test": "bun test",
     "prompts:generate": "bun run scripts/generate-agent-prompts.ts",

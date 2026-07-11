@@ -57,6 +57,8 @@ Several unfinished changes may coexist under `.phasedev/changes/`. Every change-
 
 ## 📦 Installation
 
+> **Requirement:** PhaseDev runs on [Bun](https://bun.sh) only — the CLI entrypoint is a Bun script with no compiled Node build.
+
 ### 1. Install the global `phasedev` command
 
 PhaseDev requires [Bun](https://bun.sh) — the CLI entrypoint (`src/cli.ts`) runs directly as a
