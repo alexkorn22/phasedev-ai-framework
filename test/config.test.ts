@@ -115,6 +115,10 @@ phases:
     ).toThrow(/unknown_phase/);
   });
 
+  test("rejects quick_* phase names under phases:", () => {
+    expect(() => parseConfig("phases:\n  quick_plan:\n    skills:\n      main: [foo]\n")).toThrow(/Unknown phase "quick_plan"/);
+  });
+
   test("parses empty/missing phases to empty object", () => {
     const config = parseConfig(`{}`);
     expect(config.phases).toEqual({});
