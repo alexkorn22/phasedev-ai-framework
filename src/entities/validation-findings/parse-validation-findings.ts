@@ -4,6 +4,7 @@ import { bodyAfterFrontmatter } from "../../shared/markdown/headings";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { isMarkdownTableSeparatorRow, parseMarkdownTableBlocks, splitMarkdownTableRow } from "../../shared/markdown/table";
 import * as fs from "fs";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, severityBlocks, blockingSeverityLabel } from "./blocking-severity";
 
 export interface ValidationFindingState {
   id: string;
@@ -130,8 +131,8 @@ function artifactWithDerivedRows(
   issues: ValidationFindingIssue[]
 ): ValidationFindingsArtifact {
   const openRows = rows.filter(row => isOpenStatus(row.status));
-  const openBlockingRows = openRows.filter(row => row.severity === "MUST-FIX");
-  const openNonBlockingRows = openRows.filter(row => row.severity !== "MUST-FIX");
+  const openBlockingRows = openRows.filter(row => row.blocksPr);
+  const openNonBlockingRows = openRows.filter(row => !row.blocksPr);
 
   return {
     exists,
@@ -145,7 +146,10 @@ function artifactWithDerivedRows(
   };
 }
 
-export function parseValidationFindingsArtifact(filePath: string): ValidationFindingsArtifact {
+export function parseValidationFindingsArtifact(
+  filePath: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ValidationFindingsArtifact {
   if (!fs.existsSync(filePath)) {
     return artifactWithDerivedRows(false, "unknown", "unknown", [], []);
   }
@@ -278,7 +282,7 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
         status: status as ValidationFindingStatus,
         severity: severity as ValidationFindingSeverity,
         className: className as ValidationFindingClass,
-        blocksPr: severity === "MUST-FIX",
+        blocksPr: severityBlocks(severity as ValidationFindingSeverity, blockingSeverity),
         phase,
         finding,
         requiredFix,
@@ -307,19 +311,20 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
         message: "`verdict: ready` is allowed only when there are no open or reopened findings."
       });
     }
+    const blockingLabel = blockingSeverityLabel(blockingSeverity);
     if (artifact.verdict === "ready_with_risks" && artifact.openBlockingRows.length > 0) {
       artifact.issues.push({
         code: "verdict_ready_with_risks_with_open_blocking",
-        message: "`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist."
+        message: `\`verdict: ready_with_risks\` is not allowed while open or reopened ${blockingLabel} findings exist.`
       });
     }
     if (artifact.verdict === "repair_required" && artifact.openBlockingRows.length === 0) {
-      artifact.issues.push(genericIssue("`verdict: repair_required` requires at least one open or reopened MUST-FIX finding."));
+      artifact.issues.push(genericIssue(`\`verdict: repair_required\` requires at least one open or reopened ${blockingLabel} finding.`));
     }
     if (artifact.verdict === "repaired" && artifact.openBlockingRows.length > 0) {
       artifact.issues.push({
         code: "verdict_repaired_with_open_blocking",
-        message: "`verdict: repaired` is not allowed while open or reopened MUST-FIX findings exist."
+        message: `\`verdict: repaired\` is not allowed while open or reopened ${blockingLabel} findings exist.`
       });
     }
   }
@@ -327,12 +332,15 @@ export function parseValidationFindingsArtifact(filePath: string): ValidationFin
   return artifact;
 }
 
-export function parseCurrentValidationFindings(filePath: string): ValidationFindingState[] {
+export function parseCurrentValidationFindings(
+  filePath: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ValidationFindingState[] {
   if (!fs.existsSync(filePath)) {
     return [];
   }
 
-  return parseValidationFindingsArtifact(filePath).rows.map(row => {
+  return parseValidationFindingsArtifact(filePath, blockingSeverity).rows.map(row => {
     const canonicalFinding = canonicalFindingFor(row.finding);
 
     return {

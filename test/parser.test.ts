@@ -2717,4 +2717,54 @@ Example table format:
   afterAll(() => {
     cleanupTestDir();
   });
+
+  describe("blockingSeverity threshold", () => {
+    const twoRows = `---
+verdict: repair_required
+type: iteration
+date: 2026-07-11
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | RECOMMENDED | implementation | Iteration 1 | Minor issue. | Improve it. |
+| F2 | resolved | MUST-FIX | implementation | Iteration 1 | Fixed defect. | Was fixed. |
+`;
+
+    test("must_fix (default) treats RECOMMENDED as non-blocking", () => {
+      const file = writeTmp(twoRows);
+      const artifact = parseValidationFindingsArtifact(file);
+      expect(artifact.openBlockingRows.map(r => r.id)).toEqual([]);
+      expect(artifact.openNonBlockingRows.map(r => r.id)).toEqual(["F1"]);
+    });
+
+    test("recommended threshold makes an open RECOMMENDED blocking", () => {
+      const file = writeTmp(twoRows);
+      const artifact = parseValidationFindingsArtifact(file, "recommended");
+      expect(artifact.openBlockingRows.map(r => r.id)).toEqual(["F1"]);
+      expect(artifact.openNonBlockingRows.map(r => r.id)).toEqual([]);
+      expect(artifact.rows.find(r => r.id === "F1")?.blocksPr).toBe(true);
+    });
+
+    test("recommended threshold: ready_with_risks with open RECOMMENDED is inconsistent", () => {
+      const file = writeTmp(twoRows.replace("verdict: repair_required", "verdict: ready_with_risks"));
+      const messages = parseValidationFindingsArtifact(file, "recommended").issues.map(i => i.message);
+      expect(messages).toContain("`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX or RECOMMENDED findings exist.");
+    });
+
+    test("nit threshold blocks an open NIT finding", () => {
+      const nitFile = writeTmp(`---
+verdict: repair_required
+type: iteration
+date: 2026-07-11
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix |
+|---|---|---|---|---|---|---|
+| F1 | open | NIT | implementation | Iteration 1 | Cosmetic. | Tidy up. |
+`);
+      const artifact = parseValidationFindingsArtifact(nitFile, "nit");
+      expect(artifact.openBlockingRows.map(r => r.id)).toEqual(["F1"]);
+    });
+  });
 });
