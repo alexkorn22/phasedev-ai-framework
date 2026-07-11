@@ -519,29 +519,29 @@ function main(): void {
   const initPrompt = getInitPrompt(workingProjectPath, config);
   manifest.push(savePrompt(promptsDir, "00-init.md", initPrompt.phase, initPrompt.prompt, options, workingProjectPath));
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-stage-0-setup.md", "change_intake", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "01-phase-0-setup.md", "change_intake", options, config));
   writeBaseArtifacts(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "02-stage-1-research.md", "code_research", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "02-phase-1-research.md", "code_research", options, config));
   writeResearch(paths, workingProjectPath);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "03-stage-2-design.md", "technical_design", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "03-phase-2-design.md", "technical_design", options, config));
   writeDesign(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "04-stage-3-plan.md", "iteration_planning", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "04-phase-3-plan.md", "iteration_planning", options, config));
   writePlan(paths, "implementation");
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "05-stage-4-implementation.md", "implementation", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "05-phase-4-implementation.md", "implementation", options, config));
   writePlan(paths, "iteration_validation");
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-stage-5a-phase-validation.md", "iteration_validation", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-phase-5a-phase-validation.md", "iteration_validation", options, config));
   writePlan(paths, "final_validation");
   writePhaseReadyFindings(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "07-stage-5b-final-validation.md", "final_validation", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "07-phase-5b-final-validation.md", "final_validation", options, config));
   writeRepairFindings(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-stage-5r-repair.md", "finding_repair", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-phase-5r-repair.md", "finding_repair", options, config));
   writePlan(paths, "archive");
   writeFinalReadyFindings(paths);
 
@@ -549,7 +549,7 @@ function main(): void {
   // is owned by advance/startArchiveStage. Run it explicitly so the archive
   // prompt renders against the pending archive, like after a real advance.
   startArchiveStage(workingProjectPath, changeDir, new Date(), config);
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "09-stage-6-archive.md", "archive", options, config));
+  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "09-phase-6-archive.md", "archive", options, config));
 
   restoreActiveChangeArtifactSnapshot(changeDir);
 

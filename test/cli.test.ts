@@ -943,11 +943,11 @@ stages:
     });
 
     expect(result.exitCode).toBe(0);
-    const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-stage-3-plan.md"), "utf-8");
-    const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-stage-4-implementation.md"), "utf-8");
-    const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-stage-5a-phase-validation.md"), "utf-8");
-    const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-stage-5b-final-validation.md"), "utf-8");
-    const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-stage-5r-repair.md"), "utf-8");
+    const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-phase-3-plan.md"), "utf-8");
+    const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-phase-4-implementation.md"), "utf-8");
+    const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-phase-validation.md"), "utf-8");
+    const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-final-validation.md"), "utf-8");
+    const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-phase-5r-repair.md"), "utf-8");
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
     const phasePlanLink = phaseValidationPrompt.match(/\[iteration_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
     const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
@@ -958,7 +958,7 @@ stages:
     const repairOutputPath = repairPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const repairCheckProjectPath = repairPrompt.match(/phasedev check --project-path "([^"]+)"/)?.[1];
 
-    expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-stage-3-plan", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md"));
+    expect(planPrompt).toContain(path.join(outDir, "artifact-snapshots", "04-phase-3-plan", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md"));
     expect(planPrompt).toContain("Examples of acceptable conservative planning assumptions:");
     expect(planPrompt).toContain("Examples of required planning blockers:");
     expect(planPrompt).toContain("Success final response is allowed only after the self-check passes.");
@@ -1006,22 +1006,22 @@ stages:
     expect(phaseValidationPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
     expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: iteration\ndate:");
-    expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(phaseCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
+    expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(phaseCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
     expect(phasePlanLink).toBeTruthy();
     const phasePlanPath = phasePlanLink!.replace(/^file:\/\//, "");
-    expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
+    expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
     const phasePlanSnapshot = fs.readFileSync(phasePlanPath, "utf-8");
     expect(phasePlanSnapshot).toContain("## Iteration 1: Prompt Generation [~]");
     expect(phasePlanSnapshot).not.toContain("## Iteration 1: Prompt Generation [x]");
     expect(phaseFindingsLink).toBeTruthy();
     const phaseFindingsPath = phaseFindingsLink!.replace(/^file:\/\//, "");
-    expect(phaseFindingsPath).toContain(path.join(outDir, "artifact-snapshots", "06-stage-5a-phase-validation"));
+    expect(phaseFindingsPath).toContain(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
     if (fs.existsSync(phaseFindingsPath)) {
       expect(fs.readFileSync(phaseFindingsPath, "utf-8")).toContain("type: iteration");
       expect(fs.readFileSync(phaseFindingsPath, "utf-8")).not.toContain("type: final");
     }
-    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
+    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation"));
     expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md")}`);
     expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).toContain("Phase 6B. Final Validation.");
@@ -1044,8 +1044,8 @@ stages:
     expect(finalValidationPrompt).toContain("--scope final");
     expect(finalValidationPrompt).toContain("snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
     expect(finalValidationPrompt).toContain("during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead");
-    expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-stage-5b-final-validation"));
+    expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation"));
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(finalValidationPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
     expect(finalValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
@@ -1074,8 +1074,8 @@ stages:
     expect(repairPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(repairPrompt).toContain("Resolved findings: <F# list>");
     expect(repairPrompt).toContain("Self-check: <exact command> -> <result>");
-    expect(repairOutputPath).toBe(path.join(outDir, "artifact-snapshots", "08-stage-5r-repair", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(repairCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "08-stage-5r-repair"));
+    expect(repairOutputPath).toBe(path.join(outDir, "artifact-snapshots", "08-phase-5r-repair", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(repairCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "08-phase-5r-repair"));
     expect(repairOutputPath).toBe(path.join(repairCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
     expect(repairPrompt).not.toContain(`phasedev check --project-path "${path.join(outDir, "sandbox-project")}"`);
     expect(repairPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));

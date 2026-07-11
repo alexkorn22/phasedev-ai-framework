@@ -41,12 +41,12 @@ const FINAL_VALIDATION_COMMON: ValidationCommonVariables = {
   validation_full_gate_line: "Full gate: <exact full command> -> passed / failed / unavailable"
 };
 
-export function renderValidationCommonContract(stage: Phase, config: Config): string {
-  const variables = stage === "final_validation" ? FINAL_VALIDATION_COMMON : PHASE_VALIDATION_COMMON;
+export function renderValidationCommonContract(phase: Phase, config: Config): string {
+  const variables = phase === "final_validation" ? FINAL_VALIDATION_COMMON : PHASE_VALIDATION_COMMON;
   return renderTemplate("validation_common", {
     ...variables,
-    skill_policy_inline_ref: renderSkillPolicyInlineRef(stage, config),
-    skill_compliance_line: renderSkillComplianceLine(stage, config),
+    skill_policy_inline_ref: renderSkillPolicyInlineRef(phase, config),
+    skill_compliance_line: renderSkillComplianceLine(phase, config),
     blocking_severity_policy: renderBlockingSeverityPolicy(config.blockingSeverity)
   });
 }
