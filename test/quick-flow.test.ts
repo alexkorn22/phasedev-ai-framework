@@ -69,6 +69,21 @@ describe("startArchiveStage flowMode preservation", () => {
     expect(state.activePhase).toBe("archive");
   });
 
+  it("resolves the archive-dir active change path for a quick change pending archive (init prompt)", () => {
+    const { projectPath, changeDir } = quickChangeDir();
+    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"), DEFAULT_CONFIG);
+    expect(result.blocked).toBeFalsy();
+
+    const archived = path.join(projectPath, ".phasedev", "changes", "archive", "2026-07-11-c1");
+    const archiveState = JSON.parse(fs.readFileSync(path.join(archived, ".phase-archive.json"), "utf-8"));
+    expect(archiveState.status).toBe("in_progress");
+
+    const init = getInitPrompt(projectPath);
+    expect(init.blocked).toBe(false);
+    expect(init.prompt).not.toContain("active_change: none");
+    expect(init.prompt).toContain(archived);
+  });
+
   it("leaves standard archived state without a flowMode key", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "pd-arch2-"));
     const changeDir = path.join(root, ".phasedev", "changes", "c2");
@@ -251,6 +266,7 @@ describe("read-only commands on a quick change", () => {
     const init = getInitPrompt(projectPath);
     expect(init.blocked).toBe(false);
     expect(init.prompt).not.toContain("change_intake");
+    expect(init.prompt).toContain("quick_plan");
 
     expect(() => getFeedbackPrompt(projectPath, changeName)).not.toThrow();
     const feedback = getFeedbackPrompt(projectPath, changeName);

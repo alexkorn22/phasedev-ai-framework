@@ -1,8 +1,7 @@
 import { Phase } from "../../entities/phase/types";
 import type { Route } from "./flow-route";
 import { resolveRoute } from "./flow-route";
-import { loadFlowState } from "../../entities/change/flow-state";
-import { resolveChangeDir } from "../../entities/change/active-change";
+import { loadFlowState, locateChangeDir } from "../../entities/change/flow-state";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export interface CurrentState {
@@ -21,7 +20,7 @@ export function resolveCurrentState(
     return {
       phase: flowState.activePhase,
       routeKind: "quick",
-      activeChangePath: resolveChangeDir(projectPath, changeName)
+      activeChangePath: locateChangeDir(projectPath, flowState, changeName)
     };
   }
 
