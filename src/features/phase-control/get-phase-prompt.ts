@@ -18,6 +18,7 @@ import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { archiveTemplateVariables } from "./archive-stage";
 import { resolveRoute } from "./flow-route";
 import { detectStateRouteConflict } from "./state-route-consistency";
+import { readCommitLog, iterationDiffBase } from "../../entities/change/commit-log";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
@@ -207,7 +208,13 @@ export function renderIterationValidation(projectPath: string, config: Config, p
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
     date: todayIsoDate(),
-    controller_changed_files_inventory: renderChangedFileInventory(projectPath, { phase: currentPhase }),
+    controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
+      phase: currentPhase,
+      diffBase: (() => {
+        const log = readCommitLog(paths.commitLogPath);
+        return log ? iterationDiffBase(log, currentPhase.id) ?? undefined : undefined;
+      })()
+    }),
     validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName, currentPhase.id)
   }, config);
 }
@@ -221,7 +228,9 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
     date: todayIsoDate(),
-    controller_changed_files_inventory: renderChangedFileInventory(projectPath),
+    controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
+      diffBase: readCommitLog(paths.commitLogPath)?.start ?? undefined
+    }),
     validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
   }, config);
 }
