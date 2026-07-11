@@ -1,5 +1,10 @@
-import { describe, it, expect } from "bun:test";
-import { iterationCommitBlocker, finalCommitBlocker } from "../src/features/phase-control/prompt-blockers";
+import { describe, it, test, expect } from "bun:test";
+import {
+  iterationCommitBlocker, finalCommitBlocker,
+  approvalBlocker, testCommandBlocker, invalidPlanBlocker, invalidPrdBlocker,
+  invalidRulesBlocker, invalidResearchBlocker, invalidDesignBlocker,
+  archiveReadinessBlocker, validationFindingsBlocker
+} from "../src/features/phase-control/prompt-blockers";
 
 describe("commit blockers", () => {
   it("iterationCommitBlocker names the iteration, suggests a message, points at advance and the opt-out", () => {
@@ -25,5 +30,58 @@ describe("commit blockers", () => {
     expect(p.reason).toBe("Commit required before archive");
     expect(p.phase).toBe("final_validation");
     expect(p.prompt).toContain("phasedev(my-change): final validation");
+  });
+});
+
+describe("artifact blockers", () => {
+  test("approvalBlocker names the artifact, links it, and is blocked", () => {
+    const p = approvalBlocker("technical_design", "Approve the design", "/x/design.md", "design.md", "my-change");
+    expect(p.blocked).toBe(true);
+    expect(p.reason).toBe("Approve the design");
+    expect(p.phase).toBe("technical_design");
+    expect(p.prompt).toContain("file:///x/design.md");
+    expect(p.prompt).toContain('phasedev advance --change "my-change"');
+  });
+
+  test("testCommandBlocker lists the missing gates", () => {
+    const p = testCommandBlocker("change_intake", "/x/execution_contract.md", ["unit", "full"]);
+    expect(p.blocked).toBe(true);
+    expect(p.prompt).toContain("unit, full");
+    expect(p.reason).toBe("Missing test command");
+  });
+
+  test("invalidPlanBlocker lists issues on the iteration_planning phase", () => {
+    const p = invalidPlanBlocker("/x/iteration_plan.md", ["bad heading"], "my-change");
+    expect(p.phase).toBe("iteration_planning");
+    expect(p.prompt).toContain("bad heading");
+  });
+
+  test("invalidPrdBlocker targets change_intake", () => {
+    expect(invalidPrdBlocker("/x/prd.md", ["missing R1"]).phase).toBe("change_intake");
+  });
+
+  test("invalidRulesBlocker targets change_intake", () => {
+    expect(invalidRulesBlocker("/x/execution_contract.md", ["no gates"]).phase).toBe("change_intake");
+  });
+
+  test("invalidResearchBlocker targets code_research", () => {
+    expect(invalidResearchBlocker("/x/research_facts.md", ["no facts"]).phase).toBe("code_research");
+  });
+
+  test("invalidDesignBlocker targets technical_design", () => {
+    expect(invalidDesignBlocker("/x/design.md", ["no decisions"]).phase).toBe("technical_design");
+  });
+
+  test("archiveReadinessBlocker carries the title and details", () => {
+    const p = archiveReadinessBlocker("Conflict", "/x/change", "diverged", undefined);
+    expect(p.blocked).toBe(true);
+    expect(p.prompt).toContain("Conflict");
+    expect(p.prompt).toContain("diverged");
+    expect(p.prompt).toContain("phasedev advance");
+    expect(p.prompt).not.toContain("--change");
+  });
+
+  test("validationFindingsBlocker targets finding_repair", () => {
+    expect(validationFindingsBlocker("/x/validation_findings.md", ["no table"]).phase).toBe("finding_repair");
   });
 });
