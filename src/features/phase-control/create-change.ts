@@ -4,6 +4,9 @@ import { SYSTEM_DIR } from "../../entities/change/paths";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { listActiveChangeDirs } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState } from "../../entities/change/archive-state";
+import { gitHeadSha } from "../../shared/shell/git";
+import { recordCommitLogStart } from "../../entities/change/commit-log";
+import { buildChangePaths } from "../../entities/change/paths";
 
 /**
  * Convert a name string to a filesystem-safe slug.
@@ -82,6 +85,11 @@ export function createChange(projectPath: string, name: string, taskText?: strin
     repairCycleCount: 0
   };
   writeFileAtomic(statePath, JSON.stringify(initialState, null, 2) + "\n");
+
+  const head = gitHeadSha(projectPath);
+  if (head) {
+    recordCommitLogStart(buildChangePaths(changeDir).commitLogPath, head);
+  }
 
   if (taskText) {
     const taskPath = path.join(changeDir, "intake_task.md");
