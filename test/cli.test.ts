@@ -3732,3 +3732,15 @@ describe("feedback command", () => {
     expect(result.output).toContain("No active change");
   });
 });
+
+describe("express command", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("phasedev express prints the contract and creates nothing", () => {
+    const result = runCli(["express", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("PhaseDev Express");
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
+  });
+});

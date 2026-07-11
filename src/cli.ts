@@ -38,6 +38,7 @@ import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-ph
 import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
+import { getExpressPrompt } from "./features/express-mode/get-express-prompt";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
@@ -738,6 +739,17 @@ function handleFeedback(ctx: CommandContext): void {
   }
 }
 
+function handleExpress(ctx: CommandContext): void {
+  const result = getExpressPrompt();
+  reportCliResult(ctx.jsonMode, {
+    ok: true,
+    kind: "express",
+    humanMessage: result.prompt,
+    jsonMessage: "Express contract ready.",
+    data: { prompt: result.prompt }
+  });
+}
+
 function handleAdvance(ctx: CommandContext): void {
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
@@ -854,6 +866,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "create-change": handleCreateChange,
   phase: handlePhase,
   feedback: handleFeedback,
+  express: handleExpress,
   advance: handleAdvance,
   check: handleCheck,
   "check-validation": handleCheckValidation,
