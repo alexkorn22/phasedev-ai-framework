@@ -1,9 +1,8 @@
 import * as path from "path";
 import { Config } from "../../entities/config/config";
-import { FlowState } from "../../entities/change/flow-state";
+import { FlowState, locateChangeDir } from "../../entities/change/flow-state";
 import { Prompt } from "../../entities/phase/types";
 import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
-import { resolveChangeDir } from "../../entities/change/active-change";
 import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { renderPhaseTemplate, flowCheckCommand } from "./prompt-render-helpers";
 import { toFileUrl } from "./prompt-formatters";
@@ -13,9 +12,8 @@ function blocked(phase: FlowState["activePhase"], message: string, reason: strin
 }
 
 export function quickPhasePrompt(projectPath: string, config: Config, state: FlowState, changeName?: string): Prompt {
-  const activeDir = resolveChangeDir(projectPath, changeName);
+  const changeDir = locateChangeDir(projectPath, state, changeName);
   const pending = findPendingArchiveState(projectPath, changeName);
-  const changeDir = activeDir ?? pending?.archivePath ?? null;
   if (!changeDir) {
     return blocked(state.activePhase, `[PHASEDEV] Cannot resolve change directory for quick phase ${state.activePhase}.`, "No change directory");
   }

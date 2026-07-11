@@ -1,9 +1,7 @@
 import * as fs from "fs";
-import { FlowState } from "../../entities/change/flow-state";
+import { FlowState, locateChangeDir } from "../../entities/change/flow-state";
 import { PhaseCheckResult } from "./check-flow";
 import { buildChangePaths } from "../../entities/change/paths";
-import { resolveChangeDir } from "../../entities/change/active-change";
-import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { checkArchiveCompletion } from "./check-archive";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
@@ -20,9 +18,7 @@ export function quickCheck(
   changeName?: string,
   _blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
 ): PhaseCheckResult {
-  const active = resolveChangeDir(projectPath, changeName);
-  const pending = findPendingArchiveState(projectPath, changeName);
-  const changeDir = active ?? pending?.archivePath ?? null;
+  const changeDir = locateChangeDir(projectPath, state, changeName);
   if (!changeDir) return fail(state.activePhase, "cannot locate the quick change directory.");
   const paths = buildChangePaths(changeDir);
 

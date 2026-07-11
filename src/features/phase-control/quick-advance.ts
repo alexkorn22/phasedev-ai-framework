@@ -3,7 +3,7 @@ import { FlowState, saveFlowState } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { findPendingArchiveState, findCompletedArchiveState, readArchiveState } from "../../entities/change/archive-state";
-import { AdvanceResult, commitGateBlocks } from "./advance-flow";
+import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 import { startArchiveStage } from "./archive-stage";
 import { checkArchiveCompletion } from "./check-archive";
 import { nextQuickPhase } from "./quick-flow-sequence";
