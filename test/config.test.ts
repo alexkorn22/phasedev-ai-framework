@@ -276,6 +276,19 @@ stages:
   test("rejects an invalid blockingSeverity", () => {
     expect(() => parseConfig(`blockingSeverity: sometimes`)).toThrow(/blockingSeverity/);
   });
+
+  test("defaults requireIterationCommit to true when absent", () => {
+    expect(DEFAULT_CONFIG.requireIterationCommit).toBe(true);
+    expect(parseConfig("phases: {}\n").requireIterationCommit).toBe(true);
+  });
+
+  test("reads an explicit requireIterationCommit: false", () => {
+    expect(parseConfig("requireIterationCommit: false\n").requireIterationCommit).toBe(false);
+  });
+
+  test("rejects a non-boolean requireIterationCommit", () => {
+    expect(() => parseConfig("requireIterationCommit: yes-please\n")).toThrow(/requireIterationCommit/);
+  });
 });
 
 // ============================================================================

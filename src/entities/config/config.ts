@@ -22,6 +22,7 @@ export interface Config {
   maxIterations: number;
   maxRepairCycles: number;
   blockingSeverity: BlockingSeverity;
+  requireIterationCommit: boolean;
 }
 
 export const EMPTY_PHASE_SKILLS: PhaseSkillConfig = {
@@ -36,7 +37,8 @@ export const DEFAULT_CONFIG: Config = {
   autoApprove: false,
   maxIterations: 10,
   maxRepairCycles: 3,
-  blockingSeverity: "must_fix"
+  blockingSeverity: "must_fix",
+  requireIterationCommit: true
 };
 
 const PHASE_NAME_MAP: Record<string, string> = {
@@ -299,7 +301,8 @@ export function parseConfig(content: string): Config {
     autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
     maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations"),
     maxRepairCycles: readPositiveInteger(root.maxRepairCycles, DEFAULT_CONFIG.maxRepairCycles, "maxRepairCycles"),
-    blockingSeverity: readBlockingSeverity(root.blockingSeverity, DEFAULT_CONFIG.blockingSeverity, "blockingSeverity")
+    blockingSeverity: readBlockingSeverity(root.blockingSeverity, DEFAULT_CONFIG.blockingSeverity, "blockingSeverity"),
+    requireIterationCommit: readBoolean(root.requireIterationCommit, DEFAULT_CONFIG.requireIterationCommit, "requireIterationCommit")
   };
 }
 
