@@ -548,6 +548,36 @@ Test fixture only.
     expect(result.prompt).toContain("repaired: use only in Repair Loop");
   });
 
+  test("iteration_validation contract instructs the agent to commit after a passing verdict", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test unit\` | passed | unit tests passed for API endpoint | none |
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`);
+
+    const result = getRoutePrompt(testTmpDir);
+
+    expect(result.phase).toBe("iteration_validation");
+    expect(result.prompt).toContain("commit the iteration");
+  });
+
   test("completed single-phase route reports phase validation stage", () => {
     setupChange(`
 # Plan

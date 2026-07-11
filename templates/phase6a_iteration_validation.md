@@ -53,5 +53,6 @@ Any file not listed above is read-only for this phase.
 
 Phase completion:
 - After writing `validation_findings.md` and possibly updating the iteration status, stop.
+- On a `ready` or `ready_with_risks` verdict, after marking the iteration `[x]`, commit the iteration's code changes together with the updated `.phasedev` artifacts before running `phasedev advance`. Suggested message: `phasedev(<change>): iteration N — <name>`. If the working tree is not clean, `phasedev advance` will block until the iteration is committed (unless `requireIterationCommit: false` in config.yaml).
 - Tell the user the verdict, whether the iteration is confirmed correctly solved, and the next transition through `phasedev advance`.
 - If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then stop — you do not run `phasedev advance`; the flow driver (user or orchestrator) advances, and the flow routes to finding_repair where the fix is implemented.
