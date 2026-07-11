@@ -4,14 +4,24 @@ import { runGit } from "../../shared/shell/git";
 
 export interface ChangedFileInventoryOptions {
   phase?: Iteration;
+  diffBase?: string;
 }
+
+export interface ChangeScanEntry {
+  status: string;
+  filePath: string;
+}
+
+export type ChangeScan =
+  | { ok: true; entries: ChangeScanEntry[] }
+  | { ok: false; reason: string };
 
 function normalizeStatusPath(rawPath: string): string {
   const renameTarget = rawPath.includes(" -> ") ? rawPath.split(" -> ").pop() ?? rawPath : rawPath;
   return renameTarget.replace(/^"|"$/g, "").replace(/\\/g, "/").trim();
 }
 
-function parseGitStatusLine(line: string): { status: string; filePath: string } | null {
+function parseGitStatusLine(line: string): ChangeScanEntry | null {
   if (line.trim().length === 0 || line.length < 4) {
     return null;
   }
@@ -20,6 +30,38 @@ function parseGitStatusLine(line: string): { status: string; filePath: string } 
     status: line.slice(0, 2).trim(),
     filePath: normalizeStatusPath(line.slice(3))
   };
+}
+
+function parseGitDiffLine(line: string): ChangeScanEntry | null {
+  if (line.trim().length === 0) {
+    return null;
+  }
+
+  const parts = line.split("\t");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  return {
+    status: parts[0].trim(),
+    filePath: normalizeStatusPath(parts[parts.length - 1])
+  };
+}
+
+export function scanChangedFilesOutsidePhasedev(projectPath: string): ChangeScan {
+  const result = runGit(projectPath, ["status", "--short", "--untracked-files=all", "--", "."]);
+  if (!result.ok) {
+    const reason = result.errorMessage ?? (result.stderr.trim() || `git status exited with ${result.status}`);
+    return { ok: false, reason };
+  }
+
+  const entries = result.stdout
+    .split(/\r?\n/)
+    .map(parseGitStatusLine)
+    .filter((entry): entry is ChangeScanEntry => entry !== null)
+    .filter(entry => !entry.filePath.startsWith(".phasedev/"));
+
+  return { ok: true, entries };
 }
 
 function headingLevel(line: string): number | null {
@@ -91,23 +133,43 @@ function pathMatchesSurface(filePath: string, patterns: string[]): boolean {
   });
 }
 
-export function renderChangedFileInventory(projectPath: string, options: ChangedFileInventoryOptions = {}): string {
-  const result = runGit(projectPath, ["status", "--short", "--untracked-files=all", "--", "."]);
+const INVENTORY_UNAVAILABLE_BODY =
+  "Build the changed-file inventory from read-only repository, filesystem, or manifest/output evidence before deciding the verdict; treat this as blocking only if the phase scope cannot be verified or the evidence is contradictory.";
 
-  if (!result.ok) {
-    const reason = result.errorMessage ?? (result.stderr.trim() || `git status exited with ${result.status}`);
-    return [
-      "## Controller Observed Changed Files",
-      "",
-      `Inventory unavailable: ${reason}. Build the changed-file inventory from read-only repository, filesystem, or manifest/output evidence before deciding the verdict; treat this as blocking only if the phase scope cannot be verified or the evidence is contradictory.`
-    ].join("\n");
+function unavailableInventory(reason: string): string {
+  return [
+    "## Controller Observed Changed Files",
+    "",
+    `Inventory unavailable: ${reason}. ${INVENTORY_UNAVAILABLE_BODY}`
+  ].join("\n");
+}
+
+export function renderChangedFileInventory(projectPath: string, options: ChangedFileInventoryOptions = {}): string {
+  const scan = scanChangedFilesOutsidePhasedev(projectPath);
+  if (!scan.ok) {
+    return unavailableInventory(scan.reason);
   }
 
-  const rows = result.stdout
-    .split(/\r?\n/)
-    .map(parseGitStatusLine)
-    .filter((entry): entry is { status: string; filePath: string } => entry !== null)
-    .filter(entry => !entry.filePath.startsWith(".phasedev/"));
+  let rows: ChangeScanEntry[] = scan.entries;
+
+  if (options.diffBase) {
+    const diff = runGit(projectPath, ["diff", "--name-status", options.diffBase, "HEAD", "--", "."]);
+    if (!diff.ok) {
+      const reason = diff.errorMessage ?? (diff.stderr.trim() || `git diff exited with ${diff.status}`);
+      return unavailableInventory(reason);
+    }
+
+    const merged = new Map<string, ChangeScanEntry>();
+    for (const entry of diff.stdout.split(/\r?\n/).map(parseGitDiffLine)) {
+      if (entry && !entry.filePath.startsWith(".phasedev/")) {
+        merged.set(entry.filePath, entry);
+      }
+    }
+    for (const entry of scan.entries) {
+      merged.set(entry.filePath, entry); // working tree overrides committed diff
+    }
+    rows = [...merged.values()];
+  }
 
   if (rows.length === 0) {
     return [
