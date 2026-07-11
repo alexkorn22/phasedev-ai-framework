@@ -121,3 +121,34 @@ export function validationFindingsBlocker(findingsPath: string, issues: string[]
     "================================================================================"
   ].join("\n"), true, "Invalid validation_findings.md");
 }
+
+export function iterationCommitBlocker(
+  iterationId: number,
+  iterationName: string,
+  changeSlug: string,
+  changeName?: string
+): Prompt {
+  return prompt("next", "iteration_validation", [
+    "================================================================================",
+    `[FLOW CONTROLLER] BLOCKED: Iteration ${iterationId} validated. Commit the iteration before advancing.`,
+    "The controller found uncommitted changes outside `.phasedev/**`.",
+    "Commit the iteration's code changes together with the updated `.phasedev` artifacts.",
+    `- Suggested commit message: phasedev(${changeSlug}): iteration ${iterationId} — ${iterationName}`,
+    `After committing, run '${advanceCommand(changeName)}' again.`,
+    "To opt out of this gate, set 'requireIterationCommit: false' in config.yaml.",
+    "================================================================================"
+  ].join("\n"), true, "Iteration commit required");
+}
+
+export function finalCommitBlocker(changeSlug: string, changeName?: string): Prompt {
+  return prompt("next", "final_validation", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Final validation passed. Commit before archive.",
+    "The controller found uncommitted changes outside `.phasedev/**`.",
+    "Commit the remaining code changes together with the updated `.phasedev` artifacts.",
+    `- Suggested commit message: phasedev(${changeSlug}): final validation`,
+    `After committing, run '${advanceCommand(changeName)}' again.`,
+    "To opt out of this gate, set 'requireIterationCommit: false' in config.yaml.",
+    "================================================================================"
+  ].join("\n"), true, "Commit required before archive");
+}
