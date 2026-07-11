@@ -103,4 +103,16 @@ describe("isDuplicateMoveArtifact", () => {
     fs.writeFileSync(path.join(source, "extra.txt"), "y", "utf-8");
     expect(isDuplicateMoveArtifact(source, target)).toBe(false);
   });
+
+  test("false when a tree contains a symlink entry, even if the target resolves identically", () => {
+    const source = path.join(testTmpDir, "s");
+    const target = path.join(testTmpDir, "t");
+    const linkedFile = path.join(testTmpDir, "linked.txt");
+    fs.mkdirSync(source, { recursive: true });
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(linkedFile, "hi", "utf-8");
+    fs.symlinkSync(linkedFile, path.join(source, "a.txt"));
+    fs.writeFileSync(path.join(target, "a.txt"), "hi", "utf-8");
+    expect(isDuplicateMoveArtifact(source, target)).toBe(false);
+  });
 });

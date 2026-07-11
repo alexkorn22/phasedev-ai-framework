@@ -296,18 +296,7 @@ function handleValidateArtifact(ctx: CommandContext): void {
     });
     return;
   }
-  let resolvedPath = filePath;
-  if (!fs.existsSync(resolvedPath)) {
-    try {
-      const activeDir = resolveChangeDir(ctx.projectPath, ctx.changeName);
-      if (activeDir) {
-        const candidate = path.join(activeDir, filePath);
-        if (fs.existsSync(candidate)) {
-          resolvedPath = candidate;
-        }
-      }
-    } catch { /* ignore AmbiguousChangeError etc. */ }
-  }
+  const resolvedPath = resolveArtifactPath(ctx.projectPath, filePath, ctx.changeName);
   const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   const result = validateArtifact(resolvedPath, config.blockingSeverity);
   const prefix = result.ok ? "[PHASEDEV VALIDATE-ARTIFACT] OK" : "[PHASEDEV VALIDATE-ARTIFACT] FAILED";

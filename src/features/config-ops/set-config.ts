@@ -32,6 +32,8 @@ function validateLeafValue(leafKey: string, value: unknown): string | null {
   return null;
 }
 
+const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+
 function typeLabel(value: unknown): string {
   return Array.isArray(value) ? "array" : typeof value;
 }
@@ -74,7 +76,6 @@ export function setConfigValue(configPath: string, key: string, rawValue: string
   }
 
   // Reject prototype-pollution segments
-  const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
   const dangerous = segments.find(segment => FORBIDDEN_SEGMENTS.has(segment));
   if (dangerous) {
     return { ok: false, message: `Config key segment \`${dangerous}\` is not allowed (prototype pollution).` };

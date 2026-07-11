@@ -34,8 +34,9 @@ function directoriesEqual(a: string, b: string): boolean {
   for (const name of entriesA) {
     const pathA = path.join(a, name);
     const pathB = path.join(b, name);
-    const statA = fs.statSync(pathA);
-    const statB = fs.statSync(pathB);
+    const statA = fs.lstatSync(pathA);
+    const statB = fs.lstatSync(pathB);
+    if (statA.isSymbolicLink() || statB.isSymbolicLink()) return false;
     if (statA.isDirectory() !== statB.isDirectory()) return false;
     if (statA.isDirectory()) {
       if (!directoriesEqual(pathA, pathB)) return false;
