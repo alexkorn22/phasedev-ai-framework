@@ -690,18 +690,20 @@ function main(): void {
   }
 
   if (command === "reset-change") {
-    const force = hasFlag(args, "--yes", "--force");
-    const result = resetChange(projectPath, force, changeName);
-    const prefix = result.ok ? "[PHASEDEV RESET-CHANGE] OK" : "[PHASEDEV RESET-CHANGE]";
-    // "No active change" is informational (nothing to reset, not a failure to
-    // act); withholding --yes on an existing change is a genuine refusal.
-    const exitOk = result.ok || !result.blocked;
-    reportCliResult(jsonMode, {
-      ok: exitOk,
-      kind: "reset-change",
-      humanMessage: `${prefix}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { moved: result.ok, confirmationRequired: result.blocked ?? false }
+    runWithOptionalStateLock(projectPath, () => {
+      const force = hasFlag(args, "--yes", "--force");
+      const result = resetChange(projectPath, force, changeName);
+      const prefix = result.ok ? "[PHASEDEV RESET-CHANGE] OK" : "[PHASEDEV RESET-CHANGE]";
+      // "No active change" is informational (nothing to reset, not a failure to
+      // act); withholding --yes on an existing change is a genuine refusal.
+      const exitOk = result.ok || !result.blocked;
+      reportCliResult(jsonMode, {
+        ok: exitOk,
+        kind: "reset-change",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { moved: result.ok, confirmationRequired: result.blocked ?? false }
+      });
     });
     return;
   }
