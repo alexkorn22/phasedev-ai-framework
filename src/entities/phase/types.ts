@@ -8,6 +8,10 @@ export type Phase =
   | "iteration_validation"
   | "final_validation"
   | "finding_repair"
+  | "quick_plan"
+  | "quick_implementation"
+  | "quick_validation"
+  | "quick_spec_revision"
   | "archive";
 
 export interface Prompt {

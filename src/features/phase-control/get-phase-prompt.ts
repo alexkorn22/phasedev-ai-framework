@@ -392,6 +392,9 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
         prompt: renderArchiveContract(projectPath, config, changeDir),
         blocked: false
       };
+
+    default:
+      throw new Error(`getPhasePrompt reached unreachable phase "${activePhase}" (quick phases are rendered by quickPhasePrompt).`);
   }
 }
 

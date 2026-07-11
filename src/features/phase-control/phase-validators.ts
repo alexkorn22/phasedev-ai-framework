@@ -224,6 +224,9 @@ export function validatePhase(
       }
       return okMessage(phase);
     }
+
+    default:
+      throw new Error(`validatePhase reached unreachable phase "${phase}" (quick phases are validated by validateQuickPhase).`);
   }
 }
 
