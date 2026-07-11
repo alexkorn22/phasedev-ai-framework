@@ -261,6 +261,21 @@ stages:
   test("rejects non-numeric maxRepairCycles", () => {
     expect(() => parseConfig("maxRepairCycles: abc")).toThrow("must be a positive integer");
   });
+
+  test("parses blockingSeverity values", () => {
+    expect(parseConfig(`blockingSeverity: must_fix`).blockingSeverity).toBe("must_fix");
+    expect(parseConfig(`blockingSeverity: recommended`).blockingSeverity).toBe("recommended");
+    expect(parseConfig(`blockingSeverity: nit`).blockingSeverity).toBe("nit");
+  });
+
+  test("defaults blockingSeverity to must_fix when absent", () => {
+    expect(parseConfig(`{}`).blockingSeverity).toBe("must_fix");
+    expect(DEFAULT_CONFIG.blockingSeverity).toBe("must_fix");
+  });
+
+  test("rejects an invalid blockingSeverity", () => {
+    expect(() => parseConfig(`blockingSeverity: sometimes`)).toThrow(/blockingSeverity/);
+  });
 });
 
 // ============================================================================

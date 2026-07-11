@@ -3,6 +3,7 @@ import * as path from "path";
 import { parse as parseYaml } from "yaml";
 import { Phase } from "../phase/types";
 import { SYSTEM_DIR } from "../change/paths";
+import { BlockingSeverity, BLOCKING_SEVERITY_VALUES } from "../validation-findings/blocking-severity";
 
 export type PhaseSkillConfig = {
   routers: string[];
@@ -20,6 +21,7 @@ export interface Config {
   autoApprove: boolean;
   maxIterations: number;
   maxRepairCycles: number;
+  blockingSeverity: BlockingSeverity;
 }
 
 export const EMPTY_PHASE_SKILLS: PhaseSkillConfig = {
@@ -33,7 +35,8 @@ export const DEFAULT_CONFIG: Config = {
   runArchiveStage: true,
   autoApprove: false,
   maxIterations: 10,
-  maxRepairCycles: 3
+  maxRepairCycles: 3,
+  blockingSeverity: "must_fix"
 };
 
 const PHASE_NAME_MAP: Record<string, string> = {
@@ -113,6 +116,14 @@ function readPositiveInteger(value: unknown, fallback: number, key: string): num
     throw new Error(`Config key ${key} must be a positive integer.`);
   }
   return value;
+}
+
+function readBlockingSeverity(value: unknown, fallback: BlockingSeverity, key: string): BlockingSeverity {
+  if (value === undefined) return fallback;
+  if (typeof value !== "string" || !BLOCKING_SEVERITY_VALUES.includes(value as BlockingSeverity)) {
+    throw new Error(`Config key ${key} must be one of: ${BLOCKING_SEVERITY_VALUES.join(", ")}.`);
+  }
+  return value as BlockingSeverity;
 }
 
 function readSkillArray(value: unknown, key: string): string[] {
@@ -287,7 +298,8 @@ export function parseConfig(content: string): Config {
     runArchiveStage: readBoolean(root.runArchiveStage, DEFAULT_CONFIG.runArchiveStage, "runArchiveStage"),
     autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
     maxIterations: readPositiveInteger(root.maxIterations, DEFAULT_CONFIG.maxIterations, "maxIterations"),
-    maxRepairCycles: readPositiveInteger(root.maxRepairCycles, DEFAULT_CONFIG.maxRepairCycles, "maxRepairCycles")
+    maxRepairCycles: readPositiveInteger(root.maxRepairCycles, DEFAULT_CONFIG.maxRepairCycles, "maxRepairCycles"),
+    blockingSeverity: readBlockingSeverity(root.blockingSeverity, DEFAULT_CONFIG.blockingSeverity, "blockingSeverity")
   };
 }
 
