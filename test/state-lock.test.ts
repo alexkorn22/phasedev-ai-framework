@@ -45,13 +45,21 @@ describe("acquireLock", () => {
     lock.release();
   });
 
-  test("does not reclaim a stale-by-mtime lock when the holder process is alive", () => {
+  test("reclaims when holder pid is alive but the lock mtime is older than staleMs", () => {
     fs.mkdirSync(path.dirname(lockPath), { recursive: true });
     fs.writeFileSync(lockPath, String(process.pid), "utf-8");
     const past = new Date(Date.now() - 5_000);
     fs.utimesSync(lockPath, past, past);
 
-    expect(() => acquireLock(lockPath, 1_000)).toThrow(LockHeldError);
+    const lock = acquireLock(lockPath, 1_000);
+    expect(fs.readFileSync(lockPath, "utf-8").trim()).toBe(String(process.pid));
+    lock.release();
+  });
+
+  test("blocks when holder pid is alive and the lock mtime is fresh", () => {
+    const held = acquireLock(lockPath, 60_000);
+    expect(() => acquireLock(lockPath, 60_000)).toThrow(LockHeldError);
+    held.release();
   });
 
   test("release removes the lock file so it can be acquired again", () => {

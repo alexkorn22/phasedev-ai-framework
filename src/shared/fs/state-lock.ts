@@ -36,16 +36,24 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-function isStale(lockPath: string, _staleMs: number): boolean {
+function isStale(lockPath: string, staleMs: number): boolean {
   const pid = readLockPid(lockPath);
-  return !isProcessAlive(pid);
+  if (!isProcessAlive(pid)) return true;
+  try {
+    const ageMs = Date.now() - fs.statSync(lockPath).mtimeMs;
+    return ageMs > staleMs;
+  } catch {
+    // Lock file vanished between the EEXIST failure and this stat: treat as reclaimable.
+    return true;
+  }
 }
 
 /**
  * Acquire an exclusive advisory lock file. Uses O_EXCL (open flag "wx") so
  * creation fails atomically when the file already exists. A pre-existing lock
- * is reclaimed only when its owner process is gone (PID-liveness check);
- * otherwise a LockHeldError naming the path and holder pid is thrown.
+ * is reclaimed when its owner process is gone (PID-liveness check) or when
+ * its file age exceeds staleMs; otherwise a LockHeldError naming the path and
+ * holder pid is thrown.
  */
 export function acquireLock(lockPath: string, staleMs: number = DEFAULT_STALE_MS): FileLock {
   fs.mkdirSync(path.dirname(lockPath), { recursive: true });
