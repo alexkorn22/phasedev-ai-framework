@@ -1084,7 +1084,7 @@ Complete API work.
     const gate = validatePhaseExit(testTmpDir, "finding_repair", paths, 1, "recommended");
 
     expect(gate.ok).toBe(false);
-    expect(gate.issues.join("\n")).toContain("blocking finding");
+    expect(gate.issues.join("\n")).toContain("blocking finding(s) still open");
   });
 
   test("loadFlowState throws a descriptive error on syntactically invalid state.json", () => {
