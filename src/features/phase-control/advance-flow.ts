@@ -11,11 +11,15 @@ import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
+import { scanChangedFilesOutsidePhasedev } from "./changed-file-inventory";
+import { gitHeadSha } from "../../shared/shell/git";
+import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
 
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
   invalidDesignBlocker, invalidPlanBlocker, validationFindingsBlocker,
-  approvalBlocker, archiveReadinessBlocker
+  approvalBlocker, archiveReadinessBlocker,
+  iterationCommitBlocker, finalCommitBlocker
 } from "./prompt-blockers";
 
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
@@ -44,6 +48,19 @@ function done(message: string): AdvanceResult {
 
 function ok(newState: FlowState, message: string, finished = false): AdvanceResult {
   return { ok: true, advanced: true, finished, newState, message };
+}
+
+/**
+ * Refuse to advance when uncommitted changes exist outside `.phasedev/**`.
+ * Fails open (does not gate) when the gate is disabled, or when the project
+ * is not a git repo or the scan otherwise errors — a non-git project must
+ * not be blocked by a check it cannot answer.
+ */
+function commitGateBlocks(projectPath: string, config: Config): boolean {
+  if (!config.requireIterationCommit) return false;
+  const scan = scanChangedFilesOutsidePhasedev(projectPath);
+  if (!scan.ok) return false;
+  return scan.entries.length > 0;
 }
 
 const ADVANCEABLE_ROUTE_KINDS = [
@@ -364,6 +381,10 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
       return refuse("Archive is disabled (runArchiveStage=false).");
     }
 
+    if (commitGateBlocks(projectPath, config)) {
+      return refuse(finalCommitBlocker(path.basename(changeDir), changeName).prompt);
+    }
+
     // The baseline is a working snapshot for the repair gate; it has no
     // meaning once archived and a manual rollback out of archive is not
     // supported, so it must not travel into the archived directory. Remove
@@ -433,6 +454,29 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     );
   }
 
+  // Passing exit from iteration_validation: the exact condition applyStateSideEffects
+  // uses to mark the iteration [x] below — route moved to final_validation, or to the
+  // next iteration. Placed here (after the maxIterations guard, before any state
+  // mutation) so finding_repair entries (repair_required verdict) are never gated.
+  const leavingIterationValidation =
+    state.activePhase === "iteration_validation" && state.activeIteration !== null;
+  const iterationValidationPassed =
+    leavingIterationValidation &&
+    (route.kind === "final_validation" ||
+      (route.kind === "iteration" && route.activeIteration.id !== state.activeIteration));
+
+  if (iterationValidationPassed && commitGateBlocks(projectPath, config)) {
+    const iter = parsePlan(paths.iterationPlanPath).find(p => p.id === state.activeIteration);
+    return refuse(
+      iterationCommitBlocker(
+        state.activeIteration as number,
+        iter?.name ?? "",
+        path.basename(changeDir),
+        changeName
+      ).prompt
+    );
+  }
+
   const sideEffect = applyStateSideEffects(projectPath, paths, state, nextState, route);
   if (!sideEffect.ok) {
     return refuse(`Cannot advance: ${sideEffect.reason}`);
@@ -473,6 +517,15 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   }
   const finalNextState = { ...nextState, repairCycleCount: nextRepairCount };
   saveFlowState(projectPath, finalNextState, changeName);
+
+  if (finalNextState.activePhase === "implementation") {
+    const head = gitHeadSha(projectPath);
+    if (head) recordCommitLogStart(paths.commitLogPath, head);
+  }
+  if (iterationValidationPassed) {
+    const head = gitHeadSha(projectPath);
+    if (head) recordIterationBoundary(paths.commitLogPath, state.activeIteration as number, head);
+  }
 
   const iterSuffix = finalNextState.activeIteration
     ? ` (iter ${finalNextState.activeIteration})`
