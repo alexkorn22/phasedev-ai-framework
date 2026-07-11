@@ -56,7 +56,7 @@ function ok(newState: FlowState, message: string, finished = false): AdvanceResu
  * is not a git repo or the scan otherwise errors — a non-git project must
  * not be blocked by a check it cannot answer.
  */
-function commitGateBlocks(projectPath: string, config: Config): boolean {
+export function commitGateBlocks(projectPath: string, config: Config): boolean {
   if (!config.requireIterationCommit) return false;
   const scan = scanChangedFilesOutsidePhasedev(projectPath);
   if (!scan.ok) return false;
