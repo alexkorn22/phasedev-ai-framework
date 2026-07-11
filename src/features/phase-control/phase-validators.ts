@@ -12,6 +12,7 @@ import { parseValidationFindingsArtifact } from "../../entities/validation-findi
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { checkArchiveCompletion } from "./check-archive";
 import { loadSchema, validateSchemaSections } from "../../entities/schema/load-schema";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } from "../../entities/validation-findings/blocking-severity";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -47,7 +48,8 @@ export function validatePhase(
   projectPath: string,
   phase: ActivePhase,
   paths: ChangePaths,
-  activeIteration: number | null
+  activeIteration: number | null,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
 ): PhaseValidation {
   switch (phase) {
     case "change_intake": {
@@ -108,7 +110,7 @@ export function validatePhase(
     }
 
     case "iteration_validation": {
-      const findings = parseValidationFindingsArtifact(paths.findingsPath);
+      const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
       const issues: string[] = [];
 
       if (!findings.exists) {
@@ -150,7 +152,7 @@ export function validatePhase(
     }
 
     case "final_validation": {
-      const findings = parseValidationFindingsArtifact(paths.findingsPath);
+      const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
       const issues: string[] = [];
 
       if (!findings.exists) {
@@ -188,7 +190,7 @@ export function validatePhase(
     }
 
     case "finding_repair": {
-      const findings = parseValidationFindingsArtifact(paths.findingsPath);
+      const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
       const issues: string[] = [];
 
       if (!findings.exists) {
@@ -209,7 +211,7 @@ export function validatePhase(
       // else (e.g. all findings resolved but verdict still repair_required) is
       // an inconsistent artifact.
       if (findings.openBlockingRows.length === 0 && findings.verdict !== "repaired") {
-        issues.push("No open blocking findings (MUST-FIX) in finding_repair phase. Either blocking findings must remain open/reopened, or set `verdict: repaired` after resolving them all.");
+        issues.push(`No open blocking findings (${blockingSeverityLabel(blockingSeverity)}) in finding_repair phase. Either blocking findings must remain open/reopened, or set \`verdict: repaired\` after resolving them all.`);
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);
@@ -236,15 +238,16 @@ export function validatePhaseExit(
   projectPath: string,
   phase: ActivePhase,
   paths: ChangePaths,
-  activeIteration: number | null
+  activeIteration: number | null,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
 ): PhaseValidation {
-  const base = validatePhase(projectPath, phase, paths, activeIteration);
+  const base = validatePhase(projectPath, phase, paths, activeIteration, blockingSeverity);
   if (!base.ok) {
     return base;
   }
 
   if (phase === "finding_repair") {
-    const findings = parseValidationFindingsArtifact(paths.findingsPath);
+    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
     const issues: string[] = [];
 
     if (findings.openBlockingRows.length > 0) {

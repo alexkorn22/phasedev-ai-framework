@@ -9,7 +9,7 @@ import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { loadFlowState } from "../src/entities/change/flow-state";
-import { validatePhase } from "../src/features/phase-control/phase-validators";
+import { validatePhase, validatePhaseExit } from "../src/features/phase-control/phase-validators";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
@@ -1068,6 +1068,23 @@ Complete API work.
     const result = validatePhase(testTmpDir, "iteration_validation", paths, 1);
 
     expect(result.ok).toBe(true);
+  });
+
+  test("recommended threshold: finding_repair exit is blocked while an open RECOMMENDED remains", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Concern. | Fix it. |\n")
+    });
+    const paths = buildChangePaths(changeDir);
+
+    const gate = validatePhaseExit(testTmpDir, "finding_repair", paths, 1, "recommended");
+
+    expect(gate.ok).toBe(false);
+    expect(gate.issues.join("\n")).toContain("blocking finding");
   });
 
   test("loadFlowState throws a descriptive error on syntactically invalid state.json", () => {
