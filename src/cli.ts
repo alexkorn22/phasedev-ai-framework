@@ -141,6 +141,20 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
 }
 
 /**
+ * True only when the resolved config file lives inside <projectPath>/.phasedev.
+ * config set locks in that case (it mutates the project's own config.yaml);
+ * an external --config target runs without the project lock, unchanged.
+ */
+function configTargetInsidePhasedev(projectPath: string, configPath: string): boolean {
+  const phasedevDir = path.resolve(projectPath, SYSTEM_DIR);
+  if (!fs.existsSync(phasedevDir)) {
+    return false;
+  }
+  const resolved = path.resolve(configPath);
+  return resolved === phasedevDir || resolved.startsWith(`${phasedevDir}${path.sep}`);
+}
+
+/**
  * Serialize state-mutating commands for a project behind a single lock file so
  * two concurrent invocations cannot interleave writes to the same change. The
  * action owns its own console output and exit code; only a held lock short-circuits.
@@ -168,6 +182,21 @@ function runWithStateLock(projectPath: string, action: () => void): void {
   } finally {
     lock.release();
   }
+}
+
+/**
+ * Serialize a mutating command only when the project is initialized. Commands
+ * that legitimately run before .phasedev/ exists (create-change bootstrap,
+ * finding commands pointed at an external --file) keep their current behavior:
+ * with no project lock to contend for, they run directly. Real in-project
+ * concurrency always has .phasedev/ present and is therefore serialized.
+ */
+function runWithOptionalStateLock(projectPath: string, action: () => void): void {
+  if (fs.existsSync(path.join(projectPath, SYSTEM_DIR))) {
+    runWithStateLock(projectPath, action);
+    return;
+  }
+  action();
 }
 
 function main(): void {
