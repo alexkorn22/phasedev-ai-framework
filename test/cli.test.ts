@@ -3498,6 +3498,11 @@ describe("code review finding tests", () => {
     expect(fs.existsSync(taskPath)).toBe(false);
   });
 
+  test("help documents create-change --task usage", () => {
+    const result = runCli(["help"]);
+    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>]");
+  });
+
   // ── approve auto-resolution ─────────────────────────────────
 
   test("approve resolves bare filename to active change directory", () => {

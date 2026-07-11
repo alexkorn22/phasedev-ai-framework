@@ -42,9 +42,10 @@ Commands:
       Print the PhaseDev init handshake prompt.
       Side effects: none. It must not create, read, edit, move, approve, test, or validate files.
 
-  phasedev create-change <name> [--project-path <path>]
+  phasedev create-change <name> [--project-path <path>] [--task <text>]
       Create a new change directory with state.json (activePhase: change_intake).
       Refuses if an active change already exists.
+      --task <text> also writes intake_task.md with the given task description.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
 
   phasedev phase [--project-path <path>] [--config <path>]
@@ -53,7 +54,9 @@ Commands:
       Side effects: none.
 
   phasedev check [--project-path <path>] [--phase <phase>]
+  phasedev check --check-orphans [--project-path <path>]
       Validate artifacts for the active phase (or --phase override).
+      --check-orphans instead scans for orphaned or unfinished archive directories.
       Side effects: none.
 
   phasedev feedback [--project-path <path>]
@@ -134,7 +137,7 @@ Commands:
       Aliases: phasedev --version, phasedev -V.
       Side effects: none.
 
-  phasedev changes [--project-path <path>]
+  phasedev changes [--project-path <path>] [--archived]
   phasedev list [--project-path <path>] [--archived]
       List unfinished changes (with --archived: completed archive too).
       Side effects: none.
@@ -162,19 +165,22 @@ Options:
   --json                       Emit a single JSON envelope to stdout instead of human text. All commands.
   --project-path, -p <path>   Target project path. Defaults to the current directory.
   --change <name>             Target change when several exist (defaults to the only change)
-  --config <path>             Explicit PhaseDev config path for phase/advance/config.
+  --config <path>             Explicit PhaseDev config path. Accepted by most commands that read config.
   --phase <phase>             Phase override for check.
   --scope iteration|final         Validation scope for check-validation.
   --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
+  --task <text>                Initial task description for create-change; written to intake_task.md.
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
   --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
   --evidence <text>           New evidence for reopen-finding.
   --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json, or "Final" during final validation.
   --tail N                    Show last N log entries.
+  --archived                   Include archived changes (changes/list command).
+  --check-orphans               Scan for orphaned or unfinished archive directories (check command).
   --yes, --force              Confirm destructive operations (reset-change).
   --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.
 
