@@ -442,14 +442,16 @@ function main(): void {
       return;
     }
 
-    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath, changeName));
-    const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
-    reportCliResult(jsonMode, {
-      ok: result.ok,
-      kind: "add-finding",
-      humanMessage: `${prefix}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { file: targetFile, id: id ?? null }
+    runWithOptionalStateLock(projectPath, () => {
+      const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath, changeName));
+      const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "add-finding",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { file: targetFile, id: id ?? null }
+      });
     });
     return;
   }
@@ -534,14 +536,16 @@ function main(): void {
       return;
     }
 
-    const result = reopenFinding(targetFile, id, evidence);
-    const prefix = result.ok ? "[PHASEDEV REOPEN-FINDING] OK" : "[PHASEDEV REOPEN-FINDING] FAILED";
-    reportCliResult(jsonMode, {
-      ok: result.ok,
-      kind: "reopen-finding",
-      humanMessage: `${prefix}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { file: targetFile, id }
+    runWithOptionalStateLock(projectPath, () => {
+      const result = reopenFinding(targetFile, id, evidence);
+      const prefix = result.ok ? "[PHASEDEV REOPEN-FINDING] OK" : "[PHASEDEV REOPEN-FINDING] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "reopen-finding",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { file: targetFile, id }
+      });
     });
     return;
   }
@@ -569,14 +573,16 @@ function main(): void {
       return;
     }
 
-    const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath, changeName));
-    const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
-    reportCliResult(jsonMode, {
-      ok: result.ok,
-      kind: "set-verdict",
-      humanMessage: `${prefix}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { file: targetFile, verdict }
+    runWithOptionalStateLock(projectPath, () => {
+      const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath, changeName));
+      const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "set-verdict",
+        humanMessage: `${prefix}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { file: targetFile, verdict }
+      });
     });
     return;
   }
