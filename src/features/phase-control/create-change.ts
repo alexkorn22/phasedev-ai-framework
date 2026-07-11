@@ -7,6 +7,8 @@ import { findInvalidArchiveState, findPendingArchiveState } from "../../entities
 import { gitHeadSha } from "../../shared/shell/git";
 import { recordCommitLogStart } from "../../entities/change/commit-log";
 import { buildChangePaths } from "../../entities/change/paths";
+import { renderTemplate } from "../../shared/templates/render-template";
+import { todayIsoDate } from "../../shared/time/today-iso-date";
 
 /**
  * Convert a name string to a filesystem-safe slug.
@@ -36,7 +38,7 @@ export interface CreateChangeResult {
  * 4. Creates directory + architecture subdirectory.
  * 5. Writes state.json with activePhase: change_intake, activeIteration: null.
  */
-export function createChange(projectPath: string, name: string, taskText?: string): CreateChangeResult {
+export function createChange(projectPath: string, name: string, taskText?: string, quick = false): CreateChangeResult {
   if (!name || name.trim().length === 0) {
     return { ok: false, message: "Change name is required." };
   }
@@ -79,12 +81,14 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   // Write initial state.json directly (saveFlowState cannot be used yet
   // because locateFlowStatePath returns null before state.json exists).
   const statePath = path.join(changeDir, "state.json");
-  const initialState = {
-    activePhase: "change_intake" as const,
-    activeIteration: null,
-    repairCycleCount: 0
-  };
+  const initialState = quick
+    ? { activePhase: "quick_plan" as const, activeIteration: null, repairCycleCount: 0, flowMode: "quick" as const }
+    : { activePhase: "change_intake" as const, activeIteration: null, repairCycleCount: 0 };
   writeFileAtomic(statePath, JSON.stringify(initialState, null, 2) + "\n");
+
+  if (quick) {
+    writeFileAtomic(path.join(changeDir, "worklog.md"), renderTemplate("artifacts/worklog", { date: todayIsoDate() }));
+  }
 
   const head = gitHeadSha(projectPath);
   if (head) {
@@ -98,7 +102,7 @@ export function createChange(projectPath: string, name: string, taskText?: strin
 
   return {
     ok: true,
-    message: `Created change ${slug} at ${changeDir}. Initial phase: change_intake.`,
+    message: `Created change ${slug} at ${changeDir}. Initial phase: ${quick ? "quick_plan (quick mode)" : "change_intake"}.`,
     changeDir
   };
 }

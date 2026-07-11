@@ -13,6 +13,10 @@ export type ActivePhase =
   | "iteration_validation"
   | "final_validation"
   | "finding_repair"
+  | "quick_plan"
+  | "quick_implementation"
+  | "quick_validation"
+  | "quick_spec_revision"
   | "archive";
 
 export const ACTIVE_PHASES = new Set<ActivePhase>([
@@ -24,6 +28,10 @@ export const ACTIVE_PHASES = new Set<ActivePhase>([
   "iteration_validation",
   "final_validation",
   "finding_repair",
+  "quick_plan",
+  "quick_implementation",
+  "quick_validation",
+  "quick_spec_revision",
   "archive"
 ]);
 
@@ -31,10 +39,13 @@ export function isActivePhase(value: string): value is ActivePhase {
   return ACTIVE_PHASES.has(value as ActivePhase);
 }
 
+export type FlowMode = "quick" | "standard";
+
 export interface FlowState {
   activePhase: ActivePhase;
   activeIteration: number | null;
   repairCycleCount: number;
+  flowMode?: FlowMode;
 }
 
 export const FLOW_STATE_FILE = "state.json";
@@ -105,7 +116,13 @@ export function loadFlowState(projectPath: string, changeName?: string): FlowSta
     ? record.repairCycleCount
     : 0;
 
-  return { activePhase, activeIteration, repairCycleCount };
+  const flowModeRaw = record.flowMode;
+  if (flowModeRaw !== undefined && flowModeRaw !== "quick" && flowModeRaw !== "standard") {
+    return invalid(`flowMode must be "quick" or "standard" when present, got ${JSON.stringify(flowModeRaw)}.`);
+  }
+  const flowMode = flowModeRaw as FlowMode | undefined;
+
+  return { activePhase, activeIteration, repairCycleCount, ...(flowMode ? { flowMode } : {}) };
 }
 
 export function writeFlowState(statePath: string, state: FlowState): void {

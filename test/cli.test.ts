@@ -430,7 +430,7 @@ describe("flow-cli state machine", () => {
     expect(help.output).toContain("Generated files:");
     expect(help.output).toContain("Phases:");
     expect(help.output).toContain("Examples:");
-    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
+    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive", "express"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }
     for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
@@ -2275,7 +2275,11 @@ describe("flow templates", () => {
     "phase6a_iteration_validation.md",
     "phase6b_final_validation.md",
     "phase6r_finding_repair.md",
-    "phase7_archive.md"
+    "phase7_archive.md",
+    "quick_plan.md",
+    "quick_implementation.md",
+    "quick_validation.md",
+    "quick_spec_revision.md"
   ];
 
   function readTemplate(name: string): string {
@@ -2296,6 +2300,15 @@ describe("flow templates", () => {
       expect(template).not.toContain("The agent may use any available relevant skills");
       expect(template).not.toContain("session routers and tools for the current stage");
     }
+  });
+
+  test("quick_archive template receives the config skill policy before its archived-change line", () => {
+    // quick_archive.md has no "Input" label, so it is excluded from the
+    // shared templateNames loop above; pin its skill_policy placement here.
+    const template = readTemplate("quick_archive.md");
+
+    expect(template).toContain("{{skill_policy}}");
+    expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Archived change:"));
   });
 
   test("generated skill policy preserves configured stage boundaries", () => {
@@ -3556,7 +3569,49 @@ describe("code review finding tests", () => {
 
   test("help documents create-change --task usage", () => {
     const result = runCli(["help"]);
-    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>]");
+    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]");
+  });
+
+  test("create-change --quick writes a quick state and a worklog skeleton", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "qc", "--project-path", testTmpDir, "--quick"]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "qc");
+    const state = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(state.activePhase).toBe("quick_plan");
+    expect(state.flowMode).toBe("quick");
+
+    const worklog = fs.readFileSync(path.join(changeDir, "worklog.md"), "utf-8");
+    expect(worklog).toContain("## Task");
+    expect(worklog).toContain("## Short Specification");
+    expect(worklog).toContain("## Plan");
+  });
+
+  test("create-change without --quick does not write a worklog and uses change_intake", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "std", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "std");
+    const state = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(state.activePhase).toBe("change_intake");
+    expect(state.flowMode).toBeUndefined();
+    expect(fs.existsSync(path.join(changeDir, "worklog.md"))).toBe(false);
+  });
+
+  test("create-change --quick --task keeps writing intake_task.md", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "qc-task", "--project-path", testTmpDir, "--quick", "--task", "quick task text"]);
+    expect(result.exitCode).toBe(0);
+
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "qc-task");
+    const taskPath = path.join(changeDir, "intake_task.md");
+    expect(fs.existsSync(taskPath)).toBe(true);
+    expect(fs.readFileSync(taskPath, "utf-8").trim()).toBe("quick task text");
   });
 
   // ── approve auto-resolution ─────────────────────────────────
@@ -3688,5 +3743,17 @@ describe("feedback command", () => {
     const result = runCli(["feedback", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("No active change");
+  });
+});
+
+describe("express command", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("phasedev express prints the contract and creates nothing", () => {
+    const result = runCli(["express", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("PhaseDev Express");
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
   });
 });

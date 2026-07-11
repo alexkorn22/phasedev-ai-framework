@@ -16,6 +16,13 @@ export const PHASE_RANK: Record<ActivePhase, number> = {
   iteration_validation: 4,
   finding_repair: 4,
   final_validation: 4,
+  // Quick phases run their own mode-scoped route and never compare against the
+  // standard pipeline ranks above; rank 4 keeps them out of the archive/intake
+  // boundary until quick-mode routing lands.
+  quick_plan: 4,
+  quick_implementation: 4,
+  quick_validation: 4,
+  quick_spec_revision: 4,
   archive: 5
 };
 

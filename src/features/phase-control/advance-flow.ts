@@ -11,9 +11,12 @@ import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
-import { scanChangedFilesOutsidePhasedev } from "./changed-file-inventory";
 import { gitHeadSha } from "../../shared/shell/git";
 import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
+import { quickAdvance } from "./quick-advance";
+import { AdvanceResult, commitGateBlocks } from "./advance-shared";
+
+export type { AdvanceResult };
 
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
@@ -24,14 +27,6 @@ import {
 
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
-
-export interface AdvanceResult {
-  ok: boolean;
-  advanced: boolean;
-  finished: boolean;
-  newState: FlowState | null;
-  message: string;
-}
 
 function refuse(message: string): AdvanceResult {
   return { ok: false, advanced: false, finished: false, newState: null, message };
@@ -48,19 +43,6 @@ function done(message: string): AdvanceResult {
 
 function ok(newState: FlowState, message: string, finished = false): AdvanceResult {
   return { ok: true, advanced: true, finished, newState, message };
-}
-
-/**
- * Refuse to advance when uncommitted changes exist outside `.phasedev/**`.
- * Fails open (does not gate) when the gate is disabled, or when the project
- * is not a git repo or the scan otherwise errors — a non-git project must
- * not be blocked by a check it cannot answer.
- */
-function commitGateBlocks(projectPath: string, config: Config): boolean {
-  if (!config.requireIterationCommit) return false;
-  const scan = scanChangedFilesOutsidePhasedev(projectPath);
-  if (!scan.ok) return false;
-  return scan.entries.length > 0;
 }
 
 const ADVANCEABLE_ROUTE_KINDS = [
@@ -253,6 +235,10 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
       return done("Archive complete. Flow finished.");
     }
     return refuse("No active change. Run: phasedev create-change <name>.");
+  }
+
+  if (state.flowMode === "quick") {
+    return quickAdvance(projectPath, config, state, changeName);
   }
 
   const changeDir = locateChangeDir(projectPath, state, changeName);

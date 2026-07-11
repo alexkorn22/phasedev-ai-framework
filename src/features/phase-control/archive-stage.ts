@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Config, loadConfig } from "../../entities/config/config";
 import { createArchiveState, findPendingArchiveState, markArchiveMoved, readArchiveState, ArchiveState } from "../../entities/change/archive-state";
-import { FLOW_STATE_FILE, writeFlowState } from "../../entities/change/flow-state";
+import { FLOW_STATE_FILE, loadFlowState, writeFlowState } from "../../entities/change/flow-state";
 import { archiveRootPath, archiveTargetPath, buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Prompt } from "../../entities/phase/types";
 import { isDuplicateMoveArtifact, moveDirectory } from "../../shared/fs/move-directory";
@@ -83,7 +83,13 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
   // Set the phase lock to archive *before* moving: state.json travels inside the
   // change dir, so writing it here means the archived directory always arrives
   // already locked to the archive phase, even if the process dies after the move.
-  writeFlowState(path.join(changeDir, FLOW_STATE_FILE), { activePhase: "archive", activeIteration: null, repairCycleCount: 0 });
+  const preservedFlowMode = loadFlowState(projectPath, changeName)?.flowMode;
+  writeFlowState(path.join(changeDir, FLOW_STATE_FILE), {
+    activePhase: "archive",
+    activeIteration: null,
+    repairCycleCount: 0,
+    ...(preservedFlowMode ? { flowMode: preservedFlowMode } : {})
+  });
 
   // Phase 2: move. If this throws, changeDir plus its un-moved archive-state are left intact for retry.
   fs.mkdirSync(archiveRootPath(projectPath), { recursive: true });

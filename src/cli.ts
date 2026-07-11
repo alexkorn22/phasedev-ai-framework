@@ -38,12 +38,13 @@ import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-ph
 import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
+import { getExpressPrompt } from "./features/express-mode/get-express-prompt";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans"]);
+const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans", "--quick"]);
 
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
@@ -688,14 +689,15 @@ function handleCreateChange(ctx: CommandContext): void {
     reportCliResult(ctx.jsonMode, {
       ok: false,
       kind: "create-change",
-      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>]"
+      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]"
     });
     return;
   }
 
   runWithOptionalStateLock(ctx.projectPath, () => {
     const taskText = parseStringOption(ctx.args, "--task");
-    const result = createChange(ctx.projectPath, name, taskText);
+    const quick = hasFlag(ctx.args, "--quick");
+    const result = createChange(ctx.projectPath, name, taskText, quick);
     reportCliResult(ctx.jsonMode, {
       ok: result.ok,
       kind: "create-change",
@@ -735,6 +737,17 @@ function handleFeedback(ctx: CommandContext): void {
   if (result.blocked) {
     process.exitCode = 1;
   }
+}
+
+function handleExpress(ctx: CommandContext): void {
+  const result = getExpressPrompt();
+  reportCliResult(ctx.jsonMode, {
+    ok: true,
+    kind: "express",
+    humanMessage: result.prompt,
+    jsonMessage: "Express contract ready.",
+    data: { prompt: result.prompt }
+  });
 }
 
 function handleAdvance(ctx: CommandContext): void {
@@ -853,6 +866,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "create-change": handleCreateChange,
   phase: handlePhase,
   feedback: handleFeedback,
+  express: handleExpress,
   advance: handleAdvance,
   check: handleCheck,
   "check-validation": handleCheckValidation,

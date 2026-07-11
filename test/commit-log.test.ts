@@ -18,6 +18,10 @@ describe("entities/change/commit-log", () => {
     expect(buildChangePaths("/x/change").commitLogPath).toBe("/x/change/.commit-log.json");
   });
 
+  it("buildChangePaths exposes worklogPath under the change dir", () => {
+    expect(buildChangePaths("/x/change").worklogPath).toBe("/x/change/worklog.md");
+  });
+
   it("read returns null when missing, round-trips a written log", () => {
     const p = path.join(tmp(), ".commit-log.json");
     expect(readCommitLog(p)).toBeNull();

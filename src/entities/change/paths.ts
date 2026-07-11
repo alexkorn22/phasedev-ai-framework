@@ -12,6 +12,7 @@ export interface ChangePaths {
   findingsPath: string;
   findingsBaselinePath: string;
   commitLogPath: string;
+  worklogPath: string;
 }
 
 export function buildChangePaths(changeDir: string): ChangePaths {
@@ -24,7 +25,8 @@ export function buildChangePaths(changeDir: string): ChangePaths {
     iterationPlanPath: path.join(changeDir, "iteration_plan.md"),
     findingsPath: path.join(changeDir, "validation_findings.md"),
     findingsBaselinePath: path.join(changeDir, ".findings-baseline.json"),
-    commitLogPath: path.join(changeDir, ".commit-log.json")
+    commitLogPath: path.join(changeDir, ".commit-log.json"),
+    worklogPath: path.join(changeDir, "worklog.md")
   };
 }
 
