@@ -57,4 +57,17 @@ describe("setIterationStatus", () => {
     const result = setIterationStatus(testTmpDir, 1, "completed", plan);
     expect(result.ok).toBe(true);
   });
+
+  test("returns ok:false and does not mutate when the iteration id is duplicated", () => {
+    const plan = path.join(testTmpDir, "iteration_plan.md");
+    const original = "# Plan\n\n## Iteration 3: A [ ]\n## Iteration 3: B [ ]\n";
+    fs.writeFileSync(plan, original, "utf-8");
+
+    const result = setIterationStatus(testTmpDir, 3, "completed", plan);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("3");
+    expect(result.message.toLowerCase()).toContain("duplicate");
+    expect(fs.readFileSync(plan, "utf-8")).toBe(original);
+  });
 });

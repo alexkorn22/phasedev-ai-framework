@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
-import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
+import { updateIterationStatus, countIterationHeadings } from "../../entities/iteration-plan/update-iteration-status";
 
 export interface SetIterationStatusResult {
   ok: boolean;
@@ -34,6 +34,13 @@ export function setIterationStatus(
     if (!fs.existsSync(filePath)) {
       return { ok: false, message: "iteration_plan.md does not exist in the active change." };
     }
+  }
+
+  if (countIterationHeadings(filePath, iterationId) > 1) {
+    return {
+      ok: false,
+      message: `Iteration ${iterationId} appears more than once in the plan (duplicate heading). Fix the duplicate iteration id before setting its status.`
+    };
   }
 
   const updated = updateIterationStatus(filePath, iterationId, status);

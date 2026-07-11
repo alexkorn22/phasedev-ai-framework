@@ -5,6 +5,30 @@ import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { ITERATION_HEADING_REGEX_SOURCE } from "./iteration-heading-regex";
 
 /**
+ * Count the number of non-fenced iteration headings for a given iteration ID.
+ * Returns 0 if the file is missing. Useful to detect duplicate iteration IDs.
+ */
+export function countIterationHeadings(filePath: string, iterationId: number): number {
+  if (!fs.existsSync(filePath)) return 0;
+
+  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
+  const iterationRegex = new RegExp(
+    `^(##\\s*Iteration\\s*${iterationId}\\s*:\\s*.*?\\s*\\[\\s*)(x|~| |\\/)(\\s*\\])[ \\t]*$`,
+    "i"
+  );
+
+  const lines = content.split("\n");
+  const fenceMask = fencedCodeLineMask(lines);
+
+  let count = 0;
+  for (let index = 0; index < lines.length; index++) {
+    if (fenceMask[index]) continue;
+    if (iterationRegex.test(lines[index])) count++;
+  }
+  return count;
+}
+
+/**
  * Flip an iteration heading checkbox. Returns true only when the heading was
  * matched and the file rewritten; false when the file is missing or no heading
  * matched, so callers can refuse to advance instead of silently proceeding on a

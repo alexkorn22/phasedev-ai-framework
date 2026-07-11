@@ -50,3 +50,29 @@ describe("updateIterationStatus", () => {
     expect(rewritten).toContain("- [ ] 1.1 Implement endpoint");
   });
 });
+
+import { countIterationHeadings } from "../src/entities/iteration-plan/update-iteration-status";
+
+describe("countIterationHeadings", () => {
+  test("returns 0 when the file is missing", () => {
+    expect(countIterationHeadings(path.join(testTmpDir, "nope.md"), 1)).toBe(0);
+  });
+
+  test("counts a single matching heading", () => {
+    const plan = path.join(testTmpDir, "p.md");
+    fs.writeFileSync(plan, "# Plan\n\n## Iteration 3: API [ ]\n", "utf-8");
+    expect(countIterationHeadings(plan, 3)).toBe(1);
+  });
+
+  test("counts duplicate headings for the same id", () => {
+    const plan = path.join(testTmpDir, "p.md");
+    fs.writeFileSync(plan, "## Iteration 3: A [ ]\n## Iteration 3: B [x]\n", "utf-8");
+    expect(countIterationHeadings(plan, 3)).toBe(2);
+  });
+
+  test("ignores headings inside fenced code blocks", () => {
+    const plan = path.join(testTmpDir, "p.md");
+    fs.writeFileSync(plan, "## Iteration 3: A [ ]\n```\n## Iteration 3: B [ ]\n```\n", "utf-8");
+    expect(countIterationHeadings(plan, 3)).toBe(1);
+  });
+});
