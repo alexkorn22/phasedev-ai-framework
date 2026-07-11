@@ -1,6 +1,6 @@
-import { spawnSync } from "child_process";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
+import { runGit } from "../../shared/shell/git";
 
 export interface ChangedFileInventoryOptions {
   phase?: Iteration;
@@ -92,12 +92,10 @@ function pathMatchesSurface(filePath: string, patterns: string[]): boolean {
 }
 
 export function renderChangedFileInventory(projectPath: string, options: ChangedFileInventoryOptions = {}): string {
-  const result = spawnSync("git", ["-C", projectPath, "status", "--short", "--untracked-files=all", "--", "."], {
-    encoding: "utf-8"
-  });
+  const result = runGit(projectPath, ["status", "--short", "--untracked-files=all", "--", "."]);
 
-  if (result.error || result.status !== 0) {
-    const reason = result.error?.message || result.stderr.trim() || `git status exited with ${result.status}`;
+  if (!result.ok) {
+    const reason = result.failureReason ?? `git status exited with an unknown error`;
     return [
       "## Controller Observed Changed Files",
       "",
