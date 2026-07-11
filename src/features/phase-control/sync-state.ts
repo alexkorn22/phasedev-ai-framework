@@ -4,6 +4,7 @@ import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { resolveRoute } from "./flow-route";
 import { PHASE_RANK } from "./state-route-consistency";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export interface SyncStateResult {
   ok: boolean;
@@ -13,7 +14,11 @@ export interface SyncStateResult {
   toPhase?: string;
 }
 
-export function syncState(projectPath: string, changeName?: string): SyncStateResult {
+export function syncState(
+  projectPath: string,
+  changeName?: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): SyncStateResult {
   const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return { ok: false, changed: false, message: "No active change. Run: phasedev create-change <name>." };
@@ -24,7 +29,7 @@ export function syncState(projectPath: string, changeName?: string): SyncStateRe
     return { ok: false, changed: false, message: "Cannot locate active change directory." };
   }
 
-  const route = resolveRoute(projectPath, changeName);
+  const route = resolveRoute(projectPath, changeName, blockingSeverity);
   const routePhase = route.phase as ActivePhase;
   if (routePhase === state.activePhase) {
     return {

@@ -7,6 +7,7 @@ import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
 import { validatePhase } from "./phase-validators";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export type RouteKind = Route["kind"];
 
@@ -62,7 +63,8 @@ function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: 
 export function checkPhase(
   projectPath: string,
   phaseOverride?: string,
-  changeName?: string
+  changeName?: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
 ): PhaseCheckResult {
   const state = loadFlowState(projectPath, changeName);
   if (!state) {
@@ -73,7 +75,7 @@ export function checkPhase(
     };
   }
 
-  const route = phaseOverride ? null : resolveRoute(projectPath, changeName);
+  const route = phaseOverride ? null : resolveRoute(projectPath, changeName, blockingSeverity);
   const phase = phaseOverride ?? route!.phase;
   if (!isActivePhase(phase)) {
     return {
@@ -95,7 +97,7 @@ export function checkPhase(
   const activeIteration = route?.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
 
   const paths = buildChangePaths(changeDir);
-  const v = validatePhase(projectPath, phase, paths, activeIteration);
+  const v = validatePhase(projectPath, phase, paths, activeIteration, blockingSeverity);
 
   const divergenceNotice = route && phase !== state.activePhase
     ? `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${phase}; run \`phasedev advance\` to move forward or \`phasedev sync-state\` to roll back.`
@@ -112,8 +114,13 @@ export function checkPhase(
 
 // ── check-validation (specialized, unchanged) ──────────────
 
-export function checkValidationCompletion(projectPath: string, options: ValidationCheckOptions, changeName?: string): ValidationCheckResult {
-  const route = resolveRoute(projectPath, changeName);
+export function checkValidationCompletion(
+  projectPath: string,
+  options: ValidationCheckOptions,
+  changeName?: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ValidationCheckResult {
+  const route = resolveRoute(projectPath, changeName, blockingSeverity);
   const paths = pathsForValidation(projectPath, route, changeName);
   const issues: string[] = [];
 
@@ -121,7 +128,7 @@ export function checkValidationCompletion(projectPath: string, options: Validati
     issues.push("No active change with validation_findings.md was found.");
   }
 
-  const findings = paths ? parseValidationFindingsArtifact(paths.findingsPath) : null;
+  const findings = paths ? parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity) : null;
   if (!findings?.exists) {
     issues.push("validation_findings.md must exist before validation completion can pass.");
   }

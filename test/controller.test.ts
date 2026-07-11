@@ -2172,5 +2172,22 @@ Complete API work.
       expect(result.phase).toBe("change_intake");
       expect(result.message).not.toContain("is locked at");
     });
+
+    test("recommended threshold: check reports finding_repair for an open RECOMMENDED", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Concern. | Fix it. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
+
+      const result = checkPhase(testTmpDir, undefined, undefined, "recommended");
+
+      expect(result.phase).toBe("finding_repair");
+      expect(result.ok).toBe(true);
+    });
   });
 });

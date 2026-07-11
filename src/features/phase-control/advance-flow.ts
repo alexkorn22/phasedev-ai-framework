@@ -273,14 +273,14 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
   // must not point at different phases in a way that means the artifacts
   // regressed below the locked phase. Refuse rather than guess.
-  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName));
+  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName, config.blockingSeverity));
   if (conflict) {
     return refuse(conflict);
   }
 
   // (A) Per-phase exit gate: structural validity plus phase-completion
   // conditions. Entry conditions are resolveRoute's job (step C).
-  const v = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration);
+  const v = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, config.blockingSeverity);
   if (!v.ok) {
     return refuse(
       `Cannot leave phase "${state.activePhase}":\n${v.issues.join("\n")}`
@@ -288,7 +288,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   }
 
   // (C) Resolve next route from files
-  let route = resolveRoute(projectPath, changeName);
+  let route = resolveRoute(projectPath, changeName, config.blockingSeverity);
 
   // autoApprove: approval gates are reached only after the artifacts passed
   // validation (resolveRoute checks invalid_* first), so approving here is
@@ -302,7 +302,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     for (const artifactPath of approvalTargets) {
       approveArtifact(artifactPath, "PhaseDev autoApprove");
     }
-    route = resolveRoute(projectPath, changeName);
+    route = resolveRoute(projectPath, changeName, config.blockingSeverity);
   }
 
   // (C1) invalid_* → refuse with rich blocker

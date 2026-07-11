@@ -6,34 +6,43 @@ import { validateResearchFacts } from "../../entities/research-facts/validate-re
 import { validateDesign } from "../../entities/design/validate-design";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export interface ValidateArtifactResult {
   ok: boolean;
   message: string;
 }
 
+interface ValidatorContext {
+  prdPath: string;
+  researchPath: string;
+  blockingSeverity: BlockingSeverity;
+}
+
 const ARTIFACT_DISPATCH: Array<{
   pattern: RegExp;
-  validator: (filePath: string, ...args: string[]) => string[];
-  argFiles?: string[];
+  validator: (filePath: string, context: ValidatorContext) => string[];
 }> = [
   { pattern: /prd\.md$/, validator: (f: string) => validatePrdArtifact(f) },
   { pattern: /execution_contract\.md$/, validator: (f: string) => validateRulesArtifact(f) },
-  { pattern: /research_facts\.md$/, validator: (f: string, prdPath?: string) => validateResearchFacts(f, prdPath) },
-  { pattern: /design\.md$/, validator: (f: string, prdPath?: string, researchPath?: string) => {
+  { pattern: /research_facts\.md$/, validator: (f: string, { prdPath }: ValidatorContext) => validateResearchFacts(f, prdPath) },
+  { pattern: /design\.md$/, validator: (f: string, { prdPath, researchPath }: ValidatorContext) => {
     const opts: { prdPath?: string; researchPath?: string } = {};
-    if (prdPath && fs.existsSync(prdPath)) opts.prdPath = prdPath;
-    if (researchPath && fs.existsSync(researchPath)) opts.researchPath = researchPath;
+    if (fs.existsSync(prdPath)) opts.prdPath = prdPath;
+    if (fs.existsSync(researchPath)) opts.researchPath = researchPath;
     return validateDesign(f, opts);
   }},
   { pattern: /iteration_plan\.md$/, validator: (f: string) => validatePlanArtifact(f) },
-  { pattern: /validation_findings\.md$/, validator: (f: string) => {
-    const result = parseValidationFindingsArtifact(f);
+  { pattern: /validation_findings\.md$/, validator: (f: string, { blockingSeverity }: ValidatorContext) => {
+    const result = parseValidationFindingsArtifact(f, blockingSeverity);
     return result.issues.map(issue => issue.message);
   }},
 ];
 
-export function validateArtifact(filePath: string): ValidateArtifactResult {
+export function validateArtifact(
+  filePath: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ValidateArtifactResult {
   if (!fs.existsSync(filePath)) {
     return { ok: false, message: `File not found: ${filePath}` };
   }
@@ -53,7 +62,7 @@ export function validateArtifact(filePath: string): ValidateArtifactResult {
   const changeRoot = parentDir === "architecture" ? path.dirname(dirName) : dirName;
   const prdPath = path.join(changeRoot, "prd.md");
   const researchPath = path.join(changeRoot, "research_facts.md");
-  const issues = dispatch.validator(filePath, prdPath, researchPath);
+  const issues = dispatch.validator(filePath, { prdPath, researchPath, blockingSeverity });
 
   if (issues.length === 0) {
     return { ok: true, message: `${fileName}: validation passed.` };

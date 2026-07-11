@@ -38,7 +38,7 @@ import {
  * CLI prompts go through getPhasePrompt.
  */
 export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CONFIG): Prompt {
-  const route = resolveRoute(projectPath);
+  const route = resolveRoute(projectPath, undefined, config.blockingSeverity);
 
   switch (route.kind) {
     case "invalid_archive_state":

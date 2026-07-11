@@ -6,6 +6,7 @@ import { buildChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export interface FlowStatus {
   activeChange: string | null;
@@ -23,10 +24,14 @@ function artifactStatus(changeDir: string, relPath: string): { name: string; exi
   return { name: relPath, exists, approved };
 }
 
-export function getFlowStatus(projectPath: string, changeName?: string): FlowStatus {
+export function getFlowStatus(
+  projectPath: string,
+  changeName?: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): FlowStatus {
   let state: { phase: string; routeKind: string };
   try {
-    const resolved = resolveCurrentState(projectPath, changeName);
+    const resolved = resolveCurrentState(projectPath, changeName, blockingSeverity);
     state = { phase: resolved.phase, routeKind: resolved.routeKind };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -57,7 +62,7 @@ export function getFlowStatus(projectPath: string, changeName?: string): FlowSta
       status: p.status
     }));
 
-    const findings = parseValidationFindingsArtifact(paths.findingsPath);
+    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
     validationFindings = {
       exists: findings.exists,
       verdict: findings.verdict,
