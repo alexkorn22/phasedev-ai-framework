@@ -453,3 +453,34 @@ describe("addFinding CLI-owned mutations", () => {
     expect(written).toContain("| Resolution |");
   });
 });
+
+describe("blockingSeverity-aware verdict correction", () => {
+  test("recommended threshold: adding a RECOMMENDED finding downgrades ready to repair_required", () => {
+    const file = writeFindings(FM("ready") + HDR7);
+
+    const result = addFinding(file, null, "New concern", "RECOMMENDED", "Fix later", undefined, "Iteration 1", undefined, "recommended");
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("verdict updated to repair_required");
+    expect(fs.readFileSync(file, "utf-8")).toContain("verdict: repair_required");
+  });
+
+  test("must_fix (default): adding a RECOMMENDED finding to ready yields ready_with_risks", () => {
+    const file = writeFindings(FM("ready") + HDR7);
+
+    const result = addFinding(file, null, "New concern", "RECOMMENDED", "Fix later", undefined, "Iteration 1");
+
+    expect(result.ok).toBe(true);
+    expect(fs.readFileSync(file, "utf-8")).toContain("verdict: ready_with_risks");
+  });
+
+  test("recommended threshold: set-verdict rejects ready_with_risks while an open RECOMMENDED exists", () => {
+    const file = writeFindings(FM("repair_required") + HDR7 +
+      "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Concern | Fix it |\n");
+
+    const result = setFindingsVerdict(file, "ready_with_risks", CTX, "recommended");
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("MUST-FIX or RECOMMENDED");
+  });
+});

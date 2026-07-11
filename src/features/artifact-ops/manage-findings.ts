@@ -3,7 +3,8 @@ import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
 import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
-import { ALLOWED_SEVERITIES, ALLOWED_CLASSES, canonicalFindingKey } from "../../entities/validation-findings/parse-validation-findings";
+import { ALLOWED_SEVERITIES, ALLOWED_CLASSES, canonicalFindingKey, ValidationFindingSeverity } from "../../entities/validation-findings/parse-validation-findings";
+import { severityBlocks, blockingSeverityLabel, DEFAULT_BLOCKING_SEVERITY, BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 
 export interface ManageFindingsResult {
   ok: boolean;
@@ -123,8 +124,8 @@ function isKnownVerdict(value: string): value is (typeof KNOWN_VERDICTS)[number]
   return (KNOWN_VERDICTS as readonly string[]).includes(value);
 }
 
-function correctedVerdict(current: string, addedSeverity: string): string | null {
-  const isBlocking = addedSeverity.toUpperCase() === "MUST-FIX";
+function correctedVerdict(current: string, addedSeverity: string, blockingSeverity: BlockingSeverity): string | null {
+  const isBlocking = severityBlocks(addedSeverity.toUpperCase() as ValidationFindingSeverity, blockingSeverity);
   if (isBlocking && ["ready", "ready_with_risks", "repaired"].includes(current)) return "repair_required";
   if (!isBlocking && current === "ready") return "ready_with_risks";
   return null;
@@ -136,10 +137,10 @@ function correctedVerdict(current: string, addedSeverity: string): string | null
  * verdict is written by the validator) causes the correction to be silently skipped,
  * and the file is not modified.
  */
-function applyVerdictCorrection(parsed: ReturnType<typeof parseTable>, addedSeverity: string): string {
+function applyVerdictCorrection(parsed: ReturnType<typeof parseTable>, addedSeverity: string, blockingSeverity: BlockingSeverity): string {
   const current = readVerdictLine(parsed.frontmatter);
   if (current === null || !isKnownVerdict(current)) return "";
-  const next = correctedVerdict(current, addedSeverity);
+  const next = correctedVerdict(current, addedSeverity, blockingSeverity);
   if (!next) return "";
   parsed.frontmatter = parsed.frontmatter.replace(/^verdict:\s*.*$/m, `verdict: ${next}`);
   return `; verdict updated to ${next}`;
@@ -159,13 +160,14 @@ function findingsFileSkeleton(context: FindingsCreateContext, verdict: string): 
   ].join("\n");
 }
 
-function verdictConsistencyIssue(verdict: string, rows: FindingTableRow[]): string | null {
+function verdictConsistencyIssue(verdict: string, rows: FindingTableRow[], blockingSeverity: BlockingSeverity): string | null {
   const openRows = rows.filter(r => ["open", "reopened"].includes(r.status.toLowerCase()));
-  const openBlocking = openRows.filter(r => r.severity.toUpperCase() === "MUST-FIX");
+  const openBlocking = openRows.filter(r => severityBlocks(r.severity.toUpperCase() as ValidationFindingSeverity, blockingSeverity));
+  const label = blockingSeverityLabel(blockingSeverity);
   if (verdict === "ready" && openRows.length > 0) return "`verdict: ready` is allowed only when there are no open or reopened findings.";
-  if (verdict === "ready_with_risks" && openBlocking.length > 0) return "`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX findings exist.";
-  if (verdict === "repair_required" && openBlocking.length === 0) return "`verdict: repair_required` requires at least one open or reopened MUST-FIX finding.";
-  if (verdict === "repaired" && openBlocking.length > 0) return "`verdict: repaired` is not allowed while open or reopened MUST-FIX findings exist.";
+  if (verdict === "ready_with_risks" && openBlocking.length > 0) return `\`verdict: ready_with_risks\` is not allowed while open or reopened ${label} findings exist.`;
+  if (verdict === "repair_required" && openBlocking.length === 0) return `\`verdict: repair_required\` requires at least one open or reopened ${label} finding.`;
+  if (verdict === "repaired" && openBlocking.length > 0) return `\`verdict: repaired\` is not allowed while open or reopened ${label} findings exist.`;
   return null;
 }
 
@@ -177,7 +179,8 @@ export function addFinding(
   requiredFix: string,
   className?: string,
   iteration?: string,
-  createContext?: FindingsCreateContext
+  createContext?: FindingsCreateContext,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
 ): ManageFindingsResult {
   if (isPlaceholderRequiredFix(requiredFix)) {
     return { ok: false, message: "Required fix must be a concrete action; placeholder values such as TBD are not allowed." };
@@ -236,7 +239,7 @@ export function addFinding(
   };
 
   const allRows = [newRow, ...rows];
-  const verdictNote = applyVerdictCorrection(parsed, normalizedSeverity);
+  const verdictNote = applyVerdictCorrection(parsed, normalizedSeverity, blockingSeverity);
   writeTable(filePath, parsed, allRows);
 
   return {
@@ -276,7 +279,7 @@ export function resolveFinding(filePath: string, id: string, resolution: string)
   };
 }
 
-export function reopenFinding(filePath: string, id: string, evidence: string): ManageFindingsResult {
+export function reopenFinding(filePath: string, id: string, evidence: string, blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY): ManageFindingsResult {
   if (isPlaceholderRequiredFix(evidence)) {
     return { ok: false, message: "Reopen evidence must be concrete; placeholders are not allowed." };
   }
@@ -301,7 +304,7 @@ export function reopenFinding(filePath: string, id: string, evidence: string): M
   // Resolution cell accumulates history instead of being overwritten.
   row.resolution = row.resolution ? `${row.resolution}; reopened: ${evidence.trim()}` : `reopened: ${evidence.trim()}`;
 
-  const verdictNote = applyVerdictCorrection(parsed, row.severity);
+  const verdictNote = applyVerdictCorrection(parsed, row.severity, blockingSeverity);
   writeTable(filePath, parsed, rows);
 
   return {
@@ -324,19 +327,19 @@ export function setFindingsType(filePath: string, type: "iteration" | "final"): 
   writeTable(filePath, parsed, parsed.rows);
 }
 
-export function setFindingsVerdict(filePath: string, verdict: string, context: FindingsCreateContext): ManageFindingsResult {
+export function setFindingsVerdict(filePath: string, verdict: string, context: FindingsCreateContext, blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY): ManageFindingsResult {
   if (!isKnownVerdict(verdict)) {
     return { ok: false, message: `Invalid verdict \`${verdict}\`. Must be one of: ${KNOWN_VERDICTS.join(", ")}.` };
   }
   if (!fs.existsSync(filePath)) {
-    const issue = verdictConsistencyIssue(verdict, []);
+    const issue = verdictConsistencyIssue(verdict, [], blockingSeverity);
     if (issue) return { ok: false, message: issue };
     writeFileAtomic(filePath, findingsFileSkeleton(context, verdict));
     return { ok: true, message: `Created ${filePath} with verdict ${verdict}.` };
   }
   const content = fs.readFileSync(filePath, "utf-8");
   const parsed = parseTable(content);
-  const issue = verdictConsistencyIssue(verdict, parsed.rows);
+  const issue = verdictConsistencyIssue(verdict, parsed.rows, blockingSeverity);
   if (issue) return { ok: false, message: issue };
   if (readVerdictLine(parsed.frontmatter) !== null) {
     parsed.frontmatter = parsed.frontmatter.replace(/^verdict:\s*.*$/m, `verdict: ${verdict}`);
