@@ -1,23 +1,12 @@
 import * as path from "path";
+import { parseStringOption } from "./parse-string-option";
 
 export function parseProjectPath(args: string[]): string {
-  let projectPath = process.cwd();
-
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === "--project-path" || args[i] === "-p") && args[i + 1]) {
-      projectPath = args[i + 1];
-    }
-  }
-
-  return path.resolve(projectPath);
+  const value = parseStringOption(args, "--project-path") ?? parseStringOption(args, "-p");
+  return path.resolve(value ?? process.cwd());
 }
 
 export function parseConfigPath(args: string[]): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--config" && args[i + 1]) {
-      return path.resolve(args[i + 1]);
-    }
-  }
-
-  return undefined;
+  const value = parseStringOption(args, "--config");
+  return value === undefined ? undefined : path.resolve(value);
 }

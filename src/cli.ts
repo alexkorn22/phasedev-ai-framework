@@ -7,6 +7,7 @@ import { getInitPrompt } from "./features/phase-control";
 import { renderHelp } from "./features/cli-help/render-help";
 import { initProject } from "./features/project-init/init-project";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
+import { parseStringOption, FlagValueError } from "./shared/cli/parse-string-option";
 import { getFlowStatus, renderFlowStatus } from "./features/flow-status/get-status";
 import { approveArtifact } from "./features/artifact-ops/approve-artifact";
 import { setIterationStatus } from "./features/iteration-ops/set-iteration-status";
@@ -40,8 +41,6 @@ import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
 
-class FlagValueError extends Error {}
-
 const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans"]);
 
 function firstPositional(args: string[]): string | undefined {
@@ -52,23 +51,6 @@ function firstPositional(args: string[]): string | undefined {
     }
     if (!BOOLEAN_FLAGS.has(token)) {
       i++;
-    }
-  }
-
-  return undefined;
-}
-
-function parseStringOption(args: string[], option: string): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === option) {
-      const value = args[i + 1];
-      if (value === undefined) {
-        return undefined;
-      }
-      if (value.startsWith("--")) {
-        throw new FlagValueError(`Option ${option} requires a value, got flag "${value}" instead.`);
-      }
-      return value;
     }
   }
 
