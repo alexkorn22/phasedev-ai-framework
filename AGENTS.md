@@ -72,14 +72,15 @@ For each `phases.<phase>.skills` (or legacy `stages.<stage>.skills` / `codex.sta
 These contracts are frozen (same rule as "Behavior To Preserve"):
 
 - Allowed external skills for a phase are configured `routers`, router-selected skills explicitly named by router content, `main`, and `additional`.
+- When no skills are configured for a phase, skills discovered in the executing agent's runtime environment that match the phase work are allowed under the same boundary rules (method instructions only; no Flow-state authority).
 - Router-selected skills are authorized by router content and have priority over `main` and `additional`.
 - Configured skills are execution-method instructions, not flow-state authorities.
 - If a selected skill applies to the phase work, the agent MUST use its method, algorithm, checklist, or review logic.
 - PhaseDev owns artifact formats, phase transitions, approval state, validation verdicts, archive state, and allowed persistent files.
 - Skill-specific reports, headings, tables, lifecycle steps, approval changes, and state changes MUST be adapted into the current PhaseDev artifact contract, final response, or blocker — never copied into PhaseDev artifacts.
-- If a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent MUST stop and ask the user to update config/router or approve an exception.
+- When skills are configured and a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent MUST stop and ask the user to update config/router or approve an exception.
 - Skills do not inherit from a default config; they are explicit per phase.
-- If `skills` is omitted or empty, the generated phase prompt MUST say no external skills are configured.
+- If `skills` is omitted or empty, the generated phase prompt MUST instruct the agent to discover and select applicable skills from its runtime environment under the Flow Skill Boundary Protocol, and to state that skills are unavailable in the environment when none are visible.
 - `phasedev init` MUST NOT include phase-specific skill policy; executable `phasedev phase` prompts inject it.
 - Approval/blocker prompts stay policy-free because they are controller stop messages.
 
