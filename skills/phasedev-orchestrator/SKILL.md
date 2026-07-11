@@ -26,7 +26,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 `phasedev` is a **globally installed CLI** on `PATH`. Always invoke it directly as `phasedev <command>`. **NEVER** wrap it in `npx`, `bunx`, `npm exec`, `npm run`, `bun run`, or `bun run src/cli.ts`. There is nothing to resolve and no fallback to try, unless the phase controller's self-check fallback block gives explicit alternatives — then follow its instructions. This applies to the orchestrator and to every sub-agent prompt.
 
 **Core orchestrator commands:**
-- `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`.
+- `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `phasedev create-change --quick <name>` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
@@ -41,6 +41,40 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 Findings commands `reopen-finding`, `resolve-finding`, `set-verdict` are for sub-agents (see `phasedev help`); the orchestrator does not run them.
 
 All commands run from the **project root**. `phasedev` defaults to `process.cwd()`, so `--project-path` is omitted throughout.
+
+## Mode Selection
+
+Mode selection happens BEFORE any artifacts exist for the change. The user may explicitly name a mode (Express / Quick / Standard); otherwise assess the goal's complexity and PROPOSE one of the three — the user must CONFIRM before any command creates a change or artifact.
+
+- **Express** — trivial, well-understood change: a few files, no unclear investigation, no spec/behavior implications beyond the obvious. Fully stateless: no `.phasedev/changes` directory, no worklog.
+- **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change --quick <name>`.
+- **Standard** — the full phase flow (`change_intake` → … → `archive`) described in the rest of this skill.
+
+All three modes are available at the selection point — Quick is never reached only by escalation.
+
+**No Quick → Standard escalation mid-flow.** Complexity assessment is the first stage's job; once a change is in Quick mode, it finishes in Quick mode (see [Quick Mode](#quick-mode)). Express MAY escalate to Quick (see [Express Mode](#express-mode)) — that is the only cross-mode transition.
+
+**Resume.** When invoked with no goal, run `phasedev list` and honor whatever mode the selected/only unfinished change is already in (`flowMode` from its `state.json`) — do not re-run mode selection for an existing change.
+
+## Express Mode
+
+Express is fully stateless — no `.phasedev/changes` directory, no worklog; the only lasting trace is the eventual git commit.
+
+1. Run `phasedev express` — prints the Express contract (mission, guardrails, escalation criteria, self-check).
+2. Follow the printed contract. There is a single stop: plan confirmation with the user before implementation starts.
+3. After the user confirms the plan, spawn an implementer sub-agent (dev-core discipline, test-first) that proves its work with an actual run of the relevant command/test — not by assertion alone.
+4. Spawn a separate reviewer sub-agent (fresh context) that performs code and security review and checks whether the change touches anything under `specs/` or otherwise implies a behavior/spec change.
+5. **Escalate to Quick** when, during planning or review, any of: the change touches more than a handful of files; the behavior is described in `specs/` or a change directory; or the bug's root cause is unclear without further investigation. On hitting one of these, STOP and ask the user; on confirmation, abandon Express and run `phasedev create-change --quick <name>` to continue in Quick mode. These are textual criteria only — no numeric thresholds, nothing configurable.
+
+## Quick Mode
+
+1. Create the change: `phasedev create-change --quick <name>` (`state.json`: `flowMode: "quick"`, `activePhase: quick_plan`).
+2. Drive the same primitives as Standard — `phasedev phase`, `phasedev check`, `phasedev advance` — but the phase sequence is the fixed linear chain `quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`; it branches before `resolveRoute` and does not use Standard's phase graph.
+3. Delegate each quick phase to a dedicated sub-agent exactly as in [Sub-Agent Spawning](#sub-agent-spawning) — the sub-agent reads its own contract via `phasedev phase`.
+4. **Single stop:** after `quick_plan`, the sub-agent fills `worklog.md` (`## Task` / `## Short Specification` / `## Plan`, English) — the orchestrator never writes the worklog itself. Stop and get the user's plan confirmation before `quick_implementation` starts.
+5. **Validation fix loop stays in-session:** fix `quick_validation` issues by looping sub-agents in the orchestrator's own session — there is no findings artifact in Quick mode.
+6. **`quick_spec_revision`** uses a fresh-context sub-agent that reports exactly one of three verdicts: nothing to change, fix the spec in place, or write a delta spec at archive time.
+7. **Archive** is a full phase, same as Standard's — see [Archive Handling](#archive-handling); a delta spec is written only when `quick_spec_revision` returned the third verdict.
 
 ## Initialization
 

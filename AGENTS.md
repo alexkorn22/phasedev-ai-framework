@@ -54,12 +54,13 @@ Acyclic `feature -> feature` imports are permitted (e.g. `phase-control -> artif
 These contracts are frozen. You MUST NOT change them unless the user explicitly asks in the current conversation:
 
 - Phase routing before Archive (previously Stage routing before Archive).
-- `state.json = { activePhase, activeIteration, repairCycleCount }` — lock of the current phase.
+- `state.json = { activePhase, activeIteration, repairCycleCount, flowMode? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`.
 - Iteration heading format: `## Iteration N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`.
 - `config.yaml` shape: `phases:` instead of `stages:`, with legacy alias for `stages:` and `codex.stages:`.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
+- Quick routing is a separate state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`) that branches before `resolveRoute`; `resolveRoute` and Standard routing are unchanged.
 
 ## Config-Driven Skill Policy
 
