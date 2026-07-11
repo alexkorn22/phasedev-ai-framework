@@ -22,6 +22,13 @@ export function getFeedbackPrompt(projectPath: string, changeName?: string): Fee
     };
   }
 
+  if (state.flowMode === "quick") {
+    return {
+      prompt: `[PHASEDEV] This is a quick-mode change (phase: ${state.activePhase}). Feedback handling is managed in the orchestrator session; run \`phasedev phase\` for the current quick contract.`,
+      blocked: false
+    };
+  }
+
   const paths = buildChangePaths(changeDir);
   return {
     prompt: renderTemplate("feedback", {

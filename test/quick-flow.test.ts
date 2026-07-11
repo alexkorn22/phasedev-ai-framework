@@ -11,6 +11,9 @@ import { quickCheck } from "../src/features/phase-control/quick-check";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { checkPhase } from "../src/features/phase-control/check-flow";
+import { getFlowStatus } from "../src/features/flow-status/get-status";
+import { getInitPrompt } from "../src/features/phase-control/get-init-prompt";
+import { getFeedbackPrompt } from "../src/features/phase-control/get-feedback-prompt";
 import { loadFlowState } from "../src/entities/change/flow-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { recordCommitLogStart } from "../src/entities/change/commit-log";
@@ -232,5 +235,26 @@ describe("quickCheck", () => {
     const { projectPath, changeName } = scaffoldQuick("quick_plan", "");
     const state = loadFlowState(projectPath, changeName)!;
     expect(quickCheck(projectPath, state, changeName).ok).toBe(false);
+  });
+});
+
+describe("read-only commands on a quick change", () => {
+  it("status/init/feedback do not crash or mislead on a quick change", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+
+    expect(() => getFlowStatus(projectPath, changeName, "must_fix")).not.toThrow();
+    const status = getFlowStatus(projectPath, changeName, "must_fix");
+    expect(status.phase).toBe("quick_plan");
+    expect(status.routeKind).toBe("quick");
+
+    expect(() => getInitPrompt(projectPath)).not.toThrow();
+    const init = getInitPrompt(projectPath);
+    expect(init.blocked).toBe(false);
+    expect(init.prompt).not.toContain("change_intake");
+
+    expect(() => getFeedbackPrompt(projectPath, changeName)).not.toThrow();
+    const feedback = getFeedbackPrompt(projectPath, changeName);
+    expect(feedback.blocked).toBe(false);
+    expect(feedback.prompt).toContain("quick");
   });
 });
