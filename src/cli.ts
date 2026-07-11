@@ -781,14 +781,16 @@ function main(): void {
       return;
     }
 
-    const taskText = parseStringOption(args, "--task");
-    const result = createChange(projectPath, name, taskText);
-    reportCliResult(jsonMode, {
-      ok: result.ok,
-      kind: "create-change",
-      humanMessage: `[PHASEDEV CREATE-CHANGE] ${result.ok ? "OK" : "FAILED"}: ${result.message}`,
-      jsonMessage: result.message,
-      data: { changeDir: result.changeDir ?? null }
+    runWithOptionalStateLock(projectPath, () => {
+      const taskText = parseStringOption(args, "--task");
+      const result = createChange(projectPath, name, taskText);
+      reportCliResult(jsonMode, {
+        ok: result.ok,
+        kind: "create-change",
+        humanMessage: `[PHASEDEV CREATE-CHANGE] ${result.ok ? "OK" : "FAILED"}: ${result.message}`,
+        jsonMessage: result.message,
+        data: { changeDir: result.changeDir ?? null }
+      });
     });
     return;
   }
