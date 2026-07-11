@@ -747,7 +747,8 @@ function main(): void {
 
   if (command === "sync-state") {
     runWithStateLock(projectPath, () => {
-      const result = syncState(projectPath, changeName);
+      const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
+      const result = syncState(projectPath, changeName, config.blockingSeverity);
       const prefix = result.ok ? "[PHASEDEV SYNC-STATE] OK" : "[PHASEDEV SYNC-STATE] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,

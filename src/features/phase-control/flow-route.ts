@@ -182,7 +182,7 @@ export function resolveRoute(
 
     // 2b. A successful repair resolves every blocking row (the repair exit
     //    condition), so openRows is empty exactly in that case. Fall back to
-    //    the highest-numbered MUST-FIX row across all rows: the just-repaired
+    //    the highest-numbered blocking row across all rows: the just-repaired
     //    findings identify which iteration was under repair.
     if (!targetIteration) {
       const blockingIterations = findings.rows

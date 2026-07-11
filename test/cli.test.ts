@@ -3180,6 +3180,32 @@ phases: {}
     expect(result.output).toContain("already consistent");
   });
 
+  test("sync-state threads the project's configured blockingSeverity into route resolution", () => {
+    const changeDir = setupChange(`
+## Iteration 1: First [x]
+- [x] 1.1 Complete first
+`, {
+      findings: validationFindings("ready_with_risks", "iteration", "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Naming inconsistent | Rename |\n")
+    });
+    writeStateJson(changeDir, "archive");
+    writeProjectConfig(`
+blockingSeverity: recommended
+phases: {}
+`);
+
+    const result = runCli(["sync-state", "--project-path", testTmpDir, "--json"]);
+    expect(result.exitCode).toBe(0);
+    const envelope = JSON.parse(result.output);
+    // Under the project's recommended threshold, the open RECOMMENDED finding
+    // counts as blocking, so `ready_with_risks` is invalid and the route
+    // resolves to finding_repair. At the default must_fix threshold the same
+    // finding would not block, so the route would resolve to final_validation
+    // instead. This assertion only holds if sync-state forwards the
+    // configured blockingSeverity into route resolution.
+    expect(envelope.data.toPhase).toBe("finding_repair");
+    expect(envelope.data.changed).toBe(true);
+  });
+
   test("help lists sync-state", () => {
     const result = runCli(["help"]);
     expect(result.output).toContain("phasedev sync-state");
