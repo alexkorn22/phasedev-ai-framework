@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import { fencedCodeLineMask } from "../../shared/markdown/code-fences";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
-import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
+import { matchFrontmatterBlock, readFrontmatterValue } from "../../shared/markdown/frontmatter";
+import { loadFlowState } from "../../entities/change/flow-state";
 import { escapeMarkdownTableCell, isMarkdownTableSeparatorRow, splitMarkdownTableRow } from "../../shared/markdown/table";
 import { ALLOWED_SEVERITIES, ALLOWED_CLASSES, canonicalFindingKey, ValidationFindingSeverity } from "../../entities/validation-findings/parse-validation-findings";
 import { severityBlocks, blockingSeverityLabel, DEFAULT_BLOCKING_SEVERITY, BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
@@ -36,6 +37,14 @@ export const PLACEHOLDER_REQUIRED_FIX = /^(?:TBD|TODO|n\/a|none|-)$/i;
 export function isPlaceholderRequiredFix(value: string): boolean {
   const trimmed = value.trim();
   return trimmed.length === 0 || PLACEHOLDER_REQUIRED_FIX.test(trimmed);
+}
+
+export function deriveIterationLabel(projectPath: string, targetFile: string, changeName?: string): string | undefined {
+  const state = loadFlowState(projectPath, changeName);
+  if (state?.activeIteration) return `Iteration ${state.activeIteration}`;
+  if (state?.activePhase === "final_validation") return "Final";
+  if (state?.activePhase === "finding_repair" && readFrontmatterValue(targetFile, "type") === "final") return "Final";
+  return undefined;
 }
 
 function findTableBounds(lines: string[]): { start: number; end: number } | null {

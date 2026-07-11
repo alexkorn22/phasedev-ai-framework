@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, setFindingsType, isPlaceholderRequiredFix } from "../src/features/artifact-ops/manage-findings";
+import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, setFindingsType, isPlaceholderRequiredFix, deriveIterationLabel } from "../src/features/artifact-ops/manage-findings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -482,5 +482,35 @@ describe("blockingSeverity-aware verdict correction", () => {
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain("MUST-FIX or RECOMMENDED");
+  });
+});
+
+describe("deriveIterationLabel", () => {
+  function writeState(changeName: string, state: Record<string, unknown>): void {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", changeName);
+    fs.mkdirSync(changeDir, { recursive: true });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(state), "utf-8");
+  }
+
+  test("active iteration yields \"Iteration N\"", () => {
+    writeState("c", { activePhase: "finding_repair", activeIteration: 3, repairCycleCount: 0 });
+    expect(deriveIterationLabel(testTmpDir, findingsPath())).toBe("Iteration 3");
+  });
+
+  test("final_validation phase yields \"Final\"", () => {
+    writeState("c", { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 });
+    expect(deriveIterationLabel(testTmpDir, findingsPath())).toBe("Final");
+  });
+
+  test("finding_repair with type: final frontmatter yields \"Final\"", () => {
+    writeState("c", { activePhase: "finding_repair", activeIteration: null, repairCycleCount: 0 });
+    const target = writeFindings(FM("repair_required").replace("type: iteration", "type: final") + HDR7);
+    expect(deriveIterationLabel(testTmpDir, target)).toBe("Final");
+  });
+
+  test("returns undefined when no iteration can be derived", () => {
+    writeState("c", { activePhase: "finding_repair", activeIteration: null, repairCycleCount: 0 });
+    const target = writeFindings(FM("repair_required") + HDR7);
+    expect(deriveIterationLabel(testTmpDir, target)).toBeUndefined();
   });
 });

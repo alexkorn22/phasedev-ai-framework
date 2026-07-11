@@ -47,6 +47,8 @@ Dependency direction MUST be:
 - entities -> shared only when needed
 - shared -> no project-specific feature/entity imports
 
+Acyclic `feature -> feature` imports are permitted (e.g. `phase-control -> artifact-ops`, `flow-status -> phase-control`). Cycles between features remain forbidden.
+
 ## Behavior To Preserve
 
 These contracts are frozen. You MUST NOT change them unless the user explicitly asks in the current conversation:
