@@ -708,6 +708,32 @@ describe("setConfigValue", () => {
     const result = setConfigValue(configPath, "autoApprove", "true");
     expect(result.ok).toBe(true);
   });
+
+  test("rejects __proto__ as a path segment and does not pollute Object.prototype", () => {
+    const configPath = writeProjectConfig(dir, "maxIterations: 5\n");
+    const before = fs.readFileSync(configPath, "utf-8");
+
+    const result = setConfigValue(configPath, "__proto__.polluted", "yes");
+
+    expect(result.ok).toBe(false);
+    expect(result.message.toLowerCase()).toContain("__proto__");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(fs.readFileSync(configPath, "utf-8")).toBe(before);
+  });
+
+  test("rejects a dangerous segment in the middle of the path", () => {
+    const configPath = writeProjectConfig(dir, "maxIterations: 5\n");
+    const result = setConfigValue(configPath, "phases.constructor.main", "x");
+    expect(result.ok).toBe(false);
+    expect(result.message.toLowerCase()).toContain("constructor");
+  });
+
+  test("rejects prototype as a trailing segment", () => {
+    const configPath = writeProjectConfig(dir, "maxIterations: 5\n");
+    const result = setConfigValue(configPath, "phases.prototype", "x");
+    expect(result.ok).toBe(false);
+    expect(result.message.toLowerCase()).toContain("prototype");
+  });
 });
 
 // initProject creates only the flow config (runner config was removed with the deprecated runner)

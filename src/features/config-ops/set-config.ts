@@ -73,6 +73,13 @@ export function setConfigValue(configPath: string, key: string, rawValue: string
     return { ok: false, message: "Key is required." };
   }
 
+  // Reject prototype-pollution segments
+  const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+  const dangerous = segments.find(segment => FORBIDDEN_SEGMENTS.has(segment));
+  if (dangerous) {
+    return { ok: false, message: `Config key segment \`${dangerous}\` is not allowed (prototype pollution).` };
+  }
+
   // Validate typed leaf keys before writing
   const leafKey = segments[segments.length - 1];
   const validationError = validateLeafValue(leafKey, value);
