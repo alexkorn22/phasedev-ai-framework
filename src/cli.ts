@@ -615,15 +615,22 @@ function main(): void {
       }
       const forceString = hasFlag(args, "--string");
       const configPath = resolveConfigPath(projectPath, parseConfigPath(args));
-      const result = setConfigValue(configPath, key, value, { forceString });
-      const prefix = result.ok ? "[PHASEDEV CONFIG SET] OK" : "[PHASEDEV CONFIG SET] FAILED";
-      reportCliResult(jsonMode, {
-        ok: result.ok,
-        kind: "config-set",
-        humanMessage: `${prefix}: ${result.message}`,
-        jsonMessage: result.message,
-        data: result.ok ? { key, storedValue: result.storedValue, storedType: result.storedType } : { key }
-      });
+      const runConfigSet = (): void => {
+        const result = setConfigValue(configPath, key, value, { forceString });
+        const prefix = result.ok ? "[PHASEDEV CONFIG SET] OK" : "[PHASEDEV CONFIG SET] FAILED";
+        reportCliResult(jsonMode, {
+          ok: result.ok,
+          kind: "config-set",
+          humanMessage: `${prefix}: ${result.message}`,
+          jsonMessage: result.message,
+          data: result.ok ? { key, storedValue: result.storedValue, storedType: result.storedType } : { key }
+        });
+      };
+      if (configTargetInsidePhasedev(projectPath, configPath)) {
+        runWithStateLock(projectPath, runConfigSet);
+      } else {
+        runConfigSet();
+      }
       return;
     }
 
