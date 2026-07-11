@@ -18,6 +18,7 @@ import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { archiveTemplateVariables } from "./archive-stage";
 import { resolveRoute } from "./flow-route";
 import { detectStateRouteConflict } from "./state-route-consistency";
+import { quickPhasePrompt } from "./quick-phase-prompt";
 import { readCommitLog, iterationDiffBase } from "../../entities/change/commit-log";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
@@ -272,6 +273,10 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       blocked: true,
       reason: "No active change"
     };
+  }
+
+  if (state.flowMode === "quick") {
+    return quickPhasePrompt(projectPath, config, state, changeName);
   }
 
   const activePhase = state.activePhase as ActivePhase;

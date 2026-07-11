@@ -7,6 +7,7 @@ import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
 import { validatePhase } from "./phase-validators";
+import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export type RouteKind = Route["kind"];
@@ -73,6 +74,10 @@ export function checkPhase(
       phase: "unknown",
       message: "[PHASEDEV CHECK] FAILED: No active change. Run: phasedev create-change <name>."
     };
+  }
+
+  if (state.flowMode === "quick") {
+    return quickCheck(projectPath, state, changeName, blockingSeverity);
   }
 
   const route = phaseOverride ? null : resolveRoute(projectPath, changeName, blockingSeverity);

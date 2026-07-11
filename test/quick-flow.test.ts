@@ -8,6 +8,9 @@ import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { quickPhasePrompt } from "../src/features/phase-control/quick-phase-prompt";
 import { quickAdvance } from "../src/features/phase-control/quick-advance";
 import { quickCheck } from "../src/features/phase-control/quick-check";
+import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
+import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { checkPhase } from "../src/features/phase-control/check-flow";
 import { loadFlowState } from "../src/entities/change/flow-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { recordCommitLogStart } from "../src/entities/change/commit-log";
@@ -196,6 +199,25 @@ describe("quickAdvance", () => {
     const result = quickAdvance(projectPath, config, state, changeName);
     expect(result.ok).toBe(false);
     expect(result.message).toMatch(/archive is disabled/i);
+  });
+});
+
+describe("dispatch guards route quick changes before standard-track machinery", () => {
+  it("getPhasePrompt routes a quick change to the quick contract without resolveRoute", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+    const prompt = getPhasePrompt(projectPath, DEFAULT_CONFIG, changeName);
+    expect(prompt.prompt).toContain("Quick Phase: Plan");
+  });
+
+  it("advanceFlow steps a quick change linearly", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+    const result = advanceFlow(projectPath, DEFAULT_CONFIG, changeName);
+    expect(result.newState?.activePhase).toBe("quick_implementation");
+  });
+
+  it("checkPhase reports quick-phase validity", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+    expect(checkPhase(projectPath, undefined, changeName).ok).toBe(true);
   });
 });
 

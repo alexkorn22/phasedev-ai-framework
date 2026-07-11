@@ -14,6 +14,7 @@ import { setFindingsType } from "../artifact-ops/manage-findings";
 import { scanChangedFilesOutsidePhasedev } from "./changed-file-inventory";
 import { gitHeadSha } from "../../shared/shell/git";
 import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
+import { quickAdvance } from "./quick-advance";
 
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
@@ -253,6 +254,10 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
       return done("Archive complete. Flow finished.");
     }
     return refuse("No active change. Run: phasedev create-change <name>.");
+  }
+
+  if (state.flowMode === "quick") {
+    return quickAdvance(projectPath, config, state, changeName);
   }
 
   const changeDir = locateChangeDir(projectPath, state, changeName);
