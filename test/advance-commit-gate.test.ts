@@ -323,4 +323,42 @@ describe("advance commit gate", () => {
     expect(secondAdvance.ok).toBe(true);
     expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(repairHead);
   });
+
+  it("refuses to archive when the tree is dirty, then archives once committed", () => {
+    const repo = makeGitRepo(); dirs.push(repo);
+    const changeDir = driveToIterationValidationExit(repo);
+    gitCommitAll(repo, "iter1");
+
+    const toFinalValidation = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    expect(toFinalValidation.ok).toBe(true);
+    expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
+
+    const paths = buildChangePaths(changeDir);
+    const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
+    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+
+    fs.writeFileSync(path.join(repo, "leftover-final.ts"), "x"); // uncommitted outside .phasedev
+
+    const blockedAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+
+    expect(blockedAdvance.ok).toBe(false);
+    expect(blockedAdvance.message).toContain("Final validation passed. Commit before archive.");
+    expect(blockedAdvance.message).toContain("phasedev(sample-change): final validation");
+    // No archive mutation happened: the baseline survives, no archive marker
+    // was created, the change dir was not moved, and state.json still locks
+    // final_validation.
+    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    const stateAfterBlock = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(stateAfterBlock.activePhase).toBe("final_validation");
+
+    gitCommitAll(repo, "final validation");
+
+    const archiveAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+
+    expect(archiveAdvance.ok).toBe(true);
+    expect(archiveAdvance.newState?.activePhase).toBe("archive");
+    expect(fs.existsSync(changeDir)).toBe(false);
+  });
 });
