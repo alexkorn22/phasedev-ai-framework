@@ -2590,10 +2590,11 @@ describe("new CLI commands", () => {
   // --- approve ---
 
   test("approve sets approved: true in file frontmatter", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
     const filePath = path.join(testTmpDir, "test.md");
     fs.writeFileSync(filePath, "---\napproved: false\n---\n\n# Test\n", "utf-8");
 
-    const result = runCli(["approve", filePath]);
+    const result = runCli(["approve", filePath, "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV APPROVE] OK");
 
@@ -2604,16 +2605,18 @@ describe("new CLI commands", () => {
   });
 
   test("approve fails when file does not exist", () => {
-    const result = runCli(["approve", "/nonexistent/file.md"]);
+    runCli(["init-project", "--project-path", testTmpDir]);
+    const result = runCli(["approve", "/nonexistent/file.md", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("[PHASEDEV APPROVE] FAILED");
   });
 
   test("approve fails when file has no frontmatter", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
     const filePath = path.join(testTmpDir, "nofm.md");
     fs.writeFileSync(filePath, "# No Frontmatter\n", "utf-8");
 
-    const result = runCli(["approve", filePath]);
+    const result = runCli(["approve", filePath, "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("does not contain YAML frontmatter");
   });
@@ -2625,10 +2628,11 @@ describe("new CLI commands", () => {
   });
 
   test("approve supports --by option", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
     const filePath = path.join(testTmpDir, "test-by.md");
     fs.writeFileSync(filePath, "---\napproved: false\n---\n\n# Test\n", "utf-8");
 
-    const result = runCli(["approve", filePath, "--by", "TestUser"]);
+    const result = runCli(["approve", filePath, "--by", "TestUser", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     const content = fs.readFileSync(filePath, "utf-8");
     expect(content).toContain("approved_by: \"TestUser\"");
@@ -2650,10 +2654,11 @@ describe("new CLI commands", () => {
   // --- set-iteration-status ---
 
   test("set-iteration-status sets iteration to [x]", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
     const planPath = path.join(testTmpDir, "iteration_plan.md");
     fs.writeFileSync(planPath, `# Plan\n\n## Iteration 1: API [ ]\n- [ ] 1.1 Implement endpoint\n`, "utf-8");
 
-    const result = runCli(["set-iteration-status", "1", "x", "--file", planPath]);
+    const result = runCli(["set-iteration-status", "1", "x", "--file", planPath, "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("[PHASEDEV SET-ITERATION-STATUS] OK");
 
@@ -2674,10 +2679,11 @@ describe("new CLI commands", () => {
   });
 
   test("set-iteration-status reports missing iteration", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
     const planPath = path.join(testTmpDir, "iteration_plan.md");
     fs.writeFileSync(planPath, `# Plan\n\n## Iteration 1: API [ ]\n- [ ] 1.1 Implement endpoint\n`, "utf-8");
 
-    const result = runCli(["set-iteration-status", "99", "x", "--file", planPath]);
+    const result = runCli(["set-iteration-status", "99", "x", "--file", planPath, "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("Iteration 99 not found");
   });
@@ -3426,7 +3432,7 @@ describe("--json envelope", () => {
     const filePath = path.join(changeDir, "prd.md");
     writeArtifact(filePath, validPrdBody(), false);
 
-    const result = runCli(["approve", filePath, "--by", "tester", "--json"]);
+    const result = runCli(["approve", filePath, "--by", "tester", "--json", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
 
     const envelope = JSON.parse(result.output);
