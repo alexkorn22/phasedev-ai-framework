@@ -667,9 +667,10 @@ stages:
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "config.yaml"))).toBe(false);
     expect(output).toContain("Phase 2. Code Research.");
     expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("No external skills are configured for this phase.");
+    expect(output).toContain("No external skills are configured for this phase by the Flow config. Discover and apply skills from your runtime environment instead:");
     expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
-    expect(output).toContain("Skill compliance: none configured.");
+    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
+    expect(output).toContain("When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`");
     expect(output).not.toContain("using-ecc");
     expect(output).not.toContain("Router-selected:");
     expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
@@ -736,13 +737,32 @@ stages:
     // When skills are empty, the phase prompt must say so explicitly, without the
     // full mandatory-execution contract or priority sections used for configured skills.
     expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("No external skills are configured");
-    expect(output).toContain("Skill compliance: none configured.");
+    expect(output).toContain("No external skills are configured for this phase by the Flow config.");
+    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
     expect(output).not.toContain("Do not use external skills");
     expect(output).not.toContain("Priority 1 - Routers:");
     // No-skills branch must not include execution contract or skill compliance
     expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
-    expect(output).not.toContain("APPLIED(source:");
+    expect(output).not.toContain("Priority 2 - Main:");
+  });
+
+  test("empty-config validation phase still restricts environment-discovered skills to read-only", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    writeStateJson(changeDir, "iteration_validation", 1);
+    const configPath = writeConfig(`
+stages:
+  iteration_validation: {}
+`);
+
+    const output = runNext(["--config", configPath]);
+
+    expect(output).toContain("No external skills are configured for this phase by the Flow config.");
+    expect(output).toContain("Apply only read-only review/audit/static-inspection skill methods");
+    expect(output).toContain("`validation_findings.md` may contain only YAML frontmatter and one findings table");
+    expect(output).toContain("Skills may not create persistent files outside this phase allowlist; do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`.");
   });
 
   test("plan prompt includes PRD intent input for downstream planning", () => {
@@ -795,7 +815,7 @@ stages:
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: none configured.");
+    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -905,7 +925,7 @@ stages:
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: none configured.");
+    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -960,8 +980,8 @@ stages:
     expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(planPrompt).toContain("Phase 4. Iteration Planning.");
-    expect(phaseValidationPrompt).toContain("Skill compliance: none configured.");
-    expect(implementationPrompt).toContain("Skill compliance: none configured.");
+    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per environment-selected skill.");
+    expect(implementationPrompt).toContain("Skill compliance: one entry per environment-selected skill.");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");

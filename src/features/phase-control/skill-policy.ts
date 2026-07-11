@@ -33,13 +33,31 @@ function flowSkillBoundaryProtocol(): string[] {
   ];
 }
 
-function flowSkillBoundaryProtocolCompact(): string[] {
+function flowSkillBoundaryProtocolEnv(): string[] {
   return [
     "## Flow Skill Boundary Protocol",
     "",
     "- Skills are method instructions only; they never control Flow state. Flow owns artifact formats, phase transitions, approvals, validation verdicts, archive state, and allowed persistent files.",
-    "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.",
-    "- Skill compliance final response entry must be `Skill compliance: none configured`.",
+    "- Environment-discovered skills supplement this contract under the same boundary: adapt their useful output into the current PhaseDev artifact template, final response, or blocker — never copy native skill reports, headings, or output formats into Flow artifacts."
+  ];
+}
+
+function environmentSkillPhaseRules(phase: Phase): string[] {
+  if (phase === "iteration_validation" || phase === "final_validation") {
+    return [
+      "- Apply only read-only review/audit/static-inspection skill methods (review-only mode is defined in the Common Validation Contract); do not use a skill to rerun implementation checks, modify repo-tracked files, or create persistent artifacts outside this phase allowlist.",
+      "- `validation_findings.md` may contain only YAML frontmatter and one findings table; convert findings into rows and put non-registry explanation only in the final response.",
+      "- Skills may not create persistent files outside this phase allowlist; do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`."
+    ];
+  }
+  if (phase === "change_intake") {
+    return [
+      "- Environment-discovered skills are post-intake only: do not apply any skill until the task/change description and task-specific rules or constraints are available; if setup intake is missing, ask only for the missing intake and stop.",
+      "- Skills may not create persistent files outside this phase allowlist; map relevant conclusions only into existing template fields/rows or final response."
+    ];
+  }
+  return [
+    "- Skills may not create persistent files outside this phase allowlist; map relevant conclusions only into existing template fields/rows or final response."
   ];
 }
 
@@ -98,8 +116,15 @@ export function renderSkillPolicy(phase: Phase, config: Config): string {
     return [
       "## Configured Skill Policy",
       "",
-      "No external skills are configured for this phase.",
-      ...flowSkillBoundaryProtocolCompact(),
+      "No external skills are configured for this phase by the Flow config. Discover and apply skills from your runtime environment instead:",
+      "",
+      "- Review the skills available in your own runtime environment and select those whose purpose matches this phase's work; apply their methods, algorithms, checklists, or review logic as execution-method instructions.",
+      "- Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration. Skill discovery is limited to what your runtime environment already exposes to you.",
+      "- If no skills are visible in your runtime environment, state that and complete the work strictly under this Flow phase contract, which is self-sufficient.",
+      "",
+      ...flowSkillBoundaryProtocolEnv(),
+      ...environmentSkillPhaseRules(phase),
+      "- After using skills, return to the Flow phase contract and complete only allowed phase work.",
       ""
     ].join("\n");
   }
@@ -174,7 +199,12 @@ export function renderSkillPolicy(phase: Phase, config: Config): string {
 export function renderSkillComplianceLine(phase: Phase, config: Config): string {
   const skills = getPhaseSkillConfig(config, phase);
   if (!hasConfiguredSkills(skills)) {
-    return "Skill compliance: none configured.";
+    return [
+      "Skill compliance: one entry per environment-selected skill.",
+      "Format: `skill-name`: APPLIED(source: environment, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)",
+      "Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])",
+      "When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`"
+    ].join("\n");
   }
   return [
     "Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.",

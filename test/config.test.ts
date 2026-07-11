@@ -559,9 +559,24 @@ stages:
   });
 });
 
-test("renderSkillPolicy and renderSkillComplianceLine report unconfigured skills explicitly", () => {
-  expect(renderSkillPolicy("change_intake", DEFAULT_CONFIG)).toContain("No external skills are configured");
-  expect(renderSkillComplianceLine("change_intake", DEFAULT_CONFIG)).toBe("Skill compliance: none configured.");
+test("renderSkillPolicy and renderSkillComplianceLine drive environment skill discovery when unconfigured", () => {
+  const policy = renderSkillPolicy("change_intake", DEFAULT_CONFIG);
+  expect(policy).toContain("No external skills are configured for this phase by the Flow config. Discover and apply skills from your runtime environment instead:");
+  expect(policy).toContain("Review the skills available in your own runtime environment and select those whose purpose matches this phase's work");
+  expect(policy).toContain("## Flow Skill Boundary Protocol");
+  expect(policy).toContain("Skills are method instructions only; they never control Flow state.");
+  expect(policy).toContain("If no skills are visible in your runtime environment, state that and complete the work strictly under this Flow phase contract, which is self-sufficient.");
+  expect(policy).not.toContain("No external skills are configured for this phase.\n## Flow Skill Boundary Protocol");
+  expect(policy).not.toContain("Skill compliance final response entry must be `Skill compliance: none configured`.");
+
+  const compliance = renderSkillComplianceLine("change_intake", DEFAULT_CONFIG);
+  expect(compliance).toContain("Skill compliance: one entry per environment-selected skill.");
+  expect(compliance).toContain("When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`");
+  expect(compliance).not.toBe("Skill compliance: none configured.");
+
+  const validationPolicy = renderSkillPolicy("iteration_validation", DEFAULT_CONFIG);
+  expect(validationPolicy).toContain("Apply only read-only review/audit/static-inspection skill methods");
+  expect(validationPolicy).toContain("`validation_findings.md` may contain only YAML frontmatter and one findings table");
 });
 
 describe("setConfigValue", () => {
