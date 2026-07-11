@@ -13,6 +13,7 @@ import { validateExecutionContract } from "../../entities/execution-contract/val
 import { parseFindingRowIteration, parseValidationFindingsArtifact, ValidationFindingIssue } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export type Route =
   | { kind: "invalid_archive_state"; phase: "archive"; invalidArchiveState: InvalidArchiveState; issues: string[]; activeChangePath: string }
@@ -50,7 +51,11 @@ function isVerdictOnlyOpenBlockingIssue(issue: ValidationFindingIssue): boolean 
   return VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES.has(issue.code);
 }
 
-export function resolveRoute(projectPath: string, changeName?: string): Route {
+export function resolveRoute(
+  projectPath: string,
+  changeName?: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): Route {
   const invalidArchiveState = findInvalidArchiveState(projectPath, changeName);
   if (invalidArchiveState) {
     return {
@@ -135,7 +140,7 @@ export function resolveRoute(projectPath: string, changeName?: string): Route {
     return { kind: "iteration_planning_approval", phase: "iteration_planning", paths, activeChangePath: changeDir };
   }
 
-  const findings = parseValidationFindingsArtifact(paths.findingsPath);
+  const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
   if (findings.exists) {
     const onlyVerdictCannotBypassOpenBlocking = findings.openBlockingRows.length > 0 &&
                                                  findings.issues.length > 0 &&
@@ -181,7 +186,7 @@ export function resolveRoute(projectPath: string, changeName?: string): Route {
     //    findings identify which iteration was under repair.
     if (!targetIteration) {
       const blockingIterations = findings.rows
-        .filter(row => row.severity === "MUST-FIX")
+        .filter(row => row.blocksPr)
         .map(row => parseFindingRowIteration(row.phase))
         .filter((n): n is number => n != null);
       if (blockingIterations.length > 0) {

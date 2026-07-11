@@ -765,6 +765,32 @@ Complete API work.
     expect(result.prompt).toContain("Phase 6R. Finding Repair.");
   });
 
+  test("recommended threshold routes an open RECOMMENDED finding to finding_repair", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Naming is inconsistent. | Rename for clarity. |\n")
+    });
+
+    expect(resolveRoute(testTmpDir, undefined, "recommended").kind).toBe("finding_repair");
+  });
+
+  test("must_fix (default) does not route an open RECOMMENDED finding to finding_repair", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready_with_risks", "iteration", "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Naming is inconsistent. | Rename for clarity. |\n")
+    });
+
+    expect(resolveRoute(testTmpDir).kind).not.toBe("finding_repair");
+  });
+
   test("verdict-only conflict with still-open blocking findings routes to finding_repair via the typed issue code", () => {
     setupChange(`
 # Plan
