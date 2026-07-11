@@ -953,3 +953,74 @@ None.
     expect(withArchived.some(entry => entry.name.endsWith("-beta"))).toBe(true);
   });
 });
+
+// ── E2E: Quick flow, create-change --quick to archive completed ─────
+
+describe("quick flow e2e", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = createTempWorkspace("quick-flow-e2e");
+  });
+
+  afterEach(() => {
+    cleanupTempWorkspace(root);
+  });
+
+  test("create-change --quick advances quick_plan -> quick_implementation -> quick_validation -> quick_spec_revision -> archive -> finished", () => {
+    // 1. Create the quick change and confirm it starts at quick_plan.
+    const created = createChange(root, "qc", undefined, true);
+    expect(created.ok).toBe(true);
+    expect(loadFlowState(root, "qc")?.activePhase).toBe("quick_plan");
+    expect(loadFlowState(root, "qc")?.flowMode).toBe("quick");
+
+    // Disable the implementation commit gate for hermetic advancement (no
+    // real git repo/commit involved), matching how other e2e tests keep the
+    // commit gate out of scope when it is not the behavior under test.
+    const config: Config = { ...loadConfig(), requireIterationCommit: false };
+
+    // 2. Fill worklog.md so the quick_plan gate is satisfied, then advance.
+    const changeDir = path.join(root, ".phasedev", "changes", "qc");
+    const worklogPath = path.join(changeDir, "worklog.md");
+    writeFile(worklogPath, "# Worklog\n\n## Task\nAdd a quick one-off fix.\n");
+
+    const toImplementation = advanceFlow(root, config, "qc");
+    expect(toImplementation.ok).toBe(true);
+    expect(toImplementation.newState?.activePhase).toBe("quick_implementation");
+
+    // 3. quick_implementation -> quick_validation (commit gate disabled).
+    const toValidation = advanceFlow(root, config, "qc");
+    expect(toValidation.ok).toBe(true);
+    expect(toValidation.newState?.activePhase).toBe("quick_validation");
+
+    // 4. quick_validation -> quick_spec_revision (no gate).
+    const toSpecRevision = advanceFlow(root, config, "qc");
+    expect(toSpecRevision.ok).toBe(true);
+    expect(toSpecRevision.newState?.activePhase).toBe("quick_spec_revision");
+
+    // 5. quick_spec_revision -> archive: mutates the change dir into archive/
+    // and preserves flowMode: "quick" on the archived state.json.
+    const toArchive = advanceFlow(root, config, "qc");
+    expect(toArchive.ok).toBe(true);
+    expect(toArchive.newState?.activePhase).toBe("archive");
+    expect(fs.existsSync(changeDir)).toBe(false);
+
+    const archiveDir = archiveDirFor(root, "qc");
+    const archiveState = JSON.parse(fs.readFileSync(path.join(archiveDir, ".phase-archive.json"), "utf-8"));
+    expect(archiveState.status).toBe("in_progress");
+
+    const archivedFlowState = JSON.parse(fs.readFileSync(path.join(archiveDir, "state.json"), "utf-8"));
+    expect(archivedFlowState.activePhase).toBe("archive");
+    expect(archivedFlowState.flowMode).toBe("quick");
+
+    // 6. Mark the archive completed, then advance to finish the flow.
+    completeArchive(archiveDir);
+    const finished = advanceFlow(root, config, "qc");
+    expect(finished.ok).toBe(true);
+    expect(finished.finished).toBe(true);
+
+    const finalArchiveState = JSON.parse(fs.readFileSync(path.join(archiveDir, ".phase-archive.json"), "utf-8"));
+    expect(finalArchiveState.status).toBe("completed");
+    expect(finalArchiveState.completedAt).toBeTruthy();
+  });
+});

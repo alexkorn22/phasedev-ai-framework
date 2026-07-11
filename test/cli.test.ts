@@ -2302,6 +2302,15 @@ describe("flow templates", () => {
     }
   });
 
+  test("quick_archive template receives the config skill policy before its archived-change line", () => {
+    // quick_archive.md has no "Input" label, so it is excluded from the
+    // shared templateNames loop above; pin its skill_policy placement here.
+    const template = readTemplate("quick_archive.md");
+
+    expect(template).toContain("{{skill_policy}}");
+    expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Archived change:"));
+  });
+
   test("generated skill policy preserves configured stage boundaries", () => {
     const config = parseConfig(`
 stages:
