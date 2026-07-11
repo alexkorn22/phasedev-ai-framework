@@ -430,7 +430,7 @@ describe("flow-cli state machine", () => {
     expect(help.output).toContain("Generated files:");
     expect(help.output).toContain("Phases:");
     expect(help.output).toContain("Examples:");
-    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
+    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive", "express"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }
     for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
@@ -2275,7 +2275,11 @@ describe("flow templates", () => {
     "phase6a_iteration_validation.md",
     "phase6b_final_validation.md",
     "phase6r_finding_repair.md",
-    "phase7_archive.md"
+    "phase7_archive.md",
+    "quick_plan.md",
+    "quick_implementation.md",
+    "quick_validation.md",
+    "quick_spec_revision.md"
   ];
 
   function readTemplate(name: string): string {
@@ -3556,7 +3560,7 @@ describe("code review finding tests", () => {
 
   test("help documents create-change --task usage", () => {
     const result = runCli(["help"]);
-    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>]");
+    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]");
   });
 
   test("create-change --quick writes a quick state and a worklog skeleton", () => {

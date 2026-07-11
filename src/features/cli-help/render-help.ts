@@ -42,10 +42,12 @@ Commands:
       Print the PhaseDev init handshake prompt.
       Side effects: none. It must not create, read, edit, move, approve, test, or validate files.
 
-  phasedev create-change <name> [--project-path <path>] [--task <text>]
+  phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]
       Create a new change directory with state.json (activePhase: change_intake).
       Refuses if an active change already exists.
       --task <text> also writes intake_task.md with the given task description.
+      --quick starts a Quick-mode change (activePhase: quick_plan, flowMode: quick) and
+      writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
 
   phasedev phase [--project-path <path>] [--config <path>]
@@ -63,6 +65,11 @@ Commands:
       Print the user-feedback processing contract for the active change (read-only).
       Defines how an agent classifies feedback (implementation defect vs scope change)
       and which phasedev commands to use. Side effects: none.
+
+  phasedev express [--project-path <path>]
+      Print the stateless Express orchestration contract (roles, plan-confirmation stop,
+      implementer + reviewer subagents, escalation criteria to create-change --quick).
+      Side effects: none. Creates nothing under .phasedev/.
 
   phasedev advance [--project-path <path>] [--config <path>]
       Validate the active phase and transition to the next phase.
@@ -173,6 +180,7 @@ Options:
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
   --task <text>                Initial task description for create-change; written to intake_task.md.
+  --quick                      Start create-change in Quick mode (state-driven quick phase sequence).
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
   --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
@@ -206,6 +214,11 @@ Phases:
   final_validation     Validate the full change.
   finding_repair       Fix validation findings.
   archive              Move completed flow state to archive and sync delta specs.
+
+  quick_plan           (Quick) Research + short plan in worklog.md.
+  quick_implementation (Quick) Implement per plan; prove and commit.
+  quick_validation     (Quick) Session-managed validation, nothing persisted.
+  quick_spec_revision  (Quick) Fresh-context spec-revision verdict.
 
 Examples:
   phasedev help
