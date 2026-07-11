@@ -239,7 +239,8 @@ function main(): void {
   // --- Phase 1: Orchestrator commands ---
 
   if (command === "status") {
-    const status = getFlowStatus(projectPath, changeName);
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
+    const status = getFlowStatus(projectPath, changeName, config.blockingSeverity);
     reportCliResult(jsonMode, {
       ok: true,
       kind: "status",
@@ -365,7 +366,8 @@ function main(): void {
         }
       } catch { /* ignore AmbiguousChangeError etc. */ }
     }
-    const result = validateArtifact(resolvedPath);
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
+    const result = validateArtifact(resolvedPath, config.blockingSeverity);
     const prefix = result.ok ? "[PHASEDEV VALIDATE-ARTIFACT] OK" : "[PHASEDEV VALIDATE-ARTIFACT] FAILED";
     reportCliResult(jsonMode, {
       ok: result.ok,
@@ -442,8 +444,9 @@ function main(): void {
       return;
     }
 
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
     runWithOptionalStateLock(projectPath, () => {
-      const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath, changeName));
+      const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(projectPath, changeName), config.blockingSeverity);
       const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
@@ -536,8 +539,9 @@ function main(): void {
       return;
     }
 
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
     runWithOptionalStateLock(projectPath, () => {
-      const result = reopenFinding(targetFile, id, evidence);
+      const result = reopenFinding(targetFile, id, evidence, config.blockingSeverity);
       const prefix = result.ok ? "[PHASEDEV REOPEN-FINDING] OK" : "[PHASEDEV REOPEN-FINDING] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
@@ -573,8 +577,9 @@ function main(): void {
       return;
     }
 
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
     runWithOptionalStateLock(projectPath, () => {
-      const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath, changeName));
+      const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(projectPath, changeName), config.blockingSeverity);
       const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
       reportCliResult(jsonMode, {
         ok: result.ok,
@@ -882,7 +887,8 @@ function main(): void {
     }
 
     const phaseOverride = parseStringOption(args, "--phase");
-    const result = checkPhase(projectPath, phaseOverride, changeName);
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
+    const result = checkPhase(projectPath, phaseOverride, changeName, config.blockingSeverity);
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "check",
@@ -904,7 +910,8 @@ function main(): void {
       return;
     }
 
-    const result = checkValidationCompletion(projectPath, parsed.options, changeName);
+    const config = loadConfig(resolveConfigPath(projectPath, parseConfigPath(args)));
+    const result = checkValidationCompletion(projectPath, parsed.options, changeName, config.blockingSeverity);
     reportCliResult(jsonMode, {
       ok: result.ok,
       kind: "check-validation",

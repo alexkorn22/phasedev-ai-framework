@@ -2943,6 +2943,29 @@ ${rows ?? ""}`;
     expect(result.output).not.toContain("is required");
   });
 
+  test("project blockingSeverity: recommended routes an open RECOMMENDED finding to finding_repair", () => {
+    const changeDir = setupChange(`
+## Iteration 1: First [x]
+- [x] 1.1 Complete first
+`, {
+      findings: validationFindings("ready", "iteration")
+    });
+    writeStateJson(changeDir, "iteration_validation", 1);
+    writeProjectConfig(`
+blockingSeverity: recommended
+phases: {}
+`);
+
+    const addResult = runCli(["add-finding", "Naming inconsistent", "RECOMMENDED", "--required-fix", "Rename", "--class", "implementation", "--iteration", "Iteration 1", "--project-path", testTmpDir]);
+    expect(addResult.exitCode).toBe(0);
+
+    const verdictResult = runCli(["set-verdict", "repair_required", "--project-path", testTmpDir]);
+    expect(verdictResult.exitCode).toBe(0);
+
+    const checkResult = runCli(["check", "--project-path", testTmpDir]);
+    expect(checkResult.output).toContain("finding_repair");
+  });
+
   // --- changes ---
 
   test("changes shows no changes for empty project", () => {
