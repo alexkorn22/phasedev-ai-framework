@@ -64,14 +64,43 @@ describe("moveDirectory", () => {
 });
 
 describe("isDuplicateMoveArtifact", () => {
-  test("reports true only when both source and target exist", () => {
-    const source = path.join(testTmpDir, "source");
-    const target = path.join(testTmpDir, "target");
+  test("false when target is absent", () => {
+    const source = path.join(testTmpDir, "s");
+    const target = path.join(testTmpDir, "t");
     fs.mkdirSync(source, { recursive: true });
-
     expect(isDuplicateMoveArtifact(source, target)).toBe(false);
+  });
 
-    fs.mkdirSync(target, { recursive: true });
+  test("true when both trees have identical contents", () => {
+    const source = path.join(testTmpDir, "s");
+    const target = path.join(testTmpDir, "t");
+    fs.mkdirSync(path.join(source, "sub"), { recursive: true });
+    fs.mkdirSync(path.join(target, "sub"), { recursive: true });
+    fs.writeFileSync(path.join(source, "a.txt"), "hi", "utf-8");
+    fs.writeFileSync(path.join(target, "a.txt"), "hi", "utf-8");
+    fs.writeFileSync(path.join(source, "sub", "b.txt"), "x", "utf-8");
+    fs.writeFileSync(path.join(target, "sub", "b.txt"), "x", "utf-8");
     expect(isDuplicateMoveArtifact(source, target)).toBe(true);
+  });
+
+  test("false when file contents diverge", () => {
+    const source = path.join(testTmpDir, "s");
+    const target = path.join(testTmpDir, "t");
+    fs.mkdirSync(source, { recursive: true });
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(source, "a.txt"), "one", "utf-8");
+    fs.writeFileSync(path.join(target, "a.txt"), "two", "utf-8");
+    expect(isDuplicateMoveArtifact(source, target)).toBe(false);
+  });
+
+  test("false when the file set differs", () => {
+    const source = path.join(testTmpDir, "s");
+    const target = path.join(testTmpDir, "t");
+    fs.mkdirSync(source, { recursive: true });
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(source, "a.txt"), "x", "utf-8");
+    fs.writeFileSync(path.join(target, "a.txt"), "x", "utf-8");
+    fs.writeFileSync(path.join(source, "extra.txt"), "y", "utf-8");
+    expect(isDuplicateMoveArtifact(source, target)).toBe(false);
   });
 });

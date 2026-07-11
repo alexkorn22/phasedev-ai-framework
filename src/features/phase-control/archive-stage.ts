@@ -5,9 +5,9 @@ import { createArchiveState, findPendingArchiveState, markArchiveMoved, readArch
 import { FLOW_STATE_FILE, writeFlowState } from "../../entities/change/flow-state";
 import { archiveRootPath, archiveTargetPath, buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Prompt } from "../../entities/phase/types";
-import { moveDirectory } from "../../shared/fs/move-directory";
+import { isDuplicateMoveArtifact, moveDirectory } from "../../shared/fs/move-directory";
 import { renderTemplate } from "../../shared/templates/render-template";
-import { prompt } from "./prompt-blockers";
+import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { urlsFor } from "./prompt-render-helpers";
@@ -44,9 +44,21 @@ export function getPendingArchivePrompt(projectPath: string, config: Config = lo
 
 export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: Config = loadConfig()): Prompt {
   const changeName = path.basename(changeDir);
-  const pendingPrompt = getPendingArchivePrompt(projectPath, config, changeName);
-  if (pendingPrompt) {
-    return pendingPrompt;
+  const pendingState = findPendingArchiveState(projectPath, changeName);
+  if (pendingState) {
+    if (fs.existsSync(changeDir) && path.resolve(changeDir) !== path.resolve(pendingState.archivePath)) {
+      if (isDuplicateMoveArtifact(changeDir, pendingState.archivePath)) {
+        fs.rmSync(changeDir, { recursive: true, force: true });
+      } else {
+        return archiveReadinessBlocker(
+          "Orphaned change directory conflicts with the pending archive.",
+          changeDir,
+          `An interrupted archive left "${changeName}" in both the active and archive locations with divergent contents. Reconcile or remove ${changeDir} manually, then retry.`,
+          undefined
+        );
+      }
+    }
+    return archivePrompt(projectPath, pendingState, config);
   }
 
   const today = now.toISOString().split("T")[0];

@@ -1213,6 +1213,51 @@ Complete API work.
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
   });
 
+  test("orphaned source identical to the archive copy is auto-removed, archive resumes", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+
+    // Fabricate an EXDEV mid-crash: both dirs present, byte-identical, both in_progress.
+    createArchiveState("sample-change", archiveDir, new Date(), changeDir); // marker into source
+    fs.cpSync(changeDir, archiveDir, { recursive: true });
+
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.existsSync(archiveDir)).toBe(true);
+
+    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+
+    expect(result.phase).toBe("archive");
+    expect(result.blocked).toBeFalsy();
+    expect(fs.existsSync(changeDir)).toBe(false);      // orphan cleaned
+    expect(fs.existsSync(archiveDir)).toBe(true);
+  });
+
+  test("orphaned source that diverged from the archive copy blocks, deletes nothing", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+
+    createArchiveState("sample-change", archiveDir, new Date(), changeDir);
+    fs.cpSync(changeDir, archiveDir, { recursive: true });
+    // Diverge the source after the "crash".
+    fs.writeFileSync(path.join(changeDir, "divergent.txt"), "edited after crash", "utf-8");
+
+    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+
+    expect(result.blocked).toBe(true);
+    expect(fs.existsSync(changeDir)).toBe(true);        // nothing deleted
+    expect(fs.existsSync(archiveDir)).toBe(true);
+  });
+
   test("advanceFlow recovers from pre-move crash: activePhase=archive with .phase-archive.json in active dir", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [x]
