@@ -241,7 +241,7 @@ command additionally accepts `--change <name>`, and the global `--json` flag wor
 |---------|-------------|
 | `phasedev phase [--config <path>]` | Resolve current flow state and print the phase contract (read-only) |
 | `phasedev check [--phase <phase>]` | Validate current phase state (read-only) |
-| `phasedev advance [--config <path>]` | Validate and transition to the next phase; refuses on invalid artifacts, pending approvals, or blocked archive |
+| `phasedev advance [--config <path>]` | Validate and transition to the next phase; refuses on invalid artifacts, pending approvals, blocked archive, or (with `requireIterationCommit`) an uncommitted working tree at a passing validation exit |
 | `phasedev feedback` | Print the user-feedback processing contract (classify defect vs scope change; read-only) |
 | `phasedev check-validation --scope iteration --iteration-id <N>` | Validate iteration validation findings |
 | `phasedev check-validation --scope final` | Validate final validation findings |
@@ -333,6 +333,8 @@ runArchiveStage: true
 autoApprove: false
 maxIterations: 10
 maxRepairCycles: 3
+blockingSeverity: must_fix
+requireIterationCommit: true
 ```
 
 - `runArchiveStage: true` (default) makes `advance` perform the archive mutation (move the change
@@ -348,6 +350,18 @@ maxRepairCycles: 3
 - `maxIterations` is advisory only: the controller does not read or enforce it. It exists for an
   external loop/runner to read via `phasedev config maxIterations` and decide when to stop
   iterating.
+- `blockingSeverity` (`must_fix` | `recommended` | `nit`, default `must_fix`) sets the minimal
+  validation-finding severity that blocks the flow: it routes to `finding_repair`, gates phase
+  exits, and constrains which verdicts are reachable. `recommended` also blocks RECOMMENDED
+  findings; `nit` blocks everything, so `ready_with_risks` becomes unreachable. Security-class
+  findings are always MUST-FIX and always block, regardless of this setting.
+- `requireIterationCommit: true` (default) adds a clean-tree gate to validation exits: `advance`
+  out of a passing `iteration_validation` (or `final_validation` before archive) refuses while
+  uncommitted changes exist outside `.phasedev/**`, and prints a suggested commit message. The
+  agent is expected to commit — the controller never mutates git itself. The gate is silently
+  skipped in non-git projects. Commit boundaries are recorded in a controller-only
+  `.commit-log.json` in the change directory, and validators see per-iteration boundary diffs
+  instead of the whole accumulated working tree.
 
 Per-phase `skills` lists (`routers` / `main` / `additional`) declare which external agent skills a
 phase prompt may authorize; they are injected into executable `phasedev phase` prompts only. An
