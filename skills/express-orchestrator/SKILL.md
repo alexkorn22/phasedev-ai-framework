@@ -48,7 +48,22 @@ The core inversion versus `$phasedev-orchestrator`: there is no filesystem state
 
 On every dispatch, review the agent types available to the `Agent` tool in the current session. **A custom agent type whose description matches the stage takes priority** (e.g. a project's implementer/reviewer/security agents); fall back to the generic/general-purpose type only when no custom type fits. This is a fresh per-stage judgment — never a static stage→type table.
 
-When dispatching a generic type, always pass an explicit `model`, the cheapest tier the stage genuinely allows (mechanical → cheapest; routine single-module work → mid; analysis-heavy planning, debugging, or review of a risky diff → strongest). When a custom agent pins its own model, never pass or override `model`. If a report shows the stage was harder than expected, re-dispatch the remainder one tier up rather than retrying unchanged.
+## Model Selection — Grade Every Dispatch
+
+Before every dispatch, grade the complexity of THIS stage's actual work (not the whole task's) and pick the cheapest model tier that genuinely handles it:
+
+| Stage work looks like | Tier |
+|---|---|
+| Mechanical, narrow, fully specified: rename, doc sync, config value, transcribing a complete spec into code, single-file fix | cheapest |
+| Routine judgment in one module: typical code research, implementation from a clear confirmed plan, review of a small low-risk diff | mid |
+| Real reasoning: planning a tricky change, root-cause debugging, security review, review of a large or risky diff | strongest |
+
+Rules that make the grading stick:
+
+- **Generic agent types:** always pass an explicit `model` equal to the graded tier — an omitted model silently inherits the orchestrator's (usually the most expensive), which defeats the grading.
+- **Custom agent types that pin their own model:** never pass or override `model`. A custom type WITHOUT a pinned model is treated like a generic one — pass the graded tier explicitly.
+- **Never pay top tier out of convenience, never under-power reasoning:** a too-cheap model on multi-step work takes 2–3× the turns and costs more overall — for reviewers and for implementers working from prose (not complete code), the mid tier is the floor.
+- **Escalate on evidence:** if a report shows the stage was harder than graded, re-dispatch the remainder one tier up; never retry the same dispatch unchanged.
 
 ## Dispatch Prompt Recipe
 
@@ -67,4 +82,5 @@ Every dispatch prompt consists of, in order:
 3. **The plan comes from a planning sub-agent** and is executed only after the user confirms it — the single mandatory stop.
 4. **Reviewers are fresh contexts, never the implementer** — and review without a real run (or a real run without review) does not count as verification.
 5. **Findings loop back to implementation** until reviewers are clean; report honestly, including what failed.
-6. **Escalate by asking, not by doing** — when the scope guard trips, stop and offer `$phasedev-orchestrator`; the user chooses.
+6. **Grade the model on every dispatch** — cheapest tier that handles the stage's actual complexity; explicit `model` for every non-pinned agent type; escalate one tier on evidence, never retry unchanged.
+7. **Escalate by asking, not by doing** — when the scope guard trips, stop and offer `$phasedev-orchestrator`; the user chooses.
