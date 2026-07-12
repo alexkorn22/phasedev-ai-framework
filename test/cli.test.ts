@@ -430,7 +430,7 @@ describe("flow-cli state machine", () => {
     expect(help.output).toContain("Generated files:");
     expect(help.output).toContain("Phases:");
     expect(help.output).toContain("Examples:");
-    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive", "express"]) {
+    for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }
     for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
@@ -3746,14 +3746,3 @@ describe("feedback command", () => {
   });
 });
 
-describe("express command", () => {
-  beforeEach(() => setupTestDir());
-  afterEach(() => cleanupTestDir());
-
-  test("phasedev express prints the contract and creates nothing", () => {
-    const result = runCli(["express", "--project-path", testTmpDir]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("PhaseDev Express");
-    expect(fs.existsSync(path.join(testTmpDir, ".phasedev"))).toBe(false);
-  });
-});

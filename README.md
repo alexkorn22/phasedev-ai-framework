@@ -57,14 +57,12 @@ Several unfinished changes may coexist under `.phasedev/changes/`. Every change-
 
 ## 🎚️ Execution Modes
 
-PhaseDev supports three execution modes, chosen by how you start the work:
+PhaseDev supports two execution modes, chosen by how you start the work:
 
-- **Express** (`phasedev express`) — stateless, no `.phasedev/` writes. A single orchestrator
-  session runs a plan-confirmation stop, then an implementer subagent and a reviewer subagent,
-  in-session. Escalate to Quick when the change turns out bigger than expected.
 - **Quick** (`phasedev create-change <name> --quick`) — minimal persistence: one `worklog.md` per
   change instead of the full artifact set, driven through `quick_plan` → `quick_implementation` →
-  `quick_validation` → `quick_spec_revision` → `archive`.
+  `quick_validation` → `quick_spec_revision` → `archive`. Chosen at assessment time for a small but
+  real change that doesn't need the full artifact set.
 - **Standard** (`phasedev create-change <name>`) — the full 9-phase track described below, with
   `prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`,
   `iteration_plan.md`, and `validation_findings.md`.
@@ -253,7 +251,6 @@ command additionally accepts `--change <name>`, and the global `--json` flag wor
 | `phasedev init-project` | Create `.phasedev` workspace directories and `config.yaml` (idempotent) |
 | `phasedev init` | Print the context-only handshake prompt (no file changes) |
 | `phasedev create-change <name> [--task <text>] [--quick]` | Create a new change directory and initialize flow state; refuses duplicate names. `--quick` starts a Quick-mode change (`worklog.md` instead of the full artifact set) |
-| `phasedev express` | Print the stateless Express orchestration contract; creates nothing under `.phasedev/` |
 
 ### Phase Flow
 | Command | Description |

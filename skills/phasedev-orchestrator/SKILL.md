@@ -44,27 +44,16 @@ All commands run from the **project root**. `phasedev` defaults to `process.cwd(
 
 ## Mode Selection
 
-Mode selection happens BEFORE any artifacts exist for the change. The user may explicitly name a mode (Express / Quick / Standard); otherwise assess the goal's complexity and PROPOSE one of the three — the user must CONFIRM before any command creates a change or artifact.
+Mode selection happens BEFORE any artifacts exist for the change. The user may explicitly name a mode (Quick / Standard); otherwise assess the goal's complexity and PROPOSE one of the two — the user must CONFIRM before any command creates a change or artifact.
 
-- **Express** — trivial, well-understood change: a few files, no unclear investigation, no spec/behavior implications beyond the obvious. Fully stateless: no `.phasedev/changes` directory, no worklog.
 - **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change --quick <name>`.
 - **Standard** — the full phase flow (`change_intake` → … → `archive`) described in the rest of this skill.
 
-All three modes are available at the selection point — Quick is never reached only by escalation.
+Both modes are available at the selection point.
 
-**No Quick → Standard escalation mid-flow.** Complexity assessment is the first stage's job; once a change is in Quick mode, it finishes in Quick mode (see [Quick Mode](#quick-mode)). Express MAY escalate to Quick (see [Express Mode](#express-mode)) — that is the only cross-mode transition.
+**No Quick → Standard escalation mid-flow.** Complexity assessment is the first stage's job; once a change is in Quick mode, it finishes in Quick mode (see [Quick Mode](#quick-mode)).
 
 **Resume.** When invoked with no goal, run `phasedev list` and honor whatever mode the selected/only unfinished change is already in (`flowMode` from its `state.json`) — do not re-run mode selection for an existing change.
-
-## Express Mode
-
-Express is fully stateless — no `.phasedev/changes` directory, no worklog; the only lasting trace is the eventual git commit.
-
-1. Run `phasedev express` — prints the Express contract (mission, guardrails, escalation criteria, self-check).
-2. Follow the printed contract. There is a single stop: plan confirmation with the user before implementation starts.
-3. After the user confirms the plan, spawn an implementer sub-agent (dev-core discipline, test-first) that proves its work with an actual run of the relevant command/test — not by assertion alone.
-4. Spawn a separate reviewer sub-agent (fresh context) that performs code and security review and checks whether the change touches anything under `specs/` or otherwise implies a behavior/spec change.
-5. **Escalate to Quick** when, during planning or review, any of: the change touches more than a handful of files; the behavior is described in `specs/` or a change directory; or the bug's root cause is unclear without further investigation. On hitting one of these, STOP and ask the user; on confirmation, abandon Express and run `phasedev create-change --quick <name>` to continue in Quick mode. These are textual criteria only — no numeric thresholds, nothing configurable.
 
 ## Quick Mode
 
