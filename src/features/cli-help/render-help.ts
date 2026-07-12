@@ -66,11 +66,6 @@ Commands:
       Defines how an agent classifies feedback (implementation defect vs scope change)
       and which phasedev commands to use. Side effects: none.
 
-  phasedev express [--project-path <path>]
-      Print the stateless Express orchestration contract (roles, plan-confirmation stop,
-      implementer + reviewer subagents, escalation criteria to create-change --quick).
-      Side effects: none. Creates nothing under .phasedev/.
-
   phasedev advance [--project-path <path>] [--config <path>]
       Validate the active phase and transition to the next phase.
       Refuses if artifacts are invalid, require approval, or archives are blocked.
