@@ -1,0 +1,4 @@
+interface:
+  display_name: "Express Orchestrator — Stateless Sub-Agent Flow"
+  short_description: "Stateless fast track for small code changes. Spawns dedicated sub-agents for research, planning, implementation, and review; all artifacts live in the orchestrator's context — nothing is written to .phasedev/, the only trace is the git commit."
+  default_prompt: "$express-orchestrator"
