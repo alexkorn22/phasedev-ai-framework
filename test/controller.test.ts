@@ -1021,7 +1021,7 @@ Complete API work.
 ## Iteration 2: UI [x]
 - [x] 2.1 Build page
 `, {
-      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n| F0 | resolved | MUST-FIX | implementation | Iteration 2 | Earlier iteration defect. | Fixed earlier. |\n")
     });
     fs.writeFileSync(
       path.join(changeDir, "state.json"),
@@ -1040,8 +1040,11 @@ Complete API work.
 
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
 `, {
-      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n| F0 | resolved | MUST-FIX | implementation | Iteration 2 | Earlier iteration defect. | Fixed earlier. |\n")
     });
     fs.writeFileSync(
       path.join(changeDir, "state.json"),
