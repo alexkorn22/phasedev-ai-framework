@@ -14,7 +14,10 @@
       "Read(//tmp/**)",
       "Read(//Users/oleksandr/WORK/jira-dashboard/.phasedev/**)",
       "Bash(git add *)",
-      "Bash(git commit -m 'docs: multi-change support design spec \\(--change flag, list rework, orchestrator start protocol\\) *)"
+      "Bash(git commit -m 'docs: multi-change support design spec \\(--change flag, list rework, orchestrator start protocol\\) *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git stash *)"
     ]
   },
   "enabledPlugins": {
