@@ -1,7 +1,18 @@
 {
   "name": "phasedev",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Autonomous Agentic Engineering Flow controller",
+  "private": true,
+  "license": "MIT",
+  "author": "Oleksandr Korniienko",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexkorn22/phasedev-ai-framework.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alexkorn22/phasedev-ai-framework/issues"
+  },
+  "homepage": "https://github.com/alexkorn22/phasedev-ai-framework#readme",
   "main": "src/cli.ts",
   "bin": {
     "phasedev": "./src/cli.ts"

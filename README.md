@@ -1,13 +1,27 @@
+<p align="center">
+  <img src="docs/banner.png" alt="PhaseDev — phase-based flow controller for AI coding agents" width="100%">
+</p>
+
 # ⚙️ PhaseDev AI Framework
 
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**PhaseDev** is a state-driven flow controller for autonomous AI software engineering. It splits a change into strict, isolated phases, stores all flow state in your project's workspace (`.phasedev/`), and prints an exact contract for each phase. An orchestrator agent drives the CLI and spawns a dedicated sub-agent with a fresh context per phase — so long chat histories, context drift, and token bloat stop being the source of truth.
+**PhaseDev** is a state-driven flow controller for AI software engineering. It takes one unit of work — a **change** — and splits it into strict, isolated phases: requirements, research, design, planning, implementation, validation, archive. All flow state lives in plain files inside your project (`.phasedev/`), and for every phase the CLI prints an exact work order — a **phase contract** — for an AI agent to execute. An orchestrator agent drives the loop and spawns a dedicated sub-agent with a fresh context per phase.
 
-> [!IMPORTANT]
-> The workspace files are the single source of truth. Kill the session at any point and restart — the flow resumes exactly where it stopped.
+---
+
+## 🎯 Why PhaseDev
+
+Long agent sessions degrade: the context window fills up, early requirements fade, and the chat history becomes the only — unreliable — record of what was decided. PhaseDev turns one marathon session into a sequence of short, verifiable ones:
+
+| Pain of one long agent session | What PhaseDev does instead |
+|---|---|
+| Context drift — quality drops as the chat grows | Every phase runs in a **fresh sub-agent context** that reads only the artifacts it needs |
+| A crash or restart loses the work in progress | All state is **files in your repo** — kill the session at any point; `phasedev phase` resumes exactly where it stopped |
+| The agent silently reinterprets requirements mid-flight | **Human approval gates** on PRD, design, and iteration plan; validation verdicts gate every phase exit |
+| No trace of *why* the code ended up this way | Every change leaves an **audit trail** — PRD, design, plan, findings — archived next to the code |
 
 ---
 
@@ -16,14 +30,44 @@
 PhaseDev is a phase state machine. The controller (`phasedev` CLI) derives the current phase from the files in the active change directory, prints that phase's contract, and validates the results before allowing a transition. The orchestrator skill turns your main agent into a thin loop around three commands — `phase` → `check` → `advance` — delegating every phase's actual work to a fresh sub-agent.
 
 ```mermaid
-flowchart LR
-    Orchestrator["Orchestrator<br/>(main agent)"] -->|"phase / check / advance"| Controller["phasedev CLI"]
-    Controller <-->|"read & update state"| Workspace[(".phasedev/changes/&lt;name&gt;")]
-    Controller -->|"phase contract"| Orchestrator
-    Orchestrator -->|"fresh context per phase"| SubAgent["Phase sub-agent"]
-    SubAgent -->|"artifacts & code"| Workspace
-    Controller -.->|"approval gates & blockers"| Human(["Human"])
-    Controller -->|"archive_ready"| Archive[("changes/archive/&lt;date&gt;-&lt;name&gt;")]
+sequenceDiagram
+    autonumber
+    participant Orchestrator as Orchestrator (main agent)
+    participant CLI as phasedev CLI
+    participant Workspace as .phasedev/ folder<br/>(inside your project repo)
+    participant SubAgent as Phase sub-agent (fresh context)
+
+    loop until archived
+        Orchestrator->>CLI: phasedev phase
+        CLI->>Workspace: derive current phase from files
+        CLI-->>Orchestrator: phase contract
+        Orchestrator->>SubAgent: execute the contract
+        SubAgent->>Workspace: write artifacts & code
+        Orchestrator->>CLI: phasedev check
+        CLI-->>Orchestrator: valid / blockers
+        Note over Orchestrator,CLI: human approves at gate phases
+        Orchestrator->>CLI: phasedev advance
+        CLI->>Workspace: transition state (archive at the end)
+    end
+```
+
+### What a phase contract looks like
+
+`phasedev phase` prints a self-sufficient work order for the current phase — feed it to any agent as-is. Trimmed example for a fresh change:
+
+```text
+$ phasedev phase
+
+> **Phase summary:**
+> - Output: `prd.md and execution_contract.md` per embedded Artifact Build Contract.
+> - Done when: `phasedev check` passes.
+> - Forbidden: change `approved` fields manually, write outside phase allowlist.
+Phase 1. Change Intake.
+
+Phase contract: prepare the initial change artifacts.
+…
+(the full contract continues: skill policy, inputs, a step-by-step
+decision flow, and the exact artifact templates to fill in)
 ```
 
 ### Standard phases
@@ -38,6 +82,15 @@ flowchart LR
 8. **Archive** — move the change to `changes/archive/` and generate delta specs under `.phasedev/specs/`.
 
 Several unfinished changes may coexist under `.phasedev/changes/`. Change-scoped commands take `--change <name>`; with exactly one change it is inferred.
+
+### Vocabulary
+
+- **Change** — one unit of work; a directory under `.phasedev/changes/<name>` holding all of its artifacts and state.
+- **Phase contract** — the work order `phasedev phase` prints for the current phase: inputs, allowed writes, artifact templates, done-criteria.
+- **Artifact** — a phase's persistent output (`prd.md`, `design.md`, `iteration_plan.md`, …), validated by `phasedev check`.
+- **Approval gate** — a phase exit that requires an explicit human `phasedev approve` before the flow may advance.
+- **Finding** — a validation defect with a severity; blocking findings route the flow into Finding Repair.
+- **Blocker** — a controller stop message: the flow cannot proceed until a human resolves it.
 
 ---
 
@@ -62,8 +115,8 @@ Standard and Quick run through the `phasedev` CLI and the `phasedev-orchestrator
 ### 1. Install the global `phasedev` command
 
 ```bash
-git clone https://github.com/your-username/phasedev.git
-cd phasedev
+git clone git@github.com:alexkorn22/phasedev-ai-framework.git
+cd phasedev-ai-framework
 bun install
 bun link        # symlinks `phasedev` into ~/.bun/bin
 phasedev version
@@ -77,8 +130,8 @@ The repo ships two agent skills under [`skills/`](skills/): `phasedev-orchestrat
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -s /absolute/path/to/phasedev/skills/phasedev-orchestrator ~/.claude/skills/phasedev-orchestrator
-ln -s /absolute/path/to/phasedev/skills/express-orchestrator  ~/.claude/skills/express-orchestrator
+ln -s /absolute/path/to/phasedev-ai-framework/skills/phasedev-orchestrator ~/.claude/skills/phasedev-orchestrator
+ln -s /absolute/path/to/phasedev-ai-framework/skills/express-orchestrator  ~/.claude/skills/express-orchestrator
 ```
 
 Symlinks (not copies) keep the skills in sync with the CLI on `git pull`. To tailor the orchestrator per project (mandate TDD, pin reviewer sub-agents, …), add a dedicated section to the project's `CLAUDE.md` / `AGENTS.md` — project instructions take precedence over the skill.
@@ -98,16 +151,18 @@ Creates `.phasedev/` (changes, archive, specs, logs, `config.yaml`). Idempotent.
 
 ### Orchestrated (recommended)
 
+In Claude Code the orchestrators ship as skills, invoked as slash commands:
+
 ```
-$phasedev-orchestrator <goal description>     # Standard or Quick — orchestrator proposes, you confirm
-$express-orchestrator  <task description>     # stateless track for tiny changes
+/phasedev-orchestrator <goal description>     # Standard or Quick — orchestrator proposes, you confirm
+/express-orchestrator  <task description>     # stateless track for tiny changes
 ```
 
 The orchestrator runs the whole flow itself — creates the change, drives every phase with a dedicated sub-agent, repairs findings, archives — and stops only at approval gates (unless `autoApprove` is on) and unrecoverable blockers. Describe feedback at any stop in plain words; it classifies it (defect vs scope change) and routes it through the feedback contract. Invoked with no goal, it resumes from the current `.phasedev/` state.
 
 ### Manual
 
-The same loop the orchestrator runs, from the working project's root:
+The CLI itself is agent-agnostic: any agent (or human) that can run shell commands can drive the loop — the Claude Code skills are just ready-made wiring. The same loop the orchestrator runs, from the working project's root:
 
 ```bash
 phasedev create-change my-change   # add --quick for Quick mode
@@ -154,7 +209,7 @@ Repeat `phase` / `check` / `advance` until archived. At approval gates, review t
 ```yaml
 phases:
   change_intake:
-    skills: { routers: [], main: [], additional: [] }
+    skills: { routers: [], main: [], additional: [] }   # optional — see below
   # ... other phases
 
 runArchiveStage: true        # advance performs the archive mutation at archive_ready
@@ -165,7 +220,7 @@ blockingSeverity: must_fix   # must_fix | recommended | nit — minimal severity
 requireIterationCommit: true # clean-git-tree gate on passing validation exits (agent commits, controller never touches git)
 ```
 
-Per-phase `skills` lists declare which external agent skills a phase prompt may authorize; they are injected into `phasedev phase` prompts only. A typo'd phase name under `phases:` is a hard error, not a silent drop. Security-class findings always block regardless of `blockingSeverity`.
+Per-phase `skills` lists declare which external agent skills a phase prompt may authorize; they are injected into `phasedev phase` prompts only. **They are optional**: when `skills` is omitted or left empty for a phase, the phase prompt instead tells the executing agent to look at whatever skills are available in its own session and pick the ones that fit that phase's work — so with no configuration at all, every phase still uses suitable skills automatically. Fill the lists only when you want to restrict or pin a phase to specific skills. A typo'd phase name under `phases:` is a hard error, not a silent drop. Security-class findings always block regardless of `blockingSeverity`.
 
 ---
 
