@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { isDesignApproved, isPlanApproved, isSetupApproved } from "../../entities/change/approval";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState, ArchiveState, InvalidArchiveState } from "../../entities/change/archive-state";
-import { loadFlowState } from "../../entities/change/flow-state";
+import { loadFlowState, FlowState } from "../../entities/change/flow-state";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { Iteration } from "../../entities/iteration-plan/types";
@@ -10,7 +10,7 @@ import { isIterationReadyForValidation, iterationValidationBlockers } from "../.
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
-import { parseFindingRowIteration, parseValidationFindingsArtifact, ValidationFindingIssue } from "../../entities/validation-findings/parse-validation-findings";
+import { parseFindingRowIteration, parseValidationFindingsArtifact, ValidationFindingIssue, ValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { validateResearchFacts } from "../../entities/research-facts/validate-research";
 import { validateDesign } from "../../entities/design/validate-design";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
@@ -49,6 +49,40 @@ const VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES: ReadonlySet<ValidationFindingIssue
 
 function isVerdictOnlyOpenBlockingIssue(issue: ValidationFindingIssue): boolean {
   return VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES.has(issue.code);
+}
+
+// A `repaired` verdict clears state.json's activeIteration, so the target
+// iteration must be re-derived: prefer the state-tracked iteration, then the
+// iteration referenced by a still-open finding row, then the highest
+// iteration referenced across all rows (the just-repaired findings identify
+// which iteration was under repair).
+function deriveRepairedIteration(
+  planPhases: Iteration[],
+  flowState: FlowState | null,
+  findings: ValidationFindingsArtifact
+): Iteration | undefined {
+  if (flowState?.activeIteration != null) {
+    const tracked = planPhases.find(phase => phase.id === flowState.activeIteration);
+    if (tracked) return tracked;
+  }
+
+  const openIteration = findings.openRows
+    .map(row => parseFindingRowIteration(row.phase))
+    .find((n): n is number => n != null);
+  if (openIteration != null) {
+    const fromOpen = planPhases.find(phase => phase.id === openIteration);
+    if (fromOpen) return fromOpen;
+  }
+
+  const scopedIterations = findings.rows
+    .map(row => parseFindingRowIteration(row.phase))
+    .filter((n): n is number => n != null);
+  if (scopedIterations.length > 0) {
+    const highest = planPhases.find(phase => phase.id === Math.max(...scopedIterations));
+    if (highest) return highest;
+  }
+
+  return undefined;
 }
 
 export function resolveRoute(
@@ -155,45 +189,16 @@ export function resolveRoute(
   }
 
   // After repair with `repaired` verdict and no open blocking rows,
-  // always route to phase_validation for re-validation. Do not route
-  // through iterationPhase() which may return "implementation" due to
-  // stale Check Evidence that the repair resolved.
+  // always route to re-validation. Do not route through iterationPhase()
+  // which may return "implementation" due to stale Check Evidence that the
+  // repair resolved.
   if (findings.exists && findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
+    if (findings.type === "final") {
+      return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };
+    }
+
     const flowState = loadFlowState(projectPath, changeName);
-
-    // 1. Prefer the state-tracked iteration (when non-null)
-    let targetIteration: Iteration | undefined;
-    if (flowState?.activeIteration != null) {
-      targetIteration = planPhases.find(phase => phase.id === flowState.activeIteration);
-    }
-
-    // 2. When activeIteration is null (finding_repair clears it), fall back to
-    //    open findings' iteration field. This is more reliable than picking the
-    //    first in_progress/not_started iteration, which may skip an iteration
-    //    that was completed [x] before the repair cycle started.
-    if (!targetIteration) {
-      const openFindingIteration = findings.openRows
-        .map(row => parseFindingRowIteration(row.phase))
-        .find((n): n is number => n != null);
-      if (openFindingIteration != null) {
-        targetIteration = planPhases.find(phase => phase.id === openFindingIteration);
-      }
-    }
-
-    // 2b. A successful repair resolves every blocking row (the repair exit
-    //    condition), so openRows is empty exactly in that case. Fall back to
-    //    the highest-numbered blocking row across all rows: the just-repaired
-    //    findings identify which iteration was under repair.
-    if (!targetIteration) {
-      const blockingIterations = findings.rows
-        .filter(row => row.blocksPr)
-        .map(row => parseFindingRowIteration(row.phase))
-        .filter((n): n is number => n != null);
-      if (blockingIterations.length > 0) {
-        targetIteration = planPhases.find(phase => phase.id === Math.max(...blockingIterations));
-      }
-    }
-
+    const targetIteration = deriveRepairedIteration(planPhases, flowState, findings);
     if (targetIteration) {
       return {
         kind: "iteration",
@@ -204,10 +209,10 @@ export function resolveRoute(
       };
     }
 
-    // 3. Final fallback: no state-tracked or findings-referenced iteration at
-    //    all. Route the first in_progress/not_started iteration through
-    //    iterationPhase() — a not_started iteration was never implemented and
-    //    must go to implementation, not iteration_validation.
+    // No state-tracked or findings-referenced iteration: route the first
+    // in_progress/not_started iteration through iterationPhase() — a
+    // not_started iteration was never implemented and must go to
+    // implementation, not iteration_validation.
     const fallbackIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
     if (fallbackIteration) {
       return {

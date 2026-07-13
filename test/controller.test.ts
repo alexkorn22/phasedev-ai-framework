@@ -1011,6 +1011,51 @@ Complete API work.
     }
   });
 
+  test("repaired verdict with type final routes to final_validation, not an iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("final_validation");
+  });
+
+  test("advance from finding_repair with repaired type final returns to final_validation", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("final_validation");
+    expect(result.newState?.repairCycleCount).toBe(1); // preserved across repair→validation
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
