@@ -129,20 +129,16 @@ export function validatePhase(
         issues.push("YAML field `type` must be `iteration` for iteration validation.");
       }
 
-      // Verify that findings reference the active iteration
-      if (activeIteration !== null && findings.rows.length > 0) {
-        const iterStr = String(activeIteration);
-        const iterationPattern = new RegExp(`^(Iteration\\s+)?${iterStr}(\\s|:|$)`, "i");
-        const matchingRows = findings.rows.filter(row => iterationPattern.test(row.phase.trim()));
-        if (matchingRows.length === 0) {
-          issues.push(
-            `No findings reference iteration ${activeIteration}. Findings Iteration column must match the active iteration.`
-          );
-        }
-      }
-
-      // NOTE: [x] marking is the agent's job (see checkValidationCompletion),
-      // not a requirement here. The B1 guard was removed because it created a
+      // NOTE: iteration completeness (whether findings cover the active
+      // iteration) is checkValidationCompletion's authority, not this gate's.
+      // A prior row-matching gate here required findings rows to reference
+      // the active iteration whenever the registry was non-empty, which
+      // blocked a genuinely clean iteration N when only stale resolved rows
+      // from earlier iterations remained; it was removed as redundant with
+      // and divergent from checkValidationCompletion.
+      //
+      // [x] marking is the agent's job (see checkValidationCompletion), not
+      // a requirement here. The B1 guard was removed because it created a
       // deadlock: validatePhase required [x], but the [x] side effect in
       // advance-flow only runs *after* validatePhase passes. If the agent set
       // verdict: ready without marking [x], resolveRoute returns the same

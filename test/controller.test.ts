@@ -1079,19 +1079,19 @@ Complete API work.
     expect(result.prompt).not.toContain("Phase 1. Change Intake.");
   });
 
-  test("validatePhase iteration-number matching rejects prefix false positives like '10' for iteration 1", () => {
+  test("validatePhase iteration_validation exits a clean iteration with only earlier-iteration resolved rows", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     const paths = buildChangePaths(changeDir);
-    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 10 | Unrelated to iteration 1. | n/a |\n"), "utf-8");
+    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 1 | Earlier iteration finding. | n/a |\n"), "utf-8");
 
-    const result = validatePhase(testTmpDir, "iteration_validation", paths, 1);
+    // Active iteration 2 is clean (no rows reference it) but the registry is non-empty.
+    const result = validatePhase(testTmpDir, "iteration_validation", paths, 2);
 
-    expect(result.ok).toBe(false);
-    expect(result.issues.join("\n")).toContain("No findings reference iteration 1");
+    expect(result.ok).toBe(true);
   });
 
-  test("validatePhase iteration-number matching accepts exact and 'Iteration N' style labels", () => {
+  test("validatePhase iteration_validation passes when a row references the active iteration", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     const paths = buildChangePaths(changeDir);
