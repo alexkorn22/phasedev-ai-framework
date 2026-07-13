@@ -1363,7 +1363,7 @@ autoApprove: true
     expect(result.output).toContain("[PHASEDEV VALIDATION CHECK] OK: final validation is complete.");
   });
 
-  test("check-validation final rejects repaired verdict", () => {
+  test("check-validation final reports re-validation pending on a repaired verdict", () => {
     setupChange(`
 # Plan
 
@@ -1376,7 +1376,9 @@ autoApprove: true
     const result = runCheckValidation(["--scope", "final"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("`verdict: repaired` is not valid for Final Validation phase output.");
+    expect(result.output).toContain("Re-validation pending: verdict is `repaired`.");
+    expect(result.output).toContain("phasedev set-verdict ready|ready_with_risks|repair_required");
+    expect(result.output).toContain("route: final_validation");
   });
 
   test("check-validation phase fails when ready findings leave the phase incomplete", () => {
@@ -1462,7 +1464,7 @@ autoApprove: true
     expect(result.output).toContain("[PHASEDEV VALIDATION CHECK] OK: iteration validation is complete.");
   });
 
-  test("check-validation phase rejects repaired verdict", () => {
+  test("check-validation iteration reports re-validation pending on a repaired verdict", () => {
     setupChange(`
 # Plan
 
@@ -1475,7 +1477,7 @@ autoApprove: true
     const result = runCheckValidation(["--scope", "iteration", "--iteration-id", "1"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("`verdict: repaired` is not valid for Iteration Validation phase output.");
+    expect(result.output).toContain("Re-validation pending: verdict is `repaired`.");
   });
 
   test("check fails when archive state is malformed", () => {

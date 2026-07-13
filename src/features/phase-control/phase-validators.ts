@@ -28,6 +28,10 @@ function failMessage(phase: string, issues: string[]): PhaseValidation {
   return { ok: false, issues, message: `phase ${phase}: ISSUES\n${issues.map(i => `- ${i}`).join("\n")}` };
 }
 
+export function revalidationPendingMessage(): string {
+  return "Re-validation pending: verdict is `repaired`. Re-run validation, then set a terminal verdict with `phasedev set-verdict ready|ready_with_risks|repair_required`.";
+}
+
 /**
  * Read file content for schema section validation.
  * Returns empty string if file doesn't exist.
@@ -129,6 +133,10 @@ export function validatePhase(
         issues.push("YAML field `type` must be `iteration` for iteration validation.");
       }
 
+      if (findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
+        issues.push(revalidationPendingMessage());
+      }
+
       // NOTE: iteration completeness (whether findings cover the active
       // iteration) is checkValidationCompletion's authority, not this gate's.
       // A prior row-matching gate here required findings rows to reference
@@ -180,6 +188,10 @@ export function validatePhase(
         } else {
           issues.push("design.md does not exist (required for final_validation schema check).");
         }
+      }
+
+      if (findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
+        issues.push(revalidationPendingMessage());
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);

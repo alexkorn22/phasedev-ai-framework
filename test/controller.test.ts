@@ -1339,6 +1339,27 @@ Complete API work.
     expect(result.message).toContain("Design Approval Required");
   });
 
+  test("advance refuses to leave a validation phase while verdict is repaired", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Re-validation pending: verdict is `repaired`.");
+  });
+
   test("approval blocker reports blocked gate stage", () => {
     setupChange(`
 # Plan

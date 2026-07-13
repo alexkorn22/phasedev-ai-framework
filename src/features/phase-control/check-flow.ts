@@ -6,7 +6,7 @@ import { checkFindingsAgainstBaseline } from "../../entities/validation-findings
 import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
-import { validatePhase } from "./phase-validators";
+import { validatePhase, revalidationPendingMessage } from "./phase-validators";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
@@ -152,7 +152,7 @@ export function checkValidationCompletion(
     }
 
     if (findings.verdict === "repaired") {
-      issues.push("`verdict: repaired` is not valid for Iteration Validation phase output.");
+      issues.push(revalidationPendingMessage());
     }
 
     if (isReadyVerdict(findings.verdict)) {
@@ -180,7 +180,7 @@ export function checkValidationCompletion(
     }
 
     if (findings.verdict === "repaired") {
-      issues.push("`verdict: repaired` is not valid for Final Validation phase output.");
+      issues.push(revalidationPendingMessage());
     }
 
     if (isReadyVerdict(findings.verdict) && route.kind !== "archive_ready") {
