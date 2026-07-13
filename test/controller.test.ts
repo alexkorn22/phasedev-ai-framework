@@ -1011,6 +1011,54 @@ Complete API work.
     }
   });
 
+  test("repaired verdict with type final routes to final_validation, not an iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n| F0 | resolved | MUST-FIX | implementation | Iteration 2 | Earlier iteration defect. | Fixed earlier. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("final_validation");
+  });
+
+  test("advance from finding_repair with repaired type final returns to final_validation", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n| F0 | resolved | MUST-FIX | implementation | Iteration 2 | Earlier iteration defect. | Fixed earlier. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "finding_repair", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("final_validation");
+    expect(result.newState?.repairCycleCount).toBe(1); // preserved across repair→validation
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1079,19 +1127,19 @@ Complete API work.
     expect(result.prompt).not.toContain("Phase 1. Change Intake.");
   });
 
-  test("validatePhase iteration-number matching rejects prefix false positives like '10' for iteration 1", () => {
+  test("validatePhase iteration_validation exits a clean iteration with only earlier-iteration resolved rows", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     const paths = buildChangePaths(changeDir);
-    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 10 | Unrelated to iteration 1. | n/a |\n"), "utf-8");
+    fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 1 | Earlier iteration finding. | n/a |\n"), "utf-8");
 
-    const result = validatePhase(testTmpDir, "iteration_validation", paths, 1);
+    // Active iteration 2 is clean (no rows reference it) but the registry is non-empty.
+    const result = validatePhase(testTmpDir, "iteration_validation", paths, 2);
 
-    expect(result.ok).toBe(false);
-    expect(result.issues.join("\n")).toContain("No findings reference iteration 1");
+    expect(result.ok).toBe(true);
   });
 
-  test("validatePhase iteration-number matching accepts exact and 'Iteration N' style labels", () => {
+  test("validatePhase iteration_validation passes when a row references the active iteration", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.mkdirSync(changeDir, { recursive: true });
     const paths = buildChangePaths(changeDir);
@@ -1337,6 +1385,27 @@ Complete API work.
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain("Design Approval Required");
+  });
+
+  test("advance refuses to leave a validation phase while verdict is repaired", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repaired", "final", "| F1 | resolved | MUST-FIX | validation | Final | Coverage was incomplete. | Keep coverage complete. |\n")
+    });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 1 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Re-validation pending: verdict is `repaired`.");
   });
 
   test("approval blocker reports blocked gate stage", () => {

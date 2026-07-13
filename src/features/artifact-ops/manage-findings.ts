@@ -140,6 +140,11 @@ function correctedVerdict(current: string, addedSeverity: string, blockingSeveri
   return null;
 }
 
+function verdictAfterResolve(current: string, remainingOpenBlocking: number): string | null {
+  if (remainingOpenBlocking === 0 && current === "repair_required") return "repaired";
+  return null;
+}
+
 /**
  * An open row makes a "ready" verdict contradictory; the command fixes it atomically.
  * Guard: a missing or invalid verdict line (e.g., a template placeholder before the
@@ -257,7 +262,12 @@ export function addFinding(
   };
 }
 
-export function resolveFinding(filePath: string, id: string, resolution: string): ManageFindingsResult {
+export function resolveFinding(
+  filePath: string,
+  id: string,
+  resolution: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ManageFindingsResult {
   if (isPlaceholderRequiredFix(resolution)) {
     return { ok: false, message: "Resolution must record what was changed and how it was verified; placeholders are not allowed." };
   }
@@ -280,11 +290,26 @@ export function resolveFinding(filePath: string, id: string, resolution: string)
   row.status = "resolved";
   row.resolution = resolution.trim();
 
+  // The repaired flip is phase-agnostic by design: closing the last open blocking row means re-validation is pending regardless of the active phase.
+  const remainingOpenBlocking = rows.filter(
+    r => (r.status === "open" || r.status === "reopened") &&
+      severityBlocks(r.severity.toUpperCase() as ValidationFindingSeverity, blockingSeverity)
+  ).length;
+  let verdictNote = "";
+  const current = readVerdictLine(parsed.frontmatter);
+  if (current !== null && isKnownVerdict(current)) {
+    const next = verdictAfterResolve(current, remainingOpenBlocking);
+    if (next) {
+      parsed.frontmatter = parsed.frontmatter.replace(/^verdict:\s*.*$/m, `verdict: ${next}`);
+      verdictNote = `; verdict updated to ${next} (re-validation pending)`;
+    }
+  }
+
   writeTable(filePath, parsed, rows);
 
   return {
     ok: true,
-    message: `Finding ${id} resolved.`
+    message: `Finding ${id} resolved${verdictNote}.`
   };
 }
 
