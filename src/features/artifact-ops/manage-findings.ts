@@ -290,6 +290,7 @@ export function resolveFinding(
   row.status = "resolved";
   row.resolution = resolution.trim();
 
+  // The repaired flip is phase-agnostic by design: closing the last open blocking row means re-validation is pending regardless of the active phase.
   const remainingOpenBlocking = rows.filter(
     r => (r.status === "open" || r.status === "reopened") &&
       severityBlocks(r.severity.toUpperCase() as ValidationFindingSeverity, blockingSeverity)
