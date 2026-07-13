@@ -5,10 +5,12 @@ import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-worksp
 import { createChange } from "../src/features/phase-control/create-change";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
+import { checkValidationCompletion } from "../src/features/phase-control/check-flow";
 import { loadFlowState } from "../src/entities/change/flow-state";
 import { loadConfig, Config } from "../src/entities/config/config";
 import { approveArtifact } from "../src/features/artifact-ops/approve-artifact";
 import { setIterationStatus } from "../src/features/iteration-ops/set-iteration-status";
+import { addFinding, resolveFinding, setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { findPendingArchiveState } from "../src/entities/change/archive-state";
 import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
@@ -755,6 +757,99 @@ The E2E flow SHALL complete without re-approvals.
     expect(typeof finalArchiveState.completedAt).toBe("string");
   });
 
+});
+
+// ── E2E: Repaired finding re-validation reaches archive (final scope) ──
+
+describe("repaired finding re-validation e2e", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = createTempWorkspace("repaired-revalidation-e2e");
+  });
+
+  afterEach(() => {
+    cleanupTempWorkspace(root);
+  });
+
+  test("final-scope repaired finding re-validates and reaches archive without manual type edit", () => {
+    // Arrange: drive the change up to final_validation with all iterations
+    // [x]. buildLifecycleSteps' final_validation entry (step index 5)
+    // already promotes validation_findings.md to `type: final` via
+    // advanceFlow's setFindingsType side effect — no manual type edit.
+    expect(createChange(root, "repair-e2e").ok).toBe(true);
+    const config = loadConfig();
+
+    const steps = buildLifecycleSteps(root, config, "repair-e2e", {
+      why: "Verify a repaired final finding re-validates and reaches archive",
+      targetState: "Flow reaches archive_ready without a manual type edit",
+      requirement: "A repaired final finding must route back to final_validation for re-validation",
+      criterion: "resolveRoute reaches archive_ready after re-validation",
+    });
+    for (let i = 0; i < 6; i++) steps[i]();
+
+    const changeDir = path.join(root, ".phasedev", "changes", "repair-e2e");
+    const paths = buildChangePaths(changeDir);
+
+    let st = loadFlowState(root, "repair-e2e");
+    expect(st?.activePhase).toBe("final_validation");
+    expect(st?.repairCycleCount).toBe(0);
+
+    let findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsContent).toContain("type: final");
+    expect(findingsContent).not.toContain("type: iteration");
+
+    // 1. Add a blocking Final finding -> verdict flips to repair_required.
+    const added = addFinding(paths.findingsPath, null, "Late defect found in final validation", "MUST-FIX", "Fix the defect", "validation", "Final");
+    expect(added.ok).toBe(true);
+    findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsContent).toContain("verdict: repair_required");
+    expect(findingsContent).toContain("type: final");
+
+    // 2. advance -> finding_repair.
+    const toRepair = advanceFlow(root, config, "repair-e2e");
+    expect(toRepair.ok).toBe(true);
+    expect(toRepair.newState?.activePhase).toBe("finding_repair");
+    expect(toRepair.newState?.repairCycleCount).toBe(1);
+
+    // 3. resolveFinding(F1) closes the only open blocking row -> verdict
+    // auto-flips repair_required -> repaired (Task 1).
+    const resolved = resolveFinding(paths.findingsPath, "F1", "Fixed the defect in src/x.ts; bun test x -> pass");
+    expect(resolved.ok).toBe(true);
+    expect(resolved.message).toContain("verdict updated to repaired (re-validation pending)");
+    findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsContent).toContain("verdict: repaired");
+    expect(findingsContent).toContain("type: final");
+
+    // 4. advance -> back to final_validation (Task 4 routes repaired+final
+    // straight to final_validation); repairCycleCount is preserved, not reset.
+    const toRevalidation = advanceFlow(root, config, "repair-e2e");
+    expect(toRevalidation.ok).toBe(true);
+    expect(toRevalidation.newState?.activePhase).toBe("final_validation");
+    expect(toRevalidation.newState?.repairCycleCount).toBe(1);
+
+    // 5. check-validation --scope final reports re-validation pending (Task 3),
+    // rather than a type deadlock or a false pass.
+    const revalidationCheck = checkValidationCompletion(root, { scope: "final" }, "repair-e2e");
+    expect(revalidationCheck.ok).toBe(false);
+    expect(revalidationCheck.message).toContain("Re-validation pending: verdict is `repaired`.");
+
+    // 6. Re-validation sets a terminal verdict.
+    const verdictSet = setFindingsVerdict(paths.findingsPath, "ready_with_risks", { type: "final", date: "2026-07-13" });
+    expect(verdictSet.ok).toBe(true);
+    findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsContent).toContain("verdict: ready_with_risks");
+    expect(findingsContent).toContain("type: final");
+    expect(findingsContent).not.toContain("type: iteration");
+
+    // 7. resolveRoute now resolves to archive_ready, with no manual type edit
+    // ever having been applied to validation_findings.md.
+    const finalRoute = resolveRoute(root, "repair-e2e");
+    expect(finalRoute.kind).toBe("archive_ready");
+
+    st = loadFlowState(root, "repair-e2e");
+    expect(st?.activePhase).toBe("final_validation");
+  });
 });
 
 // ── E2E: Independent multi-change flows ─────────────────────
