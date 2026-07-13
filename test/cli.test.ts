@@ -2933,6 +2933,20 @@ ${rows ?? ""}`;
     expect(cells[8]).toBe("Fixed in src/x.ts; bun test -> pass");
   });
 
+  test("resolve-finding CLI reports the auto verdict flip to repaired", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | Iteration 1 | Defect | Fix it |\n")
+    });
+    const result = runCli(["resolve-finding", "F1", "--resolution", "Fixed in src/x.ts; bun test -> pass", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("verdict updated to repaired (re-validation pending)");
+  });
+
   test("reopen-finding reopens a resolved finding with evidence", () => {
     const findingsPath = path.join(testTmpDir, "validation_findings.md");
     writeValidationFindings(findingsPath, "| F1 | resolved | MUST-FIX | validation | Phase 1 | Broken thing | Fix it | Fixed already |\n");

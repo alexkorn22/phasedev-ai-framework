@@ -414,8 +414,9 @@ function handleResolveFinding(ctx: CommandContext): void {
     return;
   }
 
+  const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   runWithOptionalStateLock(ctx.projectPath, () => {
-    const result = resolveFinding(targetFile, id, resolution);
+    const result = resolveFinding(targetFile, id, resolution, config.blockingSeverity);
     const prefix = result.ok ? "[PHASEDEV RESOLVE-FINDING] OK" : "[PHASEDEV RESOLVE-FINDING] FAILED";
     reportCliResult(ctx.jsonMode, {
       ok: result.ok,

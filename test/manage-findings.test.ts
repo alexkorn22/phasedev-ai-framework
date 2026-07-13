@@ -317,6 +317,35 @@ describe("addFinding CLI-owned mutations", () => {
     expect(resolveFinding(file, "F1", "Fixed again").ok).toBe(false);
   });
 
+  test("resolveFinding closing the last open blocking flips repair_required to repaired", () => {
+    const file = writeFindings(FM("repair_required") + HDR7 +
+      "| F1 | open | MUST-FIX | implementation | Iteration 1 | Defect | Fix it |\n");
+    const result = resolveFinding(file, "F1", "Fixed in src/x.ts; bun test x -> pass");
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("verdict updated to repaired (re-validation pending)");
+    const written = fs.readFileSync(file, "utf-8");
+    expect(written).toContain("verdict: repaired");
+  });
+
+  test("resolveFinding keeps repair_required while another open blocking remains", () => {
+    const file = writeFindings(FM("repair_required") + HDR7 +
+      "| F1 | open | MUST-FIX | implementation | Iteration 1 | Defect A | Fix A |\n" +
+      "| F2 | open | MUST-FIX | implementation | Iteration 1 | Defect B | Fix B |\n");
+    const result = resolveFinding(file, "F1", "Fixed A in src/a.ts; bun test -> pass");
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("verdict updated");
+    expect(fs.readFileSync(file, "utf-8")).toContain("verdict: repair_required");
+  });
+
+  test("resolveFinding does not touch a ready_with_risks verdict on a non-blocking resolve", () => {
+    const file = writeFindings(FM("ready_with_risks") + HDR7 +
+      "| F1 | open | RECOMMENDED | implementation | Iteration 1 | Note | Improve it |\n");
+    const result = resolveFinding(file, "F1", "Improved in src/a.ts; bun test -> pass");
+    expect(result.ok).toBe(true);
+    expect(result.message).not.toContain("verdict updated");
+    expect(fs.readFileSync(file, "utf-8")).toContain("verdict: ready_with_risks");
+  });
+
   test("reopenFinding flips resolved to reopened and appends evidence to Resolution", () => {
     const file = writeFindings(FM("repair_required") + HDR7 +
       "| F1 | open | MUST-FIX | implementation | Iteration 1 | Defect | Fix it |\n" +
