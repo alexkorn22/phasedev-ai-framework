@@ -5,10 +5,11 @@ import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../.
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
-import { loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
-import { validatePhase, revalidationPendingMessage } from "./phase-validators";
+import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase } from "../../entities/change/flow-state";
+import { validatePhase, validatePhaseExit, revalidationPendingMessage } from "./phase-validators";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
+import { classifyStateRoute } from "./state-route-consistency";
 
 export type RouteKind = Route["kind"];
 
@@ -51,6 +52,32 @@ function readyIterationIssue(verdict: ValidationFindingsVerdict | "unknown", pha
 
 function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: RouteKind): string {
   return `\`verdict: repair_required\` is valid for ${scope} validation only when the current route is finding_repair; got ${routeKind}.`;
+}
+
+/**
+ * Builds the checkPhase divergence notice, recommending only the command
+ * that actually resolves the drift: `advance` when the locked phase's own
+ * exit gate still passes (normal forward progress), `sync-state` when it
+ * does not (the lock is stuck, forward or behind the route).
+ */
+function buildDivergenceNotice(
+  projectPath: string,
+  state: FlowState,
+  route: Route,
+  paths: ChangePaths,
+  blockingSeverity: BlockingSeverity
+): string {
+  const exitGateOk = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, blockingSeverity).ok;
+  const relation = classifyStateRoute(state, route, exitGateOk);
+  const routePhase = route.phase;
+
+  if (relation === "advance_pending") {
+    return `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; run \`phasedev advance\` to move forward.`;
+  }
+  if (relation === "forward_deadlock") {
+    return `\nstate.json is locked at ${state.activePhase} but ${state.activePhase} cannot pass its exit gate; run \`phasedev sync-state\` to reconcile state.json forward to ${routePhase}.`;
+  }
+  return `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; run \`phasedev sync-state\` to roll state.json back to ${routePhase}.`;
 }
 
 // ── check-phase (new per-phase validator) ──────────────────
@@ -105,7 +132,7 @@ export function checkPhase(
   const v = validatePhase(projectPath, phase, paths, activeIteration, blockingSeverity);
 
   const divergenceNotice = route && phase !== state.activePhase
-    ? `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${phase}; run \`phasedev advance\` to move forward or \`phasedev sync-state\` to roll back.`
+    ? buildDivergenceNotice(projectPath, state, route, paths, blockingSeverity)
     : "";
 
   return {

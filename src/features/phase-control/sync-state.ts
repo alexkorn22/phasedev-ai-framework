@@ -3,7 +3,8 @@ import { ActivePhase, loadFlowState, saveFlowState } from "../../entities/change
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { resolveRoute } from "./flow-route";
-import { PHASE_RANK } from "./state-route-consistency";
+import { classifyStateRoute } from "./state-route-consistency";
+import { validatePhaseExit } from "./phase-validators";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 
 export interface SyncStateResult {
@@ -24,6 +25,16 @@ export function syncState(
     return { ok: false, changed: false, message: "No active change. Run: phasedev create-change <name>." };
   }
 
+  if (state.flowMode === "quick") {
+    return {
+      ok: true,
+      changed: false,
+      fromPhase: state.activePhase,
+      toPhase: state.activePhase,
+      message: "Quick mode uses a linear state sequence; sync-state does not apply. Use `phasedev advance`."
+    };
+  }
+
   const changeDir = resolveChangeDir(projectPath, changeName);
   if (!changeDir) {
     return { ok: false, changed: false, message: "Cannot locate active change directory." };
@@ -41,17 +52,52 @@ export function syncState(
     };
   }
 
-  if (PHASE_RANK[routePhase] >= PHASE_RANK[state.activePhase]) {
+  const paths = buildChangePaths(changeDir);
+  const exitGateOk = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, blockingSeverity).ok;
+  const relation = classifyStateRoute(state, route, exitGateOk);
+
+  if (relation === "advance_pending") {
     return {
       ok: true,
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; run \`phasedev advance\` to move forward. sync-state only rolls state.json backward and will not do that here.`
+      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; the locked phase is not stuck (its exit gate still passes), so run \`phasedev advance\` to move forward. sync-state does not apply here.`
     };
   }
 
-  const paths = buildChangePaths(changeDir);
+  if (relation === "forward_deadlock") {
+    if (routePhase === "archive") {
+      return {
+        ok: true,
+        changed: false,
+        fromPhase: state.activePhase,
+        toPhase: routePhase,
+        message: `state.json is locked at ${state.activePhase}, whose exit gate has failed, and artifacts resolve to archive; fix the failing exit gate, then run \`phasedev advance\`, which performs the archive mutation. sync-state will not fabricate an archive transition.`
+      };
+    }
+
+    // The baseline would otherwise compare the findings table against a
+    // snapshot from before this reconciliation, rejecting legitimate rework.
+    fs.rmSync(paths.findingsBaselinePath, { force: true });
+
+    const nextIteration = route.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
+    saveFlowState(
+      projectPath,
+      { activePhase: routePhase, activeIteration: nextIteration, repairCycleCount: state.repairCycleCount },
+      changeName
+    );
+
+    return {
+      ok: true,
+      changed: true,
+      fromPhase: state.activePhase,
+      toPhase: routePhase,
+      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved). No artifacts were modified. Run: phasedev phase.`
+    };
+  }
+
+  // relation === "backward_conflict"
   // The baseline would otherwise compare the findings table against a snapshot
   // from before this rollback, rejecting legitimate rework.
   fs.rmSync(paths.findingsBaselinePath, { force: true });
