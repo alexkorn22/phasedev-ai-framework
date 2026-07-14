@@ -2391,6 +2391,34 @@ Complete API work.
       expect(result.message).toContain("does not apply");
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
     });
+
+    test("syncState auto-resets a stale terminal final verdict to pending", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+        findings: validationFindings("ready", "final")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain("Reset the stale final verdict to `pending`");
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("verdict: pending");
+      expect(findingsContent).toContain("type: final");
+    });
   });
 
   describe("checkPhase grades the artifact-derived route, not the stale lock", () => {

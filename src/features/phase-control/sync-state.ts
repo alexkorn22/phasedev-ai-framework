@@ -6,6 +6,7 @@ import { resolveRoute } from "./flow-route";
 import { classifyStateRoute } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
+import { invalidateStaleFinalVerdict } from "./invalidate-stale-final-verdict";
 
 export interface SyncStateResult {
   ok: boolean;
@@ -40,6 +41,10 @@ export function syncState(
     return { ok: false, changed: false, message: "Cannot locate active change directory." };
   }
 
+  const paths = buildChangePaths(changeDir);
+  const staleVerdictReset = invalidateStaleFinalVerdict(paths, blockingSeverity);
+  const resetNote = staleVerdictReset.reset ? ` ${staleVerdictReset.message}` : "";
+
   const route = resolveRoute(projectPath, changeName, blockingSeverity);
   const routePhase = route.phase as ActivePhase;
   if (routePhase === state.activePhase) {
@@ -48,11 +53,10 @@ export function syncState(
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `state.json is already consistent (activePhase: ${state.activePhase}, artifact-derived: ${routePhase}). Nothing to sync.`
+      message: `state.json is already consistent (activePhase: ${state.activePhase}, artifact-derived: ${routePhase}). Nothing to sync.${resetNote}`
     };
   }
 
-  const paths = buildChangePaths(changeDir);
   const exitGateOk = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, blockingSeverity).ok;
   const relation = classifyStateRoute(state, route, exitGateOk);
 
@@ -62,7 +66,7 @@ export function syncState(
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; the locked phase is not stuck (its exit gate still passes), so run \`phasedev advance\` to move forward. sync-state does not apply here.`
+      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; the locked phase is not stuck (its exit gate still passes), so run \`phasedev advance\` to move forward. sync-state does not apply here.${resetNote}`
     };
   }
 
@@ -73,7 +77,7 @@ export function syncState(
         changed: false,
         fromPhase: state.activePhase,
         toPhase: routePhase,
-        message: `state.json is locked at ${state.activePhase}, whose exit gate has failed, and artifacts resolve to archive; fix the failing exit gate, then run \`phasedev advance\`, which performs the archive mutation. sync-state will not fabricate an archive transition.`
+        message: `state.json is locked at ${state.activePhase}, whose exit gate has failed, and artifacts resolve to archive; fix the failing exit gate, then run \`phasedev advance\`, which performs the archive mutation. sync-state will not fabricate an archive transition.${resetNote}`
       };
     }
 
@@ -93,7 +97,7 @@ export function syncState(
       changed: true,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved). No artifacts were modified. Run: phasedev phase.`
+      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved). No artifacts were modified. Run: phasedev phase.${resetNote}`
     };
   }
 
@@ -109,6 +113,6 @@ export function syncState(
     changed: true,
     fromPhase: state.activePhase,
     toPhase: routePhase,
-    message: `Synced state.json: activePhase ${state.activePhase} -> ${routePhase} (activeIteration cleared, repairCycleCount reset). No artifacts were modified. Run: phasedev phase.`
+    message: `Synced state.json: activePhase ${state.activePhase} -> ${routePhase} (activeIteration cleared, repairCycleCount reset). No artifacts were modified. Run: phasedev phase.${resetNote}`
   };
 }
