@@ -1015,6 +1015,30 @@ Complete API work.
     expect(findingsContent).toContain("type: final");
   });
 
+  test("advance into iteration_validation rewrites a stale findings type final to iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [~]
+- [x] 2.1 Build page
+`, { findings: validationFindings("ready", "final") });
+    // Lock state so the transition target is iteration_validation for iteration 2.
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "implementation", activeIteration: 2, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("iteration_validation");
+    expect(fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8")).toContain("type: iteration");
+  });
+
   test("repaired verdict with no state iteration and no findings iteration reference routes the not_started fallback through implementation", () => {
     const changeDir = setupChange(`
 # Plan
