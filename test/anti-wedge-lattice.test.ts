@@ -327,6 +327,18 @@ function isCircularAdvice(advanceMessage: string, syncMessage: string | undefine
   return syncPointsToAdvance && advancePointsToSync;
 }
 
+/** The specific historical wedge from the brief: sync-state tells the agent to
+ *  "run advance" while advance refuses because the stale findings `type` is
+ *  not `iteration`/`final`, so the agent is bounced between the two commands
+ *  forever. Narrower than isCircularAdvice's generic pair (which requires
+ *  advance to *also* point back at sync-state) -- this tripwire fires on the
+ *  exact wording pair even if advance's refusal never mentions sync-state. */
+function hasStaleTypeCircularAdvice(advanceMessage: string, syncMessage: string | undefined): boolean {
+  const syncSaysRunAdvance = /run `?phasedev advance`?/i.test(syncMessage ?? "");
+  const advanceDemandsType = /must be `(iteration|final)`/i.test(advanceMessage);
+  return syncSaysRunAdvance && advanceDemandsType;
+}
+
 // ---------------------------------------------------------------------------
 // Lattice cases.
 //
@@ -351,6 +363,10 @@ interface LatticeCase {
   findings: string | null;
   state: StateSpec;
   expected: CaseResult;
+  /** Optional destination assertion beyond the generic progress/refuse check
+   *  (see case 23 for why this is sometimes required: some buggy mis-routes
+   *  satisfy the generic `progressed` check too). */
+  assertAfter?: (after: Snapshot) => void;
 }
 
 const LATTICE: LatticeCase[] = [
@@ -522,10 +538,26 @@ const LATTICE: LatticeCase[] = [
   },
   {
     name: "final_validation: verdict ready, type final, ONE-INCOMPLETE iteration (scope changed after final passed) -> progress (Rule a resets to pending, routes back)",
+    // Guard for bug #1: a stale `ready`/`final` verdict must never be read as
+    // license to archive while an iteration is still incomplete. Generic
+    // `progressed` is not enough here -- the buggy mis-route-to-archive
+    // behavior also flips state.json/moves the change dir, so it satisfies
+    // `progressed` too. The destination assertions below (asserted inline in
+    // the runner via c.assertAfter) pin the actual fixed-tree after-state:
+    // no archive marker, verdict reset to pending, and state routed back to
+    // implementation on the incomplete iteration -- each of which the
+    // mis-route-to-archive hypothesis would fail.
     plan: TWO_ITER_FIRST_DONE,
     findings: findingsArtifact("ready", "final", []),
     state: { activePhase: "final_validation", activeIteration: null },
-    expected: "progress"
+    expected: "progress",
+    assertAfter: after => {
+      expect(after.archiveMarkerExists).toBe(false);
+      const state = JSON.parse(after.stateJson) as { activePhase: string; activeIteration: number | null };
+      expect(state.activePhase).toBe("implementation");
+      expect(state.activeIteration).toBe(2);
+      expect(after.findings ?? "").toContain("verdict: pending");
+    }
   },
   {
     name: "final_validation: HAND-AUTHORED illegal combo, verdict ready_with_risks with an open MUST-FIX row -> refuse (invalid_findings: not allowed while open)",
@@ -608,8 +640,13 @@ describe("anti-wedge lattice: no reachable validation state wedges", () => {
 
     const concreteDefect = namesConcreteDefect(advance.message, sync?.message);
     const circular = isCircularAdvice(advance.message, sync?.message);
+    const staleTypeCircular = hasStaleTypeCircularAdvice(advance.message, sync?.message);
 
     expect(circular).toBe(false);
+    // Flagship-specific tripwire (see hasStaleTypeCircularAdvice): guards the
+    // exact "sync says run advance" x "advance demands type iteration/final"
+    // wedge named in the brief, independent of the broader isCircularAdvice pair.
+    expect(staleTypeCircular).toBe(false);
     expect(progressed || concreteDefect).toBe(true);
 
     if (c.expected === "progress") {
@@ -617,5 +654,7 @@ describe("anti-wedge lattice: no reachable validation state wedges", () => {
     } else {
       expect(concreteDefect).toBe(true);
     }
+
+    c.assertAfter?.(after);
   });
 });
