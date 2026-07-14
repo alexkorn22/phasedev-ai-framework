@@ -17,6 +17,7 @@ import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reop
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase } from "../src/features/phase-control/check-flow";
 import { addFinding } from "../src/features/artifact-ops/manage-findings";
+import { expectedFindingsType } from "../src/features/phase-control/expected-findings-type";
 
 let testTmpDir: string;
 
@@ -2625,5 +2626,15 @@ Complete API work.
       expect(result.blocked).toBe(false);
       expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     });
+  });
+});
+
+describe("expectedFindingsType", () => {
+  test("expectedFindingsType maps validation phases and leaves other phases untouched", () => {
+    expect(expectedFindingsType("iteration_validation")).toBe("iteration");
+    expect(expectedFindingsType("final_validation")).toBe("final");
+    expect(expectedFindingsType("finding_repair")).toBeNull();
+    expect(expectedFindingsType("quick_validation")).toBeNull();
+    expect(expectedFindingsType("implementation")).toBeNull();
   });
 });
