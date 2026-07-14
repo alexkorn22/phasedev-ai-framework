@@ -1035,6 +1035,36 @@ Complete API work.
     expect(result.message).toContain("Normalized");
   });
 
+  test("wedge field state no longer produces circular check<->sync-state advice; advance progresses", () => {
+    setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+    fs.writeFileSync(
+      path.join(testTmpDir, ".phasedev", "changes", "sample-change", "state.json"),
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    // Second, untouched copy of the same wedged state for the read-only check/sync-state comparison.
+    const testTmpDir2 = createTempWorkspace("flow-controller-wedge-copy");
+    fs.cpSync(path.join(testTmpDir, ".phasedev"), path.join(testTmpDir2, ".phasedev"), { recursive: true });
+
+    try {
+      const advance = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      expect(advance.ok).toBe(true);
+      expect(advance.newState?.activePhase).not.toBe("iteration_validation"); // progress made
+
+      const sync = syncState(testTmpDir2);
+      const checkOut = checkPhase(testTmpDir2);
+      const circular =
+        /run `?phasedev sync-state`?/.test(checkOut.message) && /run `?phasedev advance`?/.test(sync.message);
+      expect(circular).toBe(false);
+    } finally {
+      cleanupTempWorkspace(testTmpDir2);
+    }
+  });
+
   test("advance into iteration_validation rewrites a stale findings type final to iteration", () => {
     const changeDir = setupChange(`
 # Plan
