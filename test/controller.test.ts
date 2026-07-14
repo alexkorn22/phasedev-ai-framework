@@ -2226,7 +2226,7 @@ Complete API work.
         findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
       writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), "{}", "utf-8");
+      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
 
       const result = syncState(testTmpDir);
 
