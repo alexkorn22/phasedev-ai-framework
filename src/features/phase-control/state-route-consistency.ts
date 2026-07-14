@@ -26,6 +26,37 @@ export const PHASE_RANK: Record<ActivePhase, number> = {
   archive: 5
 };
 
+export type StateRouteRelation =
+  | "consistent"
+  | "backward_conflict"
+  | "advance_pending"
+  | "forward_deadlock";
+
+/**
+ * Classify how state.activePhase (the lock) relates to route.phase (the
+ * artifact-derived phase), given whether the locked phase's own exit gate
+ * currently passes:
+ * - "consistent": lock and route agree.
+ * - "backward_conflict": route resolved to an earlier phase than the lock
+ *   (an upstream artifact regressed).
+ * - "advance_pending": route is ahead of (or same-rank as) the lock, but the
+ *   lock's exit gate still passes — normal forward progress waiting on
+ *   `phasedev advance`, not a deadlock.
+ * - "forward_deadlock": route is ahead of (or same-rank as) the lock, and the
+ *   lock's own exit gate fails — the lock can never satisfy `advance`'s entry
+ *   condition, so state.json is stuck pointing at a phase that cannot exit.
+ */
+export function classifyStateRoute(
+  state: FlowState,
+  route: Route,
+  exitGateOk: boolean
+): StateRouteRelation {
+  const routePhase = route.phase as ActivePhase;
+  if (routePhase === state.activePhase) return "consistent";
+  if (PHASE_RANK[routePhase] < PHASE_RANK[state.activePhase]) return "backward_conflict";
+  return exitGateOk ? "advance_pending" : "forward_deadlock";
+}
+
 /**
  * Detect a state/route contradiction. state.activePhase is the phase lock;
  * route.phase is derived from the artifacts on disk. Normal forward progress

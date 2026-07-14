@@ -2134,6 +2134,10 @@ Complete API work.
       );
     }
 
+    function writeRawState(changeDir: string, state: Record<string, unknown>) {
+      fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(state, null, 2) + "\n", "utf-8");
+    }
+
     test("syncState rolls state.json back to the artifact-derived phase", () => {
       const changeDir = setupChange(`
 # Plan
@@ -2200,6 +2204,46 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
     });
 
+    test("syncState reconciles a genuine forward deadlock (iteration_validation locked, findings already final)", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
+      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(true);
+      expect(result.fromPhase).toBe("iteration_validation");
+      expect(result.toPhase).toBe("finding_repair");
+      expect(result.message).toContain("phasedev phase");
+      expect(result.message).not.toContain("rollback");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activeIteration).toBe(5);
+      expect(state!.repairCycleCount).toBe(1);
+      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+    });
+
     test("syncState reports forward drift instead of a misleading no-op", () => {
       const changeDir = setupChange(`
 # Plan
@@ -2219,7 +2263,7 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
     });
 
-    test("syncState reports same-rank drift (finding_repair vs final_validation lock) instead of a misleading no-op", () => {
+    test("syncState reconciles same-rank drift when the locked phase's own exit gate fails (finding_repair vs final_validation lock)", () => {
       setupChange(`
 # Plan
 
@@ -2230,14 +2274,53 @@ Complete API work.
       });
       const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
       writeState(changeDir, "final_validation");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(true);
+      expect(result.toPhase).toBe("finding_repair");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activeIteration).toBe(null);
+      expect(state!.repairCycleCount).toBe(2);
+    });
+
+    test("syncState does NOT sync a same-rank advance-pending drift (current phase's own exit gate still passes)", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
       const before = fs.readFileSync(path.join(changeDir, "state.json"), "utf-8");
 
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
       expect(result.changed).toBe(false);
-      expect(result.message).not.toContain("Nothing to sync");
       expect(result.message).toContain("advance");
+      expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+
+    test("syncState is a no-op (with quick-mode guard message) when the active change is in quick mode", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+      writeRawState(changeDir, { activePhase: "quick_plan", activeIteration: null, repairCycleCount: 0, flowMode: "quick" });
+      const before = fs.readFileSync(path.join(changeDir, "state.json"), "utf-8");
+
+      const result = syncState(testTmpDir);
+
+      expect(result.changed).toBe(false);
+      expect(result.message).toContain("does not apply");
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
     });
   });
@@ -2284,8 +2367,7 @@ Complete API work.
 
       expect(result.phase).toBe("finding_repair");
       expect(result.message).toContain("state.json is locked at final_validation");
-      expect(result.message).toContain("artifacts resolve to finding_repair");
-      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("phasedev sync-state");
     });
 
     test("no drift: lock matches route, message carries no divergence notice", () => {
@@ -2334,6 +2416,117 @@ Complete API work.
 
       expect(result.phase).toBe("finding_repair");
       expect(result.ok).toBe(true);
+    });
+
+    test("forward deadlock: checkPhase recommends sync-state, not the old combined advance-or-rollback phrasing", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.message).toContain("phasedev sync-state");
+      expect(result.message).not.toContain("run `phasedev advance` to move forward or `phasedev sync-state` to roll back");
+    });
+
+    test("advance-pending same-rank drift: checkPhase recommends advance, not sync-state", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).not.toContain("phasedev sync-state");
+    });
+  });
+
+  describe("getPhasePrompt blocks on a genuine forward deadlock", () => {
+    function writeState(changeDir: string, phase: string, iteration: number | null = null) {
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: phase, activeIteration: iteration, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+    }
+
+    test("forward deadlock: getPhasePrompt returns a blocked result recommending sync-state, not the stale phase contract", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(true);
+      expect(result.prompt).toContain("phasedev sync-state");
+      expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    });
+
+    test("advance-pending same-rank drift: getPhasePrompt is not blocked and still renders the iteration_validation contract", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(false);
+      expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     });
   });
 });

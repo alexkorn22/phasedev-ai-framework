@@ -18,6 +18,7 @@ import { findPendingArchiveState } from "../../entities/change/archive-state";
 import { archiveTemplateVariables } from "./archive-stage";
 import { resolveRoute } from "./flow-route";
 import { detectStateRouteConflict } from "./state-route-consistency";
+import { validatePhaseExit } from "./phase-validators";
 import { quickPhasePrompt } from "./quick-phase-prompt";
 import { readCommitLog, iterationDiffBase } from "../../entities/change/commit-log";
 
@@ -296,7 +297,8 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     };
   }
 
-  const conflict = detectStateRouteConflict(state, resolveRoute(projectPath, changeName, config.blockingSeverity));
+  const route = resolveRoute(projectPath, changeName, config.blockingSeverity);
+  const conflict = detectStateRouteConflict(state, route);
   if (conflict) {
     return {
       command: "next",
@@ -308,6 +310,22 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   }
 
   const paths = buildChangePaths(changeDir);
+
+  if (
+    route.phase !== state.activePhase &&
+    !validatePhaseExit(projectPath, state.activePhase, paths, activeIteration, config.blockingSeverity).ok
+  ) {
+    return {
+      command: "next",
+      phase: activePhase,
+      prompt: [
+        `[PHASEDEV] BLOCKED: state.json is locked at "${state.activePhase}" but that phase cannot pass its exit gate; the artifacts resolve to "${route.phase}".`,
+        `Recovery: run \`phasedev sync-state\` to reconcile state.json forward to "${route.phase}", then run \`phasedev phase\`.`
+      ].join("\n"),
+      blocked: true,
+      reason: "State is deadlocked behind a failing exit gate"
+    };
+  }
 
   switch (activePhase) {
     case "change_intake":
