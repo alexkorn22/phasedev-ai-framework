@@ -361,6 +361,26 @@ export function setFindingsType(filePath: string, type: "iteration" | "final"): 
   writeTable(filePath, parsed, parsed.rows);
 }
 
+/**
+ * Reset only the `verdict:` frontmatter line to `pending`, preserving type,
+ * date, and the findings table. Used by advance/sync-state to invalidate a
+ * stale terminal-final verdict after a scope change adds a new iteration.
+ * pending has no consistency rule, so no row check is applied.
+ */
+export function resetVerdictToPending(filePath: string): ManageFindingsResult {
+  if (!fs.existsSync(filePath)) {
+    return { ok: false, message: `File not found: ${filePath}` };
+  }
+  const content = fs.readFileSync(filePath, "utf-8");
+  const parsed = parseTable(content);
+  if (readVerdictLine(parsed.frontmatter) === null) {
+    return { ok: false, message: "validation_findings.md has no `verdict:` frontmatter line to reset." };
+  }
+  parsed.frontmatter = parsed.frontmatter.replace(/^verdict:\s*.*$/m, "verdict: pending");
+  writeTable(filePath, parsed, parsed.rows);
+  return { ok: true, message: "Verdict reset to pending." };
+}
+
 export function setFindingsVerdict(filePath: string, verdict: string, context: FindingsCreateContext, blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY): ManageFindingsResult {
   if (!isKnownVerdict(verdict)) {
     return { ok: false, message: `Invalid verdict \`${verdict}\`. Must be one of: ${KNOWN_VERDICTS.join(", ")}.` };
