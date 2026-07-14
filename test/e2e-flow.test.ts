@@ -14,6 +14,7 @@ import { addFinding, resolveFinding, setFindingsVerdict } from "../src/features/
 import { findPendingArchiveState } from "../src/entities/change/archive-state";
 import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
+import { syncState } from "../src/features/phase-control/sync-state";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -849,6 +850,91 @@ describe("repaired finding re-validation e2e", () => {
 
     st = loadFlowState(root, "repair-e2e");
     expect(st?.activePhase).toBe("final_validation");
+  });
+});
+
+// ── E2E: Scope change after final validation un-wedges the flow ──
+
+describe("stale final verdict scope-change e2e", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = createTempWorkspace("stale-final-verdict-e2e");
+  });
+
+  afterEach(() => {
+    cleanupTempWorkspace(root);
+  });
+
+  test("scope change adds an iteration after final validation passed: flow un-wedges to the new iteration with a reset pending verdict", () => {
+    // Reach archive_ready: drive the change through the same steps as the
+    // "repaired finding" e2e (change_intake through final_validation with
+    // iteration 1 completed), then set a terminal-final ready verdict.
+    expect(createChange(root, "stale-final-e2e").ok).toBe(true);
+    const config = loadConfig();
+
+    const steps = buildLifecycleSteps(root, config, "stale-final-e2e", {
+      why: "Verify a scope change after final validation un-wedges the flow",
+      targetState: "A late scope change routes into the new iteration instead of wedging at archive_ready",
+      requirement: "A stale terminal-final verdict must reset to pending when a new incomplete iteration appears",
+      criterion: "resolveRoute reaches archive_ready, then routes into the new iteration after sync-state resets the verdict",
+    });
+    for (let i = 0; i < 6; i++) steps[i]();
+
+    const changeDir = path.join(root, ".phasedev", "changes", "stale-final-e2e");
+    const paths = buildChangePaths(changeDir);
+
+    writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+    expect(resolveRoute(root, "stale-final-e2e").kind).toBe("archive_ready");
+
+    // Scope change: append a new incomplete iteration and un-approve the plan.
+    // Iteration id must be sequential (2, not an arbitrary skip like 99) —
+    // validate-plan-artifact rejects non-sequential iteration ids.
+    const newIterationId = 2;
+    const planContent = fs.readFileSync(paths.iterationPlanPath, "utf-8")
+      .replace(
+        "| 1 | Complete flow | Go through all phases | unit |",
+        "| 1 | Complete flow | Go through all phases | unit |\n" +
+          `| ${newIterationId} | Follow-up scope change | Implement the follow-up work | unit |`
+      );
+    fs.writeFileSync(
+      paths.iterationPlanPath,
+      planContent.replace(/^approved:\s*true\s*$/m, "approved: false") +
+        `\n\n## Iteration ${newIterationId}: Follow-up scope change [ ]\n\n` +
+        "### Goal\n\nAddress the follow-up scope change.\n\n" +
+        "### Expected Change Surface\n\n" +
+        "| Area / Path Pattern | Change Type | Ownership | Trace |\n" +
+        "|---|---|---|---|\n" +
+        "| .phasedev/ | create | test | R1, SC1, D1 |\n\n" +
+        `### Tasks\n\n- [ ] ${newIterationId}.1 Implement the follow-up work\n\n` +
+        "### Checks\n\n- unit: `echo unit`\n\n" +
+        "### Check Evidence\n\n" +
+        "| Check | Command Or Method | Result | Evidence | Notes |\n" +
+        "|---|---|---|---|---|\n" +
+        "| unit | `echo unit` | pending |  |  |\n",
+      "utf-8"
+    );
+
+    // sync-state resets the stale verdict and rolls state off archive.
+    const synced = syncState(root, "stale-final-e2e");
+    expect(synced.ok).toBe(true);
+    expect(synced.message).toContain("Reset the stale final verdict to `pending`");
+    const afterSync = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(afterSync).toContain("verdict: pending");
+    expect(afterSync).toContain("type: final");
+    expect(resolveRoute(root, "stale-final-e2e").kind).not.toBe("archive_ready");
+    expect(resolveRoute(root, "stale-final-e2e").kind).not.toBe("archive_readiness_blocked");
+
+    // Re-approve the plan; the flow now routes into the new iteration.
+    const reapproved = fs.readFileSync(paths.iterationPlanPath, "utf-8")
+      .replace(/^approved:\s*false\s*$/m, "approved: true");
+    fs.writeFileSync(paths.iterationPlanPath, reapproved, "utf-8");
+
+    const route = resolveRoute(root, "stale-final-e2e");
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.activeIteration.id).toBe(newIterationId);
+    }
   });
 });
 
