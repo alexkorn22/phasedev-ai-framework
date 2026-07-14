@@ -1315,7 +1315,7 @@ autoApprove: true
     const result = runCheckValidation(["--scope", "final"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("Final Validation declared ready, but route is archive_readiness_blocked.");
+    expect(result.output).toContain("Final Validation declared ready, but route is iteration; expected archive_ready.");
   });
 
   test("check-validation final fails when ready findings leave blocked evidence before archive", () => {
@@ -1946,7 +1946,7 @@ No markdown finding table here.
     expect(fs.existsSync(path.join(archivedDir, ".phase-archive.json"))).toBe(true);
   });
 
-  test("final ready blocks archive if any phase is not completed", () => {
+  test("stale final ready verdict with an in-progress iteration routes to iteration validation, not archive", () => {
     setupChange(`
 # Plan
 
@@ -1958,8 +1958,7 @@ No markdown finding table here.
 
     const output = runNext();
 
-    expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Archive readiness failed");
-    expect(output).toContain("iteration_plan.md");
+    expect(output).toContain("Phase 6A. Iteration Validation.");
     expect(output).not.toContain("Phase 7. Archive.");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });

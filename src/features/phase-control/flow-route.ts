@@ -227,6 +227,17 @@ export function resolveRoute(
     return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };
   }
 
+  const incompleteIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
+  if (incompleteIteration) {
+    return {
+      kind: "iteration",
+      phase: iterationPhase(incompleteIteration),
+      paths,
+      activeIteration: incompleteIteration,
+      activeChangePath: changeDir
+    };
+  }
+
   const finalReady = findings.exists &&
                      findings.type === "final" &&
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");
@@ -238,17 +249,6 @@ export function resolveRoute(
     }
 
     return { kind: "archive_ready", phase: "archive", paths, activeChangePath: changeDir };
-  }
-
-  const activeIteration = planPhases.find(phase => phase.status === "in_progress" || phase.status === "not_started");
-  if (activeIteration) {
-    return {
-      kind: "iteration",
-      phase: iterationPhase(activeIteration),
-      paths,
-      activeIteration,
-      activeChangePath: changeDir
-    };
   }
 
   return { kind: "final_validation", phase: "final_validation", paths, activeChangePath: changeDir };

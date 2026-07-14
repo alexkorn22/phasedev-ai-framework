@@ -13,6 +13,7 @@ import { writeFindingsBaseline } from "../../entities/validation-findings/findin
 import { setFindingsType } from "../artifact-ops/manage-findings";
 import { gitHeadSha } from "../../shared/shell/git";
 import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
+import { invalidateStaleFinalVerdict } from "./invalidate-stale-final-verdict";
 import { quickAdvance } from "./quick-advance";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 
@@ -273,6 +274,8 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   const paths = buildChangePaths(changeDir);
 
+  const staleVerdictReset = invalidateStaleFinalVerdict(paths, config.blockingSeverity);
+
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
   // must not point at different phases in a way that means the artifacts
   // regressed below the locked phase. Refuse rather than guess.
@@ -518,6 +521,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     : "";
   return ok(
     finalNextState,
-    `Advanced to ${finalNextState.activePhase}${iterSuffix}.`
+    `Advanced to ${finalNextState.activePhase}${iterSuffix}.` +
+      (staleVerdictReset.reset ? ` ${staleVerdictReset.message}` : "")
   );
 }
