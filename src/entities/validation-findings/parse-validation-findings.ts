@@ -22,7 +22,7 @@ export interface ValidationFindingState {
 export type ValidationFindingStatus = "open" | "reopened" | "resolved";
 export type ValidationFindingSeverity = "MUST-FIX" | "RECOMMENDED" | "NIT";
 export type ValidationFindingClass = "implementation" | "test" | "plan" | "design" | "requirements" | "validation" | "security" | "code_review";
-export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required";
+export type ValidationFindingsVerdict = "ready" | "ready_with_risks" | "repaired" | "repair_required" | "pending";
 export type ValidationFindingsType = "iteration" | "final";
 
 export type ValidationFindingIssueCode =
@@ -66,9 +66,9 @@ const ALLOWED_STATUSES = new Set(["open", "reopened", "resolved"]);
 export const ALLOWED_SEVERITIES = new Set(["MUST-FIX", "RECOMMENDED", "NIT"]);
 export const ALLOWED_CLASSES = new Set(["implementation", "test", "plan", "design", "requirements", "validation", "security", "code_review"]);
 
-export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "unknown" {
+export function parseValidationVerdict(filePath: string): "ready" | "ready_with_risks" | "repaired" | "repair_required" | "pending" | "unknown" {
   const verdict = readFrontmatterValue(filePath, "verdict")?.toLowerCase();
-  if (verdict === "ready" || verdict === "ready_with_risks" || verdict === "repaired" || verdict === "repair_required") {
+  if (verdict === "ready" || verdict === "ready_with_risks" || verdict === "repaired" || verdict === "repair_required" || verdict === "pending") {
     return verdict;
   }
 

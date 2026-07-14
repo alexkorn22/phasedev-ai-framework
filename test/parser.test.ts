@@ -2037,6 +2037,29 @@ ${validDesignBody().replace("| R1 | F1, S1 | D1 |", "| R1 | not_applicable | D1 
     expect(parseValidationVerdict(nonexistentPath)).toBe("unknown");
   });
 
+  test("parseValidationVerdict recognizes the pending verdict", () => {
+    const filePending = path.join(testTmpDir, "findings-pending.md");
+    fs.writeFileSync(filePending, "---\nverdict: pending\ntype: final\ndate: 2026-07-14\n---\n", "utf-8");
+    expect(parseValidationVerdict(filePending)).toBe("pending");
+  });
+
+  test("parseValidationFindingsArtifact accepts pending verdict with prior-scope rows and reports no issues", () => {
+    const filePending = path.join(testTmpDir, "findings-pending-rows.md");
+    fs.writeFileSync(filePending, `---
+verdict: pending
+type: final
+date: 2026-07-14
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |
+|---|---|---|---|---|---|---|---|
+| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Prior finding. | Fixed earlier. | Done in x.ts; bun test x -> pass. |
+`, "utf-8");
+    const artifact = parseValidationFindingsArtifact(filePending);
+    expect(artifact.verdict).toBe("pending");
+    expect(artifact.issues).toEqual([]);
+  });
+
   test("parseValidationVerdictType extracts correct validation types", () => {
     const filePhase = path.join(testTmpDir, "phase_type.md");
     fs.writeFileSync(filePhase, "---\nverdict: ready\ntype: iteration\ndate: 2026-05-28\n---\n", "utf-8");
