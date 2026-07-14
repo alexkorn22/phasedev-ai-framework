@@ -2283,6 +2283,8 @@ Complete API work.
 
       const state = loadFlowState(testTmpDir);
       expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activeIteration).toBe(null);
+      expect(state!.repairCycleCount).toBe(2);
     });
 
     test("syncState does NOT sync a same-rank advance-pending drift (current phase's own exit gate still passes)", () => {
