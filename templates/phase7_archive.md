@@ -7,7 +7,7 @@ Your task is to complete the already archived change: sync long-lived specificat
 The controller has already checked the readiness gate:
 - `prd.md`, `execution_contract.md`, `architecture/design.md`, and `iteration_plan.md` are approved;
 - all phases in `iteration_plan.md` have status `[x]`;
-- `validation_findings.md` is a valid strict registry, has `type: final`, `verdict: ready` or `ready_with_risks`, and contains no open/reopened blocking findings.
+- `validation_findings.md` is a valid strict registry, has `type: final`, `verdict: ready` or `ready_with_risks`, and contains no open/reopened blocking findings. A `verdict: pending` (CLI self-heal transient) blocks archive readiness until final validation re-runs and sets a terminal verdict.
 - the active change has already been moved to archive path: `{{archive_path}}`.
 - the pending-state file has been created: [{{archive_state_path}}]({{archive_state_path}}).
 

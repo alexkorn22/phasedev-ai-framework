@@ -196,7 +196,7 @@ Repeat `phase` / `check` / `advance` until archived. At approval gates, review t
 ## 🩹 Feedback & Recovery
 
 - **`phasedev feedback`** prints the contract for processing user feedback: implementation defects go through `add-finding` / `reopen-finding`; scope changes walk the artifact chain (`prd.md` → … → `iteration_plan.md`), reset `approved: false` on what changed, and finish with `sync-state`.
-- **`sync-state`** — non-destructive fix when `state.json` and artifacts disagree on the phase; rolls state back, never touches artifacts.
+- **`sync-state`** — non-destructive fix when `state.json` and artifacts disagree on the phase; rolls state back. It does touch `validation_findings.md` in one narrow self-heal case: a stale terminal verdict left over from before a scope change is reset to `pending`, and a stale `type` is normalized to match the phase being routed to. `pending` is CLI-managed only and is never settable via `set-verdict`.
 - **`reopen design|plan`** — targeted rollback to revise an already-approved design or plan.
 - **`reset-change`** — destructive: moves the whole change to `.phasedev/changes/.trash`. Never use it for a state mismatch.
 

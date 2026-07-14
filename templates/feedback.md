@@ -24,7 +24,7 @@ Classify each feedback item and act:
    - After each artifact you edit, run `phasedev validate-artifact <file>` and fix the reported issues until it passes.
    - Set `approved: false` on every artifact you changed so the flow re-enters approval.
    - Findings and iteration statuses: resolve findings obsoleted by the scope change with `phasedev resolve-finding <id> --resolution "obsoleted by scope change: <reason>"`; reset the status of completed iterations invalidated by the change with `phasedev set-iteration-status <id> <status>`. Never hand-edit validation_findings.md.
-   - Scope change on an already-final-validated change: if final validation already passed (`validation_findings.md` has `verdict: ready` or `ready_with_risks` with `type: final`) and your scope change adds a new iteration to `iteration_plan.md`, do NOTHING extra to `validation_findings.md`. The CLI auto-resets the stale terminal verdict to `pending` during `phasedev sync-state`/`phasedev advance`; hand-editing `validation_findings.md` remains forbidden.
+   - Scope change on an already-final-validated change: if final validation already passed (`validation_findings.md` has `verdict: ready` or `ready_with_risks` with `type: final`) and your scope change adds a new iteration to `iteration_plan.md`, do NOTHING extra to `validation_findings.md`. The CLI auto-resets the stale terminal verdict to `pending` during `phasedev sync-state`/`phasedev advance`, and also normalizes the stale `type: final` to `type: iteration` to match the reopened phase; hand-editing `validation_findings.md` remains forbidden.
    - Do NOT write this kind of feedback into validation_findings.md.
 3. **Mixed feedback** — do both, within the same write limits.
 

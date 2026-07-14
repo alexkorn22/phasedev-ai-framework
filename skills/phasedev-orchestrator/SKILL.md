@@ -34,7 +34,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev approve <file>` — set `approved: true` and `approved_by` in an artifact's YAML frontmatter (see [Auto-Approval](#auto-approval)).
 - `phasedev add-finding "<finding>" <severity> --required-fix <text> [--class <class>] [--iteration <label>]` — append a finding row to validation_findings.md; allocates the ID, creates the file when missing, and corrects the YAML `verdict`. The ONLY way to add a finding; never hand-edit the findings registry.
 - `phasedev feedback` — print the user-feedback processing contract for a sub-agent.
-- `phasedev sync-state --change <change>` — non-destructively roll `state.json` back to the artifact-derived phase after feedback reset artifact approvals. This is the ONLY correct fix for a `state.json and the change artifacts disagree` blocker; NEVER use `reset-change` for it — `reset-change` moves the entire change to `.trash`.
+- `phasedev sync-state --change <change>` — non-destructively roll `state.json` back to the artifact-derived phase after feedback reset artifact approvals. This is the ONLY correct fix for a `state.json and the change artifacts disagree` blocker; NEVER use `reset-change` for it — `reset-change` moves the entire change to `.trash`. As a side self-heal, `sync-state` (and `advance`) reset a stale terminal verdict left over from a scope change to a CLI-managed transient state, and normalize a stale findings `type` to match the phase being routed to; a `set-verdict` re-run performs the same coercion on `type`. Neither the transient verdict nor `type` is ever hand-set by an agent.
 - `phasedev status` — print a summary of the current flow state.
 - `phasedev config <key>` — read config values.
 
