@@ -38,6 +38,7 @@ import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-ph
 import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
+import { expectedFindingsType } from "./features/phase-control/expected-findings-type";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
@@ -122,6 +123,11 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
     type: state?.activePhase === "final_validation" ? "final" : "iteration",
     date: todayIsoDate()
   };
+}
+
+function findingsTypeCoercion(projectPath: string, changeName?: string): "iteration" | "final" | undefined {
+  const state = loadFlowState(projectPath, changeName);
+  return state ? (expectedFindingsType(state.activePhase) ?? undefined) : undefined;
 }
 
 /**
@@ -500,7 +506,13 @@ function handleSetVerdict(ctx: CommandContext): void {
 
   const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   runWithOptionalStateLock(ctx.projectPath, () => {
-    const result = setFindingsVerdict(targetFile, verdict, findingsCreateContext(ctx.projectPath, ctx.changeName), config.blockingSeverity);
+    const result = setFindingsVerdict(
+      targetFile,
+      verdict,
+      findingsCreateContext(ctx.projectPath, ctx.changeName),
+      config.blockingSeverity,
+      findingsTypeCoercion(ctx.projectPath, ctx.changeName)
+    );
     const prefix = result.ok ? "[PHASEDEV SET-VERDICT] OK" : "[PHASEDEV SET-VERDICT] FAILED";
     reportCliResult(ctx.jsonMode, {
       ok: result.ok,
