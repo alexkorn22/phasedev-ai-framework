@@ -2416,5 +2416,116 @@ Complete API work.
       expect(result.phase).toBe("finding_repair");
       expect(result.ok).toBe(true);
     });
+
+    test("forward deadlock: checkPhase recommends sync-state, not the old combined advance-or-rollback phrasing", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.message).toContain("phasedev sync-state");
+      expect(result.message).not.toContain("run `phasedev advance` to move forward or `phasedev sync-state` to roll back");
+    });
+
+    test("advance-pending same-rank drift: checkPhase recommends advance, not sync-state", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
+
+      const result = checkPhase(testTmpDir);
+
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).not.toContain("phasedev sync-state");
+    });
+  });
+
+  describe("getPhasePrompt blocks on a genuine forward deadlock", () => {
+    function writeState(changeDir: string, phase: string, iteration: number | null = null) {
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: phase, activeIteration: iteration, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+    }
+
+    test("forward deadlock: getPhasePrompt returns a blocked result recommending sync-state, not the stale phase contract", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(true);
+      expect(result.prompt).toContain("phasedev sync-state");
+      expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    });
+
+    test("advance-pending same-rank drift: getPhasePrompt is not blocked and still renders the iteration_validation contract", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeState(changeDir, "iteration_validation", 1);
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(false);
+      expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
+    });
   });
 });
