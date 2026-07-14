@@ -17,6 +17,7 @@ import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reop
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase } from "../src/features/phase-control/check-flow";
 import { addFinding } from "../src/features/artifact-ops/manage-findings";
+import { expectedFindingsType } from "../src/features/phase-control/expected-findings-type";
 
 let testTmpDir: string;
 
@@ -1012,6 +1013,80 @@ Complete API work.
     const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
     expect(findingsContent).toContain("verdict: pending");
     expect(findingsContent).toContain("type: final");
+  });
+
+  test("advance self-heals the wedged field state by normalizing type back to iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).not.toBe("iteration_validation"); // un-wedged
+    expect(result.message).toContain("Normalized");
+  });
+
+  test("wedge field state no longer produces circular check<->sync-state advice; advance progresses", () => {
+    setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+    fs.writeFileSync(
+      path.join(testTmpDir, ".phasedev", "changes", "sample-change", "state.json"),
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    // Second, untouched copy of the same wedged state for the read-only check/sync-state comparison.
+    const testTmpDir2 = createTempWorkspace("flow-controller-wedge-copy");
+    fs.cpSync(path.join(testTmpDir, ".phasedev"), path.join(testTmpDir2, ".phasedev"), { recursive: true });
+
+    try {
+      const advance = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      expect(advance.ok).toBe(true);
+      expect(advance.newState?.activePhase).not.toBe("iteration_validation"); // progress made
+
+      const sync = syncState(testTmpDir2);
+      const checkOut = checkPhase(testTmpDir2);
+      const circular =
+        /run `?phasedev sync-state`?/.test(checkOut.message) && /run `?phasedev advance`?/.test(sync.message);
+      expect(circular).toBe(false);
+    } finally {
+      cleanupTempWorkspace(testTmpDir2);
+    }
+  });
+
+  test("advance into iteration_validation rewrites a stale findings type final to iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [~]
+- [x] 2.1 Build page
+`, { findings: validationFindings("ready", "final") });
+    // Lock state so the transition target is iteration_validation for iteration 2.
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "implementation", activeIteration: 2, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("iteration_validation");
+    expect(fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8")).toContain("type: iteration");
   });
 
   test("repaired verdict with no state iteration and no findings iteration reference routes the not_started fallback through implementation", () => {
@@ -2247,7 +2322,40 @@ Complete API work.
       expect(result.ok).toBe(true);
       expect(result.changed).toBe(false);
       expect(result.message).toContain("already consistent");
+      expect(result.message).toContain("Nothing to sync.");
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+
+    test("syncState reports an honest consistent-route message when normalization wrote a fix (no false 'Nothing to sync' claim)", () => {
+      // Locked at final_validation with a stale `type: iteration` left over from
+      // a prior iteration validation. Rule (b) fixes `type` to `final` before the
+      // route is computed; with `verdict: repaired` and no open blocking rows,
+      // the route also resolves to final_validation, so this is the
+      // routePhase === state.activePhase branch, but normalization did write to
+      // validation_findings.md. The message must not claim "Nothing to sync."
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repaired", "iteration")
+      });
+      writeRawState(changeDir, { activePhase: "final_validation", activeIteration: null, repairCycleCount: 1 });
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.fromPhase).toBe("final_validation");
+      expect(result.toPhase).toBe("final_validation");
+      expect(result.message).toContain("already consistent");
+      expect(result.message).not.toContain("Nothing to sync.");
+      expect(result.message).toContain("needs no sync");
+      expect(result.message).toContain("Normalized");
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
     });
 
     test("syncState reports no active change", () => {
@@ -2272,7 +2380,12 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
     });
 
-    test("syncState reconciles a genuine forward deadlock (iteration_validation locked, findings already final)", () => {
+    test("syncState normalizes a stale findings type instead of misreporting a forward deadlock (iteration_validation locked, findings already final)", () => {
+      // Pre-Invariant-T, a stale `type: final` made the iteration_validation exit
+      // gate fail for the wrong reason, so this looked like a genuine forward
+      // deadlock. normalizeValidationState now fixes `type` before the route is
+      // computed, so the exit gate legitimately passes and syncState correctly
+      // reports "not stuck, run advance" instead of force-syncing state.json.
       const changeDir = setupChange(`
 # Plan
 
@@ -2299,10 +2412,73 @@ Complete API work.
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.fromPhase).toBe("iteration_validation");
+      expect(result.toPhase).toBe("finding_repair");
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("Normalized");
+      expect(result.message).not.toContain("rollback");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state!.activePhase).toBe("iteration_validation");
+      expect(state!.activeIteration).toBe(5);
+      expect(state!.repairCycleCount).toBe(1);
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: iteration");
+    });
+
+    test("syncState force-syncs forward when the exit gate fails for a non-type reason (findings-baseline stable-field mismatch)", () => {
+      // Genuine forward deadlock: `type` is already correct for the locked
+      // phase (so normalizeValidationState's Rule (b) has nothing to fix), but
+      // the exit gate still fails because .findings-baseline.json disagrees
+      // with a stable field (Severity) on an existing row. That failure is not
+      // something normalizeValidationState can heal, so classifyStateRoute must
+      // still land on "forward_deadlock" and syncState must force-sync forward.
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: API [x]
+- [x] 2.1 Implement endpoint
+
+## Iteration 3: API [x]
+- [x] 3.1 Implement endpoint
+
+## Iteration 4: API [x]
+- [x] 4.1 Implement endpoint
+
+## Iteration 5: API [x]
+- [x] 5.1 Implement endpoint
+`, {
+        findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
+      });
+      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
+      fs.writeFileSync(
+        path.join(changeDir, ".findings-baseline.json"),
+        JSON.stringify({
+          rows: [{
+            id: "F1",
+            status: "open",
+            severity: "NICE-TO-HAVE",
+            className: "implementation",
+            iteration: "5",
+            finding: "API response omits required error handling.",
+            requiredFix: "Add error mapping."
+          }]
+        }, null, 2),
+        "utf-8"
+      );
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
       expect(result.changed).toBe(true);
       expect(result.fromPhase).toBe("iteration_validation");
       expect(result.toPhase).toBe("finding_repair");
-      expect(result.message).toContain("phasedev phase");
+      expect(result.message).toContain("Synced state.json forward:");
       expect(result.message).not.toContain("rollback");
 
       const state = loadFlowState(testTmpDir);
@@ -2310,6 +2486,52 @@ Complete API work.
       expect(state!.activeIteration).toBe(5);
       expect(state!.repairCycleCount).toBe(1);
       expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+    });
+
+    test("syncState will not fabricate an archive transition when the locked phase's exit gate genuinely fails", () => {
+      // Artifacts resolve to archive_ready (final verdict ready, all iterations
+      // completed) but the locked final_validation phase's own exit gate still
+      // fails on a non-type reason (a baseline row was deleted from
+      // validation_findings.md). The forward_deadlock archive carve-out must
+      // refuse to force-sync into archive; sync-state never performs the
+      // archive mutation.
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "final")
+      });
+      writeRawState(changeDir, { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 });
+      fs.writeFileSync(
+        path.join(changeDir, ".findings-baseline.json"),
+        JSON.stringify({
+          rows: [{
+            id: "F1",
+            status: "open",
+            severity: "MUST-FIX",
+            className: "implementation",
+            iteration: "1",
+            finding: "A finding that used to exist.",
+            requiredFix: "Fix it."
+          }]
+        }, null, 2),
+        "utf-8"
+      );
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.fromPhase).toBe("final_validation");
+      expect(result.toPhase).toBe("archive");
+      expect(result.message).toContain("sync-state will not fabricate an archive transition");
+      expect(result.message).toContain("fix the failing exit gate");
+
+      const state = loadFlowState(testTmpDir);
+      expect(state!.activePhase).toBe("final_validation");
+      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(true);
     });
 
     test("syncState reports forward drift instead of a misleading no-op", () => {
@@ -2331,7 +2553,12 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
     });
 
-    test("syncState reconciles same-rank drift when the locked phase's own exit gate fails (finding_repair vs final_validation lock)", () => {
+    test("syncState normalizes a stale findings type instead of misreporting same-rank drift (finding_repair vs final_validation lock)", () => {
+      // Pre-Invariant-T, a stale `type: iteration` made the final_validation exit
+      // gate fail for the wrong reason. normalizeValidationState now fixes `type`
+      // before the route is computed, so the exit gate legitimately passes and
+      // syncState correctly reports "not stuck, run advance" instead of
+      // force-syncing state.json.
       setupChange(`
 # Plan
 
@@ -2346,13 +2573,18 @@ Complete API work.
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
-      expect(result.changed).toBe(true);
+      expect(result.changed).toBe(false);
       expect(result.toPhase).toBe("finding_repair");
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("Normalized");
 
       const state = loadFlowState(testTmpDir);
-      expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activePhase).toBe("final_validation");
       expect(state!.activeIteration).toBe(null);
       expect(state!.repairCycleCount).toBe(2);
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
     });
 
     test("syncState does NOT sync a same-rank advance-pending drift (current phase's own exit gate still passes)", () => {
@@ -2419,6 +2651,26 @@ Complete API work.
       const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
       expect(findingsContent).toContain("verdict: pending");
       expect(findingsContent).toContain("type: final");
+    });
+
+    test("syncState self-heals the wedged field state by normalizing type back to iteration", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8")).toContain("type: iteration");
+      expect(result.message).toContain("Normalized");
     });
   });
 
@@ -2625,5 +2877,15 @@ Complete API work.
       expect(result.blocked).toBe(false);
       expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     });
+  });
+});
+
+describe("expectedFindingsType", () => {
+  test("expectedFindingsType maps validation phases and leaves other phases untouched", () => {
+    expect(expectedFindingsType("iteration_validation")).toBe("iteration");
+    expect(expectedFindingsType("final_validation")).toBe("final");
+    expect(expectedFindingsType("finding_repair")).toBeNull();
+    expect(expectedFindingsType("quick_validation")).toBeNull();
+    expect(expectedFindingsType("implementation")).toBeNull();
   });
 });

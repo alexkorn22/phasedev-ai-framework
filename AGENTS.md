@@ -56,7 +56,7 @@ These contracts are frozen. You MUST NOT change them unless the user explicitly 
 - Phase routing before Archive (previously Stage routing before Archive).
 - `state.json = { activePhase, activeIteration, repairCycleCount, flowMode? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`.
 - Iteration heading format: `## Iteration N: Name [x|~| |/]`.
-- YAML keys: `approved`, `verdict`, `type`.
+- YAML keys: `approved`, `verdict`, `type`. `verdict: pending` and CLI-owned `type` normalization are internal self-heal mechanics (advance/sync-state and set-verdict re-run), not agent-settable values.
 - `config.yaml` shape: `phases:` instead of `stages:`, with legacy alias for `stages:` and `codex.stages:`.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.

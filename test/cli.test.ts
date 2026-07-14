@@ -3004,6 +3004,40 @@ ${rows ?? ""}`;
     expect(content).toContain("verdict: ready");
   });
 
+  test("set-verdict under iteration_validation coerces a stale type final back to iteration", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "final")
+    });
+    writeStateJson(changeDir, "iteration_validation", 1);
+
+    const result = runCli(["set-verdict", "ready", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    const findings = fs.readFileSync(findingsPath, "utf-8");
+    expect(findings).toContain("type: iteration");
+    expect(findings).not.toContain("type: final");
+  });
+
+  test("set-verdict under finding_repair leaves type final untouched", () => {
+    const changeDir = setupChange(`
+## Iteration 1: API [~]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("repair_required", "final", "| F1 | resolved | MUST-FIX | validation | Iteration 1 | Broken thing | Fix it |\n")
+    });
+    writeStateJson(changeDir, "finding_repair", 1);
+
+    const result = runCli(["set-verdict", "repaired", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    expect(fs.readFileSync(findingsPath, "utf-8")).toContain("type: final");
+  });
+
   test("set-verdict ready --help shows help without mutating validation_findings.md", () => {
     setupChange(`
 # Plan

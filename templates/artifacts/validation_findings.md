@@ -17,6 +17,7 @@ Frontmatter contract:
 - verdict must be exactly one of: {{allowed_verdicts}}. It is recorded only with `phasedev set-verdict`.
 - type must be exactly one of: iteration, final.
 - date must be an ISO date; `phasedev set-verdict` maintains it.
+- `pending` is a CLI-only transient verdict written during self-heal (never via `set-verdict`), and the CLI keeps `type` in sync with the locked validation phase; agents never hand-edit either.
 
 Verdict contract:
 - ready: use only when there are no open or reopened findings.
