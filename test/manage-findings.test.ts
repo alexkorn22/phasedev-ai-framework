@@ -581,3 +581,30 @@ date: 2026-05-29
     expect(result.message).toContain("Invalid verdict `pending`");
   });
 });
+
+describe("setFindingsVerdict coerceType", () => {
+  test("coerces type to iteration on the update path when coerceType is iteration", () => {
+    const file = findingsPath();
+    fs.writeFileSync(file, "---\nverdict: ready\ntype: final\ndate: 2026-05-29\n---\n", "utf-8");
+    const result = setFindingsVerdict(file, "ready", CTX, undefined, "iteration");
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).toContain("type: iteration");
+    expect(content).toContain("verdict: ready");
+    expect(content).not.toContain("type: final");
+  });
+
+  test("leaves type untouched when coerceType is omitted", () => {
+    const file = findingsPath();
+    fs.writeFileSync(file, "---\nverdict: ready\ntype: final\ndate: 2026-05-29\n---\n", "utf-8");
+    const result = setFindingsVerdict(file, "ready", CTX);
+    expect(result.ok).toBe(true);
+    expect(fs.readFileSync(file, "utf-8")).toContain("type: final");
+  });
+
+  test("still rejects the CLI-managed-only pending verdict regardless of coerceType", () => {
+    const result = setFindingsVerdict(findingsPath(), "pending", CTX, undefined, "iteration");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Invalid verdict `pending`");
+  });
+});

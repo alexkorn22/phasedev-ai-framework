@@ -381,7 +381,13 @@ export function resetVerdictToPending(filePath: string): ManageFindingsResult {
   return { ok: true, message: "Verdict reset to pending." };
 }
 
-export function setFindingsVerdict(filePath: string, verdict: string, context: FindingsCreateContext, blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY): ManageFindingsResult {
+export function setFindingsVerdict(
+  filePath: string,
+  verdict: string,
+  context: FindingsCreateContext,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY,
+  coerceType?: "iteration" | "final"
+): ManageFindingsResult {
   if (!isKnownVerdict(verdict)) {
     return { ok: false, message: `Invalid verdict \`${verdict}\`. Must be one of: ${KNOWN_VERDICTS.join(", ")}.` };
   }
@@ -403,6 +409,9 @@ export function setFindingsVerdict(filePath: string, verdict: string, context: F
   parsed.frontmatter = /^date:\s*/m.test(parsed.frontmatter)
     ? parsed.frontmatter.replace(/^date:\s*.*$/m, `date: ${context.date}`)
     : parsed.frontmatter;
+  if (coerceType && /^type:\s*/m.test(parsed.frontmatter)) {
+    parsed.frontmatter = parsed.frontmatter.replace(/^type:\s*.*$/m, `type: ${coerceType}`);
+  }
   writeTable(filePath, parsed, parsed.rows);
   return { ok: true, message: `Verdict set to ${verdict}.` };
 }
