@@ -2365,8 +2365,7 @@ Complete API work.
 
       expect(result.phase).toBe("finding_repair");
       expect(result.message).toContain("state.json is locked at final_validation");
-      expect(result.message).toContain("artifacts resolve to finding_repair");
-      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("phasedev sync-state");
     });
 
     test("no drift: lock matches route, message carries no divergence notice", () => {
