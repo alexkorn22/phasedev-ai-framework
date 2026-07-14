@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, setFindingsType, isPlaceholderRequiredFix, deriveIterationLabel } from "../src/features/artifact-ops/manage-findings";
+import { addFinding, resolveFinding, reopenFinding, setFindingsVerdict, setFindingsType, isPlaceholderRequiredFix, deriveIterationLabel, resetVerdictToPending } from "../src/features/artifact-ops/manage-findings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -541,5 +541,43 @@ describe("deriveIterationLabel", () => {
     writeState("c", { activePhase: "finding_repair", activeIteration: null, repairCycleCount: 0 });
     const target = writeFindings(FM("repair_required") + HDR7);
     expect(deriveIterationLabel(testTmpDir, target)).toBeUndefined();
+  });
+});
+
+describe("resetVerdictToPending", () => {
+  test("rewrites verdict to pending and preserves type, date, and rows", () => {
+    const file = findingsPath();
+    fs.writeFileSync(file, `---
+verdict: ready
+type: final
+date: 2026-05-29
+---
+
+| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |
+|---|---|---|---|---|---|---|---|
+| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Old finding. | Fixed. | Done in x.ts; bun test x -> pass. |
+`, "utf-8");
+
+    const result = resetVerdictToPending(file);
+
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).toContain("verdict: pending");
+    expect(content).toContain("type: final");
+    expect(content).toContain("date: 2026-05-29");
+    expect(content).toContain("| F1 | resolved | MUST-FIX | implementation | Iteration 1 | Old finding. | Fixed. | Done in x.ts; bun test x -> pass. |");
+    expect(content).not.toContain("verdict: ready");
+  });
+
+  test("returns not-ok when the file does not exist", () => {
+    const missing = path.join(path.dirname(findingsPath()), "does-not-exist.md");
+    const result = resetVerdictToPending(missing);
+    expect(result.ok).toBe(false);
+  });
+
+  test("setFindingsVerdict still rejects the CLI-managed-only pending verdict", () => {
+    const result = setFindingsVerdict(findingsPath(), "pending", CTX);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("Invalid verdict `pending`");
   });
 });
