@@ -350,7 +350,7 @@ export function reopenFinding(filePath: string, id: string, evidence: string, bl
 /**
  * Rewrite only the `type:` frontmatter line, preserving verdict, date, and
  * the findings table. No-op when the file does not exist (advance-flow calls
- * this speculatively on every entry into final_validation).
+ * this speculatively on every entry into either validation phase).
  */
 export function setFindingsType(filePath: string, type: "iteration" | "final"): void {
   if (!fs.existsSync(filePath)) return;

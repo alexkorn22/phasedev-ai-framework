@@ -6,7 +6,7 @@ import { resolveRoute } from "./flow-route";
 import { classifyStateRoute } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
-import { invalidateStaleFinalVerdict } from "./invalidate-stale-final-verdict";
+import { normalizeValidationState } from "./normalize-validation-state";
 
 export interface SyncStateResult {
   ok: boolean;
@@ -42,8 +42,8 @@ export function syncState(
   }
 
   const paths = buildChangePaths(changeDir);
-  const staleVerdictReset = invalidateStaleFinalVerdict(paths, blockingSeverity);
-  const resetNote = staleVerdictReset.reset ? ` ${staleVerdictReset.message}` : "";
+  const normalization = normalizeValidationState(paths, state.activePhase, blockingSeverity);
+  const resetNote = normalization.changed ? ` ${normalization.notes.join(" ")}` : "";
 
   const route = resolveRoute(projectPath, changeName, blockingSeverity);
   const routePhase = route.phase as ActivePhase;
@@ -61,7 +61,7 @@ export function syncState(
   const relation = classifyStateRoute(state, route, exitGateOk);
 
   if (relation === "advance_pending") {
-    const applicabilityNote = staleVerdictReset.reset ? "" : " sync-state does not apply here.";
+    const applicabilityNote = normalization.changed ? "" : " sync-state does not apply here.";
     return {
       ok: true,
       changed: false,
@@ -93,7 +93,7 @@ export function syncState(
       changeName
     );
 
-    const forwardArtifactsNote = staleVerdictReset.reset ? "" : " No artifacts were modified.";
+    const forwardArtifactsNote = normalization.changed ? "" : " No artifacts were modified.";
     return {
       ok: true,
       changed: true,
@@ -110,7 +110,7 @@ export function syncState(
 
   saveFlowState(projectPath, { activePhase: routePhase, activeIteration: null, repairCycleCount: 0 }, changeName);
 
-  const backwardArtifactsNote = staleVerdictReset.reset ? "" : " No artifacts were modified.";
+  const backwardArtifactsNote = normalization.changed ? "" : " No artifacts were modified.";
   return {
     ok: true,
     changed: true,

@@ -1015,6 +1015,26 @@ Complete API work.
     expect(findingsContent).toContain("type: final");
   });
 
+  test("advance self-heals the wedged field state by normalizing type back to iteration", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+    fs.writeFileSync(
+      path.join(changeDir, "state.json"),
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).not.toBe("iteration_validation"); // un-wedged
+    expect(result.message).toContain("Normalized");
+  });
+
   test("advance into iteration_validation rewrites a stale findings type final to iteration", () => {
     const changeDir = setupChange(`
 # Plan
@@ -2297,7 +2317,12 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
     });
 
-    test("syncState reconciles a genuine forward deadlock (iteration_validation locked, findings already final)", () => {
+    test("syncState normalizes a stale findings type instead of misreporting a forward deadlock (iteration_validation locked, findings already final)", () => {
+      // Pre-Invariant-T, a stale `type: final` made the iteration_validation exit
+      // gate fail for the wrong reason, so this looked like a genuine forward
+      // deadlock. normalizeValidationState now fixes `type` before the route is
+      // computed, so the exit gate legitimately passes and syncState correctly
+      // reports "not stuck, run advance" instead of force-syncing state.json.
       const changeDir = setupChange(`
 # Plan
 
@@ -2324,17 +2349,20 @@ Complete API work.
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
-      expect(result.changed).toBe(true);
+      expect(result.changed).toBe(false);
       expect(result.fromPhase).toBe("iteration_validation");
       expect(result.toPhase).toBe("finding_repair");
-      expect(result.message).toContain("phasedev phase");
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("Normalized");
       expect(result.message).not.toContain("rollback");
 
       const state = loadFlowState(testTmpDir);
-      expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activePhase).toBe("iteration_validation");
       expect(state!.activeIteration).toBe(5);
       expect(state!.repairCycleCount).toBe(1);
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: iteration");
     });
 
     test("syncState reports forward drift instead of a misleading no-op", () => {
@@ -2356,7 +2384,12 @@ Complete API work.
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
     });
 
-    test("syncState reconciles same-rank drift when the locked phase's own exit gate fails (finding_repair vs final_validation lock)", () => {
+    test("syncState normalizes a stale findings type instead of misreporting same-rank drift (finding_repair vs final_validation lock)", () => {
+      // Pre-Invariant-T, a stale `type: iteration` made the final_validation exit
+      // gate fail for the wrong reason. normalizeValidationState now fixes `type`
+      // before the route is computed, so the exit gate legitimately passes and
+      // syncState correctly reports "not stuck, run advance" instead of
+      // force-syncing state.json.
       setupChange(`
 # Plan
 
@@ -2371,13 +2404,18 @@ Complete API work.
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
-      expect(result.changed).toBe(true);
+      expect(result.changed).toBe(false);
       expect(result.toPhase).toBe("finding_repair");
+      expect(result.message).toContain("phasedev advance");
+      expect(result.message).toContain("Normalized");
 
       const state = loadFlowState(testTmpDir);
-      expect(state!.activePhase).toBe("finding_repair");
+      expect(state!.activePhase).toBe("final_validation");
       expect(state!.activeIteration).toBe(null);
       expect(state!.repairCycleCount).toBe(2);
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
     });
 
     test("syncState does NOT sync a same-rank advance-pending drift (current phase's own exit gate still passes)", () => {
@@ -2444,6 +2482,26 @@ Complete API work.
       const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
       expect(findingsContent).toContain("verdict: pending");
       expect(findingsContent).toContain("type: final");
+    });
+
+    test("syncState self-heals the wedged field state by normalizing type back to iteration", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, { findings: validationFindings("ready", "final") });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8")).toContain("type: iteration");
+      expect(result.message).toContain("Normalized");
     });
   });
 
