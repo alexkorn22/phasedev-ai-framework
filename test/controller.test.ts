@@ -1059,6 +1059,44 @@ Complete API work.
     expect(result.newState?.repairCycleCount).toBe(1); // preserved across repair→validation
   });
 
+  test("stale terminal final verdict with an incomplete iteration routes to implementation, not archive", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [ ]
+- [ ] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    const route = resolveRoute(testTmpDir);
+
+    expect(route.kind).toBe("iteration");
+    if (route.kind === "iteration") {
+      expect(route.phase).toBe("implementation");
+      expect(route.activeIteration.id).toBe(2);
+    }
+  });
+
+  test("terminal final verdict with all iterations completed still routes to archive_ready", () => {
+    setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "final")
+    });
+
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
