@@ -2414,6 +2414,7 @@ Complete API work.
 
       expect(result.ok).toBe(true);
       expect(result.message).toContain("Reset the stale final verdict to `pending`");
+      expect(result.message).not.toContain("sync-state does not apply here");
 
       const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
       expect(findingsContent).toContain("verdict: pending");

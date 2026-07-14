@@ -919,6 +919,7 @@ describe("stale final verdict scope-change e2e", () => {
     const synced = syncState(root, "stale-final-e2e");
     expect(synced.ok).toBe(true);
     expect(synced.message).toContain("Reset the stale final verdict to `pending`");
+    expect(synced.message).not.toContain("No artifacts were modified");
     const afterSync = fs.readFileSync(paths.findingsPath, "utf-8");
     expect(afterSync).toContain("verdict: pending");
     expect(afterSync).toContain("type: final");

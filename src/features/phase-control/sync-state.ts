@@ -61,12 +61,13 @@ export function syncState(
   const relation = classifyStateRoute(state, route, exitGateOk);
 
   if (relation === "advance_pending") {
+    const applicabilityNote = staleVerdictReset.reset ? "" : " sync-state does not apply here.";
     return {
       ok: true,
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; the locked phase is not stuck (its exit gate still passes), so run \`phasedev advance\` to move forward. sync-state does not apply here.${resetNote}`
+      message: `state.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; the locked phase is not stuck (its exit gate still passes), so run \`phasedev advance\` to move forward.${applicabilityNote}${resetNote}`
     };
   }
 
@@ -92,12 +93,13 @@ export function syncState(
       changeName
     );
 
+    const forwardArtifactsNote = staleVerdictReset.reset ? "" : " No artifacts were modified.";
     return {
       ok: true,
       changed: true,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved). No artifacts were modified. Run: phasedev phase.${resetNote}`
+      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved).${forwardArtifactsNote} Run: phasedev phase.${resetNote}`
     };
   }
 
@@ -108,11 +110,12 @@ export function syncState(
 
   saveFlowState(projectPath, { activePhase: routePhase, activeIteration: null, repairCycleCount: 0 }, changeName);
 
+  const backwardArtifactsNote = staleVerdictReset.reset ? "" : " No artifacts were modified.";
   return {
     ok: true,
     changed: true,
     fromPhase: state.activePhase,
     toPhase: routePhase,
-    message: `Synced state.json: activePhase ${state.activePhase} -> ${routePhase} (activeIteration cleared, repairCycleCount reset). No artifacts were modified. Run: phasedev phase.${resetNote}`
+    message: `Synced state.json: activePhase ${state.activePhase} -> ${routePhase} (activeIteration cleared, repairCycleCount reset).${backwardArtifactsNote} Run: phasedev phase.${resetNote}`
   };
 }
