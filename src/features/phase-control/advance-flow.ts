@@ -11,9 +11,10 @@ import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
+import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
 import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
-import { invalidateStaleFinalVerdict } from "./invalidate-stale-final-verdict";
+import { normalizeValidationState } from "./normalize-validation-state";
 import { quickAdvance } from "./quick-advance";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 
@@ -274,7 +275,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   const paths = buildChangePaths(changeDir);
 
-  const staleVerdictReset = invalidateStaleFinalVerdict(paths, config.blockingSeverity);
+  const normalization = normalizeValidationState(paths, state.activePhase, config.blockingSeverity);
 
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
   // must not point at different phases in a way that means the artifacts
@@ -471,14 +472,13 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     return refuse(`Cannot advance: ${sideEffect.reason}`);
   }
 
-  // Entering final_validation promotes validation_findings.md from `type:
-  // iteration` to `type: final`: findingsFileSkeleton only writes `type:`
-  // once at creation (during iteration_validation), and the final_validation
-  // exit gate requires `type: final` — without this, the flow could never
-  // leave final_validation. One-way and idempotent: re-entering from
-  // finding_repair or iteration_validation always sets it to "final" again.
-  if (nextState.activePhase === "final_validation") {
-    setFindingsType(paths.findingsPath, "final");
+  // Invariant T: on entering a validation phase, validation_findings.md's `type`
+  // must match that phase (iteration_validation -> iteration, final_validation ->
+  // final). Idempotent; no-op when the file is absent. Other phases (finding_repair,
+  // quick_*) are left untouched so the repaired->final branch keeps type: final.
+  const enteredType = expectedFindingsType(nextState.activePhase);
+  if (enteredType) {
+    setFindingsType(paths.findingsPath, enteredType);
   }
 
   // Snapshot the findings table as the repair-gate baseline whenever entering
@@ -522,6 +522,6 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   return ok(
     finalNextState,
     `Advanced to ${finalNextState.activePhase}${iterSuffix}.` +
-      (staleVerdictReset.reset ? ` ${staleVerdictReset.message}` : "")
+      (normalization.changed ? ` ${normalization.notes.join(" ")}` : "")
   );
 }

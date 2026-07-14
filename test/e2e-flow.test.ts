@@ -937,6 +937,159 @@ describe("stale final verdict scope-change e2e", () => {
       expect(route.activeIteration.id).toBe(newIterationId);
     }
   });
+
+  test("scope change after final validation drives the new iteration through fresh final validation into the archive mutation", () => {
+    // (a) Reach archive_ready, scope-add iteration 2, sync-state (resets verdict
+    // pending), re-approve — same setup as the line-869 scenario above.
+    expect(createChange(root, "full-arc-e2e").ok).toBe(true);
+    const config = loadConfig();
+
+    const steps = buildLifecycleSteps(root, config, "full-arc-e2e", {
+      why: "Verify a scope change after final validation drives to the archive mutation",
+      targetState: "A late scope change reaches a fresh final validation and archives",
+      requirement: "A stale terminal-final verdict must reset to pending when a new incomplete iteration appears",
+      criterion: "advance reaches the archive mutation after the new iteration completes",
+    });
+    for (let i = 0; i < 6; i++) steps[i]();
+
+    const changeDir = path.join(root, ".phasedev", "changes", "full-arc-e2e");
+    const paths = buildChangePaths(changeDir);
+
+    writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+    expect(resolveRoute(root, "full-arc-e2e").kind).toBe("archive_ready");
+
+    const newIterationId = 2;
+    const planContent = fs.readFileSync(paths.iterationPlanPath, "utf-8")
+      .replace(
+        "| 1 | Complete flow | Go through all phases | unit |",
+        "| 1 | Complete flow | Go through all phases | unit |\n" +
+          `| ${newIterationId} | Follow-up scope change | Implement the follow-up work | unit |`
+      );
+    fs.writeFileSync(
+      paths.iterationPlanPath,
+      planContent.replace(/^approved:\s*true\s*$/m, "approved: false") +
+        `\n\n## Iteration ${newIterationId}: Follow-up scope change [ ]\n\n` +
+        "### Goal\n\nAddress the follow-up scope change.\n\n" +
+        "### Expected Change Surface\n\n" +
+        "| Area / Path Pattern | Change Type | Ownership | Trace |\n" +
+        "|---|---|---|---|\n" +
+        "| .phasedev/ | create | test | R1, SC1, D1 |\n\n" +
+        `### Tasks\n\n- [ ] ${newIterationId}.1 Implement the follow-up work\n\n` +
+        "### Checks\n\n- unit: `echo unit`\n\n" +
+        "### Check Evidence\n\n" +
+        "| Check | Command Or Method | Result | Evidence | Notes |\n" +
+        "|---|---|---|---|---|\n" +
+        "| unit | `echo unit` | pending |  |  |\n",
+      "utf-8"
+    );
+
+    const synced = syncState(root, "full-arc-e2e");
+    expect(synced.ok).toBe(true);
+    expect(synced.message).toContain("Reset the stale final verdict to `pending`");
+    const afterSync = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(afterSync).toContain("verdict: pending");
+    expect(afterSync).toContain("type: final");
+
+    const reapproved = fs.readFileSync(paths.iterationPlanPath, "utf-8")
+      .replace(/^approved:\s*false\s*$/m, "approved: true");
+    fs.writeFileSync(paths.iterationPlanPath, reapproved, "utf-8");
+
+    // (b) advance into implementation of iteration 2; implement; advance into
+    // iteration_validation (entering the phase rewrites the leftover
+    // type: final -> iteration, so the exit gate passes); set-verdict ready
+    // (no coerceType, so type stays iteration); mark iteration 2 [x].
+    const toImplementation = advanceFlow(root, config, "full-arc-e2e");
+    expect(toImplementation.ok).toBe(true);
+    expect(toImplementation.newState?.activePhase).toBe("implementation");
+    expect(toImplementation.newState?.activeIteration).toBe(newIterationId);
+
+    const implementedPlan = fs.readFileSync(paths.iterationPlanPath, "utf-8")
+      .replace(
+        `- [ ] ${newIterationId}.1 Implement the follow-up work`,
+        `- [x] ${newIterationId}.1 Implement the follow-up work`
+      )
+      .replace(
+        "| unit | `echo unit` | pending |  |  |",
+        "| unit | `echo unit` | passed | All tasks completed |  |"
+      );
+    writeFile(paths.iterationPlanPath, implementedPlan);
+    approveArtifact(paths.iterationPlanPath, "test");
+
+    const toIterationValidation = advanceFlow(root, config, "full-arc-e2e");
+    expect(toIterationValidation.ok).toBe(true);
+    expect(toIterationValidation.newState?.activePhase).toBe("iteration_validation");
+    const enteredValidationFindings = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(enteredValidationFindings).toContain("type: iteration");
+
+    const iterationVerdict = setFindingsVerdict(paths.findingsPath, "ready", { type: "iteration", date: "2026-07-14" });
+    expect(iterationVerdict.ok).toBe(true);
+    const readyIterationFindings = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(readyIterationFindings).toContain("verdict: ready");
+    expect(readyIterationFindings).toContain("type: iteration");
+
+    expect(setIterationStatus(root, newIterationId, "completed", undefined, "full-arc-e2e").ok).toBe(true);
+
+    // (c) advance -> route falls to final_validation (all [x], type iteration);
+    // advance sets type: final; run fresh final validation; set-verdict ready.
+    const toFinalValidation = advanceFlow(root, config, "full-arc-e2e");
+    expect(toFinalValidation.ok).toBe(true);
+    expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
+    const enteredFinalFindings = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(enteredFinalFindings).toContain("type: final");
+
+    writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+
+    // (d) advance -> the archive mutation.
+    const toArchive = advanceFlow(root, config, "full-arc-e2e");
+    expect(toArchive.ok).toBe(true);
+    expect(toArchive.newState?.activePhase).toBe("archive");
+
+    const archivedChangeDir = archiveDirFor(root, "full-arc-e2e");
+    expect(fs.existsSync(path.join(archivedChangeDir, ".phase-archive.json"))).toBe(true);
+    const archiveState = JSON.parse(fs.readFileSync(path.join(archivedChangeDir, ".phase-archive.json"), "utf-8"));
+    expect(archiveState.status).toBe("in_progress");
+    expect(loadFlowState(root, "full-arc-e2e")?.activePhase).toBe("archive");
+  });
+
+  test("advance once self-heals a wedged field state (ready/final/all-[x]/locked at iteration_validation)", () => {
+    expect(createChange(root, "self-heal-e2e").ok).toBe(true);
+    const config = loadConfig();
+
+    const steps = buildLifecycleSteps(root, config, "self-heal-e2e", {
+      why: "Verify advance self-heals a wedged field state",
+      targetState: "A locked iteration_validation phase with a stale terminal-final verdict un-wedges",
+      requirement: "A wedged ready/final/all-[x] field state must self-heal on a single advance call",
+      criterion: "advance leaves iteration_validation and normalizes the stale findings type",
+    });
+    // Drive through the real final_validation entry so validation_findings.md
+    // and iteration_plan.md are genuine artifacts, then lock state.json back to
+    // iteration_validation to construct the wedge directly (field-state repair,
+    // not something the normal flow produces on its own).
+    for (let i = 0; i < 6; i++) steps[i]();
+
+    const changeDir = path.join(root, ".phasedev", "changes", "self-heal-e2e");
+    const paths = buildChangePaths(changeDir);
+
+    const findingsBefore = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsBefore).toContain("verdict: ready");
+    expect(findingsBefore).toContain("type: final");
+
+    let wedged = loadFlowState(root, "self-heal-e2e");
+    expect(wedged).not.toBeNull();
+    wedged = { ...(wedged as NonNullable<typeof wedged>), activePhase: "iteration_validation", activeIteration: 1 };
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(wedged, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(root, config, "self-heal-e2e");
+    expect(result.ok).toBe(true);
+    expect(loadFlowState(root, "self-heal-e2e")?.activePhase).not.toBe("iteration_validation");
+    expect(loadFlowState(root, "self-heal-e2e")?.activePhase).toBe("final_validation");
+    // findings type normalized to iteration during the stuck phase, then
+    // re-set to final on entry to the fresh final_validation as the flow proceeds.
+    expect(result.message).toContain("Normalized validation_findings.md `type` to `iteration`");
+    expect(result.message).toContain("iteration_validation");
+    const findingsAfter = fs.readFileSync(paths.findingsPath, "utf-8");
+    expect(findingsAfter).toContain("type: final");
+  });
 });
 
 // ── E2E: Independent multi-change flows ─────────────────────
