@@ -2322,7 +2322,40 @@ Complete API work.
       expect(result.ok).toBe(true);
       expect(result.changed).toBe(false);
       expect(result.message).toContain("already consistent");
+      expect(result.message).toContain("Nothing to sync.");
       expect(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8")).toBe(before);
+    });
+
+    test("syncState reports an honest consistent-route message when normalization wrote a fix (no false 'Nothing to sync' claim)", () => {
+      // Locked at final_validation with a stale `type: iteration` left over from
+      // a prior iteration validation. Rule (b) fixes `type` to `final` before the
+      // route is computed; with `verdict: repaired` and no open blocking rows,
+      // the route also resolves to final_validation, so this is the
+      // routePhase === state.activePhase branch, but normalization did write to
+      // validation_findings.md. The message must not claim "Nothing to sync."
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repaired", "iteration")
+      });
+      writeRawState(changeDir, { activePhase: "final_validation", activeIteration: null, repairCycleCount: 1 });
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(result.fromPhase).toBe("final_validation");
+      expect(result.toPhase).toBe("final_validation");
+      expect(result.message).toContain("already consistent");
+      expect(result.message).not.toContain("Nothing to sync.");
+      expect(result.message).toContain("needs no sync");
+      expect(result.message).toContain("Normalized");
+
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
     });
 
     test("syncState reports no active change", () => {

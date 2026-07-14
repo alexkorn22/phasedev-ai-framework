@@ -607,4 +607,14 @@ describe("setFindingsVerdict coerceType", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("Invalid verdict `pending`");
   });
+
+  test("no-ops the type coercion when frontmatter has no `type:` line", () => {
+    const file = findingsPath();
+    fs.writeFileSync(file, "---\nverdict: ready\ndate: 2026-05-29\n---\n", "utf-8");
+    const result = setFindingsVerdict(file, "ready", CTX, undefined, "iteration");
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).not.toContain("type:");
+    expect(content).toContain("verdict: ready");
+  });
 });

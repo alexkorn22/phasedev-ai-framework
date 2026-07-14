@@ -48,12 +48,13 @@ export function syncState(
   const route = resolveRoute(projectPath, changeName, blockingSeverity);
   const routePhase = route.phase as ActivePhase;
   if (routePhase === state.activePhase) {
+    const inactionNote = normalization.changed ? " state.json needs no sync." : " Nothing to sync.";
     return {
       ok: true,
       changed: false,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `state.json is already consistent (activePhase: ${state.activePhase}, artifact-derived: ${routePhase}). Nothing to sync.${resetNote}`
+      message: `state.json is already consistent (activePhase: ${state.activePhase}, artifact-derived: ${routePhase}).${inactionNote}${resetNote}`
     };
   }
 
