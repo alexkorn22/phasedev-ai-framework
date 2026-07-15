@@ -3330,6 +3330,62 @@ phases: {}
   });
 });
 
+describe("archive command", () => {
+  beforeEach(() => setupTestDir());
+  afterEach(() => cleanupTestDir());
+
+  test("archive without a change-name argument reports the usage error", () => {
+    const result = runCli(["archive", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("[PHASEDEV ARCHIVE] FAILED: <change-name> is required.");
+    expect(result.output).toContain("Usage: phasedev archive <change-name> [--project-path <path>]");
+  });
+
+  test("archive moves an archive_ready change and marks .phase-archive.json in_progress", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    writeStateJson(changeDir, "final_validation");
+
+    const result = runCli(["archive", "sample-change", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("Advanced to archive phase.");
+    const today = new Date().toISOString().split("T")[0];
+    const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
+    expect(fs.existsSync(changeDir)).toBe(false);
+    expect(fs.existsSync(archiveDir)).toBe(true);
+    const archiveState = JSON.parse(fs.readFileSync(path.join(archiveDir, ".phase-archive.json"), "utf-8"));
+    expect(archiveState.status).toBe("in_progress");
+    expect(archiveState.changeName).toBe("sample-change");
+    const flowState = JSON.parse(fs.readFileSync(path.join(archiveDir, "state.json"), "utf-8"));
+    expect(flowState.activePhase).toBe("archive");
+  });
+
+  test("archive refuses a change that has not reached final validation", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`);
+    writeStateJson(changeDir, "implementation", 1);
+
+    const result = runCli(["archive", "sample-change", "--project-path", testTmpDir]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("has not reached final validation");
+    expect(result.output).toContain("current route:");
+    expect(fs.existsSync(changeDir)).toBe(true);
+  });
+});
+
 function mkBareChange(name: string): string {
   const dir = path.join(testTmpDir, ".phasedev", "changes", name);
   fs.mkdirSync(dir, { recursive: true });
