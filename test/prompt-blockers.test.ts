@@ -3,7 +3,7 @@ import {
   iterationCommitBlocker, finalCommitBlocker,
   approvalBlocker, testCommandBlocker, invalidPlanBlocker, invalidPrdBlocker,
   invalidRulesBlocker, invalidResearchBlocker, invalidDesignBlocker,
-  archiveReadinessBlocker, validationFindingsBlocker
+  archiveReadinessBlocker, validationFindingsBlocker, autoApprovalBlocker
 } from "../src/features/phase-control/prompt-blockers";
 
 describe("commit blockers", () => {
@@ -83,5 +83,43 @@ describe("artifact blockers", () => {
 
   test("validationFindingsBlocker targets finding_repair", () => {
     expect(validationFindingsBlocker("/x/validation_findings.md", ["no table"]).phase).toBe("finding_repair");
+  });
+});
+
+describe("autoApprovalBlocker", () => {
+  test("lists every artifact path as a file URL, per-phase (change_intake_approval)", () => {
+    const p = autoApprovalBlocker("change_intake", "Setup approval", ["/x/prd.md", "/x/execution_contract.md"], "my-change");
+    expect(p.blocked).toBe(true);
+    expect(p.phase).toBe("change_intake");
+    expect(p.prompt).toContain("file:///x/prd.md");
+    expect(p.prompt).toContain("file:///x/execution_contract.md");
+  });
+
+  test("technical_design_approval lists the design artifact", () => {
+    const p = autoApprovalBlocker("technical_design", "Design approval", ["/x/architecture/design.md"], "my-change");
+    expect(p.prompt).toContain("file:///x/architecture/design.md");
+  });
+
+  test("iteration_planning_approval lists the plan artifact", () => {
+    const p = autoApprovalBlocker("iteration_planning", "Plan approval", ["/x/iteration_plan.md"], "my-change");
+    expect(p.prompt).toContain("file:///x/iteration_plan.md");
+  });
+
+  test("instructs approval via the auto-approve-subagent, scoped to the change", () => {
+    const p = autoApprovalBlocker("technical_design", "Design approval", ["/x/design.md"], "my-change");
+    expect(p.prompt).toContain('phasedev approve <file> --by "auto-approve-subagent" --change "my-change"');
+  });
+
+  test("bans manual approval and points at rerunning advance", () => {
+    const p = autoApprovalBlocker("technical_design", "Design approval", ["/x/design.md"], "my-change");
+    expect(p.prompt).toContain("Do NOT approve manually");
+    expect(p.prompt).toContain('phasedev advance --change "my-change"');
+  });
+
+  test("uses a bare approve/advance command when changeName is undefined", () => {
+    const p = autoApprovalBlocker("technical_design", "Design approval", ["/x/design.md"], undefined);
+    expect(p.prompt).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(p.prompt).not.toContain("--change");
+    expect(p.prompt).toContain("phasedev advance");
   });
 });
