@@ -61,6 +61,8 @@ These contracts are frozen. You MUST NOT change them unless the user explicitly 
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
 - Quick routing is a separate state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`) that branches before `resolveRoute`; `resolveRoute` and Standard routing are unchanged.
+- The archive mutation (move + `.phase-archive.json`) is owned exclusively by the standalone `phasedev archive <change-name>` command — never by `advance`. `advance` is archive-silent: at the point that used to be `archive_ready` it now returns "Final validation passed. Flow complete." without moving anything; it never recovers a pre-move crash or resumes a pending archive.
+- Under `autoApprove: true`, `advance` never auto-stamps an artifact's `approved`/`approved_by` fields itself. At each approval gate it emits the auto-approval blocker instructing the orchestrator to spawn one content-reading validation sub-agent that approves each gated artifact on the merits via `phasedev approve <file> --by "auto-approve-subagent"`. An approval-integrity gate then requires every `approved: true` artifact to carry a non-empty `approved_by` before `advance` proceeds — a bare `approved: true` with empty `approved_by` re-blocks.
 
 ## Config-Driven Skill Policy
 
@@ -89,19 +91,21 @@ These contracts are frozen (same rule as "Behavior To Preserve"):
 
 ## Archive Phase
 
-Archive is a regular phase in the flow. The archive mutation (move + `.phase-archive.json`) is done by `advance` when switching to the archive phase, not by `next`.
+Archive is a regular phase in the flow. The archive mutation (move + `.phase-archive.json`) is done by the standalone `phasedev archive <change-name>` command, not by `advance` and not by `next`.
 
-When `advance` resolves to `archive_ready` and `runArchiveStage` is enabled:
+When a change reaches `archive_ready` (final validation passed, all iterations `[x]`, working tree clean) and `runArchiveStage` is enabled, `phasedev archive <change-name>`:
 
-1. `advance` moves `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>`.
-2. `advance` creates `.phase-archive.json` in the archived change with `status: "in_progress"`.
-3. `advance` sets `activePhase: "archive"` in `state.json` (which moves with the change directory).
+1. Moves `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>`.
+2. Creates `.phase-archive.json` in the archived change with `status: "in_progress"`.
+3. Sets `activePhase: "archive"` in `state.json` (which moves with the change directory).
 
-The `phase` command prints the Archive contract after the mutation; the Archive prompt includes links to the archived change path.
+`advance` no longer performs this mutation: once a change reaches the point that used to be `archive_ready`, `advance` returns "Final validation passed. Flow complete." and stops — it does not move the change directory, write `.phase-archive.json`, or recover a pre-move crash. Driving the change to and through Archive is `phasedev archive`'s job from that point on.
 
-Resume: if a later `advance` or `phase` finds pending `.phase-archive.json` (i.e., `state.json` with `activePhase: "archive"`), the archive phase continues.
+The `phase` command prints the Archive contract after the mutation (run `phasedev phase` after `phasedev archive` to get it); the Archive prompt includes links to the archived change path.
 
-Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`.
+Resume: if a later `phasedev archive <change-name>` (or `phase`) finds pending `.phase-archive.json` (i.e., `state.json` with `activePhase: "archive"`), the archive phase continues. `phasedev archive` also owns pre-move crash recovery (an `in_progress` archive state with no `movedAt` found in the still-active change directory).
+
+Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`; `phasedev archive <change-name>` reports that completion once it verifies the archive contract's requirements are met.
 
 Agents executing the Archive prompt MUST write delta specs under the archived change and then update `.phase-archive.json`; they MUST NOT call an archive script.
 
@@ -130,6 +134,7 @@ phasedev create-change --project-path /tmp/some-project my-change
 phasedev phase --project-path /tmp/some-project
 phasedev check --project-path /tmp/some-project
 phasedev advance --project-path /tmp/some-project
+phasedev archive my-change --project-path /tmp/some-project
 ```
 
 ## Subagent Delegation

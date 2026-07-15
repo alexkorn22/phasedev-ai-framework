@@ -5,6 +5,7 @@ import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { createArchiveState, findCompletedArchiveState } from "../src/entities/change/archive-state";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
@@ -1202,6 +1203,43 @@ Complete API work.
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
   });
 
+  test("advanceFlow at archive_ready clean-completes without mutating anything", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+
+    const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
+    const stateBefore = fs.readFileSync(statePath, "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.finished).toBe(true);
+    expect(result.message).toBe("Final validation passed. Flow complete.");
+    expect(result.newState).toBeNull();
+
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.readFileSync(statePath, "utf-8")).toBe(stateBefore);
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1472,12 +1510,11 @@ Complete API work.
     expect(fs.existsSync(changeDir)).toBe(true);
     expect(fs.existsSync(archiveDir)).toBe(false);
 
-    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+    const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
     expect(result.ok).toBe(true);
-    expect(result.advanced).toBe(true);
+    expect(result.started).toBe(true);
     expect(result.message).toContain("recovered from pre-move crash");
-    expect(result.newState?.activePhase).toBe("archive");
 
     // Directory should have been moved to archive.
     expect(fs.existsSync(changeDir)).toBe(false);
@@ -1493,7 +1530,49 @@ Complete API work.
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
   });
 
-  test("advanceFlow with autoApprove approves the gated artifact and advances", () => {
+  test("advanceFlow with autoApprove at change_intake_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
+`, false);
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n", "utf-8");
+    const prdBefore = fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8");
+    const rulesBefore = fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Setup Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "prd.md")}`);
+    expect(result.message).toContain(`file://${path.join(changeDir, "execution_contract.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
+    expect(fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8")).toBe(rulesBefore);
+  });
+
+  test("advanceFlow with autoApprove at technical_design_approval returns the auto-approval blocker and stamps nothing", () => {
     const changeDir = setupChange(`
 # Plan
 
@@ -1503,14 +1582,81 @@ Complete API work.
       designApproved: false
     });
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "technical_design", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const designBefore = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Design Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "architecture", "design.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8")).toBe(designBefore);
+  });
+
+  test("advanceFlow with autoApprove at iteration_planning_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      planApproved: false
+    });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "iteration_planning", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const planBefore = fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Plan Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "iteration_plan.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8")).toBe(planBefore);
+  });
+
+  test("advanceFlow with autoApprove: approved true but empty approved_by re-blocks with the auto-approval blocker", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    // designApproved/planApproved default to true via writeArtifact, but writeArtifact never
+    // sets approved_by, so every approval here is "approved: true" with no approved_by.
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Approval integrity — auto-approval requires content review");
+    expect(result.newState).toBeNull();
+  });
+
+  test("advanceFlow with autoApprove: approved true and non-empty approved_by advances normally", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    for (const artifactPath of [
+      path.join(changeDir, "prd.md"),
+      path.join(changeDir, "execution_contract.md"),
+      path.join(changeDir, "architecture", "design.md"),
+      path.join(changeDir, "iteration_plan.md")
+    ]) {
+      const body = fs.readFileSync(artifactPath, "utf-8");
+      fs.writeFileSync(artifactPath, body.replace("approved: true\n", "approved: true\napproved_by: auto-approve-subagent\n"), "utf-8");
+    }
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
-    expect(result.newState?.activePhase).toBe("implementation");
-    const design = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
-    expect(design).toContain("approved: true");
-    expect(design).toContain("PhaseDev autoApprove");
+    expect(result.newState).not.toBeNull();
+    expect(result.newState?.activePhase).toBe("final_validation");
   });
 
   test("advanceFlow without autoApprove still refuses at the approval gate", () => {
@@ -1952,10 +2098,10 @@ Complete API work.
       );
       fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
 
-      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
       expect(result.ok).toBe(true);
-      expect(result.newState?.activePhase).toBe("archive");
+      expect(result.started).toBe(true);
 
       const today = new Date().toISOString().split("T")[0];
       const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);

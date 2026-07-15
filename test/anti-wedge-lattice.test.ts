@@ -355,7 +355,7 @@ const IN_PROGRESS_ONE_ITER_NOT_READY = [iterationSection(1, "Solo", "~", false)]
 const IN_PROGRESS_ONE_ITER_READY = [iterationSection(1, "Solo", "~", true)];
 const TWO_ITER_FIRST_DONE = [iterationSection(1, "First", "x", true), iterationSection(2, "Second", " ", false)];
 
-type CaseResult = "progress" | "refuse";
+type CaseResult = "progress" | "refuse" | "complete";
 
 interface LatticeCase {
   name: string;
@@ -506,14 +506,18 @@ const LATTICE: LatticeCase[] = [
     plan: READY_ONE_ITER,
     findings: findingsArtifact("ready", "final", []),
     state: { activePhase: "final_validation", activeIteration: null },
-    expected: "progress"
+    // advance no longer mutates archive_ready -- it clean-completes without
+    // touching state.json/findings/archive marker. The mutation now lives
+    // only in runArchive.
+    expected: "complete"
   },
   {
     name: "final_validation: verdict ready_with_risks, type final, one open NIT (non-blocking), all-complete -> progress to archive",
     plan: READY_ONE_ITER,
     findings: findingsArtifact("ready_with_risks", "final", [{ id: "F1", status: "open", severity: "NIT", iteration: 1 }]),
     state: { activePhase: "final_validation", activeIteration: null },
-    expected: "progress"
+    // Same as above: archive_ready no longer mutates via advance.
+    expected: "complete"
   },
   {
     name: "final_validation: verdict repair_required, type final, one open MUST-FIX -> progress to finding_repair",
@@ -647,12 +651,19 @@ describe("anti-wedge lattice: no reachable validation state wedges", () => {
     // exact "sync says run advance" x "advance demands type iteration/final"
     // wedge named in the brief, independent of the broader isCircularAdvice pair.
     expect(staleTypeCircular).toBe(false);
-    expect(progressed || concreteDefect).toBe(true);
 
-    if (c.expected === "progress") {
-      expect(progressed).toBe(true);
+    if (c.expected === "complete") {
+      // archive_ready no longer mutates via advance -- it clean-completes.
+      expect(advance.ok).toBe(true);
+      expect(advance.message).toBe("Final validation passed. Flow complete.");
+      expect(progressed).toBe(false);
     } else {
-      expect(concreteDefect).toBe(true);
+      expect(progressed || concreteDefect).toBe(true);
+      if (c.expected === "progress") {
+        expect(progressed).toBe(true);
+      } else {
+        expect(concreteDefect).toBe(true);
+      }
     }
 
     c.assertAfter?.(after);

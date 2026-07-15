@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { readCommitLog } from "../src/entities/change/commit-log";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
@@ -337,13 +338,24 @@ describe("advance commit gate", () => {
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
     expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
 
+    // advance now clean-completes at final_validation without mutating anything.
+    const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    expect(cleanComplete.ok).toBe(true);
+    expect(cleanComplete.finished).toBe(true);
+    expect(cleanComplete.message).toBe("Final validation passed. Flow complete.");
+    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    const stateAfterClean = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(stateAfterClean.activePhase).toBe("final_validation");
+
     fs.writeFileSync(path.join(repo, "leftover-final.ts"), "x"); // uncommitted outside .phasedev
 
-    const blockedAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    const blockedArchive = runArchive(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true }, "sample-change");
 
-    expect(blockedAdvance.ok).toBe(false);
-    expect(blockedAdvance.message).toContain("Final validation passed. Commit before archive.");
-    expect(blockedAdvance.message).toContain("phasedev(sample-change): final validation");
+    expect(blockedArchive.ok).toBe(false);
+    expect(blockedArchive.message).toContain("Final validation passed. Commit before archive.");
+    expect(blockedArchive.message).toContain("phasedev(sample-change): final validation");
     // No archive mutation happened: the baseline survives, no archive marker
     // was created, the change dir was not moved, and state.json still locks
     // final_validation.
@@ -355,10 +367,10 @@ describe("advance commit gate", () => {
 
     gitCommitAll(repo, "final validation");
 
-    const archiveAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    const archiveAdvance = runArchive(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true }, "sample-change");
 
     expect(archiveAdvance.ok).toBe(true);
-    expect(archiveAdvance.newState?.activePhase).toBe("archive");
+    expect(archiveAdvance.started).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(false);
   });
 });
