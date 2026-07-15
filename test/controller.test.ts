@@ -5,6 +5,7 @@ import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { createArchiveState, findCompletedArchiveState } from "../src/entities/change/archive-state";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
@@ -1202,6 +1203,43 @@ Complete API work.
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
   });
 
+  test("advanceFlow at archive_ready clean-completes without mutating anything", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+
+    const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
+    const stateBefore = fs.readFileSync(statePath, "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.finished).toBe(true);
+    expect(result.message).toBe("Final validation passed. Flow complete.");
+    expect(result.newState).toBeNull();
+
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.readFileSync(statePath, "utf-8")).toBe(stateBefore);
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1472,12 +1510,11 @@ Complete API work.
     expect(fs.existsSync(changeDir)).toBe(true);
     expect(fs.existsSync(archiveDir)).toBe(false);
 
-    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+    const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
     expect(result.ok).toBe(true);
-    expect(result.advanced).toBe(true);
+    expect(result.started).toBe(true);
     expect(result.message).toContain("recovered from pre-move crash");
-    expect(result.newState?.activePhase).toBe("archive");
 
     // Directory should have been moved to archive.
     expect(fs.existsSync(changeDir)).toBe(false);
@@ -1952,10 +1989,10 @@ Complete API work.
       );
       fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
 
-      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
       expect(result.ok).toBe(true);
-      expect(result.newState?.activePhase).toBe("archive");
+      expect(result.started).toBe(true);
 
       const today = new Date().toISOString().split("T")[0];
       const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
