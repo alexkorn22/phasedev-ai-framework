@@ -40,6 +40,7 @@ import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
 import { expectedFindingsType } from "./features/phase-control/expected-findings-type";
 import { advanceFlow } from "./features/phase-control/advance-flow";
+import { runArchive } from "./features/phase-control/archive-command";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
@@ -770,6 +771,31 @@ function handleAdvance(ctx: CommandContext): void {
   });
 }
 
+function handleArchive(ctx: CommandContext): void {
+  const name = firstPositional(ctx.args);
+  if (!name) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "archive",
+      humanMessage: "[PHASEDEV ARCHIVE] FAILED: <change-name> is required.\nUsage: phasedev archive <change-name> [--project-path <path>]"
+    });
+    return;
+  }
+
+  const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
+  const config = loadConfig(configPath);
+  runWithStateLock(ctx.projectPath, () => {
+    const result = runArchive(ctx.projectPath, config, name);
+    reportCliResult(ctx.jsonMode, {
+      ok: result.ok,
+      kind: "archive",
+      humanMessage: result.message,
+      jsonMessage: result.reason ?? result.message,
+      data: { done: result.done, started: result.started }
+    });
+  });
+}
+
 function handleCheck(ctx: CommandContext): void {
   if (ctx.args.includes("--check-orphans")) {
     const orphans = findOrphanedArchiveDirectories(ctx.projectPath);
@@ -868,6 +894,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   phase: handlePhase,
   feedback: handleFeedback,
   advance: handleAdvance,
+  archive: handleArchive,
   check: handleCheck,
   "check-validation": handleCheckValidation,
   "check-archive": handleCheckArchive,
