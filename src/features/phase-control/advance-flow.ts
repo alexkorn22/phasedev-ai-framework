@@ -4,8 +4,8 @@ import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase }
 import { buildChangePaths } from "../../entities/change/paths";
 import { findCompletedArchiveState, findInvalidArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
-import { approveArtifact } from "../artifact-ops/approve-artifact";
 import { resolveRoute, Route } from "./flow-route";
+import { Phase } from "../../entities/phase/types";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
@@ -21,10 +21,12 @@ export type { AdvanceResult };
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
   invalidDesignBlocker, invalidPlanBlocker, validationFindingsBlocker,
-  approvalBlocker,
+  approvalBlocker, autoApprovalBlocker,
   iterationCommitBlocker
 } from "./prompt-blockers";
 
+import { approvedByValue } from "../../entities/change/approval";
+import { isApproved } from "../../shared/markdown/frontmatter";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 
@@ -270,22 +272,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   }
 
   // (C) Resolve next route from files
-  let route = resolveRoute(projectPath, changeName, config.blockingSeverity);
-
-  // autoApprove: approval gates are reached only after the artifacts passed
-  // validation (resolveRoute checks invalid_* first), so approving here is
-  // safe. Without the flag, advance refuses below and waits for a human.
-  if (config.autoApprove && route.kind.endsWith("_approval")) {
-    const approvalTargets =
-      route.kind === "change_intake_approval" ? [paths.prdPath, paths.executionContractPath]
-      : route.kind === "technical_design_approval" ? [paths.designPath]
-      : route.kind === "iteration_planning_approval" ? [paths.iterationPlanPath]
-      : [];
-    for (const artifactPath of approvalTargets) {
-      approveArtifact(artifactPath, "PhaseDev autoApprove");
-    }
-    route = resolveRoute(projectPath, changeName, config.blockingSeverity);
-  }
+  const route = resolveRoute(projectPath, changeName, config.blockingSeverity);
 
   // (C1) invalid_* → refuse with rich blocker
   if (route.kind === "invalid_prd") {
@@ -313,21 +300,57 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     );
   }
 
-  // (C2) *_approval → refuse with rich blocker
+  // (C2) *_approval → refuse with rich blocker. Under autoApprove, refuse
+  // with the auto-approval blocker instead of stamping approval directly:
+  // a dedicated content-reading sub-agent must review and approve, not the
+  // controller (B26.2).
   if (route.kind === "change_intake_approval") {
-    return refuse(approvalBlocker(route.phase, "Setup Approval Required", route.paths.prdPath, "prd.md and execution_contract.md", changeName).prompt);
+    return refuse(
+      config.autoApprove
+        ? autoApprovalBlocker(route.phase, "Setup Approval Required", [route.paths.prdPath, route.paths.executionContractPath], changeName).prompt
+        : approvalBlocker(route.phase, "Setup Approval Required", route.paths.prdPath, "prd.md and execution_contract.md", changeName).prompt
+    );
   }
   if (route.kind === "technical_design_approval") {
-    return refuse(approvalBlocker(route.phase, "Design Approval Required", route.paths.designPath, "design.md", changeName).prompt);
+    return refuse(
+      config.autoApprove
+        ? autoApprovalBlocker(route.phase, "Design Approval Required", [route.paths.designPath], changeName).prompt
+        : approvalBlocker(route.phase, "Design Approval Required", route.paths.designPath, "design.md", changeName).prompt
+    );
   }
   if (route.kind === "iteration_planning_approval") {
-    return refuse(approvalBlocker(route.phase, "Plan Approval Required", route.paths.iterationPlanPath, "iteration_plan.md", changeName).prompt);
+    return refuse(
+      config.autoApprove
+        ? autoApprovalBlocker(route.phase, "Plan Approval Required", [route.paths.iterationPlanPath], changeName).prompt
+        : approvalBlocker(route.phase, "Plan Approval Required", route.paths.iterationPlanPath, "iteration_plan.md", changeName).prompt
+    );
   }
   // Fallback for any remaining *_approval kind
   if (route.kind.endsWith("_approval")) {
     return refuse(
       `Cannot advance: ${route.kind}. Run: phasedev approve <artifact> (or enable autoApprove).`
     );
+  }
+
+  // (C2b) Approval integrity gate (B26.2): under autoApprove, "approved"
+  // means `approved: true` AND non-empty `approved_by` — resolveRoute's
+  // approval predicates only check `approved: true`, so an approval stamped
+  // without `--by` passes the route gate above but is re-blocked here.
+  // Reached only once every *_approval gate has passed.
+  if (config.autoApprove) {
+    const approvalArtifacts: Array<{ phase: Phase; title: string; artifactPath: string }> = [
+      { phase: "change_intake", title: "Approval integrity", artifactPath: paths.prdPath },
+      { phase: "change_intake", title: "Approval integrity", artifactPath: paths.executionContractPath },
+      { phase: "technical_design", title: "Approval integrity", artifactPath: paths.designPath },
+      { phase: "iteration_planning", title: "Approval integrity", artifactPath: paths.iterationPlanPath }
+    ];
+    for (const artifact of approvalArtifacts) {
+      if (isApproved(artifact.artifactPath) && !approvedByValue(artifact.artifactPath)) {
+        return refuse(
+          autoApprovalBlocker(artifact.phase, artifact.title, [artifact.artifactPath], changeName).prompt
+        );
+      }
+    }
   }
 
   // (C3) archive_readiness_blocked → refuse: not every iteration is completed
