@@ -1,13 +1,11 @@
-import * as fs from "fs";
 import * as path from "path";
 import { Config } from "../../entities/config/config";
 import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
-import { findCompletedArchiveState, findInvalidArchiveState, readArchiveState } from "../../entities/change/archive-state";
+import { findCompletedArchiveState, findInvalidArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
 import { approveArtifact } from "../artifact-ops/approve-artifact";
 import { resolveRoute, Route } from "./flow-route";
-import { startArchiveStage } from "./archive-stage";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
@@ -23,8 +21,8 @@ export type { AdvanceResult };
 import {
   invalidPrdBlocker, invalidRulesBlocker, invalidResearchBlocker,
   invalidDesignBlocker, invalidPlanBlocker, validationFindingsBlocker,
-  approvalBlocker, archiveReadinessBlocker,
-  iterationCommitBlocker, finalCommitBlocker
+  approvalBlocker,
+  iterationCommitBlocker
 } from "./prompt-blockers";
 
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
@@ -54,8 +52,7 @@ const ADVANCEABLE_ROUTE_KINDS = [
   "iteration_planning",
   "iteration",
   "final_validation",
-  "finding_repair",
-  "pending_archive"
+  "finding_repair"
 ] as const;
 
 type AdvanceableRouteKind = (typeof ADVANCEABLE_ROUTE_KINDS)[number];
@@ -80,7 +77,8 @@ const NON_ADVANCEABLE_ROUTE_KIND_CHECK: Record<Exclude<Route["kind"], Advanceabl
   invalid_iteration_planning: true,
   invalid_findings: true,
   archive_readiness_blocked: true,
-  archive_ready: true
+  archive_ready: true,
+  pending_archive: true
 };
 void NON_ADVANCEABLE_ROUTE_KIND_CHECK;
 
@@ -97,7 +95,6 @@ void NON_ADVANCEABLE_ROUTE_KIND_CHECK;
  * | iteration (iteration_validation)  | iteration_validation  | iteration.id    |
  * | final_validation              | final_validation      | null            |
  * | finding_repair                | finding_repair        | current state's activeIteration (preserved by advanceFlow, not this map) |
- * | pending_archive               | archive               | null            |
  */
 function routeToState(route: Route): FlowState {
   switch (route.kind) {
@@ -119,8 +116,6 @@ function routeToState(route: Route): FlowState {
       return { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 };
     case "finding_repair":
       return { activePhase: "finding_repair", activeIteration: null, repairCycleCount: 0 };
-    case "pending_archive":
-      return { activePhase: "archive", activeIteration: null, repairCycleCount: 0 };
     default:
       throw new Error(
         `Unexpected route kind "${route.kind}" in routeToState. ` +
@@ -215,18 +210,17 @@ function applyStateSideEffects(
  * |                       | regression below the locked phase.                  |
  * | advanceFlow (here)    | Orchestrate: run exit gates (A), run route (C),     |
  * |                       | then apply state side-effects and save (E). Stop    |
- * |                       | at approval gates, invalid artifacts, and archive   |
- * |                       | readiness boundaries.                               |
+ * |                       | at approval gates, invalid artifacts, and          |
+ * |                       | iteration-completion boundaries.                    |
  *
  * Algorithm:
  * 1. Load flow state. If none → refuse.
  * 2. validatePhaseExit for active phase. If not finished → refuse.
- * 3. If activePhase === "archive" → flow is finished (exit gate already passed).
- * 4. resolveRoute():
+ * 3. resolveRoute():
  *    - invalid_* → refuse.
  *    - *_approval → refuse with approval prompt (or autoApprove).
- *    - archive_readiness_blocked → refuse.
- *    - archive_ready → if runArchiveStage → mutate, else refuse.
+ *    - archive_readiness_blocked → refuse (not every iteration completed).
+ *    - archive_ready → flow is finished; `phasedev archive` owns the mutation.
  *    - else → routeToState + applyStateSideEffects + saveFlowState.
  */
 export function advanceFlow(projectPath: string, config: Config, changeName?: string): AdvanceResult {
@@ -252,25 +246,6 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
       }
     }
     return refuse("Cannot locate change directory for the current flow state.");
-  }
-
-  // Pre-move crash recovery: if the archive phase has a pre-move marker
-  // (.phase-archive.json in_progress without movedAt) in the still-active
-  // change dir, complete the archive mutation before checking exit gates.
-  if (state.activePhase === "archive") {
-    const preMoveState = readArchiveState(changeDir);
-    if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
-      const archiveResult = startArchiveStage(projectPath, changeDir, new Date(), config);
-      if (archiveResult.blocked) {
-        return refuse(
-          `Cannot recover archive transition: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`
-        );
-      }
-      return ok(
-        { activePhase: "archive", activeIteration: null, repairCycleCount: 0 },
-        "Advanced to archive phase (recovered from pre-move crash)."
-      );
-    }
   }
 
   const paths = buildChangePaths(changeDir);
@@ -355,47 +330,19 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     );
   }
 
-  // (C3) archive_readiness_blocked → refuse with rich blocker
+  // (C3) archive_readiness_blocked → refuse: not every iteration is completed
   if (route.kind === "archive_readiness_blocked") {
-    return refuse(archiveReadinessBlocker(
-      "Not all iterations are completed",
-      route.paths.iterationPlanPath,
-      "Complete validation for each iteration and mark it [x] in iteration_plan.md.",
-      changeName
-    ).prompt);
+    return refuse(
+      "Final validation reported ready, but not every iteration is completed / some " +
+      "iterations still have open readiness blockers. Complete each iteration and mark " +
+      "it [x] in iteration_plan.md, then run advance again."
+    );
   }
 
-  // (D) archive_ready → mutate archive
+  // (D) archive_ready → flow is finished; the archive mutation is owned by
+  // `phasedev archive`, not by advance.
   if (route.kind === "archive_ready") {
-    if (!config.runArchiveStage) {
-      return refuse("Archive is disabled (runArchiveStage=false).");
-    }
-
-    if (commitGateBlocks(projectPath, config)) {
-      return refuse(finalCommitBlocker(path.basename(changeDir), changeName).prompt);
-    }
-
-    // The baseline is a working snapshot for the repair gate; it has no
-    // meaning once archived and a manual rollback out of archive is not
-    // supported, so it must not travel into the archived directory. Remove
-    // it before the move — startArchiveStage relocates changeDir itself.
-    fs.rmSync(paths.findingsBaselinePath, { force: true });
-
-    // startArchiveStage creates .phase-archive.json, writes activePhase:"archive"
-    // into state.json, then moves the change dir — so the phase lock travels with
-    // the directory. It returns a blocker (without moving anything) when the
-    // mutation cannot run, e.g. the date-prefixed archive target already exists.
-    const archiveResult = startArchiveStage(projectPath, changeDir, new Date(), config);
-    if (archiveResult.blocked) {
-      return refuse(`Cannot advance to archive: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`);
-    }
-
-    const newState: FlowState = { activePhase: "archive", activeIteration: null, repairCycleCount: 0 };
-
-    return ok(
-      newState,
-      "Advanced to archive phase. Run: phasedev phase for the archive contract."
-    );
+    return done("Final validation passed. Flow complete.");
   }
 
   // Repair cycle guard: refuse after N consecutive repair attempts

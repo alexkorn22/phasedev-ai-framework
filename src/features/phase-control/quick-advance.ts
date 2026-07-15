@@ -2,10 +2,7 @@ import { Config } from "../../entities/config/config";
 import { FlowState, saveFlowState } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
 import { resolveChangeDir } from "../../entities/change/active-change";
-import { findPendingArchiveState, findCompletedArchiveState, readArchiveState } from "../../entities/change/archive-state";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
-import { startArchiveStage } from "./archive-stage";
-import { checkArchiveCompletion } from "./check-archive";
 import { nextQuickPhase } from "./quick-flow-sequence";
 import { readCommitLog } from "../../entities/change/commit-log";
 import { gitHeadSha } from "../../shared/shell/git";
@@ -41,26 +38,6 @@ function implementationCommitBlocks(projectPath: string, config: Config, commitL
 }
 
 export function quickAdvance(projectPath: string, config: Config, state: FlowState, changeName?: string): AdvanceResult {
-  if (state.activePhase === "archive") {
-    const active = resolveChangeDir(projectPath, changeName);
-    if (active) {
-      const preMove = readArchiveState(active);
-      if (preMove && preMove.status === "in_progress" && !preMove.movedAt) {
-        const r = startArchiveStage(projectPath, active, new Date(), config);
-        if (r.blocked) return refuse(`Cannot recover quick archive transition: ${r.reason ?? "blocked"}.`);
-        return advanced(
-          { activePhase: "archive", activeIteration: null, repairCycleCount: 0, flowMode: "quick" },
-          "Advanced to archive phase (recovered from pre-move crash)."
-        );
-      }
-    }
-    const pending = findPendingArchiveState(projectPath, changeName);
-    const changeDir = pending?.archivePath ?? active;
-    if (changeDir && checkArchiveCompletion(changeDir).ok) return done("Archive complete. Flow finished.");
-    if (findCompletedArchiveState(projectPath, changeName)) return done("Archive complete. Flow finished.");
-    return refuse("Quick archive is not complete: set .phase-archive.json status to completed, then rerun advance.");
-  }
-
   const changeDir = resolveChangeDir(projectPath, changeName);
   if (!changeDir) return refuse("Cannot locate quick change directory.");
   const paths = buildChangePaths(changeDir);
@@ -73,13 +50,7 @@ export function quickAdvance(projectPath: string, config: Config, state: FlowSta
   }
 
   if (state.activePhase === "quick_spec_revision") {
-    if (!config.runArchiveStage) return refuse("Archive is disabled (runArchiveStage=false).");
-    const r = startArchiveStage(projectPath, changeDir, new Date(), config);
-    if (r.blocked) return refuse(`Cannot advance to archive: ${r.reason ?? "archive mutation blocked"}.`);
-    return advanced(
-      { activePhase: "archive", activeIteration: null, repairCycleCount: 0, flowMode: "quick" },
-      "Advanced to archive phase. Run: phasedev phase for the archive contract."
-    );
+    return done("Quick flow complete. Final quick phase reached.");
   }
 
   const next = nextQuickPhase(state.activePhase);
