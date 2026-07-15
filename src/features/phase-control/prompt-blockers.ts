@@ -11,6 +11,10 @@ function advanceCommand(changeName?: string): string {
   return changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
 }
 
+function archiveCommand(changeName?: string): string {
+  return changeName === undefined ? "phasedev archive <change-name>" : `phasedev archive ${shellQuote(changeName)}`;
+}
+
 function approveCommand(changeName?: string): string {
   const base = 'phasedev approve <file> --by "auto-approve-subagent"';
   return changeName === undefined ? base : `${base} --change ${shellQuote(changeName)}`;
@@ -127,7 +131,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
     title,
     details,
     `- Link: ${toFileUrl(filePath)}`,
-    `Fix the archive readiness issue, then run '${advanceCommand(changeName)}' again.`,
+    `Fix the archive readiness issue, then run '${archiveCommand(changeName)}' again.`,
     "================================================================================"
   ].join("\n"), true, "Archive readiness failed");
 }

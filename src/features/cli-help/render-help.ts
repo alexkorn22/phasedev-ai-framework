@@ -27,7 +27,10 @@ Workflow:
      Validate artifacts for the active phase.
   6. phasedev advance --project-path <path>
      Validate and transition to the next phase.
-  7. Repeat phasedev phase / check / advance until the change is archived.
+  7. phasedev archive <change-name> --project-path <path>
+     Once advance reports final validation passed, run this to move the
+     change into changes/archive/ and drive the archive phase to completion.
+  8. Repeat phasedev phase / check / advance / archive until the change is archived.
 
 Commands:
   phasedev help
@@ -68,8 +71,17 @@ Commands:
 
   phasedev advance [--project-path <path>] [--config <path>]
       Validate the active phase and transition to the next phase.
-      Refuses if artifacts are invalid, require approval, or archives are blocked.
-      Side effects: updates state.json, flips iteration status, archives on archive_ready.
+      Refuses if artifacts are invalid or require approval.
+      Does not archive: once final validation passes, run phasedev archive.
+      Side effects: updates state.json, flips iteration status.
+
+  phasedev archive <change-name> [--project-path <path>] [--config <path>]
+      Move a change that has passed final validation into changes/archive/,
+      create .phase-archive.json, and drive/resume the archive phase to
+      completion. Refuses if the change has not reached final validation,
+      runArchiveStage is false, or the archive phase is not yet complete.
+      Side effects: moves the change directory, writes .phase-archive.json,
+      updates state.json.
 
   phasedev next
       DEPRECATED. Prints a warning and exits. Ignores all flags.
@@ -223,6 +235,7 @@ Examples:
   phasedev phase --project-path /absolute/path/to/project
   phasedev check --project-path /absolute/path/to/project
   phasedev advance --project-path /absolute/path/to/project
+  phasedev archive my-change --project-path /absolute/path/to/project
   phasedev check-validation --project-path /absolute/path/to/project --scope final
   phasedev check-archive --archive-path /absolute/path/to/project/.phasedev/changes/archive/2026-06-17-my-change
 `;

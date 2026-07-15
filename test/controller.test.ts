@@ -1655,6 +1655,8 @@ Test fixture only.
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
+    expect(result.newState).not.toBeNull();
+    expect(result.newState?.activePhase).toBe("final_validation");
   });
 
   test("advanceFlow without autoApprove still refuses at the approval gate", () => {

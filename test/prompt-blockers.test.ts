@@ -77,8 +77,9 @@ describe("artifact blockers", () => {
     expect(p.blocked).toBe(true);
     expect(p.prompt).toContain("Conflict");
     expect(p.prompt).toContain("diverged");
-    expect(p.prompt).toContain("phasedev advance");
+    expect(p.prompt).toContain("phasedev archive <change-name>");
     expect(p.prompt).not.toContain("--change");
+    expect(p.prompt).not.toContain("phasedev advance");
   });
 
   test("validationFindingsBlocker targets finding_repair", () => {

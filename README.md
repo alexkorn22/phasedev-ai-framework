@@ -27,7 +27,7 @@ Long agent sessions degrade: the context window fills up, early requirements fad
 
 ## ⚙️ How It Works
 
-PhaseDev is a phase state machine. The controller (`phasedev` CLI) derives the current phase from the files in the active change directory, prints that phase's contract, and validates the results before allowing a transition. The orchestrator skill turns your main agent into a thin loop around three commands — `phase` → `check` → `advance` — delegating every phase's actual work to a fresh sub-agent.
+PhaseDev is a phase state machine. The controller (`phasedev` CLI) derives the current phase from the files in the active change directory, prints that phase's contract, and validates the results before allowing a transition. The orchestrator skill turns your main agent into a thin loop around three commands — `phase` → `check` → `advance` — delegating every phase's actual work to a fresh sub-agent, then hands off to `phasedev archive <change>` once final validation passes.
 
 ```mermaid
 sequenceDiagram
@@ -37,7 +37,7 @@ sequenceDiagram
     participant Workspace as .phasedev/ folder<br/>(inside your project repo)
     participant SubAgent as Phase sub-agent (fresh context)
 
-    loop until archived
+    loop until final validation passes
         Orchestrator->>CLI: phasedev phase
         CLI->>Workspace: derive current phase from files
         CLI-->>Orchestrator: phase contract
@@ -47,7 +47,13 @@ sequenceDiagram
         CLI-->>Orchestrator: valid / blockers
         Note over Orchestrator,CLI: human approves at gate phases
         Orchestrator->>CLI: phasedev advance
-        CLI->>Workspace: transition state (archive at the end)
+        CLI->>Workspace: transition state
+    end
+    loop until archived
+        Orchestrator->>CLI: phasedev archive <change>
+        CLI->>Workspace: move change to archive, drive archive phase
+        Orchestrator->>SubAgent: execute the archive contract
+        SubAgent->>Workspace: write delta specs, mark archive complete
     end
 ```
 
@@ -79,7 +85,7 @@ decision flow, and the exact artifact templates to fill in)
 5. **Implementation** — code and run checks, iteration by iteration.
 6. **Iteration / Final Validation** — review each iteration, then the whole changeset against PRD criteria.
 7. **Finding Repair** — fix validation findings until clean (bounded by `maxRepairCycles`).
-8. **Archive** — move the change to `changes/archive/` and generate delta specs under `.phasedev/specs/`.
+8. **Archive** — `phasedev archive <change>` moves the change to `changes/archive/` and generates delta specs under `.phasedev/specs/`; `advance` no longer performs this step.
 
 Several unfinished changes may coexist under `.phasedev/changes/`. Change-scoped commands take `--change <name>`; with exactly one change it is inferred.
 
@@ -169,9 +175,10 @@ phasedev create-change my-change   # add --quick for Quick mode
 phasedev phase                     # print the current phase contract → feed to your agent
 phasedev check                     # validate the phase's artifacts
 phasedev advance                   # transition to the next phase
+phasedev archive my-change         # once advance reports final validation passed: move to archive & drive it to completion
 ```
 
-Repeat `phase` / `check` / `advance` until archived. At approval gates, review the artifact and run `phasedev approve <file> --by <name>`.
+Repeat `phase` / `check` / `advance` until `advance` reports final validation passed, then repeat `phasedev archive <name>` until it reports the change is archived. At approval gates, review the artifact and run `phasedev approve <file> --by <name>`.
 
 > `phasedev next` is deprecated — use `phase` + `advance`.
 
@@ -184,7 +191,7 @@ Repeat `phase` / `check` / `advance` until archived. At approval gates, review t
 | Area | Commands |
 |---|---|
 | Setup | `init-project`, `init` (context handshake, no file changes), `create-change <name> [--task <text>] [--quick]` |
-| Flow loop | `phase`, `check [--phase <p>]`, `advance`, `feedback` |
+| Flow loop | `phase`, `check [--phase <p>]`, `advance`, `archive <change-name>`, `feedback` |
 | Approvals & artifacts | `approve <file> [--by <name>]`, `validate-artifact <file>`, `set-iteration-status <id> <status>` |
 | Findings | `add-finding <title> <severity> --required-fix <text>`, `resolve-finding <id> --resolution <text>`, `reopen-finding <id> --evidence <text>`, `set-verdict <verdict>` |
 | Validation checks | `check-validation --scope iteration --iteration-id <N>`, `check-validation --scope final`, `check-archive --archive-path <path>` |
@@ -212,8 +219,8 @@ phases:
     skills: { routers: [], main: [], additional: [] }   # optional — see below
   # ... other phases
 
-runArchiveStage: true        # advance performs the archive mutation at archive_ready
-autoApprove: false           # true: advance auto-approves valid gate artifacts
+runArchiveStage: true        # phasedev archive <change-name> performs the archive mutation once final validation passes
+autoApprove: false           # true: advance blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping
 maxRepairCycles: 3           # hard cap on finding_repair loops
 maxIterations: 10            # advisory only — for external runners
 blockingSeverity: must_fix   # must_fix | recommended | nit — minimal severity that blocks the flow
