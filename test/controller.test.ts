@@ -1530,7 +1530,49 @@ Complete API work.
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
   });
 
-  test("advanceFlow with autoApprove approves the gated artifact and advances", () => {
+  test("advanceFlow with autoApprove at change_intake_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
+`, false);
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n", "utf-8");
+    const prdBefore = fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8");
+    const rulesBefore = fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Setup Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "prd.md")}`);
+    expect(result.message).toContain(`file://${path.join(changeDir, "execution_contract.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
+    expect(fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8")).toBe(rulesBefore);
+  });
+
+  test("advanceFlow with autoApprove at technical_design_approval returns the auto-approval blocker and stamps nothing", () => {
     const changeDir = setupChange(`
 # Plan
 
@@ -1540,14 +1582,79 @@ Complete API work.
       designApproved: false
     });
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "technical_design", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const designBefore = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Design Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "architecture", "design.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8")).toBe(designBefore);
+  });
+
+  test("advanceFlow with autoApprove at iteration_planning_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      planApproved: false
+    });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "iteration_planning", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const planBefore = fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Plan Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "iteration_plan.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8")).toBe(planBefore);
+  });
+
+  test("advanceFlow with autoApprove: approved true but empty approved_by re-blocks with the auto-approval blocker", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    // designApproved/planApproved default to true via writeArtifact, but writeArtifact never
+    // sets approved_by, so every approval here is "approved: true" with no approved_by.
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Approval integrity — auto-approval requires content review");
+    expect(result.newState).toBeNull();
+  });
+
+  test("advanceFlow with autoApprove: approved true and non-empty approved_by advances normally", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    for (const artifactPath of [
+      path.join(changeDir, "prd.md"),
+      path.join(changeDir, "execution_contract.md"),
+      path.join(changeDir, "architecture", "design.md"),
+      path.join(changeDir, "iteration_plan.md")
+    ]) {
+      const body = fs.readFileSync(artifactPath, "utf-8");
+      fs.writeFileSync(artifactPath, body.replace("approved: true\n", "approved: true\napproved_by: auto-approve-subagent\n"), "utf-8");
+    }
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
-    expect(result.newState?.activePhase).toBe("implementation");
-    const design = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
-    expect(design).toContain("approved: true");
-    expect(design).toContain("PhaseDev autoApprove");
   });
 
   test("advanceFlow without autoApprove still refuses at the approval gate", () => {
