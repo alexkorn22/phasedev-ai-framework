@@ -208,14 +208,6 @@ describe("quickAdvance", () => {
     expect(finished.finished).toBe(true);
   });
 
-  it("refuses to advance from quick_spec_revision when runArchiveStage is false", () => {
-    const { projectPath, changeName } = scaffoldQuick("quick_spec_revision");
-    const config = { ...DEFAULT_CONFIG, runArchiveStage: false };
-
-    const result = runArchive(projectPath, config, changeName);
-    expect(result.ok).toBe(false);
-    expect(result.message).toMatch(/archive is disabled/i);
-  });
 });
 
 describe("dispatch guards route quick changes before standard-track machinery", () => {

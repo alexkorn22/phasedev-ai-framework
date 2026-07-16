@@ -1944,7 +1944,7 @@ Test fixture only.
     expect(result.message).toContain("3");
   });
 
-  test("repair cycle limit honors configured maxRepairCycles", () => {
+  test("repair cycle limit honors the hard-coded max repair cycles", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1954,15 +1954,14 @@ Test fixture only.
     const statePath = path.join(changeDir, "state.json");
     fs.writeFileSync(
       statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
       "utf-8"
     );
 
-    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, maxRepairCycles: 1 });
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached");
-    expect(result.message).toContain("maxRepairCycles");
+    expect(result.message).toContain("Repair cycle limit reached (3)");
   });
 
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {

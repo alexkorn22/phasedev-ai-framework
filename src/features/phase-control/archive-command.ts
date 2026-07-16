@@ -170,10 +170,6 @@ function runStandardArchive(
 }
 
 export function runArchive(projectPath: string, config: Config, changeName: string): ArchiveCommandResult {
-  if (!config.runArchiveStage) {
-    return refuse("Archive is disabled (runArchiveStage=false).");
-  }
-
   const state = loadFlowState(projectPath, changeName);
   if (!state) {
     const completedArchive = findCompletedArchiveState(projectPath, changeName);

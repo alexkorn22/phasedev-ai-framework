@@ -30,6 +30,9 @@ import { isApproved } from "../../shared/markdown/frontmatter";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 
+const MAX_ITERATIONS = 10;
+const MAX_REPAIR_CYCLES = 3;
+
 function refuse(message: string): AdvanceResult {
   return { ok: false, advanced: false, finished: false, newState: null, message };
 }
@@ -369,10 +372,10 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   }
 
   // Repair cycle guard: refuse after N consecutive repair attempts
-  if (route.kind === "finding_repair" && state.repairCycleCount >= config.maxRepairCycles) {
+  if (route.kind === "finding_repair" && state.repairCycleCount >= MAX_REPAIR_CYCLES) {
     return refuse(
-      `Repair cycle limit reached (${config.maxRepairCycles}). ` +
-      "Review the findings and resolve them manually, or increase maxRepairCycles in config.yaml, then run advance again."
+      `Repair cycle limit reached (${MAX_REPAIR_CYCLES}). ` +
+      "Review the findings and resolve them manually, then run advance again."
     );
   }
 
@@ -404,19 +407,19 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     );
   }
 
-  // maxIterations guard: the resolved route targets an iteration beyond
-  // the configured limit. Refuse rather than silently overflowing.
-  if (route.kind === "iteration" && route.activeIteration.id > config.maxIterations) {
+  // Max iterations guard: the resolved route targets an iteration beyond
+  // the hard-coded limit. Refuse rather than silently overflowing.
+  if (route.kind === "iteration" && route.activeIteration.id > MAX_ITERATIONS) {
     return refuse(
-      `Max iterations (${config.maxIterations}) reached. ` +
-      `Route targets iteration ${route.activeIteration.id}. ` +
-      `Increase maxIterations in config.yaml or mark the remaining iterations as not_started.`
+      `Max iterations (${MAX_ITERATIONS}) reached. ` +
+      `This flow allows at most ${MAX_ITERATIONS} iterations. ` +
+      `Reduce the plan to ${MAX_ITERATIONS} or fewer iterations, or mark the remaining iterations as not_started.`
     );
   }
 
   // Passing exit from iteration_validation: the exact condition applyStateSideEffects
   // uses to mark the iteration [x] below — route moved to final_validation, or to the
-  // next iteration. Placed here (after the maxIterations guard, before any state
+  // next iteration. Placed here (after the max iterations guard, before any state
   // mutation) so finding_repair entries (repair_required verdict) are never gated.
   const leavingIterationValidation =
     state.activePhase === "iteration_validation" && state.activeIteration !== null;

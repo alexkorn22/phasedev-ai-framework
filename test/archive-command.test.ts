@@ -311,18 +311,6 @@ describe("runArchive: archive_ready mutation", () => {
   });
 });
 
-describe("runArchive: runArchiveStage disabled", () => {
-  test("refuses without touching the change directory", () => {
-    const changeDir = setupArchiveReadyChange();
-
-    const result = runArchive(testTmpDir, { ...DEFAULT_CONFIG, runArchiveStage: false }, "sample-change");
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Archive is disabled (runArchiveStage=false).");
-    expect(fs.existsSync(changeDir)).toBe(true);
-  });
-});
-
 describe("runArchive: archive_readiness_blocked", () => {
   test("refuses when not every iteration is completed", () => {
     const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");

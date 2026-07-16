@@ -482,7 +482,7 @@ describe("flow-cli state machine", () => {
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
     expect(fs.readFileSync(configPath, "utf-8")).toContain("phases:");
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("runArchiveStage:");
+    expect(fs.readFileSync(configPath, "utf-8")).toContain("autoApprove:");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
   });
 
@@ -536,7 +536,7 @@ describe("flow-cli state machine", () => {
 
   test("init accepts project flow config but keeps output policy-free", () => {
     writeProjectConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -592,7 +592,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -643,7 +643,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     writeProjectConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -684,7 +684,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   change_intake:
     skills:
       routers:
@@ -728,7 +728,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   implementation: {}
 `);
 
@@ -753,7 +753,7 @@ stages:
 `);
     writeStateJson(changeDir, "iteration_validation", 1);
     const configPath = writeConfig(`
-stages:
+phases:
   iteration_validation: {}
 `);
 
@@ -2314,7 +2314,7 @@ describe("flow templates", () => {
 
   test("generated skill policy preserves configured stage boundaries", () => {
     const config = parseConfig(`
-stages:
+phases:
   change_intake:
     skills:
       routers:
@@ -2343,7 +2343,7 @@ stages:
     const validationPolicy = renderSkillPolicy("final_validation", config);
     const setupPolicy = renderSkillPolicy("change_intake", config);
     const researchPolicy = renderSkillPolicy("code_research", parseConfig(`
-stages:
+phases:
   code_research:
     skills:
       routers:
@@ -2515,22 +2515,23 @@ stages:
   });
 
   describe("config command deprecation", () => {
-    test("getConfigValue maps codex.stages.setup.skills.main to stages.change_intake.skills.main with deprecation hint", () => {
+    test("legacy stages: keys are ignored, not mapped, by getConfigValue", () => {
       const config = parseConfig(`
 stages:
   change_intake:
     skills:
       main: ["test-skill"]
 `);
+      expect(config.phases).toEqual({});
       const value = getConfigValue(config, "codex.stages.setup.skills.main");
-      expect(value).toEqual(["test-skill"]);
+      expect(value).toBeUndefined();
     });
 
-    test("getConfigValue returns root values for runArchiveStage", () => {
+    test("getConfigValue returns root values for autoApprove", () => {
       const config = parseConfig(`
-runArchiveStage: false
+autoApprove: true
 `);
-      expect(getConfigValue(config, "runArchiveStage")).toBe(false);
+      expect(getConfigValue(config, "autoApprove")).toBe(true);
     });
 
     test("getConfigValue returns undefined for nonexistent key", () => {
@@ -3766,33 +3767,29 @@ describe("code review finding tests", () => {
     expect(result.output).toContain("File not found");
   });
 
-  // ── maxIterations guard ─────────────────────────────────────
+  // ── max iterations guard (hard-coded limit of 10) ────────────
 
-  test("advance refuses when plan has more iterations than config.maxIterations", () => {
+  test("advance refuses when the plan has more than 10 iterations", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
+    const completedIterations = Array.from({ length: 10 }, (_, i) =>
+      `## Iteration ${i + 1}: Step ${i + 1} [x]\n- [x] ${i + 1}.1 Complete step ${i + 1}`
+    ).join("\n\n");
     const changeDir = setupChange(`
-## Iteration 1: First [x]
-- [x] 1.1 Complete first
+${completedIterations}
 
-## Iteration 2: Second [ ]
-- [ ] 2.1 Complete second
+## Iteration 11: Eleventh [ ]
+- [ ] 11.1 Complete eleventh
 `, {
       findings: validationFindings("ready", "iteration")
     });
-    // maxIterations with value 1 means iteration 2 (id=2) is beyond the limit
-    writeProjectConfig(`
-maxIterations: 1
-phases: {}
-`);
-    writeStateJson(changeDir, "iteration_validation", 1);
+    writeStateJson(changeDir, "iteration_validation", 10);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("Max iterations (1) reached");
-    expect(result.output).toContain("iteration 2");
+    expect(result.output).toContain("Max iterations (10) reached");
   });
 
-  test("advance succeeds when plan iterations do not exceed maxIterations", () => {
+  test("advance succeeds when the plan has 10 or fewer iterations", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
     const changeDir = setupChange(`
 ## Iteration 1: First [x]
@@ -3803,15 +3800,9 @@ phases: {}
 `, {
       findings: validationFindings("ready", "iteration")
     });
-    // maxIterations with value 10 means iteration 2 (id=2) is within the limit
-    writeProjectConfig(`
-maxIterations: 10
-phases: {}
-`);
     writeStateJson(changeDir, "iteration_validation", 1);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
-    // Advance works: iteration 2 is within the maxIterations limit
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("Advanced");
     expect(result.output).not.toContain("Max iterations");

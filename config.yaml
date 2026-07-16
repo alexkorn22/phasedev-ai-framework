@@ -47,9 +47,7 @@ phases:
       additional: []
 
 # Root-level flow flags
-runArchiveStage: true
 autoApprove: false
-maxIterations: 10
 
 # Minimal validation-finding severity that blocks the flow (must_fix | recommended | nit).
 # Default must_fix: only MUST-FIX findings block. recommended also blocks RECOMMENDED; nit blocks everything.
