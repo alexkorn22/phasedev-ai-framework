@@ -433,7 +433,7 @@ describe("flow-cli state machine", () => {
     for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }
-    for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
+    for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/"]) {
       expect(help.output).toContain(generatedPath);
     }
     expect(help.output).toContain("change_intake");
@@ -474,15 +474,17 @@ describe("flow-cli state machine", () => {
       ".phasedev",
       ".phasedev/changes",
       ".phasedev/changes/archive",
-      ".phasedev/specs",
-      ".phasedev/logs"
+      ".phasedev/specs"
     ]) {
       expect(fs.statSync(path.join(testTmpDir, workspacePath)).isDirectory()).toBe(true);
     }
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "logs"))).toBe(false);
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("phases:");
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("autoApprove:");
+    const configContent = fs.readFileSync(configPath, "utf-8");
+    expect(configContent).toContain("phases:");
+    expect(configContent).toContain("autoApprove:");
+    expect(configContent).not.toContain("runArchiveStage");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
   });
 
@@ -2540,18 +2542,18 @@ autoApprove: true
     });
   });
 
-  test("default config defines stage skill routers instead of a separate skill router template", () => {
+  test("default config documents optional per-phase skill policy instead of a separate skill router template", () => {
     const config = fs.readFileSync(path.resolve(__dirname, "..", "config.yaml"), "utf-8");
 
     expect(fs.existsSync(path.resolve(__dirname, "..", "templates", "skill_router.md"))).toBe(false);
-    expect(config).toContain("implementation:");
-    expect(config).toContain("skills:");
-    expect(config).toContain("iteration_validation:");
-    expect(config).toContain("final_validation:");
-    expect(config).toContain("archive:");
-    expect(config).toContain("routers: []");
-    expect(config).toContain("main: []");
-    expect(config).toContain("additional: []");
+    expect(config).toContain("autoApprove:");
+    expect(config).toContain("blockingSeverity:");
+    expect(config).toContain("requireIterationCommit:");
+    expect(config).toContain("# phases:");
+    expect(config).toContain("#   implementation:");
+    expect(config).toContain("#       routers: []");
+    expect(config).toContain("#       main: [tdd]");
+    expect(config).toContain("#       additional: []");
   });
 });
 
