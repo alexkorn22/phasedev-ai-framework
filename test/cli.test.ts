@@ -433,7 +433,7 @@ describe("flow-cli state machine", () => {
     for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }
-    for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/", ".phasedev/logs/"]) {
+    for (const generatedPath of [".phasedev/config.yaml", ".phasedev/changes/", ".phasedev/changes/archive/", ".phasedev/specs/"]) {
       expect(help.output).toContain(generatedPath);
     }
     expect(help.output).toContain("change_intake");
@@ -474,15 +474,17 @@ describe("flow-cli state machine", () => {
       ".phasedev",
       ".phasedev/changes",
       ".phasedev/changes/archive",
-      ".phasedev/specs",
-      ".phasedev/logs"
+      ".phasedev/specs"
     ]) {
       expect(fs.statSync(path.join(testTmpDir, workspacePath)).isDirectory()).toBe(true);
     }
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "logs"))).toBe(false);
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("phases:");
-    expect(fs.readFileSync(configPath, "utf-8")).toContain("runArchiveStage:");
+    const configContent = fs.readFileSync(configPath, "utf-8");
+    expect(configContent).toContain("# phases:");
+    expect(configContent).toContain("autoApprove:");
+    expect(configContent).not.toContain("runArchiveStage");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);
   });
 
@@ -536,7 +538,7 @@ describe("flow-cli state machine", () => {
 
   test("init accepts project flow config but keeps output policy-free", () => {
     writeProjectConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -592,7 +594,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -643,7 +645,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     writeProjectConfig(`
-stages:
+phases:
   implementation:
     skills:
       main:
@@ -684,7 +686,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   change_intake:
     skills:
       routers:
@@ -728,7 +730,7 @@ stages:
 - [ ] 1.1 Implement endpoint
 `);
     const configPath = writeConfig(`
-stages:
+phases:
   implementation: {}
 `);
 
@@ -753,7 +755,7 @@ stages:
 `);
     writeStateJson(changeDir, "iteration_validation", 1);
     const configPath = writeConfig(`
-stages:
+phases:
   iteration_validation: {}
 `);
 
@@ -2314,7 +2316,7 @@ describe("flow templates", () => {
 
   test("generated skill policy preserves configured stage boundaries", () => {
     const config = parseConfig(`
-stages:
+phases:
   change_intake:
     skills:
       routers:
@@ -2343,7 +2345,7 @@ stages:
     const validationPolicy = renderSkillPolicy("final_validation", config);
     const setupPolicy = renderSkillPolicy("change_intake", config);
     const researchPolicy = renderSkillPolicy("code_research", parseConfig(`
-stages:
+phases:
   code_research:
     skills:
       routers:
@@ -2515,22 +2517,23 @@ stages:
   });
 
   describe("config command deprecation", () => {
-    test("getConfigValue maps codex.stages.setup.skills.main to stages.change_intake.skills.main with deprecation hint", () => {
+    test("legacy stages: keys are ignored, not mapped, by getConfigValue", () => {
       const config = parseConfig(`
 stages:
   change_intake:
     skills:
       main: ["test-skill"]
 `);
+      expect(config.phases).toEqual({});
       const value = getConfigValue(config, "codex.stages.setup.skills.main");
-      expect(value).toEqual(["test-skill"]);
+      expect(value).toBeUndefined();
     });
 
-    test("getConfigValue returns root values for runArchiveStage", () => {
+    test("getConfigValue returns root values for autoApprove", () => {
       const config = parseConfig(`
-runArchiveStage: false
+autoApprove: true
 `);
-      expect(getConfigValue(config, "runArchiveStage")).toBe(false);
+      expect(getConfigValue(config, "autoApprove")).toBe(true);
     });
 
     test("getConfigValue returns undefined for nonexistent key", () => {
@@ -2539,18 +2542,18 @@ runArchiveStage: false
     });
   });
 
-  test("default config defines stage skill routers instead of a separate skill router template", () => {
+  test("default config documents optional per-phase skill policy instead of a separate skill router template", () => {
     const config = fs.readFileSync(path.resolve(__dirname, "..", "config.yaml"), "utf-8");
 
     expect(fs.existsSync(path.resolve(__dirname, "..", "templates", "skill_router.md"))).toBe(false);
-    expect(config).toContain("implementation:");
-    expect(config).toContain("skills:");
-    expect(config).toContain("iteration_validation:");
-    expect(config).toContain("final_validation:");
-    expect(config).toContain("archive:");
-    expect(config).toContain("routers: []");
-    expect(config).toContain("main: []");
-    expect(config).toContain("additional: []");
+    expect(config).toContain("autoApprove:");
+    expect(config).toContain("blockingSeverity:");
+    expect(config).toContain("requireIterationCommit:");
+    expect(config).toContain("# phases:");
+    expect(config).toContain("#   implementation:");
+    expect(config).toContain("#       routers: []");
+    expect(config).toContain("#       main: [tdd]");
+    expect(config).toContain("#       additional: []");
   });
 });
 
@@ -3130,35 +3133,17 @@ phases: {}
     expect(withArchived.output).toContain("archived-change");
   });
 
-  // --- config set ---
+  // --- config set removed ---
 
-  test("config set writes a simple key", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\nmaxIterations: 10\n", "utf-8");
+  test("`config set` is not a command (no mutation)", () => {
+    const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "autoApprove: false\n", "utf-8");
+    const before = fs.readFileSync(configPath, "utf-8");
 
-    const result = runCli(["config", "set", "maxIterations", "5", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("[PHASEDEV CONFIG SET] OK");
+    runCli(["config", "set", "autoApprove", "true", "--config", configPath]);
 
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain("maxIterations: 5");
-  });
-
-  test("config set handles boolean values", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "runArchiveStage", "false", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain("runArchiveStage: false");
-  });
-
-  test("config set rejects missing args", () => {
-    const result = runCli(["config", "set"]);
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("<key> and <value> are required");
+    expect(fs.readFileSync(configPath, "utf-8")).toBe(before);
   });
 
   // --- log ---
@@ -3608,40 +3593,6 @@ describe("CLI robustness fixes", () => {
     expect(result.output).toContain("requires a value");
   });
 
-  test("config set --string forces string storage and echoes the stored type", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "someFlag", "true", "--config", configPath, "--string"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("(string)");
-
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain('someFlag: "true"');
-  });
-
-  test("config set echoes the coerced type when --string is not passed", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("(number)");
-  });
-
-  test("config set --json reports the stored value and type", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath, "--json"]);
-    expect(result.exitCode).toBe(0);
-
-    const envelope = JSON.parse(result.output);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.kind).toBe("config-set");
-    expect(envelope.data.storedValue).toBe(7);
-    expect(envelope.data.storedType).toBe("number");
-  });
 });
 
 describe("code review finding tests", () => {
@@ -3766,33 +3717,29 @@ describe("code review finding tests", () => {
     expect(result.output).toContain("File not found");
   });
 
-  // ── maxIterations guard ─────────────────────────────────────
+  // ── max iterations guard (hard-coded limit of 10) ────────────
 
-  test("advance refuses when plan has more iterations than config.maxIterations", () => {
+  test("advance refuses when the plan has more than 10 iterations", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
+    const completedIterations = Array.from({ length: 10 }, (_, i) =>
+      `## Iteration ${i + 1}: Step ${i + 1} [x]\n- [x] ${i + 1}.1 Complete step ${i + 1}`
+    ).join("\n\n");
     const changeDir = setupChange(`
-## Iteration 1: First [x]
-- [x] 1.1 Complete first
+${completedIterations}
 
-## Iteration 2: Second [ ]
-- [ ] 2.1 Complete second
+## Iteration 11: Eleventh [ ]
+- [ ] 11.1 Complete eleventh
 `, {
       findings: validationFindings("ready", "iteration")
     });
-    // maxIterations with value 1 means iteration 2 (id=2) is beyond the limit
-    writeProjectConfig(`
-maxIterations: 1
-phases: {}
-`);
-    writeStateJson(changeDir, "iteration_validation", 1);
+    writeStateJson(changeDir, "iteration_validation", 10);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("Max iterations (1) reached");
-    expect(result.output).toContain("iteration 2");
+    expect(result.output).toContain("Max iterations (10) reached");
   });
 
-  test("advance succeeds when plan iterations do not exceed maxIterations", () => {
+  test("advance succeeds when the plan has 10 or fewer iterations", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
     const changeDir = setupChange(`
 ## Iteration 1: First [x]
@@ -3803,15 +3750,9 @@ phases: {}
 `, {
       findings: validationFindings("ready", "iteration")
     });
-    // maxIterations with value 10 means iteration 2 (id=2) is within the limit
-    writeProjectConfig(`
-maxIterations: 10
-phases: {}
-`);
     writeStateJson(changeDir, "iteration_validation", 1);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
-    // Advance works: iteration 2 is within the maxIterations limit
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("Advanced");
     expect(result.output).not.toContain("Max iterations");

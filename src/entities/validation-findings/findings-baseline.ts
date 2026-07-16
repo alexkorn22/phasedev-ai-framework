@@ -1,6 +1,5 @@
-import * as fs from "fs";
-import { parseValidationFindingsArtifact, canonicalFindingKey } from "./parse-validation-findings";
-import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
+import { canonicalFindingKey, parseValidationFindingsArtifact } from "./parse-validation-findings";
+import type { FindingsBaseline } from "../change/flow-state";
 
 export interface FindingsBaselineRow {
   id: string;
@@ -12,37 +11,9 @@ export interface FindingsBaselineRow {
   requiredFix: string;
 }
 
-export interface FindingsBaseline {
-  rows: FindingsBaselineRow[];
-}
-
 const norm = (value: string): string => value.replace(/\s+/g, " ").trim();
 
-export function writeFindingsBaseline(findingsPath: string, baselinePath: string): void {
-  const rows: FindingsBaselineRow[] = fs.existsSync(findingsPath)
-    ? parseValidationFindingsArtifact(findingsPath).rows.map(row => ({
-        id: row.id,
-        status: row.status,
-        severity: row.severity,
-        className: row.className,
-        iteration: row.phase,
-        finding: row.finding,
-        requiredFix: row.requiredFix
-      }))
-    : [];
-  writeFileAtomic(baselinePath, JSON.stringify({ rows }, null, 2));
-}
-
-export function checkFindingsAgainstBaseline(findingsPath: string, baselinePath: string): string[] {
-  if (!fs.existsSync(baselinePath)) return [];
-  let baseline: FindingsBaseline;
-  try {
-    baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8")) as FindingsBaseline;
-  } catch {
-    return [
-      `Findings baseline is unreadable: ${baselinePath}. Delete it or restore valid JSON, then rerun.`
-    ];
-  }
+export function checkFindingsAgainstBaseline(findingsPath: string, baseline: FindingsBaseline): string[] {
   const current = new Map(
     parseValidationFindingsArtifact(findingsPath).rows.map(row => [row.id, row])
   );
@@ -51,7 +22,7 @@ export function checkFindingsAgainstBaseline(findingsPath: string, baselinePath:
     const row = current.get(base.id);
     if (!row) {
       issues.push(
-        `Finding ${base.id} was deleted from validation_findings.md. Findings are append-only: restore the row. If the registry was edited intentionally by the user outside the flow, delete .findings-baseline.json in the active change folder and rerun.`
+        `Finding ${base.id} was deleted from validation_findings.md. Findings are append-only: restore the row. If the registry was edited intentionally by the user outside the flow, delete the change's findingsBaseline (run phasedev sync-state) and rerun.`
       );
       continue;
     }

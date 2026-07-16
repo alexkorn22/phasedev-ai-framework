@@ -5,6 +5,7 @@ import { runArchive } from "../src/features/phase-control/archive-command";
 import { createArchiveState } from "../src/entities/change/archive-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { UnknownChangeError } from "../src/entities/change/change-errors";
+import { readFindingsBaseline } from "../src/entities/change/flow-state";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -301,25 +302,15 @@ describe("runArchive: archive_ready mutation", () => {
 
   test("removes the findings baseline as part of the archive_ready transition", () => {
     const changeDir = setupArchiveReadyChange();
-    const baselinePath = path.join(changeDir, ".findings-baseline.json");
-    fs.writeFileSync(baselinePath, "{}", "utf-8");
+    const statePath = path.join(changeDir, "state.json");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    state.findingsBaseline = { rows: [] };
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n", "utf-8");
 
     runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
     const archiveDir = archiveDirFor("sample-change");
-    expect(fs.existsSync(path.join(archiveDir, ".findings-baseline.json"))).toBe(false);
-  });
-});
-
-describe("runArchive: runArchiveStage disabled", () => {
-  test("refuses without touching the change directory", () => {
-    const changeDir = setupArchiveReadyChange();
-
-    const result = runArchive(testTmpDir, { ...DEFAULT_CONFIG, runArchiveStage: false }, "sample-change");
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Archive is disabled (runArchiveStage=false).");
-    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(readFindingsBaseline(path.join(archiveDir, "state.json"))).toBeNull();
   });
 });
 

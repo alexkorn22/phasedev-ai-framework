@@ -1205,12 +1205,11 @@ None.
   });
 
   test("alpha and beta interleave through the full lifecycle to two completed archives", () => {
-    // 1. Create both changes and confirm archive is enabled by default.
+    // 1. Create both changes.
     expect(createChange(root, "alpha").ok).toBe(true);
     expect(createChange(root, "beta").ok).toBe(true);
 
     const config = loadConfig();
-    expect(config.runArchiveStage).toBe(true);
 
     const alphaSteps = buildLifecycleSteps(root, config, "alpha", {
       why: "Verify alpha advances through the full lifecycle while beta runs alongside it",

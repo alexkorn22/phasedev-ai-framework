@@ -48,15 +48,28 @@ export function readFrontmatterValue(filePath: string, key: string): string | nu
   return value !== undefined && value !== null ? String(value) : null;
 }
 
-export function isApproved(filePath: string): boolean {
-  if (!fs.existsSync(filePath)) {
-    return false;
+export interface ApprovalEnvelope {
+  approved: boolean;
+  approvedBy: string | null;
+  date: string | null;
+}
+
+export function readApprovalEnvelope(filePath: string): ApprovalEnvelope {
+  const fm = readFrontmatter(filePath);
+  if (!fm) {
+    return { approved: false, approvedBy: null, date: null };
   }
 
-  const content = normalizeLineEndings(fs.readFileSync(filePath, "utf-8"));
-  const fm = parseFrontmatterFromContent(content);
-  if (!fm) {
-    return false;
-  }
-  return fm.approved === true || String(fm.approved).toLowerCase() === "true";
+  const approved = fm.approved === true || String(fm.approved).toLowerCase() === "true";
+  const approvedByRaw = fm.approved_by;
+  const approvedBy = approvedByRaw !== undefined && approvedByRaw !== null && String(approvedByRaw).trim() !== ""
+    ? String(approvedByRaw).trim()
+    : null;
+  const date = fm.date !== undefined && fm.date !== null ? String(fm.date) : null;
+
+  return { approved, approvedBy, date };
+}
+
+export function isApproved(filePath: string): boolean {
+  return readApprovalEnvelope(filePath).approved;
 }

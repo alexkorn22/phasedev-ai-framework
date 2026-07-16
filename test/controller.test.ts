@@ -9,7 +9,7 @@ import { runArchive } from "../src/features/phase-control/archive-command";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
-import { loadFlowState } from "../src/entities/change/flow-state";
+import { loadFlowState, readFindingsBaseline, writeFindingsBaseline } from "../src/entities/change/flow-state";
 import { validatePhase, validatePhaseExit } from "../src/features/phase-control/phase-validators";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
@@ -1944,7 +1944,7 @@ Test fixture only.
     expect(result.message).toContain("3");
   });
 
-  test("repair cycle limit honors configured maxRepairCycles", () => {
+  test("repair cycle limit honors the hard-coded max repair cycles", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1954,15 +1954,14 @@ Test fixture only.
     const statePath = path.join(changeDir, "state.json");
     fs.writeFileSync(
       statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
       "utf-8"
     );
 
-    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, maxRepairCycles: 1 });
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached");
-    expect(result.message).toContain("maxRepairCycles");
+    expect(result.message).toContain("Repair cycle limit reached (3)");
   });
 
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {
@@ -2032,6 +2031,13 @@ Test fixture only.
     expect(result).toBe(archiveDir);
   });
 
+  function seedFindingsBaselineRows(changeDir: string, rows: unknown[]): void {
+    const statePath = path.join(changeDir, "state.json");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    state.findingsBaseline = { rows };
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n", "utf-8");
+  }
+
   describe("findings baseline snapshot lifecycle", () => {
     test("advance into iteration_validation writes findings baseline with empty rows when no findings file exists yet", () => {
       const changeDir = setupChange(`
@@ -2049,10 +2055,8 @@ Test fixture only.
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_validation");
 
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      expect(fs.existsSync(baselinePath)).toBe(true);
-      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
-      expect(baseline.rows).toEqual([]);
+      const baseline = readFindingsBaseline(path.join(changeDir, "state.json"));
+      expect(baseline?.rows).toEqual([]);
     });
 
     test("advance into finding_repair writes the findings baseline with the current findings table", () => {
@@ -2069,7 +2073,6 @@ Test fixture only.
         "utf-8"
       );
 
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
       // Do not pre-write a baseline; let advanceFlow create it
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
@@ -2077,9 +2080,9 @@ Test fixture only.
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("finding_repair");
 
-      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
-      expect(baseline.rows).toHaveLength(1);
-      expect(baseline.rows[0].id).toBe("F1");
+      const baseline = readFindingsBaseline(path.join(changeDir, "state.json"));
+      expect(baseline?.rows).toHaveLength(1);
+      expect(baseline?.rows[0].id).toBe("F1");
     });
 
     test("advance from archive_ready to archive removes the findings baseline before the archive move", () => {
@@ -2096,7 +2099,7 @@ Test fixture only.
         JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
@@ -2106,7 +2109,7 @@ Test fixture only.
       const today = new Date().toISOString().split("T")[0];
       const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
       expect(fs.existsSync(archiveDir)).toBe(true);
-      expect(fs.existsSync(path.join(archiveDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(archiveDir, "state.json"))).toBeNull();
     });
 
     test("reopenPhase(plan) removes an existing findings baseline", () => {
@@ -2121,13 +2124,12 @@ Test fixture only.
         JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      fs.writeFileSync(baselinePath, JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = reopenPhase(testTmpDir, "plan");
 
       expect(result.ok).toBe(true);
-      expect(fs.existsSync(baselinePath)).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("checkValidationCompletion returns ok:false when a row is deleted after baseline is written", () => {
@@ -2139,28 +2141,21 @@ Test fixture only.
       });
 
       const paths = buildChangePaths(changeDir);
+      const statePath = path.join(changeDir, "state.json");
 
-      // First, write the baseline
       fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
+        statePath,
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
+
+      // Seed the baseline that reflects the pre-deletion findings table.
+      writeFindingsBaseline(statePath, paths.findingsPath);
 
       // Now delete the row from findings
       fs.writeFileSync(
         paths.findingsPath,
         validationFindings("ready", "iteration", ""),
-        "utf-8"
-      );
-
-      fs.writeFileSync(
-        path.join(changeDir, "state.json"),
-        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
 
@@ -2181,23 +2176,16 @@ Test fixture only.
       });
 
       const paths = buildChangePaths(changeDir);
-
-      // Write the baseline
-      fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
-        "utf-8"
-      );
+      const statePath = path.join(changeDir, "state.json");
 
       fs.writeFileSync(
-        path.join(changeDir, "state.json"),
+        statePath,
         JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
+
+      // Seed the baseline that reflects the pre-deletion findings table.
+      writeFindingsBaseline(statePath, paths.findingsPath);
 
       // Delete the row
       fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", ""), "utf-8");
@@ -2218,23 +2206,15 @@ Test fixture only.
         findings: validationFindings("repaired", "iteration", "")
       });
 
-      const paths = buildChangePaths(changeDir);
-
-      fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
-        "utf-8"
-      );
-
       fs.writeFileSync(
         path.join(changeDir, "state.json"),
         JSON.stringify({ activePhase: "finding_repair", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
         "utf-8"
       );
+
+      seedFindingsBaselineRows(changeDir, [
+        { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
+      ]);
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
@@ -2436,7 +2416,7 @@ Test fixture only.
 `);
       fs.rmSync(path.join(changeDir, "architecture", "design.md"));
       writeState(changeDir, "implementation", 1);
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), "{}", "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = syncState(testTmpDir);
 
@@ -2450,7 +2430,7 @@ Test fixture only.
       expect(state!.activePhase).toBe("technical_design");
       expect(state!.activeIteration).toBeNull();
       expect(state!.repairCycleCount).toBe(0);
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("syncState is a no-op when state and route agree", () => {
@@ -2552,8 +2532,7 @@ Test fixture only.
 `, {
         findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
-      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1, findingsBaseline: { rows: [] } });
 
       const result = syncState(testTmpDir);
 
@@ -2601,10 +2580,11 @@ Test fixture only.
 `, {
         findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
-      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(
-        path.join(changeDir, ".findings-baseline.json"),
-        JSON.stringify({
+      writeRawState(changeDir, {
+        activePhase: "iteration_validation",
+        activeIteration: 5,
+        repairCycleCount: 1,
+        findingsBaseline: {
           rows: [{
             id: "F1",
             status: "open",
@@ -2614,9 +2594,8 @@ Test fixture only.
             finding: "API response omits required error handling.",
             requiredFix: "Add error mapping."
           }]
-        }, null, 2),
-        "utf-8"
-      );
+        }
+      });
 
       const result = syncState(testTmpDir);
 
@@ -2631,7 +2610,7 @@ Test fixture only.
       expect(state!.activePhase).toBe("finding_repair");
       expect(state!.activeIteration).toBe(5);
       expect(state!.repairCycleCount).toBe(1);
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("syncState will not fabricate an archive transition when the locked phase's exit gate genuinely fails", () => {
@@ -2649,10 +2628,11 @@ Test fixture only.
 `, {
         findings: validationFindings("ready", "final")
       });
-      writeRawState(changeDir, { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 });
-      fs.writeFileSync(
-        path.join(changeDir, ".findings-baseline.json"),
-        JSON.stringify({
+      writeRawState(changeDir, {
+        activePhase: "final_validation",
+        activeIteration: null,
+        repairCycleCount: 0,
+        findingsBaseline: {
           rows: [{
             id: "F1",
             status: "open",
@@ -2662,9 +2642,8 @@ Test fixture only.
             finding: "A finding that used to exist.",
             requiredFix: "Fix it."
           }]
-        }, null, 2),
-        "utf-8"
-      );
+        }
+      });
 
       const result = syncState(testTmpDir);
 
@@ -2677,7 +2656,7 @@ Test fixture only.
 
       const state = loadFlowState(testTmpDir);
       expect(state!.activePhase).toBe("final_validation");
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(true);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).not.toBeNull();
     });
 
     test("syncState reports forward drift instead of a misleading no-op", () => {

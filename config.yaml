@@ -1,60 +1,12 @@
-# Phase config — skills per phase
-phases:
-  change_intake:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  code_research:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  technical_design:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  iteration_planning:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  implementation:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  iteration_validation:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  final_validation:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  finding_repair:
-    skills:
-      routers: []
-      main: []
-      additional: []
-  archive:
-    skills:
-      routers: []
-      main: []
-      additional: []
-
-# Root-level flow flags
-runArchiveStage: true
+# PhaseDev config
 autoApprove: false
-maxIterations: 10
-
-# Minimal validation-finding severity that blocks the flow (must_fix | recommended | nit).
-# Default must_fix: only MUST-FIX findings block. recommended also blocks RECOMMENDED; nit blocks everything.
-blockingSeverity: must_fix
-
-# Require a clean git tree (changes outside .phasedev/** committed) when leaving
-# iteration/final validation. Silently skipped when the project is not a git repo.
+blockingSeverity: must_fix   # must_fix | recommended | nit
 requireIterationCommit: true
+
+# Per-phase skill policy (optional):
+# phases:
+#   implementation:
+#     skills:
+#       routers: []
+#       main: [tdd]
+#       additional: []
