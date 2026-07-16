@@ -1,86 +1,149 @@
 ---
 name: express-orchestrator
-description: Use when a small, well-understood code change (bugfix, tweak, narrow feature) needs the fast stateless track — when the full PhaseDev artifact flow would cost more than the task itself and no on-disk planning trail is wanted.
+description: Fast stateless track that runs a small code change end-to-end through dedicated sub-agents (research → plan → implement → review) leaving zero execution artifacts — no planning files, no logs, no state files, no notes; the only output is the code change itself. Use whenever the user types "$express-orchestrator", and also whenever they ask for a quick/small bugfix, tweak, minor refactor, config change, or narrow feature and want it done fast without any paper trail.
 ---
 
 # Express Orchestrator — Stateless Sub-Agent Flow
 
-## Overview
+Run a small change end-to-end through dedicated sub-agents while keeping every working artifact in the orchestrator's own context. Create no files of any kind beyond the repo code, tests, and docs the change itself requires — no state files, no worklogs, no plans on disk, no notes, no logs. The only output of the flow is the changed code.
 
-The **Express Orchestrator** runs a small change end-to-end through dedicated sub-agents — research, planning, implementation, review — while keeping **every artifact in the orchestrator's own context** instead of on disk. It creates nothing under `.phasedev/`: no change directory, no `state.json`, no worklog, no delta specs. The only lasting trace of the work is the git commit.
+Invocation: `/express-orchestrator <task description>`.
 
-It is the stateless sibling of `$phasedev-orchestrator`: the same team-of-sub-agents discipline, minus the persistence. The task statement, the short spec, the implementation plan, and the review verdicts all live in this conversation, and the orchestrator carries them into each dispatch prompt.
+No resume: if the session is lost mid-flight, inspect the current state of the touched files and restart from there.
 
-## How to Invoke
+## Scope Guard — Check First, Re-check Mid-flight
 
-```
-$express-orchestrator <task description>
-```
+Express fits only when ALL of these hold:
 
-There is no resume: if the session is lost before the final commit, the work restarts (the repo may still hold committed progress — check `git log` first).
+- Expected change: **≤ 5 files** and **≤ ~200 lines**.
+- Behavior described in the project's specs (if it keeps any) does not change materially.
+- The root cause is already known or findable in **one research pass**.
+- The user does not want a persistent planning record.
 
-## When to Use — and When Not
+If any condition breaks — at assessment or at any later point — STOP, tell the user the task exceeds Express scope, and ask how to proceed: split it into smaller Express-sized pieces, continue anyway at their explicit request, or handle it outside this skill. Never silently continue an oversized task. If work is already in progress, follow the Abort Protocol.
 
-Express fits when ALL of these hold: the change is small and well-understood; it does not need a multi-iteration plan or an audit trail; and its behavior is not the subject of a change that deserves specs/design history.
+## Path Selection: Standard vs Micro
 
-**Scope guard.** If at assessment — or at any later point — the task turns out bigger (more than a handful of files, behavior described in `specs/` changes materially, the bug's cause needs real investigation, or the user wants a persistent record), STOP and propose switching to `$phasedev-orchestrator` (Quick or Standard). The user decides; never silently continue an oversized task in Express.
+Classify at step 1 and state the choice at plan confirmation:
 
-## Context Is the Artifact Store
+- **Standard** — the default flow below.
+- **Micro** — expected change ≤ ~10 lines in 1 file AND the cause is obvious from the task itself. Merge research + planning into ONE scout-planner dispatch (a single agent maps the exact spot, captures the fingerprint, and produces the plan). Everything else stays identical: confirmation stop, separate implementer, fresh reviewer, triage, fix loop. Minimum cost: 3 dispatches.
 
-The core inversion versus `$phasedev-orchestrator`: there is no filesystem state, so **the orchestrator's context replaces the artifact files**, and dispatch prompts replace artifact reads.
+## Context Is the Only Store
 
-- What Quick keeps in `worklog.md` — task, short spec, plan — Express keeps verbatim in the conversation.
-- Every dispatch prompt must carry the exact context slice its sub-agent needs (sub-agents share nothing and cannot ask the user); every report returns as raw data into the orchestrator's context.
-- The orchestrator never writes planning or tracking files to make this easier. No scratch plan files, no notes files, no `.phasedev/` — if it feels like an artifact, it belongs in the conversation.
+- The task, fingerprints, plan, implementation report, and review verdicts live in this conversation; carry the needed slices into every dispatch.
+- Sub-agents share nothing and cannot ask the user — each dispatch must contain the exact context its agent needs.
+- Language: talk to the user in the user's language (plan at confirmation, questions, final/abort reports); run all dispatches and sub-agent reports in English.
+- Never write planning, tracking, note, log, or scratch files — neither the orchestrator nor any sub-agent. If it feels like an artifact, it belongs in the conversation.
+- Report caps: research ≤ ~40 lines, plans ≤ ~30, reviews ≤ ~30, proof excerpts ≤ ~15 lines (decisive output only: pass/fail summary, relevant errors).
+
+## Before-Fingerprints — the Substitute for Change History
+
+There is no change tracking, so review needs a captured "before" state. During research (or scout-planning), record a **fingerprint** for every region expected to change: `path:lines — one-line description of current behavior`. Fingerprints live in the research report and travel into the planner, implementer, and reviewer dispatches. Reviewers verify changes against them; without fingerprints a reviewer cannot tell what changed.
 
 ## The Flow
 
-1. **Understand.** Read the task; ask the user clarifying questions whenever any arise — before delegating, since sub-agents cannot reach the user. Run the scope guard.
-2. **Research (as needed).** Spawn read-only research sub-agent(s) to map the relevant code: files involved, current behavior, constraints. Keep their reports; they feed the planner.
-3. **Plan.** Spawn a dedicated planning sub-agent — the orchestrator does NOT write the plan itself. Its dispatch carries the task and the research findings; its report is a short implementation plan (task restated, short spec of expected behavior, concrete steps, files, how it will be verified).
-4. **STOP — plan confirmation.** Show the plan to the user and get confirmation. This is the single mandatory stop in Express.
-5. **Implement.** Spawn an implementation sub-agent with the confirmed plan. It implements, **proves the work with a real run and/or tests** (commands + output in its report), and commits. Restate in its dispatch any coding-discipline instructions the project's own agent contract (CLAUDE.md / AGENTS.md) mandates for coding work.
-6. **Verify.** Spawn reviewers in fresh contexts — never the implementer reviewing itself: a code reviewer over the diff against the confirmed plan, and a security reviewer when the diff touches anything security-relevant (input parsing, paths, shell, permissions, secrets, network). Reviewers may run in parallel. One reviewer checklist item: if the diff makes anything in `specs/` wrong, fix it in place when trivial (as part of the change) or report it to the user — never escalate over documentation alone, and never create delta specs in Express.
-7. **Fix loop.** Real findings go back to an implementation sub-agent (with the findings and the plan in its dispatch), then re-review what changed. Repeat until the reviewers are clean. Verification = review + real run; one without the other does not count.
-8. **Report.** Tell the user: done, commit `<sha>`, what was verified and how, and whether specs were untouched / fixed in place / need their attention.
+1. **Understand.** Read the task. Run the scope guard, pick the path (Standard/Micro). Ask the user all clarifying questions now — sub-agents cannot reach the user.
+2. **Research (Standard).** Spawn read-only research sub-agent(s) — in parallel when they cover independent areas — to map the files involved, current behavior, constraints, and capture the fingerprints. (Micro: merged into step 3.)
+3. **Plan.** Spawn a planning sub-agent — the orchestrator never writes the plan itself. Dispatch carries the task + research findings. Report = plan per template: task restated, expected behavior, concrete steps, exact `path:lines` to touch (from fingerprints), proof rung + exact commands.
+4. **STOP — plan confirmation.** Show the plan verbatim (user's language) plus: scope-guard verdict, chosen path, and the explicit warning — *"changes will be applied directly to working files; this flow has no rollback mechanism"*. Get explicit confirmation. This is the single mandatory stop.
+5. **Implement.** Spawn an implementation sub-agent with the confirmed plan + relevant fingerprints. It implements, proves the work per the Proof Ladder, and reports per template — listing every changed file as `path:lines — was → now`. For bugfixes: if the repo has a test suite covering the touched area, add a regression test. Restate in the dispatch the coding rules the project's CLAUDE.md / AGENTS.md mandates.
+6. **Review.** Spawn reviewers in fresh contexts — never the implementer reviewing itself. The code reviewer gets the plan + fingerprints + implementer report and reads the actual files to verify three things: (a) reported files/regions match the plan — anything extra or missing is a finding; (b) the changes at the reported ranges implement the plan correctly; (c) the rest of each touched file shows no unreported edits inconsistent with the fingerprints. A security reviewer runs whenever the change touches: input parsing, paths, shell, permissions, secrets, network, auth/sessions, SQL/queries, HTML/template output (XSS), (de)serialization, file uploads, or crypto. Reviewers may run in parallel. Reviewer checklist item: if the change makes any project spec/doc wrong, fix it in place when trivial, otherwise report it — never create new spec files, never escalate over documentation alone.
+7. **Triage.** Severity tags make it mechanical: `correctness`, `security`, and `plan-deviation` findings loop back; `nit` findings are applied trivially during the next fix pass or dropped — they never justify a loop on their own.
+8. **Fix loop — max 7 cycles.** Dispatch only the OPEN findings (by ID) + the plan to an implementation sub-agent, then re-review **only** the files changed by the fix plus explicit verification of each open finding — never a full re-review. From cycle 2 on, reviewers report deltas: new findings, still-open findings, and resolved ones as a single line each. Escalation inside the loop: a finding surviving 2 cycles → next fix dispatch one tier up; the SAME finding surviving 3 cycles = the approach is wrong — stop and either re-plan (new confirmation) or ask the user. Fixes that materially change the approach → stop and re-confirm. Not clean after 7 cycles → Abort Protocol.
+9. **Report (user's language).** Done; the list of changed files with a brief per-file summary; what was verified and how (proof rung + result); specs status (untouched / fixed in place / needs attention).
 
-## Sub-Agent Selection
+## Abort Protocol
 
-On every dispatch, review the agent types available to the `Agent` tool in the current session. **A custom agent type whose description matches the stage takes priority** (e.g. a project's implementer/reviewer/security agents); fall back to the generic/general-purpose type only when no custom type fits. This is a fresh per-stage judgment — never a static stage→type table.
+On ANY abnormal stop — mid-flight scope trip, a finding stuck 3 cycles, the 7-cycle cap, or a sub-agent failure after escalation — report to the user (their language): every file touched so far with the changed ranges and its current state (consistent / possibly broken), which findings remain open, what was and wasn't verified, and sensible options (revert via editor local history or backups, finish manually, re-plan). Never end silently with the working files in an unknown state.
 
-## Model Selection — Grade Every Dispatch
+## Proof Ladder
 
-Before every dispatch, grade the complexity of THIS stage's actual work (not the whole task's) and pick the cheapest model tier that genuinely handles it:
+Verification = review + the strongest applicable proof. Pick the highest rung that applies:
 
-| Stage work looks like | Tier |
-|---|---|
-| Mechanical, narrow, fully specified: rename, doc sync, config value, transcribing a complete spec into code, single-file fix | cheapest |
-| Routine judgment in one module: typical code research, implementation from a clear confirmed plan, review of a small low-risk diff | mid |
-| Real reasoning: planning a tricky change, root-cause debugging, security review, review of a large or risky diff | strongest |
+1. Tests exist for the touched area → run the **narrow set covering that area** (name the test files/filters and why that scope suffices; the full suite only if the project is tiny or the project contract demands it), plus the new regression test.
+2. The change is runnable → run it for real; show command + output.
+3. Not directly runnable (types, config wiring) → typecheck / lint / build; show output.
+4. Pure docs/comments → review alone suffices.
 
-Rules that make the grading stick:
+Claiming a rung without showing its command output does not count as proof.
 
-- **Generic agent types:** always pass an explicit `model` equal to the graded tier — an omitted model silently inherits the orchestrator's (usually the most expensive), which defeats the grading.
-- **Custom agent types that pin their own model:** never pass or override `model`. A custom type WITHOUT a pinned model is treated like a generic one — pass the graded tier explicitly.
-- **Never pay top tier out of convenience, never under-power reasoning:** a too-cheap model on multi-step work takes 2–3× the turns and costs more overall — for reviewers and for implementers working from prose (not complete code), the mid tier is the floor.
-- **Escalate on evidence:** if a report shows the stage was harder than graded, re-dispatch the remainder one tier up; never retry the same dispatch unchanged.
+## Report Templates
 
-## Dispatch Prompt Recipe
+Sub-agents fill these exactly — no free-form prose around them.
 
-Every dispatch prompt consists of, in order:
+**Research / scout:**
+```
+STATUS: ok | blocked
+FINGERPRINTS: path:lines — current behavior (one line per region)
+CONSTRAINTS: <relevant conventions, dependencies, gotchas>
+BLOCKERS: <or "none">
+```
+
+**Plan:**
+```
+TASK: <restated>
+BEHAVIOR: <expected after the change>
+STEPS: <numbered>
+FILES: path:lines <per region, from fingerprints>
+PROOF: <ladder rung + exact commands>
+RISKS: <or "none">
+```
+
+**Implementer:**
+```
+STATUS: done | blocked
+FILES: path:lines — was → now (one line per file)
+PROOF: <commands + trimmed decisive output>
+BLOCKERS: <or "none">
+```
+
+**Reviewer:**
+```
+VERDICT: clean | findings
+FINDINGS: F<n> [correctness|security|plan-deviation|nit] path:lines — what & why
+RESOLVED: F<n>, ... (cycle 2+ only)
+SPECS: untouched | fixed in place | needs attention
+```
+
+Finding IDs are global across the whole flow (F1, F2, …) — never renumbered between cycles.
+
+## Sub-Agent Dispatch
+
+**Tool.** Spawn sub-agents with the `Task` tool (`subagent_type` parameter). On every dispatch, check which agent types the current session offers: a custom type whose description matches the stage takes priority (e.g. a project's implementer/reviewer/security agents); fall back to the general-purpose type only when nothing custom fits. Make this judgment fresh per dispatch — never keep a static stage→type table.
+
+**Model — grade every dispatch.** Grade THIS stage's actual work (not the whole task's) and pick the cheapest tier that genuinely handles it:
+
+| Stage work looks like | Tier | Model |
+|---|---|---|
+| Mechanical, fully specified: rename, doc sync, config value, transcribing a complete spec into code, single-file fix | cheapest | haiku |
+| Routine judgment in one module: typical research, scout-planning a Micro change, implementation from a clear confirmed plan, review of a small low-risk change | mid | sonnet |
+| Real reasoning: planning a tricky change, root-cause debugging, security review, review of a large or risky change | strongest | opus |
+
+Use the current model aliases of your environment; the tiers are what matter.
+
+- Generic agent types: always pass an explicit `model` equal to the graded tier — omitting it silently inherits the orchestrator's (usually most expensive) model.
+- Custom types with a pinned model: never override it. Custom types without one: pass the graded tier explicitly.
+- For reviewers and for implementers working from prose (not complete code), the mid tier is the floor — an under-powered model takes 2–3× the turns and costs more overall.
+- Escalate on evidence: if a report shows the stage was harder than graded, re-dispatch the remainder one tier up. Never retry the same dispatch unchanged.
+
+**Failure handling.** If a sub-agent fails, times out, or returns an incoherent/off-mission report: re-dispatch once with a clarified prompt at the same tier → if it fails again, once more one tier up → then STOP and follow the Abort Protocol. Never loop blind retries.
+
+**Dispatch prompt recipe** — every dispatch contains, in order:
 
 1. **Stage mission** — who the agent is and what this stage must produce.
-2. **Context block** — the relevant pieces from the orchestrator's context: task, short spec, confirmed plan, prior findings; exactly what this stage needs, nothing more.
-3. **Constraints** — stateless rules (create no planning/tracking files; touch only repo code, tests, and docs the change itself requires), plus the project's own coding-contract instructions for coding stages.
-4. **Proof requirement** — which commands the agent must run and show output for before claiming success.
-5. **Report contract** — a concise raw report: what changed / was found, evidence, blockers. The report is data for the orchestrator, not prose for the user.
+2. **Context block** — exactly the slices this stage needs (task, fingerprints, confirmed plan, open findings by ID, changed-file list), nothing more.
+3. **Constraints** — zero-artifact rules (create no files of your own — no plans, notes, logs, or scratch files; touch only the repo code, tests, and docs the change itself requires), plus the project's coding-contract rules for coding stages.
+4. **Proof requirement** — the Proof Ladder rung and the exact commands the agent must run and show output for before claiming success.
+5. **Report contract** — the exact template from Report Templates, within the size caps. The report is data for the orchestrator, not prose for the user.
 
-## Important Rules
+## Hard Rules
 
-1. **NEVER do stage work in the main context** — research, planning, implementation, and review are always sub-agent work; the orchestrator only understands the task, talks to the user, selects agents, and routes context.
-2. **NEVER write to `.phasedev/` or create artifact/planning files** — the conversation is the only store; the git commit is the only trace.
-3. **The plan comes from a planning sub-agent** and is executed only after the user confirms it — the single mandatory stop.
-4. **Reviewers are fresh contexts, never the implementer** — and review without a real run (or a real run without review) does not count as verification.
-5. **Findings loop back to implementation** until reviewers are clean; report honestly, including what failed.
-6. **Grade the model on every dispatch** — cheapest tier that handles the stage's actual complexity; explicit `model` for every non-pinned agent type; escalate one tier on evidence, never retry unchanged.
-7. **Escalate by asking, not by doing** — when the scope guard trips, stop and offer `$phasedev-orchestrator`; the user chooses.
+1. NEVER do stage work in the main context — research, planning, implementation, and review are always sub-agent work; the orchestrator only understands the task, talks to the user, dispatches, and routes context.
+2. NEVER create execution artifacts — no planning, tracking, note, log, or scratch files anywhere, by anyone; the conversation is the only store; the changed code is the only output.
+3. The plan comes from a planning sub-agent and runs only after explicit user confirmation — including the no-rollback warning. The single mandatory stop.
+4. Reviewers are fresh contexts, never the implementer. Review against fingerprints + the applicable Proof Ladder rung together = verification; either alone does not count.
+5. Triage by severity; fix loop max 7 cycles with delta reports and narrowed re-review; a finding stuck 3 cycles means re-plan or ask the user — never grind on.
+6. Grade the model on every dispatch; pass an explicit `model` for every non-pinned agent type; escalate one tier on evidence, never retry unchanged.
+7. Escalate scope by asking, not by doing — when the scope guard trips, stop, explain, and let the user decide.
+8. Never end silently — every abnormal stop goes through the Abort Protocol so the user always knows the exact state of their files.
