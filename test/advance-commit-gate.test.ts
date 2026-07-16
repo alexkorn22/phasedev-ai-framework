@@ -7,6 +7,7 @@ import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { runArchive } from "../src/features/phase-control/archive-command";
 import { readCommitLog } from "../src/entities/change/commit-log";
 import { buildChangePaths } from "../src/entities/change/paths";
+import { readFindingsBaseline } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 
 function makeGitRepo(): string {
@@ -334,16 +335,16 @@ describe("advance commit gate", () => {
     expect(toFinalValidation.ok).toBe(true);
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
 
-    const paths = buildChangePaths(changeDir);
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
-    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    const statePath = path.join(changeDir, "state.json");
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
 
     // advance now clean-completes at final_validation without mutating anything.
     const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(cleanComplete.ok).toBe(true);
     expect(cleanComplete.finished).toBe(true);
     expect(cleanComplete.message).toBe("Final validation passed. Flow complete.");
-    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
     expect(fs.existsSync(archiveMarkerPath)).toBe(false);
     expect(fs.existsSync(changeDir)).toBe(true);
     const stateAfterClean = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
@@ -359,7 +360,7 @@ describe("advance commit gate", () => {
     // No archive mutation happened: the baseline survives, no archive marker
     // was created, the change dir was not moved, and state.json still locks
     // final_validation.
-    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
     expect(fs.existsSync(archiveMarkerPath)).toBe(false);
     expect(fs.existsSync(changeDir)).toBe(true);
     const stateAfterBlock = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));

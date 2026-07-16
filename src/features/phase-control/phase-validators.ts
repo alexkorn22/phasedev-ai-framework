@@ -1,5 +1,6 @@
 import * as fs from "fs";
-import { ActivePhase } from "../../entities/change/flow-state";
+import * as path from "path";
+import { ActivePhase, FLOW_STATE_FILE, readFindingsBaseline } from "../../entities/change/flow-state";
 import { ChangePaths } from "../../entities/change/paths";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
@@ -26,6 +27,11 @@ function okMessage(phase: string): PhaseValidation {
 
 function failMessage(phase: string, issues: string[]): PhaseValidation {
   return { ok: false, issues, message: `phase ${phase}: ISSUES\n${issues.map(i => `- ${i}`).join("\n")}` };
+}
+
+function findingsBaselineIssues(paths: ChangePaths): string[] {
+  const baseline = readFindingsBaseline(path.join(paths.changeDir, FLOW_STATE_FILE));
+  return baseline ? checkFindingsAgainstBaseline(paths.findingsPath, baseline) : [];
 }
 
 export function revalidationPendingMessage(): string {
@@ -125,9 +131,7 @@ export function validatePhase(
         issues.push(...findings.issues.map(issue => issue.message));
       }
 
-      if (fs.existsSync(paths.findingsBaselinePath)) {
-        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
-      }
+      issues.push(...findingsBaselineIssues(paths));
 
       if (findings.type !== "iteration") {
         issues.push("YAML field `type` must be `iteration` for iteration validation.");
@@ -167,9 +171,7 @@ export function validatePhase(
         issues.push(...findings.issues.map(issue => issue.message));
       }
 
-      if (fs.existsSync(paths.findingsBaselinePath)) {
-        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
-      }
+      issues.push(...findingsBaselineIssues(paths));
 
       if (findings.type !== "final") {
         issues.push("YAML field `type` must be `final` for final validation.");
@@ -209,9 +211,7 @@ export function validatePhase(
         issues.push(...findings.issues.map(issue => issue.message));
       }
 
-      if (fs.existsSync(paths.findingsBaselinePath)) {
-        issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, paths.findingsBaselinePath));
-      }
+      issues.push(...findingsBaselineIssues(paths));
 
       // finding_repair is valid in two states: repair ongoing (open blocking
       // findings remain) or repair finished (verdict: repaired with all blocking

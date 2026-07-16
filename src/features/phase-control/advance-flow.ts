@@ -1,13 +1,12 @@
 import * as path from "path";
 import { Config } from "../../entities/config/config";
-import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase } from "../../entities/change/flow-state";
+import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase, FLOW_STATE_FILE, writeFindingsBaseline } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
 import { findCompletedArchiveState, findInvalidArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
 import { resolveRoute, Route } from "./flow-route";
 import { Phase } from "../../entities/phase/types";
 import { detectStateRouteConflict } from "./state-route-consistency";
-import { writeFindingsBaseline } from "../../entities/validation-findings/findings-baseline";
 import { setFindingsType } from "../artifact-ops/manage-findings";
 import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
@@ -459,7 +458,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   // against what the validator/repairer produced, not a stale earlier pass.
   const BASELINE_PHASES: ReadonlySet<ActivePhase> = new Set(["iteration_validation", "final_validation", "finding_repair"]);
   if (BASELINE_PHASES.has(nextState.activePhase)) {
-    writeFindingsBaseline(paths.findingsPath, paths.findingsBaselinePath);
+    writeFindingsBaseline(path.join(paths.changeDir, FLOW_STATE_FILE), paths.findingsPath);
   }
 
   // Preserve repair cycle count through repair↔validation cycles.

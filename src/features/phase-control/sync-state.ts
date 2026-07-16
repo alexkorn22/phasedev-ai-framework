@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import { ActivePhase, loadFlowState, saveFlowState } from "../../entities/change/flow-state";
+import * as path from "path";
+import { ActivePhase, clearFindingsBaseline, FLOW_STATE_FILE, loadFlowState, saveFlowState } from "../../entities/change/flow-state";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { resolveRoute } from "./flow-route";
@@ -85,7 +85,7 @@ export function syncState(
 
     // The baseline would otherwise compare the findings table against a
     // snapshot from before this reconciliation, rejecting legitimate rework.
-    fs.rmSync(paths.findingsBaselinePath, { force: true });
+    clearFindingsBaseline(path.join(changeDir, FLOW_STATE_FILE));
 
     const nextIteration = route.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
     saveFlowState(
@@ -107,7 +107,7 @@ export function syncState(
   // relation === "backward_conflict"
   // The baseline would otherwise compare the findings table against a snapshot
   // from before this rollback, rejecting legitimate rework.
-  fs.rmSync(paths.findingsBaselinePath, { force: true });
+  clearFindingsBaseline(path.join(changeDir, FLOW_STATE_FILE));
 
   saveFlowState(projectPath, { activePhase: routePhase, activeIteration: null, repairCycleCount: 0 }, changeName);
 
