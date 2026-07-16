@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { isApproved, matchFrontmatterBlock, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
+import { isApproved, matchFrontmatterBlock, readApprovalEnvelope, readFrontmatterValue } from "../src/shared/markdown/frontmatter";
 import { bodyAfterFrontmatter } from "../src/shared/markdown/headings";
+import { buildApprovalFrontmatter } from "../src/shared/markdown/approval-frontmatter";
+import { renderTemplate } from "../src/shared/templates/render-template";
 
 let tmpDir: string;
 
@@ -57,5 +59,32 @@ describe("unified frontmatter policy", () => {
 
     fs.writeFileSync(filePath, "---\napproved: true\n---\n\nBody changed after approval.\n", "utf-8");
     expect(isApproved(filePath)).toBe(true);
+  });
+});
+
+describe("approval envelope", () => {
+  test("readApprovalEnvelope reads approved/approved_by/date", () => {
+    const p = writeFile("---\napproved: true\napproved_by: \"alice\"\ndate: 2026-07-16\n---\n# X\n");
+    expect(readApprovalEnvelope(p)).toEqual({ approved: true, approvedBy: "alice", date: "2026-07-16" });
+  });
+
+  test("readApprovalEnvelope: missing file and empty approver", () => {
+    expect(readApprovalEnvelope("/no/such")).toEqual({ approved: false, approvedBy: null, date: null });
+    const p = writeFile("---\napproved: false\napproved_by: \"\"\ndate: 2026-07-16\n---\n");
+    expect(readApprovalEnvelope(p).approvedBy).toBeNull();
+  });
+
+  test("isApproved delegates to readApprovalEnvelope", () => {
+    const p = writeFile("---\napproved: \"true\"\napproved_by: \"x\"\ndate: 2026-07-16\n---\n");
+    expect(isApproved(p)).toBe(true);
+  });
+
+  test("buildApprovalFrontmatter renders the frozen 3-line envelope", () => {
+    expect(buildApprovalFrontmatter("2026-07-16")).toBe("approved: false\napproved_by: \"\"\ndate: 2026-07-16");
+  });
+
+  test("rendered prd frontmatter is the canonical approval envelope", () => {
+    const out = renderTemplate("artifacts/prd", { date: "2026-07-16", approval_frontmatter: buildApprovalFrontmatter("2026-07-16") });
+    expect(out.startsWith("---\napproved: false\napproved_by: \"\"\ndate: 2026-07-16\n---")).toBe(true);
   });
 });

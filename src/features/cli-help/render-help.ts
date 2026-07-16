@@ -27,7 +27,10 @@ Workflow:
      Validate artifacts for the active phase.
   6. phasedev advance --project-path <path>
      Validate and transition to the next phase.
-  7. Repeat phasedev phase / check / advance until the change is archived.
+  7. phasedev archive <change-name> --project-path <path>
+     Once advance reports final validation passed, run this to move the
+     change into changes/archive/ and drive the archive phase to completion.
+  8. Repeat phasedev phase / check / advance / archive until the change is archived.
 
 Commands:
   phasedev help
@@ -68,8 +71,17 @@ Commands:
 
   phasedev advance [--project-path <path>] [--config <path>]
       Validate the active phase and transition to the next phase.
-      Refuses if artifacts are invalid, require approval, or archives are blocked.
-      Side effects: updates state.json, flips iteration status, archives on archive_ready.
+      Refuses if artifacts are invalid or require approval.
+      Does not archive: once final validation passes, run phasedev archive.
+      Side effects: updates state.json, flips iteration status.
+
+  phasedev archive <change-name> [--project-path <path>] [--config <path>]
+      Move a change that has passed final validation into changes/archive/,
+      create .phase-archive.json, and drive/resume the archive phase to
+      completion. Refuses if the change has not reached final validation
+      or the archive phase is not yet complete.
+      Side effects: moves the change directory, writes .phase-archive.json,
+      updates state.json.
 
   phasedev next
       DEPRECATED. Prints a warning and exits. Ignores all flags.
@@ -87,14 +99,8 @@ Commands:
 
   phasedev config [--project-path <path>] [--config <path>] <key>
       Read a dot-notation config key from .phasedev/config.yaml and print its value.
-      E.g.: phasedev config runArchiveStage
+      E.g.: phasedev config autoApprove
       Side effects: none.
-
-  phasedev config set <key> <value> [--project-path <path>] [--config <path>] [--string]
-      Write a dot-notation config key to .phasedev/config.yaml.
-      Values are coerced to boolean/number when they look like one; pass --string to
-      store the raw string instead. The OK message states the stored type.
-      Side effects: modifies the config file.
 
   phasedev status [--project-path <path>]
       Print a summary of the current flow: active change, phase, route, artifacts,
@@ -157,7 +163,7 @@ Commands:
       Non-destructively roll state.json back to the artifact-derived phase when
       they disagree (e.g. after feedback reset artifact approvals). Artifacts
       are never modified.
-      Side effects: modifies state.json; removes .findings-baseline.json.
+      Side effects: modifies state.json, including clearing its findingsBaseline section.
 
   phasedev reset-change [--project-path <path>] [--yes|--force]
       Reset (move to .trash) the current active change. Requires --yes to confirm.
@@ -185,7 +191,6 @@ Options:
   --archived                   Include archived changes (changes/list command).
   --check-orphans               Scan for orphaned or unfinished archive directories (check command).
   --yes, --force              Confirm destructive operations (reset-change).
-  --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.
 
 Generated files:
   .phasedev/config.yaml
@@ -223,6 +228,7 @@ Examples:
   phasedev phase --project-path /absolute/path/to/project
   phasedev check --project-path /absolute/path/to/project
   phasedev advance --project-path /absolute/path/to/project
+  phasedev archive my-change --project-path /absolute/path/to/project
   phasedev check-validation --project-path /absolute/path/to/project --scope final
   phasedev check-archive --archive-path /absolute/path/to/project/.phasedev/changes/archive/2026-06-17-my-change
 `;

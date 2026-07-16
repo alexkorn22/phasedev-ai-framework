@@ -4,6 +4,7 @@ import * as path from "path";
 import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-workspace";
 import { createChange } from "../src/features/phase-control/create-change";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { checkValidationCompletion } from "../src/features/phase-control/check-flow";
 import { loadFlowState } from "../src/entities/change/flow-state";
@@ -379,12 +380,20 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("final_validation");
     },
-    // 7. final_validation -> archive (mutates: moves change dir into archive/)
+    // 7. final_validation -> archive: advance clean-completes without
+    // mutating (the archive mutation is owned by runArchive), then
+    // runArchive moves the change dir into archive/.
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
       const result = advanceFlow(root, config, name);
       expect(result.ok).toBe(true);
-      expect(result.newState?.activePhase).toBe("archive");
+      expect(result.message).toBe("Final validation passed. Flow complete.");
+      expect(fs.existsSync(changeDir)).toBe(true);
+
+      const archiveResult = runArchive(root, config, name);
+      expect(archiveResult.ok).toBe(true);
+      expect(archiveResult.started).toBe(true);
+      expect(fs.existsSync(changeDir)).toBe(false);
     },
   ];
 }
@@ -700,9 +709,13 @@ describe("E2E flow via CLI subprocess", () => {
 
     const adv7 = run(["advance"]);
     expect(adv7.code).toBe(0);
-    expect(adv7.out).toContain("archive");
+    expect(adv7.out).toContain("Final validation passed. Flow complete.");
+    expect(adv7.out).not.toContain("archive");
     st = state();
-    expect(st?.activePhase).toBe("archive");
+    expect(st?.activePhase).toBe("final_validation");
+
+    const archiveRun = run(["archive", "test-flow"]);
+    expect(archiveRun.code).toBe(0);
 
     // ===================================================================
     // Find the archive directory
@@ -1039,10 +1052,15 @@ describe("stale final verdict scope-change e2e", () => {
 
     writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
 
-    // (d) advance -> the archive mutation.
-    const toArchive = advanceFlow(root, config, "full-arc-e2e");
+    // (d) advance clean-completes at final_validation (no mutation); runArchive
+    // then performs the archive mutation.
+    const toFinalComplete = advanceFlow(root, config, "full-arc-e2e");
+    expect(toFinalComplete.ok).toBe(true);
+    expect(toFinalComplete.message).toBe("Final validation passed. Flow complete.");
+
+    const toArchive = runArchive(root, config, "full-arc-e2e");
     expect(toArchive.ok).toBe(true);
-    expect(toArchive.newState?.activePhase).toBe("archive");
+    expect(toArchive.started).toBe(true);
 
     const archivedChangeDir = archiveDirFor(root, "full-arc-e2e");
     expect(fs.existsSync(path.join(archivedChangeDir, ".phase-archive.json"))).toBe(true);
@@ -1187,12 +1205,11 @@ None.
   });
 
   test("alpha and beta interleave through the full lifecycle to two completed archives", () => {
-    // 1. Create both changes and confirm archive is enabled by default.
+    // 1. Create both changes.
     expect(createChange(root, "alpha").ok).toBe(true);
     expect(createChange(root, "beta").ok).toBe(true);
 
     const config = loadConfig();
-    expect(config.runArchiveStage).toBe(true);
 
     const alphaSteps = buildLifecycleSteps(root, config, "alpha", {
       why: "Verify alpha advances through the full lifecycle while beta runs alongside it",
@@ -1333,11 +1350,18 @@ describe("quick flow e2e", () => {
     expect(toSpecRevision.ok).toBe(true);
     expect(toSpecRevision.newState?.activePhase).toBe("quick_spec_revision");
 
-    // 5. quick_spec_revision -> archive: mutates the change dir into archive/
-    // and preserves flowMode: "quick" on the archived state.json.
-    const toArchive = advanceFlow(root, config, "qc");
+    // 5. quick_spec_revision -> archive: advance clean-completes without
+    // mutating (Quick flow complete), then runArchive mutates the change dir
+    // into archive/ and preserves flowMode: "quick" on the archived state.json.
+    const toComplete = advanceFlow(root, config, "qc");
+    expect(toComplete.ok).toBe(true);
+    expect(toComplete.finished).toBe(true);
+    expect(toComplete.message).toBe("Quick flow complete. Final quick phase reached.");
+    expect(fs.existsSync(changeDir)).toBe(true);
+
+    const toArchive = runArchive(root, config, "qc");
     expect(toArchive.ok).toBe(true);
-    expect(toArchive.newState?.activePhase).toBe("archive");
+    expect(toArchive.started).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(false);
 
     const archiveDir = archiveDirFor(root, "qc");

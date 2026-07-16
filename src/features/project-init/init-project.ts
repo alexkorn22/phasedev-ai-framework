@@ -33,8 +33,7 @@ export function initProject(projectPath: string): InitProjectResult {
     flowRoot,
     path.join(flowRoot, "changes"),
     path.join(flowRoot, "changes", "archive"),
-    path.join(flowRoot, "specs"),
-    path.join(flowRoot, "logs")
+    path.join(flowRoot, "specs")
   ];
 
   for (const directory of directories) {

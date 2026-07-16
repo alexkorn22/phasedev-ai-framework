@@ -30,7 +30,8 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
-- `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. The single mutation point for flow state.
+- `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. Drives every phase transition up to and including final validation; it does not touch the archive (see `phasedev archive` below).
+- `phasedev archive <change-name>` — the only command that mutates the archive: moves the change directory to `.phasedev/changes/archive/`, writes `.phase-archive.json`, switches `state.json` to `activePhase: archive`, and resumes/completes the archive phase on later calls (see [Archive Handling](#archive-handling)). Refuses before final validation passes.
 - `phasedev approve <file>` — set `approved: true` and `approved_by` in an artifact's YAML frontmatter (see [Auto-Approval](#auto-approval)).
 - `phasedev add-finding "<finding>" <severity> --required-fix <text> [--class <class>] [--iteration <label>]` — append a finding row to validation_findings.md; allocates the ID, creates the file when missing, and corrects the YAML `verdict`. The ONLY way to add a finding; never hand-edit the findings registry.
 - `phasedev feedback` — print the user-feedback processing contract for a sub-agent.
@@ -79,7 +80,6 @@ Pass `--change <change>` on EVERY change-scoped command (`phase`, `check`, `adva
 
 After selecting the change, read orchestrator-safe settings via `phasedev config <key>`:
 
-- `runArchiveStage` — remember for [Archive Handling](#archive-handling).
 - `autoApprove` — default `false` if empty/invalid; remember for [Auto-Approval](#auto-approval).
 
 ## The Loop
@@ -140,7 +140,7 @@ That is the entire prompt — no context collection, no artifact paths, no previ
 
 ## User Feedback Handling
 
-At any STOP point (approval gate, `archive_ready` with `runArchiveStage=false`, blocker, or after user interrupt), the user may give feedback — a correction, new requirement, bug report, or rejection.
+At any STOP point (approval gate, blocker, or after user interrupt), the user may give feedback — a correction, new requirement, bug report, or rejection.
 
 **Fast path (no sub-agent).** When the feedback is a concrete, already-formulated implementation defect ("here is a bug, put it into the findings"), do NOT spawn a sub-agent. Record it yourself with a single deterministic call:
 
@@ -187,36 +187,54 @@ An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid
 
 ## Auto-Approval
 
-When `phasedev config autoApprove` (from Initialization) is `true`, the orchestrator automatically approves change_intake, technical_design, and iteration_planning artifacts at approval gates instead of stopping to ask the user.
+When `phasedev config autoApprove` (from Initialization) is `true`, `phasedev advance` never auto-stamps an artifact at an approval gate. Instead, when it refuses with an `*_approval` refusal, it prints an auto-approval blocker naming the phase and listing the exact artifact path(s) for that gate (`prd.md` + `execution_contract.md` for `change_intake_approval`, `design.md` for `technical_design_approval`, `iteration_plan.md` for `iteration_planning_approval`). The orchestrator MUST NOT approve manually under `autoApprove` — approval requires content review.
 
-When `phasedev advance` refuses with an `*_approval` refusal, run `phasedev approve <file> --by "PhaseDev Orchestrator" --change <change>` (from the project root; filenames auto-resolve to the active change directory) instead of spawning a sub-agent, then retry `phasedev advance --change <change>`:
-- `change_intake_approval` → approve `prd.md` and `execution_contract.md`.
-- `technical_design_approval` → approve `design.md`.
-- `iteration_planning_approval` → approve `iteration_plan.md`.
+On that blocker, spawn exactly ONE dedicated validation sub-agent — never approve directly yourself:
 
-If advance then succeeds → continue the main loop. If it still refuses with the same `*_approval` → **STOP**, report "Auto-approve failed to advance after approving artifacts." Do not loop.
+```javascript
+Agent(
+  description: "auto-approve validation: review <phase> artifacts",
+  subagent_type: "general-purpose",   // or a custom type whose description matches artifact review — see Agent type selection
+  model: "sonnet",                    // minimum; use "opus" for high-stakes artifacts (e.g. a design with broad blast radius)
+  prompt: `Review the following PhaseDev artifact(s) for the change "<change>" on their merits before approving.
+
+Artifacts:
+<one line per artifact path from the blocker>
+
+phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
+
+1. Read the FULL content of every listed artifact.
+2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task. Do not treat "phasedev check" passing as sufficient; check passes structural validity only, not quality.
+3. If — and only if — every artifact is genuinely good, approve each with: phasedev approve <file> --by "auto-approve-subagent" --change <change>
+4. If any artifact has a problem, do NOT approve it. Instead report concrete findings (what is wrong, where) so the orchestrator can re-run the owning phase sub-agent to fix it.
+5. Report back: which artifacts were approved, which were not and why.`
+)
+```
+
+After the sub-agent returns:
+- If it approved every listed artifact → retry `phasedev advance --change <change>`. If advance succeeds → continue the main loop. If it still refuses with the same `*_approval` or with "Approval integrity" (an artifact is `approved: true` but has empty `approved_by`) → **STOP**, report "Auto-approve failed to advance after sub-agent review." Do not loop.
+- If it did not approve (found problems) → apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy): spawn the owning phase sub-agent once with the reported findings, then retry from `phasedev check`.
 
 ## Termination
 
 Stop when any is met:
-- **Flow complete** — `phasedev advance` returns `finished=true` (archive complete: `state.json` `activePhase: archive`, `.phase-archive.json` `status: completed`). Stop and report success.
+- **Final validation passed (advance's terminal state)** — `phasedev advance` returns `finished=true` with message "Final validation passed. Flow complete." This is the end of the phased flow that `advance` drives; `advance` no longer touches the archive. Continue with [Archive Handling](#archive-handling) to actually archive the change.
+- **Flow complete (archived)** — `phasedev archive <change>` reports the change is archived (`.phase-archive.json` `status: completed`). Stop and report success.
 - **Blocked** — approval gate, blocker (verify with `phasedev check`), or invalid state. At an approval gate: follow [Auto-Approval](#auto-approval) when `autoApprove` is true, otherwise tell the user to approve and wait.
-- **No progress** — after sub-agents, `phasedev advance` still refuses with the same reason; for a repeated `invalid_*` this is the stop step of the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
-- **CLI limit reached** — `advance` refuses with "Max iterations (N) reached" or "Repair cycle limit reached" (both enforced by the CLI from config.yaml `maxIterations` / `maxRepairCycles`); stop and report the refusal — raising the limit in config.yaml is the user's call.
+- **No progress** — after sub-agents, `phasedev advance` (or `phasedev archive`) still refuses with the same reason; for a repeated `invalid_*` this is the stop step of the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
+- **CLI limit reached** — `advance` refuses with "Max iterations (N) reached" or "Repair cycle limit reached"; both limits are fixed CLI constants (10 iterations, 3 repair cycles), not configurable — stop and report the refusal.
 - **Unrecoverable error** — sub-agent error after one retry.
 - **User interrupt**.
 
 ## Archive Handling
 
-Archive is entered when `phasedev advance` transitions to the archive phase (after final validation passes and all iterations are `[x]`).
+Archive starts once `phasedev advance` reports "Final validation passed. Flow complete." (all iterations `[x]`, final validation passed). From that point, `phasedev advance` has nothing further to do for this change — the archive mutation and the archive phase itself are driven entirely by `phasedev archive <change>`.
 
-1. Check the `runArchiveStage` value from Initialization before calling `advance`. If `false`, **do not call advance** — stop and report:
-   > "Archive execution is paused by config (runArchiveStage=false). Set runArchiveStage=true in config.yaml to enable archive."
-2. If `true`, call `phasedev advance --change <change>`. It performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`), and switches `state.json` to `activePhase: archive`.
-3. Spawn an archive sub-agent that reads the archive contract via `phasedev phase --change <change>`, applies any matching skills from its own runtime environment (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
-4. After the sub-agent returns, call `phasedev advance --change <change>`:
-   - If it returns `finished=true` → the archive is complete → **flow complete** → STOP.
-   - If it refuses ("Archive not complete") → sub-agent did not finish → no-progress → STOP and report.
+1. Call `phasedev archive <change>`. On a change that just finished final validation, this performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`) and switches `state.json` to `activePhase: archive`. Called again later, it resumes a pending archive or recovers a pre-move crash — it is safe to call repeatedly.
+2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent that applies any matching skills from its own runtime environment (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
+3. After the sub-agent returns, call `phasedev archive <change>` again:
+   - If it reports the archive is complete → **flow complete** → STOP.
+   - If it refuses or reports the archive still in progress → sub-agent did not finish → no-progress → STOP and report.
 
 ## Important Rules
 
@@ -228,5 +246,5 @@ Archive is entered when `phasedev advance` transitions to the archive phase (aft
 6. **NEVER validate or fix phase artifacts yourself** — the owning sub-agent creates, self-checks, and self-heals each artifact; on `invalid_*` after "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
 7. **NEVER pass context between phases** — sub-agents read artifact files directly; the filesystem is the durable state.
 8. **NEVER re-describe phase contracts** — sub-agents get them from `phasedev phase`.
-9. **NEVER log iterations to `.phasedev/logs/`** — the orchestrator is ephemeral; state is visible in chat.
+9. **NEVER write log files under `.phasedev/`** — the orchestrator is ephemeral; state is visible in chat.
 10. **Report clearly** — after each iteration: phase completed, the model each phase sub-agent ran on, the sub-agent's self-check result, and the next phase `phasedev check` reports.

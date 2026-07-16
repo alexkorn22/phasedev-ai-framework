@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { loadFlowState, saveFlowState, ActivePhase } from "../../entities/change/flow-state";
+import { clearFindingsBaseline, loadFlowState, saveFlowState, ActivePhase } from "../../entities/change/flow-state";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
 import { matchFrontmatterBlock } from "../../shared/markdown/frontmatter";
@@ -74,7 +74,7 @@ export function reopenPhase(projectPath: string, phase: ReopenablePhase, changeN
 
   // The baseline would otherwise compare the findings table against a
   // snapshot from before this manual rollback, rejecting legitimate rework.
-  fs.rmSync(paths.findingsBaselinePath, { force: true });
+  clearFindingsBaseline(paths.statePath);
 
   // Move state back to the target phase
   saveFlowState(projectPath, { activePhase: config.targetPhase, activeIteration: null, repairCycleCount: 0 }, changeName);

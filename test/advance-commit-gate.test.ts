@@ -4,8 +4,9 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
-import { readCommitLog } from "../src/entities/change/commit-log";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { buildChangePaths } from "../src/entities/change/paths";
+import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 
 function makeGitRepo(): string {
@@ -271,7 +272,7 @@ describe("advance commit gate", () => {
 
     expect(res.ok).toBe(true);
     expect(res.newState?.activePhase).toBe("final_validation");
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(head);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(head);
   });
 
   it("does not gate when requireIterationCommit is false (still records boundary when a commit exists)", () => {
@@ -283,7 +284,7 @@ describe("advance commit gate", () => {
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
     expect(res.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(head);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(head);
   });
 
   it("does not gate in a non-git project", () => {
@@ -302,7 +303,7 @@ describe("advance commit gate", () => {
 
     const firstAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(firstAdvance.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(firstHead);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(firstHead);
 
     // Simulate a repair cycle landing back on a fresh re-validation of the
     // same iteration: state returns to iteration_validation(1), findings
@@ -321,7 +322,7 @@ describe("advance commit gate", () => {
     const secondAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(secondAdvance.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(repairHead);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(repairHead);
   });
 
   it("refuses to archive when the tree is dirty, then archives once committed", () => {
@@ -333,21 +334,32 @@ describe("advance commit gate", () => {
     expect(toFinalValidation.ok).toBe(true);
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
 
-    const paths = buildChangePaths(changeDir);
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
-    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    const statePath = path.join(changeDir, "state.json");
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
+
+    // advance now clean-completes at final_validation without mutating anything.
+    const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    expect(cleanComplete.ok).toBe(true);
+    expect(cleanComplete.finished).toBe(true);
+    expect(cleanComplete.message).toBe("Final validation passed. Flow complete.");
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    const stateAfterClean = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
+    expect(stateAfterClean.activePhase).toBe("final_validation");
 
     fs.writeFileSync(path.join(repo, "leftover-final.ts"), "x"); // uncommitted outside .phasedev
 
-    const blockedAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    const blockedArchive = runArchive(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true }, "sample-change");
 
-    expect(blockedAdvance.ok).toBe(false);
-    expect(blockedAdvance.message).toContain("Final validation passed. Commit before archive.");
-    expect(blockedAdvance.message).toContain("phasedev(sample-change): final validation");
+    expect(blockedArchive.ok).toBe(false);
+    expect(blockedArchive.message).toContain("Final validation passed. Commit before archive.");
+    expect(blockedArchive.message).toContain("phasedev(sample-change): final validation");
     // No archive mutation happened: the baseline survives, no archive marker
     // was created, the change dir was not moved, and state.json still locks
     // final_validation.
-    expect(fs.existsSync(paths.findingsBaselinePath)).toBe(true);
+    expect(readFindingsBaseline(statePath)).not.toBeNull();
     expect(fs.existsSync(archiveMarkerPath)).toBe(false);
     expect(fs.existsSync(changeDir)).toBe(true);
     const stateAfterBlock = JSON.parse(fs.readFileSync(path.join(changeDir, "state.json"), "utf-8"));
@@ -355,10 +367,10 @@ describe("advance commit gate", () => {
 
     gitCommitAll(repo, "final validation");
 
-    const archiveAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
+    const archiveAdvance = runArchive(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true }, "sample-change");
 
     expect(archiveAdvance.ok).toBe(true);
-    expect(archiveAdvance.newState?.activePhase).toBe("archive");
+    expect(archiveAdvance.started).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { createChange } from "../src/features/phase-control/create-change";
-import { readCommitLog } from "../src/entities/change/commit-log";
+import { readCommitLog } from "../src/entities/change/flow-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 
 function makeGitRepo(): string {
@@ -33,14 +33,14 @@ describe("create-change commit-log start", () => {
     const head = gitCommitAll(repo, "init");
     const res = createChange(repo, "My Change");
     expect(res.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(res.changeDir!).commitLogPath)?.start).toBe(head);
+    expect(readCommitLog(buildChangePaths(res.changeDir!).statePath)?.start).toBe(head);
   });
 
   it("writes no commit-log in a non-git project", () => {
     const plain = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-plain-")); dirs.push(plain);
     const res = createChange(plain, "My Change");
     expect(res.ok).toBe(true);
-    expect(fs.existsSync(buildChangePaths(res.changeDir!).commitLogPath)).toBe(false);
+    expect(readCommitLog(buildChangePaths(res.changeDir!).statePath)).toBeNull();
   });
 
   it("records start = HEAD in a git repo for --quick changes too", () => {
@@ -49,7 +49,6 @@ describe("create-change commit-log start", () => {
     const head = gitCommitAll(repo, "init");
     const res = createChange(repo, "My Quick Change", undefined, true);
     expect(res.ok).toBe(true);
-    expect(fs.existsSync(buildChangePaths(res.changeDir!).commitLogPath)).toBe(true);
-    expect(readCommitLog(buildChangePaths(res.changeDir!).commitLogPath)?.start).toBe(head);
+    expect(readCommitLog(buildChangePaths(res.changeDir!).statePath)?.start).toBe(head);
   });
 });

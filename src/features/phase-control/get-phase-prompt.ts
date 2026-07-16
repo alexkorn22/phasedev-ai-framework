@@ -20,7 +20,7 @@ import { resolveRoute } from "./flow-route";
 import { detectStateRouteConflict } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { quickPhasePrompt } from "./quick-phase-prompt";
-import { readCommitLog, iterationDiffBase } from "../../entities/change/commit-log";
+import { readCommitLog, iterationDiffBase } from "../../entities/change/flow-state";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
@@ -213,7 +213,7 @@ export function renderIterationValidation(projectPath: string, config: Config, p
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
       phase: currentPhase,
       diffBase: (() => {
-        const log = readCommitLog(paths.commitLogPath);
+        const log = readCommitLog(paths.statePath);
         return log ? iterationDiffBase(log, currentPhase.id) ?? undefined : undefined;
       })()
     }),
@@ -231,7 +231,7 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     findings_path: urls.findings_path,
     date: todayIsoDate(),
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
-      diffBase: readCommitLog(paths.commitLogPath)?.start ?? undefined
+      diffBase: readCommitLog(paths.statePath)?.start ?? undefined
     }),
     validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
   }, config);

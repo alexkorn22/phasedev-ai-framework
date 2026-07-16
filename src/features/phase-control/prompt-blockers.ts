@@ -11,6 +11,15 @@ function advanceCommand(changeName?: string): string {
   return changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
 }
 
+function archiveCommand(changeName?: string): string {
+  return changeName === undefined ? "phasedev archive <change-name>" : `phasedev archive ${shellQuote(changeName)}`;
+}
+
+function approveCommand(changeName?: string): string {
+  const base = 'phasedev approve <file> --by "auto-approve-subagent"';
+  return changeName === undefined ? base : `${base} --change ${shellQuote(changeName)}`;
+}
+
 export function approvalBlocker(phase: Phase, title: string, filePath: string, label: string, changeName?: string): Prompt {
   return prompt("next", phase, [
     "================================================================================",
@@ -19,6 +28,23 @@ export function approvalBlocker(phase: Phase, title: string, filePath: string, l
     `- Link: ${toFileUrl(filePath)}`,
     `Set 'approved: true' in YAML frontmatter once approved, then run '${advanceCommand(changeName)}'.`,
     "If this artifact was edited after an earlier approval, the approval is stale: re-review the current content and run 'phasedev approve <file>' again.",
+    "================================================================================"
+  ].join("\n"), true, title);
+}
+
+export function autoApprovalBlocker(phase: Phase, title: string, artifactPaths: string[], changeName?: string): Prompt {
+  return prompt("next", phase, [
+    "================================================================================",
+    `[FLOW CONTROLLER] BLOCKED: ${title} — auto-approval requires content review`,
+    "Artifacts:",
+    ...artifactPaths.map(artifactPath => `- Link: ${toFileUrl(artifactPath)}`),
+    "Spawn one dedicated content-reading validation sub-agent that:",
+    "(a) reads the full content of each listed artifact;",
+    "(b) evaluates each on the merits against the phase contract — completeness, coherence, fidelity to the original task — not merely 'phasedev check';",
+    `(c) approves only genuinely-good artifacts via '${approveCommand(changeName)}';`,
+    "(d) on any problem, does NOT approve, and instead returns concrete findings so the orchestrator re-runs the owning phase sub-agent and retries.",
+    "Do NOT approve manually without this sub-agent review.",
+    `Once approved, run '${advanceCommand(changeName)}' again.`,
     "================================================================================"
   ].join("\n"), true, title);
 }
@@ -105,7 +131,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
     title,
     details,
     `- Link: ${toFileUrl(filePath)}`,
-    `Fix the archive readiness issue, then run '${advanceCommand(changeName)}' again.`,
+    `Fix the archive readiness issue, then run '${archiveCommand(changeName)}' again.`,
     "================================================================================"
   ].join("\n"), true, "Archive readiness failed");
 }

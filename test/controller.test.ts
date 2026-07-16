@@ -5,10 +5,11 @@ import { getInitPrompt } from "../src/features/phase-control";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { createArchiveState, findCompletedArchiveState } from "../src/entities/change/archive-state";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
+import { runArchive } from "../src/features/phase-control/archive-command";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { resolveRoute } from "../src/features/phase-control/flow-route";
-import { loadFlowState } from "../src/entities/change/flow-state";
+import { loadFlowState, readFindingsBaseline, writeFindingsBaseline } from "../src/entities/change/flow-state";
 import { validatePhase, validatePhaseExit } from "../src/features/phase-control/phase-validators";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
@@ -1202,6 +1203,43 @@ Complete API work.
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
   });
 
+  test("advanceFlow at archive_ready clean-completes without mutating anything", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [x]
+- [x] 2.1 Build page
+`, {
+      findings: validationFindings("ready", "final")
+    });
+    const statePath = path.join(changeDir, "state.json");
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
+      "utf-8"
+    );
+
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+
+    const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
+    const stateBefore = fs.readFileSync(statePath, "utf-8");
+
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+
+    expect(result.ok).toBe(true);
+    expect(result.finished).toBe(true);
+    expect(result.message).toBe("Final validation passed. Flow complete.");
+    expect(result.newState).toBeNull();
+
+    expect(fs.existsSync(archiveMarkerPath)).toBe(false);
+    expect(fs.existsSync(changeDir)).toBe(true);
+    expect(fs.readFileSync(statePath, "utf-8")).toBe(stateBefore);
+    expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
+  });
+
   test("archive_ready prompt resolution never mutates; startArchiveStage moves active change to pending archive", () => {
     const changeDir = setupChange(`
 # Plan
@@ -1472,12 +1510,11 @@ Complete API work.
     expect(fs.existsSync(changeDir)).toBe(true);
     expect(fs.existsSync(archiveDir)).toBe(false);
 
-    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+    const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
     expect(result.ok).toBe(true);
-    expect(result.advanced).toBe(true);
+    expect(result.started).toBe(true);
     expect(result.message).toContain("recovered from pre-move crash");
-    expect(result.newState?.activePhase).toBe("archive");
 
     // Directory should have been moved to archive.
     expect(fs.existsSync(changeDir)).toBe(false);
@@ -1493,7 +1530,49 @@ Complete API work.
     expect(JSON.parse(fs.readFileSync(statePath, "utf-8")).movedAt).toBeDefined();
   });
 
-  test("advanceFlow with autoApprove approves the gated artifact and advances", () => {
+  test("advanceFlow with autoApprove at change_intake_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+    writeArtifact(path.join(changeDir, "prd.md"), validPrdBody(), false);
+    writeArtifact(path.join(changeDir, "execution_contract.md"), `
+# Rules
+
+## Test Commands
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
+
+## Constraints
+None.
+
+## Verification Gates
+Standard test gates apply.
+
+## Manual Checks
+None.
+
+## Environment Notes
+Test fixture only.
+`, false);
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n", "utf-8");
+    const prdBefore = fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8");
+    const rulesBefore = fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Setup Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "prd.md")}`);
+    expect(result.message).toContain(`file://${path.join(changeDir, "execution_contract.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "prd.md"), "utf-8")).toBe(prdBefore);
+    expect(fs.readFileSync(path.join(changeDir, "execution_contract.md"), "utf-8")).toBe(rulesBefore);
+  });
+
+  test("advanceFlow with autoApprove at technical_design_approval returns the auto-approval blocker and stamps nothing", () => {
     const changeDir = setupChange(`
 # Plan
 
@@ -1503,14 +1582,81 @@ Complete API work.
       designApproved: false
     });
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "technical_design", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const designBefore = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Design Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "architecture", "design.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8")).toBe(designBefore);
+  });
+
+  test("advanceFlow with autoApprove at iteration_planning_approval returns the auto-approval blocker and stamps nothing", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [ ]
+- [ ] 1.1 Implement endpoint
+`, {
+      planApproved: false
+    });
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "iteration_planning", activeIteration: null }, null, 2) + "\n", "utf-8");
+    const planBefore = fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Plan Approval Required — auto-approval requires content review");
+    expect(result.message).toContain(`file://${path.join(changeDir, "iteration_plan.md")}`);
+    expect(result.message).toContain('phasedev approve <file> --by "auto-approve-subagent"');
+    expect(result.message).toContain("Do NOT approve manually without this sub-agent review.");
+    expect(fs.readFileSync(path.join(changeDir, "iteration_plan.md"), "utf-8")).toBe(planBefore);
+  });
+
+  test("advanceFlow with autoApprove: approved true but empty approved_by re-blocks with the auto-approval blocker", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    // designApproved/planApproved default to true via writeArtifact, but writeArtifact never
+    // sets approved_by, so every approval here is "approved: true" with no approved_by.
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
+
+    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("[FLOW CONTROLLER] BLOCKED: Approval integrity — auto-approval requires content review");
+    expect(result.newState).toBeNull();
+  });
+
+  test("advanceFlow with autoApprove: approved true and non-empty approved_by advances normally", () => {
+    const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`);
+    for (const artifactPath of [
+      path.join(changeDir, "prd.md"),
+      path.join(changeDir, "execution_contract.md"),
+      path.join(changeDir, "architecture", "design.md"),
+      path.join(changeDir, "iteration_plan.md")
+    ]) {
+      const body = fs.readFileSync(artifactPath, "utf-8");
+      fs.writeFileSync(artifactPath, body.replace("approved: true\n", "approved: true\napproved_by: auto-approve-subagent\n"), "utf-8");
+    }
+    fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
-    expect(result.newState?.activePhase).toBe("implementation");
-    const design = fs.readFileSync(path.join(changeDir, "architecture", "design.md"), "utf-8");
-    expect(design).toContain("approved: true");
-    expect(design).toContain("PhaseDev autoApprove");
+    expect(result.newState).not.toBeNull();
+    expect(result.newState?.activePhase).toBe("final_validation");
   });
 
   test("advanceFlow without autoApprove still refuses at the approval gate", () => {
@@ -1798,7 +1944,7 @@ Complete API work.
     expect(result.message).toContain("3");
   });
 
-  test("repair cycle limit honors configured maxRepairCycles", () => {
+  test("repair cycle limit honors the hard-coded max repair cycles", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1808,15 +1954,14 @@ Complete API work.
     const statePath = path.join(changeDir, "state.json");
     fs.writeFileSync(
       statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
       "utf-8"
     );
 
-    const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, maxRepairCycles: 1 });
+    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached");
-    expect(result.message).toContain("maxRepairCycles");
+    expect(result.message).toContain("Repair cycle limit reached (3)");
   });
 
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {
@@ -1886,6 +2031,13 @@ Complete API work.
     expect(result).toBe(archiveDir);
   });
 
+  function seedFindingsBaselineRows(changeDir: string, rows: unknown[]): void {
+    const statePath = path.join(changeDir, "state.json");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    state.findingsBaseline = { rows };
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n", "utf-8");
+  }
+
   describe("findings baseline snapshot lifecycle", () => {
     test("advance into iteration_validation writes findings baseline with empty rows when no findings file exists yet", () => {
       const changeDir = setupChange(`
@@ -1903,10 +2055,8 @@ Complete API work.
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_validation");
 
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      expect(fs.existsSync(baselinePath)).toBe(true);
-      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
-      expect(baseline.rows).toEqual([]);
+      const baseline = readFindingsBaseline(path.join(changeDir, "state.json"));
+      expect(baseline?.rows).toEqual([]);
     });
 
     test("advance into finding_repair writes the findings baseline with the current findings table", () => {
@@ -1923,7 +2073,6 @@ Complete API work.
         "utf-8"
       );
 
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
       // Do not pre-write a baseline; let advanceFlow create it
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
@@ -1931,9 +2080,9 @@ Complete API work.
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("finding_repair");
 
-      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
-      expect(baseline.rows).toHaveLength(1);
-      expect(baseline.rows[0].id).toBe("F1");
+      const baseline = readFindingsBaseline(path.join(changeDir, "state.json"));
+      expect(baseline?.rows).toHaveLength(1);
+      expect(baseline?.rows[0].id).toBe("F1");
     });
 
     test("advance from archive_ready to archive removes the findings baseline before the archive move", () => {
@@ -1950,17 +2099,17 @@ Complete API work.
         JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
-      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
       expect(result.ok).toBe(true);
-      expect(result.newState?.activePhase).toBe("archive");
+      expect(result.started).toBe(true);
 
       const today = new Date().toISOString().split("T")[0];
       const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
       expect(fs.existsSync(archiveDir)).toBe(true);
-      expect(fs.existsSync(path.join(archiveDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(archiveDir, "state.json"))).toBeNull();
     });
 
     test("reopenPhase(plan) removes an existing findings baseline", () => {
@@ -1975,13 +2124,12 @@ Complete API work.
         JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      fs.writeFileSync(baselinePath, JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = reopenPhase(testTmpDir, "plan");
 
       expect(result.ok).toBe(true);
-      expect(fs.existsSync(baselinePath)).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("checkValidationCompletion returns ok:false when a row is deleted after baseline is written", () => {
@@ -1993,28 +2141,21 @@ Complete API work.
       });
 
       const paths = buildChangePaths(changeDir);
+      const statePath = path.join(changeDir, "state.json");
 
-      // First, write the baseline
       fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
+        statePath,
+        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
+
+      // Seed the baseline that reflects the pre-deletion findings table.
+      writeFindingsBaseline(statePath, paths.findingsPath);
 
       // Now delete the row from findings
       fs.writeFileSync(
         paths.findingsPath,
         validationFindings("ready", "iteration", ""),
-        "utf-8"
-      );
-
-      fs.writeFileSync(
-        path.join(changeDir, "state.json"),
-        JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
 
@@ -2035,23 +2176,16 @@ Complete API work.
       });
 
       const paths = buildChangePaths(changeDir);
-
-      // Write the baseline
-      fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
-        "utf-8"
-      );
+      const statePath = path.join(changeDir, "state.json");
 
       fs.writeFileSync(
-        path.join(changeDir, "state.json"),
+        statePath,
         JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
+
+      // Seed the baseline that reflects the pre-deletion findings table.
+      writeFindingsBaseline(statePath, paths.findingsPath);
 
       // Delete the row
       fs.writeFileSync(paths.findingsPath, validationFindings("ready", "iteration", ""), "utf-8");
@@ -2072,23 +2206,15 @@ Complete API work.
         findings: validationFindings("repaired", "iteration", "")
       });
 
-      const paths = buildChangePaths(changeDir);
-
-      fs.writeFileSync(
-        paths.findingsBaselinePath,
-        JSON.stringify({
-          rows: [
-            { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
-          ]
-        }, null, 2),
-        "utf-8"
-      );
-
       fs.writeFileSync(
         path.join(changeDir, "state.json"),
         JSON.stringify({ activePhase: "finding_repair", activeIteration: 1, repairCycleCount: 1 }, null, 2) + "\n",
         "utf-8"
       );
+
+      seedFindingsBaselineRows(changeDir, [
+        { id: "F1", status: "resolved", severity: "MUST-FIX", className: "implementation", iteration: "Iteration 1", finding: "Row to delete.", requiredFix: "n/a" }
+      ]);
 
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
@@ -2290,7 +2416,7 @@ Complete API work.
 `);
       fs.rmSync(path.join(changeDir, "architecture", "design.md"));
       writeState(changeDir, "implementation", 1);
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), "{}", "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = syncState(testTmpDir);
 
@@ -2304,7 +2430,7 @@ Complete API work.
       expect(state!.activePhase).toBe("technical_design");
       expect(state!.activeIteration).toBeNull();
       expect(state!.repairCycleCount).toBe(0);
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("syncState is a no-op when state and route agree", () => {
@@ -2406,8 +2532,7 @@ Complete API work.
 `, {
         findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
-      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1, findingsBaseline: { rows: [] } });
 
       const result = syncState(testTmpDir);
 
@@ -2455,10 +2580,11 @@ Complete API work.
 `, {
         findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
-      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(
-        path.join(changeDir, ".findings-baseline.json"),
-        JSON.stringify({
+      writeRawState(changeDir, {
+        activePhase: "iteration_validation",
+        activeIteration: 5,
+        repairCycleCount: 1,
+        findingsBaseline: {
           rows: [{
             id: "F1",
             status: "open",
@@ -2468,9 +2594,8 @@ Complete API work.
             finding: "API response omits required error handling.",
             requiredFix: "Add error mapping."
           }]
-        }, null, 2),
-        "utf-8"
-      );
+        }
+      });
 
       const result = syncState(testTmpDir);
 
@@ -2485,7 +2610,7 @@ Complete API work.
       expect(state!.activePhase).toBe("finding_repair");
       expect(state!.activeIteration).toBe(5);
       expect(state!.repairCycleCount).toBe(1);
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("syncState will not fabricate an archive transition when the locked phase's exit gate genuinely fails", () => {
@@ -2503,10 +2628,11 @@ Complete API work.
 `, {
         findings: validationFindings("ready", "final")
       });
-      writeRawState(changeDir, { activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 });
-      fs.writeFileSync(
-        path.join(changeDir, ".findings-baseline.json"),
-        JSON.stringify({
+      writeRawState(changeDir, {
+        activePhase: "final_validation",
+        activeIteration: null,
+        repairCycleCount: 0,
+        findingsBaseline: {
           rows: [{
             id: "F1",
             status: "open",
@@ -2516,9 +2642,8 @@ Complete API work.
             finding: "A finding that used to exist.",
             requiredFix: "Fix it."
           }]
-        }, null, 2),
-        "utf-8"
-      );
+        }
+      });
 
       const result = syncState(testTmpDir);
 
@@ -2531,7 +2656,7 @@ Complete API work.
 
       const state = loadFlowState(testTmpDir);
       expect(state!.activePhase).toBe("final_validation");
-      expect(fs.existsSync(path.join(changeDir, ".findings-baseline.json"))).toBe(true);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).not.toBeNull();
     });
 
     test("syncState reports forward drift instead of a misleading no-op", () => {

@@ -10,8 +10,7 @@ export interface ChangePaths {
   designPath: string;
   iterationPlanPath: string;
   findingsPath: string;
-  findingsBaselinePath: string;
-  commitLogPath: string;
+  statePath: string;
   worklogPath: string;
 }
 
@@ -24,8 +23,7 @@ export function buildChangePaths(changeDir: string): ChangePaths {
     designPath: path.join(changeDir, "architecture", "design.md"),
     iterationPlanPath: path.join(changeDir, "iteration_plan.md"),
     findingsPath: path.join(changeDir, "validation_findings.md"),
-    findingsBaselinePath: path.join(changeDir, ".findings-baseline.json"),
-    commitLogPath: path.join(changeDir, ".commit-log.json"),
+    statePath: path.join(changeDir, "state.json"),
     worklogPath: path.join(changeDir, "worklog.md")
   };
 }

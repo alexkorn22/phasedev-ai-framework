@@ -14,10 +14,10 @@ import { checkPhase } from "../src/features/phase-control/check-flow";
 import { getFlowStatus } from "../src/features/flow-status/get-status";
 import { getInitPrompt } from "../src/features/phase-control/get-init-prompt";
 import { getFeedbackPrompt } from "../src/features/phase-control/get-feedback-prompt";
-import { loadFlowState } from "../src/entities/change/flow-state";
+import { loadFlowState, recordCommitLogStart } from "../src/entities/change/flow-state";
 import { buildChangePaths } from "../src/entities/change/paths";
-import { recordCommitLogStart } from "../src/entities/change/commit-log";
 import { findArchiveStateForChange, writeArchiveState } from "../src/entities/change/archive-state";
+import { runArchive } from "../src/features/phase-control/archive-command";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pd-quick-git-"));
@@ -160,7 +160,7 @@ describe("quickAdvance", () => {
     const baselineHead = gitCommitAll(repo, "initial commit");
     const { projectPath, changeName } = scaffoldQuickIn(repo, "quick_implementation");
     const paths = buildChangePaths(path.join(repo, ".phasedev", "changes", "c1"));
-    recordCommitLogStart(paths.commitLogPath, baselineHead);
+    recordCommitLogStart(paths.statePath, baselineHead);
     const state = loadFlowState(projectPath, changeName)!;
     const config = { ...DEFAULT_CONFIG, requireIterationCommit: true };
 
@@ -186,38 +186,27 @@ describe("quickAdvance", () => {
 
   it("runs the archive mutation from quick_spec_revision, refuses while in_progress, and finishes once completed", () => {
     const { projectPath, changeName } = scaffoldQuick("quick_spec_revision");
-    const state = loadFlowState(projectPath, changeName)!;
 
-    const toArchive = quickAdvance(projectPath, DEFAULT_CONFIG, state, changeName);
+    const toArchive = runArchive(projectPath, DEFAULT_CONFIG, changeName);
     expect(toArchive.ok).toBe(true);
-    expect(toArchive.advanced).toBe(true);
-    expect(toArchive.newState?.activePhase).toBe("archive");
+    expect(toArchive.started).toBe(true);
 
     const archiveState = loadFlowState(projectPath, changeName)!;
     expect(archiveState.activePhase).toBe("archive");
 
-    const whileInProgress = quickAdvance(projectPath, DEFAULT_CONFIG, archiveState, changeName);
-    expect(whileInProgress.ok).toBe(false);
-    expect(whileInProgress.message).toMatch(/not complete/i);
+    const whileInProgress = runArchive(projectPath, DEFAULT_CONFIG, changeName);
+    expect(whileInProgress.ok).toBe(true);
+    expect(whileInProgress.message).toMatch(/archive in progress/i);
 
     const archived = findArchiveStateForChange(projectPath, changeName);
     expect(archived).not.toBeNull();
     writeArchiveState({ ...archived!, status: "completed", completedAt: new Date().toISOString() });
 
-    const finished = quickAdvance(projectPath, DEFAULT_CONFIG, archiveState, changeName);
+    const finished = advanceFlow(projectPath, DEFAULT_CONFIG, changeName);
     expect(finished.ok).toBe(true);
     expect(finished.finished).toBe(true);
   });
 
-  it("refuses to advance from quick_spec_revision when runArchiveStage is false", () => {
-    const { projectPath, changeName } = scaffoldQuick("quick_spec_revision");
-    const state = loadFlowState(projectPath, changeName)!;
-    const config = { ...DEFAULT_CONFIG, runArchiveStage: false };
-
-    const result = quickAdvance(projectPath, config, state, changeName);
-    expect(result.ok).toBe(false);
-    expect(result.message).toMatch(/archive is disabled/i);
-  });
 });
 
 describe("dispatch guards route quick changes before standard-track machinery", () => {
