@@ -482,7 +482,7 @@ describe("flow-cli state machine", () => {
     const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
     const configContent = fs.readFileSync(configPath, "utf-8");
-    expect(configContent).toContain("phases:");
+    expect(configContent).toContain("# phases:");
     expect(configContent).toContain("autoApprove:");
     expect(configContent).not.toContain("runArchiveStage");
     expect(fs.readdirSync(path.join(testTmpDir, ".phasedev", "changes")).sort()).toEqual(["archive"]);

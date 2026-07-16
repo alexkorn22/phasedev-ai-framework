@@ -32,20 +32,6 @@ function writeProjectConfig(projectPath: string, body: string): string {
   return configPath;
 }
 
-function captureWarnings(fn: () => void): string[] {
-  const warnings: string[] = [];
-  const origWarn = console.warn;
-  console.warn = (...args: unknown[]) => {
-    warnings.push(args.join(" "));
-  };
-  try {
-    fn();
-  } finally {
-    console.warn = origWarn;
-  }
-  return warnings;
-}
-
 // ============================================================================
 // parseConfig — 4-key contract
 // ============================================================================
