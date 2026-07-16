@@ -78,8 +78,8 @@ Commands:
   phasedev archive <change-name> [--project-path <path>] [--config <path>]
       Move a change that has passed final validation into changes/archive/,
       create .phase-archive.json, and drive/resume the archive phase to
-      completion. Refuses if the change has not reached final validation,
-      runArchiveStage is false, or the archive phase is not yet complete.
+      completion. Refuses if the change has not reached final validation
+      or the archive phase is not yet complete.
       Side effects: moves the change directory, writes .phase-archive.json,
       updates state.json.
 
@@ -99,14 +99,8 @@ Commands:
 
   phasedev config [--project-path <path>] [--config <path>] <key>
       Read a dot-notation config key from .phasedev/config.yaml and print its value.
-      E.g.: phasedev config runArchiveStage
+      E.g.: phasedev config autoApprove
       Side effects: none.
-
-  phasedev config set <key> <value> [--project-path <path>] [--config <path>] [--string]
-      Write a dot-notation config key to .phasedev/config.yaml.
-      Values are coerced to boolean/number when they look like one; pass --string to
-      store the raw string instead. The OK message states the stored type.
-      Side effects: modifies the config file.
 
   phasedev status [--project-path <path>]
       Print a summary of the current flow: active change, phase, route, artifacts,
@@ -197,7 +191,6 @@ Options:
   --archived                   Include archived changes (changes/list command).
   --check-orphans               Scan for orphaned or unfinished archive directories (check command).
   --yes, --force              Confirm destructive operations (reset-change).
-  --string                     Store config set's <value> as a raw string, skipping boolean/number coercion.
 
 Generated files:
   .phasedev/config.yaml

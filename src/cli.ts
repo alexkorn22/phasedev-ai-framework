@@ -25,7 +25,6 @@ import {
 import { todayIsoDate } from "./shared/time/today-iso-date";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
-import { setConfigValue } from "./features/config-ops/set-config";
 import { parseConfigGetKey } from "./features/config-ops/parse-config-get-key";
 import { resetChange } from "./features/flow-state/reset-change";
 import { resolveChangeDir } from "./entities/change/active-change";
@@ -45,7 +44,7 @@ import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--string", "--force", "--yes", "--check-orphans", "--quick"]);
+const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--force", "--yes", "--check-orphans", "--quick"]);
 
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
@@ -129,20 +128,6 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
 function findingsTypeCoercion(projectPath: string, changeName?: string): "iteration" | "final" | undefined {
   const state = loadFlowState(projectPath, changeName);
   return state ? (expectedFindingsType(state.activePhase) ?? undefined) : undefined;
-}
-
-/**
- * True only when the resolved config file lives inside <projectPath>/.phasedev.
- * config set locks in that case (it mutates the project's own config.yaml);
- * an external --config target runs without the project lock, unchanged.
- */
-function configTargetInsidePhasedev(projectPath: string, configPath: string): boolean {
-  const phasedevDir = path.resolve(projectPath, SYSTEM_DIR);
-  if (!fs.existsSync(phasedevDir)) {
-    return false;
-  }
-  const resolved = path.resolve(configPath);
-  return resolved === phasedevDir || resolved.startsWith(`${phasedevDir}${path.sep}`);
 }
 
 /**
@@ -536,40 +521,6 @@ function handleChanges(ctx: CommandContext): void {
 }
 
 function handleConfig(ctx: CommandContext): void {
-  const subCommand = ctx.args[1];
-  if (subCommand === "set") {
-    const key = ctx.args[2];
-    const value = ctx.args[3];
-    if (!key || !value || key.startsWith("--") || value.startsWith("--")) {
-      reportCliResult(ctx.jsonMode, {
-        ok: false,
-        kind: "config-set",
-        humanMessage: "[PHASEDEV CONFIG SET] FAILED: <key> and <value> are required.\nUsage: phasedev config set <key> <value> [--project-path <path>] [--config <path>] [--string]"
-      });
-      return;
-    }
-    const forceString = hasFlag(ctx.args, "--string");
-    const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
-    const runConfigSet = (): void => {
-      const result = setConfigValue(configPath, key, value, { forceString });
-      const prefix = result.ok ? "[PHASEDEV CONFIG SET] OK" : "[PHASEDEV CONFIG SET] FAILED";
-      reportCliResult(ctx.jsonMode, {
-        ok: result.ok,
-        kind: "config-set",
-        humanMessage: `${prefix}: ${result.message}`,
-        jsonMessage: result.message,
-        data: result.ok ? { key, storedValue: result.storedValue, storedType: result.storedType } : { key }
-      });
-    };
-    if (configTargetInsidePhasedev(ctx.projectPath, configPath)) {
-      runWithStateLock(ctx.projectPath, runConfigSet);
-    } else {
-      runConfigSet();
-    }
-    return;
-  }
-
-  // Existing config read command
   const key = parseConfigGetKey(ctx.args);
   if (!key) {
     reportCliResult(ctx.jsonMode, {
@@ -577,8 +528,7 @@ function handleConfig(ctx: CommandContext): void {
       kind: "config-get",
       humanMessage: [
         "[PHASEDEV CONFIG] FAILED: config key is required.",
-        "Usage: phasedev config [--project-path <path>] [--config <path>] <key>",
-        "       phasedev config set <key> <value> [--project-path <path>] [--config <path>]"
+        "Usage: phasedev config [--project-path <path>] [--config <path>] <key>"
       ].join("\n")
     });
     return;

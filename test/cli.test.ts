@@ -3131,35 +3131,17 @@ phases: {}
     expect(withArchived.output).toContain("archived-change");
   });
 
-  // --- config set ---
+  // --- config set removed ---
 
-  test("config set writes a simple key", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\nmaxIterations: 10\n", "utf-8");
+  test("`config set` is not a command (no mutation)", () => {
+    const configPath = path.join(testTmpDir, ".phasedev", "config.yaml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, "autoApprove: false\n", "utf-8");
+    const before = fs.readFileSync(configPath, "utf-8");
 
-    const result = runCli(["config", "set", "maxIterations", "5", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("[PHASEDEV CONFIG SET] OK");
+    runCli(["config", "set", "autoApprove", "true", "--config", configPath]);
 
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain("maxIterations: 5");
-  });
-
-  test("config set handles boolean values", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "runArchiveStage", "false", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain("runArchiveStage: false");
-  });
-
-  test("config set rejects missing args", () => {
-    const result = runCli(["config", "set"]);
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("<key> and <value> are required");
+    expect(fs.readFileSync(configPath, "utf-8")).toBe(before);
   });
 
   // --- log ---
@@ -3609,40 +3591,6 @@ describe("CLI robustness fixes", () => {
     expect(result.output).toContain("requires a value");
   });
 
-  test("config set --string forces string storage and echoes the stored type", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "someFlag", "true", "--config", configPath, "--string"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("(string)");
-
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain('someFlag: "true"');
-  });
-
-  test("config set echoes the coerced type when --string is not passed", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath]);
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("(number)");
-  });
-
-  test("config set --json reports the stored value and type", () => {
-    const configPath = path.join(testTmpDir, "config.yaml");
-    fs.writeFileSync(configPath, "runArchiveStage: true\n", "utf-8");
-
-    const result = runCli(["config", "set", "maxIterations", "7", "--config", configPath, "--json"]);
-    expect(result.exitCode).toBe(0);
-
-    const envelope = JSON.parse(result.output);
-    expect(envelope.ok).toBe(true);
-    expect(envelope.kind).toBe("config-set");
-    expect(envelope.data.storedValue).toBe(7);
-    expect(envelope.data.storedType).toBe("number");
-  });
 });
 
 describe("code review finding tests", () => {
