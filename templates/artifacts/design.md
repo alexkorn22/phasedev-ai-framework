@@ -1,7 +1,5 @@
 ---
-approved: false
-approved_by: ""
-date: {{date}}
+{{approval_frontmatter}}
 ---
 
 # Design

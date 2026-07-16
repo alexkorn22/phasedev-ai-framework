@@ -1,4 +1,5 @@
 import { renderTemplate } from "../../shared/templates/render-template";
+import { buildApprovalFrontmatter } from "../../shared/markdown/approval-frontmatter";
 
 export interface ArtifactContractOptions {
   artifactId: string;
@@ -15,7 +16,8 @@ export interface ArtifactContractOptions {
 
 export function renderArtifactContract(options: ArtifactContractOptions): string {
   const templateContent = options.templateContent ?? renderTemplate(options.templateName, {
-    date: options.date
+    date: options.date,
+    approval_frontmatter: buildApprovalFrontmatter(options.date)
   });
   const hasYamlFrontmatter = templateContent.trimStart().startsWith("---\n");
 
