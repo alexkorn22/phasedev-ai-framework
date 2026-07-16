@@ -1,6 +1,5 @@
 import * as fs from "fs";
-import * as path from "path";
-import { ActivePhase, FLOW_STATE_FILE, readFindingsBaseline } from "../../entities/change/flow-state";
+import { ActivePhase, readFindingsBaseline } from "../../entities/change/flow-state";
 import { ChangePaths } from "../../entities/change/paths";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
@@ -30,7 +29,7 @@ function failMessage(phase: string, issues: string[]): PhaseValidation {
 }
 
 function findingsBaselineIssues(paths: ChangePaths): string[] {
-  const baseline = readFindingsBaseline(path.join(paths.changeDir, FLOW_STATE_FILE));
+  const baseline = readFindingsBaseline(paths.statePath);
   return baseline ? checkFindingsAgainstBaseline(paths.findingsPath, baseline) : [];
 }
 

@@ -1,7 +1,6 @@
-import * as fs from "fs";
 import * as path from "path";
 import { Config } from "../../entities/config/config";
-import { loadFlowState } from "../../entities/change/flow-state";
+import { clearFindingsBaseline, loadFlowState } from "../../entities/change/flow-state";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import {
   findCompletedArchiveState,
@@ -128,7 +127,7 @@ function runStandardArchive(
       return refuse(blocker.prompt, blocker.reason);
     }
 
-    fs.rmSync(route.paths.findingsBaselinePath, { force: true });
+    clearFindingsBaseline(route.paths.statePath);
 
     const archiveResult = startArchiveStage(projectPath, route.activeChangePath, new Date(), config);
     if (archiveResult.blocked) {

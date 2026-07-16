@@ -2099,7 +2099,7 @@ Test fixture only.
         JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
@@ -2109,7 +2109,7 @@ Test fixture only.
       const today = new Date().toISOString().split("T")[0];
       const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
       expect(fs.existsSync(archiveDir)).toBe(true);
-      expect(fs.existsSync(path.join(archiveDir, ".findings-baseline.json"))).toBe(false);
+      expect(readFindingsBaseline(path.join(archiveDir, "state.json"))).toBeNull();
     });
 
     test("reopenPhase(plan) removes an existing findings baseline", () => {
@@ -2124,13 +2124,12 @@ Test fixture only.
         JSON.stringify({ activePhase: "implementation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
         "utf-8"
       );
-      const baselinePath = path.join(changeDir, ".findings-baseline.json");
-      fs.writeFileSync(baselinePath, JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      seedFindingsBaselineRows(changeDir, []);
 
       const result = reopenPhase(testTmpDir, "plan");
 
       expect(result.ok).toBe(true);
-      expect(fs.existsSync(baselinePath)).toBe(false);
+      expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
     test("checkValidationCompletion returns ok:false when a row is deleted after baseline is written", () => {
@@ -2533,8 +2532,7 @@ Test fixture only.
 `, {
         findings: validationFindings("repair_required", "final", "| F1 | open | MUST-FIX | implementation | 5 | API response omits required error handling. | Add error mapping. |\n")
       });
-      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1 });
-      fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), JSON.stringify({ rows: [] }, null, 2), "utf-8");
+      writeRawState(changeDir, { activePhase: "iteration_validation", activeIteration: 5, repairCycleCount: 1, findingsBaseline: { rows: [] } });
 
       const result = syncState(testTmpDir);
 

@@ -4,7 +4,7 @@ import { buildChangePaths } from "../../entities/change/paths";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 import { nextQuickPhase } from "./quick-flow-sequence";
-import { readCommitLog } from "../../entities/change/commit-log";
+import { readCommitLog } from "../../entities/change/flow-state";
 import { gitHeadSha } from "../../shared/shell/git";
 import * as fs from "fs";
 
@@ -28,10 +28,10 @@ function worklogGateBlocks(worklogPath: string): boolean {
  * recorded baseline: a check that cannot be answered must not block a
  * non-git quick change.
  */
-function implementationCommitBlocks(projectPath: string, config: Config, commitLogPath: string): boolean {
+function implementationCommitBlocks(projectPath: string, config: Config, statePath: string): boolean {
   if (!config.requireIterationCommit) return false;
   if (commitGateBlocks(projectPath, config)) return true;
-  const start = readCommitLog(commitLogPath)?.start;
+  const start = readCommitLog(statePath)?.start;
   const head = gitHeadSha(projectPath);
   if (!start || !head) return false;
   return head === start;
@@ -45,7 +45,7 @@ export function quickAdvance(projectPath: string, config: Config, state: FlowSta
   if (state.activePhase === "quick_plan" && worklogGateBlocks(paths.worklogPath)) {
     return refuse("Cannot leave quick_plan: worklog.md is missing or empty. Fill worklog.md, then rerun advance.");
   }
-  if (state.activePhase === "quick_implementation" && implementationCommitBlocks(projectPath, config, paths.commitLogPath)) {
+  if (state.activePhase === "quick_implementation" && implementationCommitBlocks(projectPath, config, paths.statePath)) {
     return refuse("Cannot leave quick_implementation: commit the implementation (a new commit since the change baseline is required, with no uncommitted work outside .phasedev/**).");
   }
 

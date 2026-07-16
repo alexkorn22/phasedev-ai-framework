@@ -14,9 +14,8 @@ import { checkPhase } from "../src/features/phase-control/check-flow";
 import { getFlowStatus } from "../src/features/flow-status/get-status";
 import { getInitPrompt } from "../src/features/phase-control/get-init-prompt";
 import { getFeedbackPrompt } from "../src/features/phase-control/get-feedback-prompt";
-import { loadFlowState } from "../src/entities/change/flow-state";
+import { loadFlowState, recordCommitLogStart } from "../src/entities/change/flow-state";
 import { buildChangePaths } from "../src/entities/change/paths";
-import { recordCommitLogStart } from "../src/entities/change/commit-log";
 import { findArchiveStateForChange, writeArchiveState } from "../src/entities/change/archive-state";
 import { runArchive } from "../src/features/phase-control/archive-command";
 
@@ -161,7 +160,7 @@ describe("quickAdvance", () => {
     const baselineHead = gitCommitAll(repo, "initial commit");
     const { projectPath, changeName } = scaffoldQuickIn(repo, "quick_implementation");
     const paths = buildChangePaths(path.join(repo, ".phasedev", "changes", "c1"));
-    recordCommitLogStart(paths.commitLogPath, baselineHead);
+    recordCommitLogStart(paths.statePath, baselineHead);
     const state = loadFlowState(projectPath, changeName)!;
     const config = { ...DEFAULT_CONFIG, requireIterationCommit: true };
 

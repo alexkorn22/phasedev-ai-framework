@@ -31,15 +31,13 @@ describe("resetChange", () => {
     expect(r.message).toContain("Use --yes");
   });
 
-  test("moves the change to .trash when forced, dropping the findings baseline", () => {
+  test("moves the change to .trash when forced", () => {
     const changeDir = makeActiveChange("c1");
-    fs.writeFileSync(path.join(changeDir, ".findings-baseline.json"), "{}", "utf-8");
     const r = resetChange(dir, true);
     expect(r.ok).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(false);
     const trash = path.join(dir, ".phasedev", "changes", ".trash");
     const moved = fs.readdirSync(trash);
     expect(moved.length).toBe(1);
-    expect(fs.existsSync(path.join(trash, moved[0], ".findings-baseline.json"))).toBe(false);
   });
 });

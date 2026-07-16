@@ -5,7 +5,7 @@ import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { listActiveChangeDirs } from "../../entities/change/active-change";
 import { findInvalidArchiveState, findPendingArchiveState } from "../../entities/change/archive-state";
 import { gitHeadSha } from "../../shared/shell/git";
-import { recordCommitLogStart } from "../../entities/change/commit-log";
+import { recordCommitLogStart } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
@@ -92,7 +92,7 @@ export function createChange(projectPath: string, name: string, taskText?: strin
 
   const head = gitHeadSha(projectPath);
   if (head) {
-    recordCommitLogStart(buildChangePaths(changeDir).commitLogPath, head);
+    recordCommitLogStart(buildChangePaths(changeDir).statePath, head);
   }
 
   if (taskText) {

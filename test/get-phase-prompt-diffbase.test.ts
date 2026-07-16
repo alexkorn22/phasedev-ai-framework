@@ -5,7 +5,7 @@ import * as os from "os";
 import * as path from "path";
 import { renderIterationValidation, renderFinalValidation } from "../src/features/phase-control/get-phase-prompt";
 import { buildChangePaths } from "../src/entities/change/paths";
-import { recordCommitLogStart, recordIterationBoundary } from "../src/entities/change/commit-log";
+import { recordCommitLogStart, recordIterationBoundary } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { Prompt } from "../src/entities/phase/types";
 
@@ -48,7 +48,7 @@ describe("get-phase-prompt wires commit-log diff base into validation inventorie
     const iteration1Sha = gitCommitAll(repo, "iteration 1 boundary");
 
     const paths = buildChangePaths(changeDir);
-    recordIterationBoundary(paths.commitLogPath, 1, iteration1Sha);
+    recordIterationBoundary(paths.statePath, 1, iteration1Sha);
 
     fs.writeFileSync(path.join(repo, "iteration2.ts"), "iteration 2 work");
     gitCommitAll(repo, "iteration 2 committed");
@@ -70,7 +70,7 @@ describe("get-phase-prompt wires commit-log diff base into validation inventorie
     const startSha = gitCommitAll(repo, "start boundary");
 
     const paths = buildChangePaths(changeDir);
-    recordCommitLogStart(paths.commitLogPath, startSha);
+    recordCommitLogStart(paths.statePath, startSha);
 
     fs.writeFileSync(path.join(repo, "final.ts"), "final work");
     gitCommitAll(repo, "final commit");

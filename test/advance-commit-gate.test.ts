@@ -5,9 +5,8 @@ import * as os from "os";
 import * as path from "path";
 import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { runArchive } from "../src/features/phase-control/archive-command";
-import { readCommitLog } from "../src/entities/change/commit-log";
 import { buildChangePaths } from "../src/entities/change/paths";
-import { readFindingsBaseline } from "../src/entities/change/flow-state";
+import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 
 function makeGitRepo(): string {
@@ -273,7 +272,7 @@ describe("advance commit gate", () => {
 
     expect(res.ok).toBe(true);
     expect(res.newState?.activePhase).toBe("final_validation");
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(head);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(head);
   });
 
   it("does not gate when requireIterationCommit is false (still records boundary when a commit exists)", () => {
@@ -285,7 +284,7 @@ describe("advance commit gate", () => {
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
     expect(res.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(head);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(head);
   });
 
   it("does not gate in a non-git project", () => {
@@ -304,7 +303,7 @@ describe("advance commit gate", () => {
 
     const firstAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(firstAdvance.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(firstHead);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(firstHead);
 
     // Simulate a repair cycle landing back on a fresh re-validation of the
     // same iteration: state returns to iteration_validation(1), findings
@@ -323,7 +322,7 @@ describe("advance commit gate", () => {
     const secondAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(secondAdvance.ok).toBe(true);
-    expect(readCommitLog(buildChangePaths(changeDir).commitLogPath)?.iterations["1"]).toBe(repairHead);
+    expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(repairHead);
   });
 
   it("refuses to archive when the tree is dirty, then archives once committed", () => {

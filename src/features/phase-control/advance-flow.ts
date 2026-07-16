@@ -1,6 +1,6 @@
 import * as path from "path";
 import { Config } from "../../entities/config/config";
-import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase, FLOW_STATE_FILE, writeFindingsBaseline } from "../../entities/change/flow-state";
+import { FlowState, loadFlowState, saveFlowState, locateChangeDir, ActivePhase, recordCommitLogStart, recordIterationBoundary, writeFindingsBaseline } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
 import { findCompletedArchiveState, findInvalidArchiveState } from "../../entities/change/archive-state";
 import { validatePhaseExit } from "./phase-validators";
@@ -10,7 +10,6 @@ import { detectStateRouteConflict } from "./state-route-consistency";
 import { setFindingsType } from "../artifact-ops/manage-findings";
 import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
-import { recordCommitLogStart, recordIterationBoundary } from "../../entities/change/commit-log";
 import { normalizeValidationState } from "./normalize-validation-state";
 import { quickAdvance } from "./quick-advance";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
@@ -458,7 +457,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   // against what the validator/repairer produced, not a stale earlier pass.
   const BASELINE_PHASES: ReadonlySet<ActivePhase> = new Set(["iteration_validation", "final_validation", "finding_repair"]);
   if (BASELINE_PHASES.has(nextState.activePhase)) {
-    writeFindingsBaseline(path.join(paths.changeDir, FLOW_STATE_FILE), paths.findingsPath);
+    writeFindingsBaseline(paths.statePath, paths.findingsPath);
   }
 
   // Preserve repair cycle count through repair↔validation cycles.
@@ -481,11 +480,11 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   if (finalNextState.activePhase === "implementation") {
     const head = gitHeadSha(projectPath);
-    if (head) recordCommitLogStart(paths.commitLogPath, head);
+    if (head) recordCommitLogStart(paths.statePath, head);
   }
   if (iterationValidationPassed) {
     const head = gitHeadSha(projectPath);
-    if (head) recordIterationBoundary(paths.commitLogPath, state.activeIteration as number, head);
+    if (head) recordIterationBoundary(paths.statePath, state.activeIteration as number, head);
   }
 
   const iterSuffix = finalNextState.activeIteration

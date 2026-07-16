@@ -1,4 +1,3 @@
-import * as path from "path";
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
@@ -6,7 +5,7 @@ import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../.
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
-import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase, FLOW_STATE_FILE, readFindingsBaseline } from "../../entities/change/flow-state";
+import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase, readFindingsBaseline } from "../../entities/change/flow-state";
 import { validatePhase, validatePhaseExit, revalidationPendingMessage } from "./phase-validators";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
@@ -171,7 +170,7 @@ export function checkValidationCompletion(
   }
 
   if (paths && findings?.exists) {
-    const baseline = readFindingsBaseline(path.join(paths.changeDir, FLOW_STATE_FILE));
+    const baseline = readFindingsBaseline(paths.statePath);
     if (baseline) {
       issues.push(...checkFindingsAgainstBaseline(paths.findingsPath, baseline));
     }

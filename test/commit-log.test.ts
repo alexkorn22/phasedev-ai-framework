@@ -20,9 +20,9 @@ function tmpStatePath(): string {
   return statePath;
 }
 
-describe("entities/change/paths (.commit-log.json legacy field)", () => {
-  it("buildChangePaths still exposes the legacy .commit-log.json path (unused by state-backed accessors)", () => {
-    expect(buildChangePaths("/x/change").commitLogPath).toBe("/x/change/.commit-log.json");
+describe("entities/change/paths (state-backed accessors)", () => {
+  it("buildChangePaths exposes statePath under the change dir", () => {
+    expect(buildChangePaths("/x/change").statePath).toBe("/x/change/state.json");
   });
 
   it("buildChangePaths exposes worklogPath under the change dir", () => {
