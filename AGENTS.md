@@ -54,10 +54,10 @@ Acyclic `feature -> feature` imports are permitted (e.g. `phase-control -> artif
 These contracts are frozen. You MUST NOT change them unless the user explicitly asks in the current conversation:
 
 - Phase routing before Archive (previously Stage routing before Archive).
-- `state.json = { activePhase, activeIteration, repairCycleCount, flowMode? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`.
+- `state.json = { activePhase, activeIteration, repairCycleCount, flowMode?, commitLog?, findingsBaseline? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`. `commitLog`/`findingsBaseline` are optional sections present only when data exists; legacy standalone `.commit-log.json`/`.findings-baseline.json` files are ignored with a warning. `.phase-archive.json` remains a separate file.
 - Iteration heading format: `## Iteration N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`. `verdict: pending` and CLI-owned `type` normalization are internal self-heal mechanics (advance/sync-state and set-verdict re-run), not agent-settable values.
-- `config.yaml` shape: `phases:` instead of `stages:`, with legacy alias for `stages:` and `codex.stages:`.
+- `config.yaml` has exactly `autoApprove` (default `false`), `blockingSeverity` (default `must_fix`), `requireIterationCommit` (default `true`), and `phases.<phase>.skills.{routers,main,additional}`. Unknown or removed keys produce a stderr warning, are ignored, and never block the flow.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
 - Quick routing is a separate state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`) that branches before `resolveRoute`; `resolveRoute` and Standard routing are unchanged.
@@ -93,7 +93,7 @@ These contracts are frozen (same rule as "Behavior To Preserve"):
 
 Archive is a regular phase in the flow. The archive mutation (move + `.phase-archive.json`) is done by the standalone `phasedev archive <change-name>` command, not by `advance` and not by `next`.
 
-When a change reaches `archive_ready` (final validation passed, all iterations `[x]`, working tree clean) and `runArchiveStage` is enabled, `phasedev archive <change-name>`:
+When a change reaches `archive_ready` (final validation passed, all iterations `[x]`, working tree clean), running `phasedev archive <change-name>`:
 
 1. Moves `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>`.
 2. Creates `.phase-archive.json` in the archived change with `status: "in_progress"`.
