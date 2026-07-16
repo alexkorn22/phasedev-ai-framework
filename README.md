@@ -84,7 +84,7 @@ decision flow, and the exact artifact templates to fill in)
 4. **Iteration Planning** — break work into atomic iterations in `iteration_plan.md`. *Human approval gate.*
 5. **Implementation** — code and run checks, iteration by iteration.
 6. **Iteration / Final Validation** — review each iteration, then the whole changeset against PRD criteria.
-7. **Finding Repair** — fix validation findings until clean (bounded by `maxRepairCycles`).
+7. **Finding Repair** — fix validation findings until clean (bounded by the fixed repair-cycle limit (3)).
 8. **Archive** — `phasedev archive <change>` moves the change to `changes/archive/` and generates delta specs under `.phasedev/specs/`; `advance` no longer performs this step.
 
 Several unfinished changes may coexist under `.phasedev/changes/`. Change-scoped commands take `--change <name>`; with exactly one change it is inferred.
@@ -149,7 +149,7 @@ cd /path/to/your-project
 phasedev init-project
 ```
 
-Creates `.phasedev/` (changes, archive, specs, logs, `config.yaml`). Idempotent.
+Creates `.phasedev/` (`changes/`, `changes/archive/`, `specs/`, `config.yaml`). Idempotent.
 
 ---
 
@@ -196,7 +196,7 @@ Repeat `phase` / `check` / `advance` until `advance` reports final validation pa
 | Findings | `add-finding <title> <severity> --required-fix <text>`, `resolve-finding <id> --resolution <text>`, `reopen-finding <id> --evidence <text>`, `set-verdict <verdict>` |
 | Validation checks | `check-validation --scope iteration --iteration-id <N>`, `check-validation --scope final`, `check-archive --archive-path <path>` |
 | Recovery | `sync-state`, `reopen <design\|plan>`, `reset-change --yes` (destructive) |
-| Info | `status`, `list [--archived]`, `log [--tail N]`, `config <key>`, `config set <key> <value>`, `version` |
+| Info | `status`, `list [--archived]`, `log [--tail N]`, `config <key>`, `version` |
 
 ---
 
@@ -211,23 +211,29 @@ Repeat `phase` / `check` / `advance` until `advance` reports final validation pa
 
 ## 🛠️ Configuration
 
-`.phasedev/config.yaml` — flow flags plus optional per-phase skill policy:
+`.phasedev/config.yaml` has exactly four keys — the minimal bundled template (`phasedev init` scaffolds this):
 
 ```yaml
-phases:
-  change_intake:
-    skills: { routers: [], main: [], additional: [] }   # optional — see below
-  # ... other phases
+# PhaseDev config
+autoApprove: false
+blockingSeverity: must_fix   # must_fix | recommended | nit
+requireIterationCommit: true
 
-runArchiveStage: true        # phasedev archive <change-name> performs the archive mutation once final validation passes
-autoApprove: false           # true: advance blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping
-maxRepairCycles: 3           # hard cap on finding_repair loops
-maxIterations: 10            # advisory only — for external runners
-blockingSeverity: must_fix   # must_fix | recommended | nit — minimal severity that blocks the flow
-requireIterationCommit: true # clean-git-tree gate on passing validation exits (agent commits, controller never touches git)
+# Per-phase skill policy (optional):
+# phases:
+#   implementation:
+#     skills:
+#       routers: []
+#       main: [tdd]
+#       additional: []
 ```
 
-Per-phase `skills` lists declare which external agent skills a phase prompt may authorize; they are injected into `phasedev phase` prompts only. **They are optional**: when `skills` is omitted or left empty for a phase, the phase prompt instead tells the executing agent to look at whatever skills are available in its own session and pick the ones that fit that phase's work — so with no configuration at all, every phase still uses suitable skills automatically. Fill the lists only when you want to restrict or pin a phase to specific skills. A typo'd phase name under `phases:` is a hard error, not a silent drop. Security-class findings always block regardless of `blockingSeverity`.
+- `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
+- `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
+- `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
+- `phases.<phase>.skills` — declares which external agent skills a phase prompt may authorize (`routers` / `main` / `additional`); injected into `phasedev phase` prompts only. **Optional**: when `skills` is omitted or left empty for a phase, the phase prompt instead tells the executing agent to look at whatever skills are available in its own session and pick the ones that fit that phase's work — so with no configuration at all, every phase still uses suitable skills automatically. Fill the lists only when you want to restrict or pin a phase to specific skills. A typo'd phase name under `phases:` is a hard error, not a silent drop.
+
+Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys print a stderr warning and are ignored.
 
 ---
 
