@@ -1505,6 +1505,15 @@ The system SHALL route approved changes to Archive.
 - WHEN final validation is ready
 - THEN the Archive stage is selected
 `);
+    const liveSpecPath = path.join(testTmpDir, ".phasedev", "specs", "flow-routing", "spec.md");
+    fs.mkdirSync(path.dirname(liveSpecPath), { recursive: true });
+    fs.writeFileSync(liveSpecPath, `## Purpose
+
+Flow routing capability.
+
+### Requirement: Route approved changes
+The system SHALL route approved changes to Archive.
+`, "utf-8");
 
     const result = runCheckArchive(["--archive-path", archiveDir]);
 

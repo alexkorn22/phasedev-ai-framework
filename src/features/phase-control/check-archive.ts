@@ -2,11 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 import { archiveDirectories, FLOW_ARCHIVE_STATE_FILE, readArchiveState, validateArchiveStateFile } from "../../entities/change/archive-state";
 import { FLOW_STATE_FILE } from "../../entities/change/flow-state";
+import { deltaSectionHeadings, isRuleCExempt, lintLiveSpecs, liveSpecsRootFor } from "./live-spec-lint";
 
 export interface ArchiveCheckResult {
   ok: boolean;
   message: string;
   issues: string[];
+  warnings: string[];
 }
 
 const ALLOWED_SECTION_HEADINGS = new Set([
@@ -200,6 +202,7 @@ export function checkArchiveCompletion(archivePath: string | undefined): Archive
   }
 
   let changeName: string | null = null;
+  let warnings: string[] = [];
   if (archivePath && archiveStat?.isDirectory()) {
     changeName = validateArchiveState(archivePath, issues).changeName;
 
@@ -208,11 +211,28 @@ export function checkArchiveCompletion(archivePath: string | undefined): Archive
     if (specsStat && !specsStat.isDirectory()) {
       issues.push(`Archive specs path must be a directory when present: ${specsPath}`);
     } else {
+      const touchedCapabilities = new Set<string>();
+      const ruleCExemptCapabilities = new Set<string>();
+
       for (const relativeFile of relativeSpecFiles(specsPath)) {
         validateSpecPath(relativeFile, changeName, issues);
         if (relativeFile.endsWith("/spec.md")) {
           validateSpecContent(specsPath, relativeFile, issues);
+
+          const capability = relativeFile.split("/")[0];
+          touchedCapabilities.add(capability);
+          const sections = deltaSectionHeadings(fs.readFileSync(path.join(specsPath, relativeFile), "utf-8"));
+          if (isRuleCExempt(sections)) {
+            ruleCExemptCapabilities.add(capability);
+          }
         }
+      }
+
+      const liveSpecsRoot = liveSpecsRootFor(archivePath);
+      if (liveSpecsRoot) {
+        const lint = lintLiveSpecs(liveSpecsRoot, touchedCapabilities, ruleCExemptCapabilities);
+        issues.push(...lint.errors);
+        warnings = lint.warnings;
       }
     }
   }
@@ -221,6 +241,7 @@ export function checkArchiveCompletion(archivePath: string | undefined): Archive
     return {
       ok: false,
       issues,
+      warnings,
       message: [
         "[FLOW ARCHIVE CHECK] FAILED: archive is incomplete.",
         ...issues.map(issue => `- ${issue}`)
@@ -231,6 +252,7 @@ export function checkArchiveCompletion(archivePath: string | undefined): Archive
   return {
     ok: true,
     issues: [],
+    warnings,
     message: "[FLOW ARCHIVE CHECK] OK: archive is complete."
   };
 }
