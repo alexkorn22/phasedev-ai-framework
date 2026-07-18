@@ -2469,6 +2469,7 @@ phases:
     expect(archiveTemplate).toContain("Do not classify requirements, create delta specs, or edit any spec yourself");
     expect(archiveTemplate).toContain("## Ripple search");
     expect(archiveTemplate).toContain("## Gap control");
+    expect(archiveTemplate).toContain("## UI literals");
     expect(archiveTemplate).toContain("## Truth direction and escalations");
     expect(archiveTemplate).toContain("do not set `.phase-archive.json` to completed");
     expect(archiveTemplate).toContain("commitLog");

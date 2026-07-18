@@ -47,7 +47,7 @@ Constraints:
 Work only with requirement-level changes derived from the archived change artifacts for `{{change_name}}`.
 
 1. Read inputs.
-2. Spawn exactly one `spec_sync` sub-agent. Its delegation prompt is the full content of the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `## Ripple search`, `## Gap control`, `## UI literals`, and `## Truth direction and escalations` below, plus the artifact links above. Do not classify requirements, create delta specs, or edit any spec yourself.
+2. Spawn exactly one `spec_sync` sub-agent. Its delegation prompt is the full content of the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `Ripple search`, `Gap control`, `UI literals`, and `Truth direction and escalations` below, plus the artifact links above. Do not classify requirements, create delta specs, or edit any spec yourself.
 3. Read the sub-agent report. If it contains escalations: stop, present every escalation to the user as a question, and do not set `.phase-archive.json` to completed until all are resolved. After the user answers, re-dispatch `spec_sync` with the decisions to apply and repeat this step.
 4. When the report has no unresolved escalations, set `.phase-archive.json` to completed.
 5. Run the archive self-check.
@@ -176,7 +176,11 @@ If the check fails, fix only Archive artifacts allowed by this phase and rerun t
 
 Phase completion:
 - Stop after the archive self-check passes.
-- In the report, include the `R#` classification table and state which specs were created/updated or why sync was skipped.
+- In the report, include:
+  - the sub-agent's `R#` classification table;
+  - which specs were created/updated or why sync was skipped;
+  - all ripple and gap findings;
+  - all escalation outcomes, with an empty escalation list stated explicitly.
 - Include the final archive path: `{{archive_path}}`.
 - Include {{skill_compliance_line}}
 - Do not suggest running the next flow phase.
