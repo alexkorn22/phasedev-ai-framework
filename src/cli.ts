@@ -806,10 +806,14 @@ function handleCheckValidation(ctx: CommandContext): void {
 
 function handleCheckArchive(ctx: CommandContext): void {
   const result = checkArchiveCompletion(parseArchivePath(ctx.args));
+  for (const warning of result.warnings) {
+    console.warn(`[FLOW ARCHIVE CHECK] warning: ${warning}`);
+  }
   reportCliResult(ctx.jsonMode, {
     ok: result.ok,
     kind: "check-archive",
     humanMessage: result.message,
+    data: { warnings: result.warnings },
     issues: result.issues
   });
 }

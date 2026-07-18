@@ -750,6 +750,19 @@ The E2E flow SHALL complete without re-approvals.
 `;
     writeFile(path.join(specsDir, "spec.md"), specContent);
 
+    // Write the matching live spec so check-archive's live-spec lint passes
+    const liveSpecsDir = path.join(testTmpDir, ".phasedev", "specs", "e2e-flow");
+    fs.mkdirSync(liveSpecsDir, { recursive: true });
+    writeFile(path.join(liveSpecsDir, "spec.md"), `\
+## Purpose
+
+E2E flow capability.
+
+### Requirement: E2E flow must complete
+
+The E2E flow SHALL complete without re-approvals.
+`);
+
     // Complete the archive state (status -> completed)
     const archiveStateFilePath = path.join(fullArchivePath, ".phase-archive.json");
     const currentArchiveState = JSON.parse(fs.readFileSync(archiveStateFilePath, "utf-8"));

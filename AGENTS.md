@@ -107,7 +107,7 @@ Resume: if a later `phasedev archive <change-name>` (or `phase`) finds pending `
 
 Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`; `phasedev archive <change-name>` reports that completion once it verifies the archive contract's requirements are met.
 
-Agents executing the Archive prompt MUST write delta specs under the archived change and then update `.phase-archive.json`; they MUST NOT call an archive script.
+Agents executing the Archive prompt MUST delegate all spec work (delta specs, merge into `.phasedev/specs`, ripple search, escalation of ambiguous divergences) to a single `spec_sync` sub-agent, stop on unresolved escalations before completing, and then update `.phase-archive.json`; they MUST NOT call an archive script. `phasedev check-archive` additionally lints live specs: violations in specs touched by the current archive block completion; the rest of the corpus produces stderr warnings.
 
 ## Commands
 

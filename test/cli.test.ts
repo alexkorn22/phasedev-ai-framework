@@ -1505,6 +1505,15 @@ The system SHALL route approved changes to Archive.
 - WHEN final validation is ready
 - THEN the Archive stage is selected
 `);
+    const liveSpecPath = path.join(testTmpDir, ".phasedev", "specs", "flow-routing", "spec.md");
+    fs.mkdirSync(path.dirname(liveSpecPath), { recursive: true });
+    fs.writeFileSync(liveSpecPath, `## Purpose
+
+Flow routing capability.
+
+### Requirement: Route approved changes
+The system SHALL route approved changes to Archive.
+`, "utf-8");
 
     const result = runCheckArchive(["--archive-path", archiveDir]);
 
@@ -2314,6 +2323,16 @@ describe("flow templates", () => {
     expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Archived change:"));
   });
 
+  test("quick archive prompt delegates spec work to spec_sync and merges into live specs (B28)", () => {
+    const template = readTemplate("quick_archive.md");
+
+    expect(template).toContain("spec_sync");
+    expect(template).toContain("worklog.md");
+    expect(template).toContain("{{main_specs_path}}");
+    expect(template).toContain("do not set the archive completed");
+    expect(template).toContain("commitLog");
+  });
+
   test("generated skill policy preserves configured stage boundaries", () => {
     const config = parseConfig(`
 phases:
@@ -2451,6 +2470,19 @@ phases:
     expect(archiveTemplate).toContain("{{archive_state_path}}");
     expect(archiveTemplate).toContain("status: \"completed\"");
     expect(archiveTemplate).not.toContain("{{archive_command}}");
+  });
+
+  test("archive prompt delegates spec work to a spec_sync sub-agent with escalation gate (B28)", () => {
+    const archiveTemplate = readTemplate("phase7_archive.md");
+
+    expect(archiveTemplate).toContain("spec_sync");
+    expect(archiveTemplate).toContain("Do not classify requirements, create delta specs, or edit any spec yourself");
+    expect(archiveTemplate).toContain("## Ripple search");
+    expect(archiveTemplate).toContain("## Gap control");
+    expect(archiveTemplate).toContain("## UI literals");
+    expect(archiveTemplate).toContain("## Truth direction and escalations");
+    expect(archiveTemplate).toContain("do not set `.phase-archive.json` to completed");
+    expect(archiveTemplate).toContain("commitLog");
   });
 
   test("template renderer rejects unresolved placeholders", () => {
