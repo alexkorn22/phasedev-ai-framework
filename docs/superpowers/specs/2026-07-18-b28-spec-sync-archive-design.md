@@ -92,9 +92,10 @@ The quick archive template gets its own `spec_sync` delegation section where:
   and escalation contract as standard.
 
 **Sequencing (both flows):** orchestrator spawns `spec_sync` → sub-agent writes
-deltas and merges → orchestrator runs `phasedev check-archive` → if the
-sub-agent's report has no escalations and the check passes, the orchestrator sets
-`.phase-archive.json` to `completed`. The R#/worklog classification table in the
+deltas and merges → if the sub-agent's report has escalations, stop (completed is
+never set) → otherwise the orchestrator sets `.phase-archive.json` to `completed`
+and runs `phasedev check-archive` (the check requires completed status), fixing
+archive artifacts and re-running until it passes. The R#/worklog classification table in the
 phase's final report is taken from the sub-agent's report. Existing template
 guardrails (no catch-all specs, one spec file per functional area, R#s as the
 only source, prefer omission over speculative requirements) move into the
