@@ -30,6 +30,9 @@ Explicitly out of scope (user decisions):
   ripple name list is built by the sub-agent itself from git diffs, per prompt
   instructions — no new command.
 - **No new artifact, no new `state.json` section, no `.phase-archive.json` fields.**
+  Consequence, accepted: escalation decisions made by the user live only in the
+  conversation and the resulting spec edits — they are not persisted as a
+  dedicated record.
 - Deferred to future changes: reversal bookkeeping (items 6–7), full-corpus sweep
   command (item 8), spec heading linter beyond `## Purpose` (item 9).
 
@@ -87,9 +90,21 @@ also lint live specs under `.phasedev/specs`:
 
 - **Rule A — no delta headings:** no line in a live `spec.md` may be a delta
   section heading (`## ADDED Requirements`, `## MODIFIED Requirements`,
-  `## REMOVED Requirements`, `## RENAMED Requirements`).
-- **Rule B — purpose first:** the first heading of a live `spec.md` must be
-  `## Purpose`.
+  `## REMOVED Requirements`, `## RENAMED Requirements`). The check is
+  fence-aware (project invariant): lines inside fenced code blocks are ignored,
+  so a spec may legitimately quote the delta format in an example.
+- **Rule B — purpose first:** the first `##`-level heading of a live `spec.md`
+  must be `## Purpose`. An optional single leading `# `-title line is allowed
+  before it (existing corpus convention).
+- **Rule C — merge happened:** for every capability that has a delta in the
+  current archive, `.phasedev/specs/<capability>/spec.md` must exist. This
+  catches a wholesale skipped merge (delta written, live spec never created),
+  which Rules A/B cannot see because they only lint existing files.
+
+Implementation note: `checkArchiveCompletion()` currently receives only the
+archive path; the live-specs root is derived from it by walking up to the
+parent of `.phasedev` (the archive always lives under
+`.phasedev/changes/archive/`).
 
 Severity is scoped to avoid bricking projects with pre-existing drift:
 
@@ -117,7 +132,9 @@ Mechanical (automated, `bun test`):
 
 - `check-archive` lint unit tests: delta heading in a touched live spec → fail;
   delta heading in an untouched live spec → pass with warning; missing
-  `## Purpose` in a touched spec → fail; clean corpus → pass.
+  `## Purpose` in a touched spec → fail; delta heading inside a fenced code
+  block → pass; capability with a delta but no live spec file → fail (Rule C);
+  clean corpus → pass.
 - Template/prompt tests (existing pattern): archive prompt contains the
   `spec_sync` delegation section, the escalation stop rule, and no longer
   instructs the orchestrator to merge specs itself; quick template likewise.
@@ -142,8 +159,9 @@ Behavioral (manual acceptance, cannot be a `bun test`):
 - [ ] Orchestrator contract: unresolved escalations block `status: completed`
       and are surfaced to the user as questions.
 - [ ] `check-archive` fails when a live spec touched by the current archive
-      contains a delta heading or lacks `## Purpose`; warns (stderr) for the
-      rest of the corpus; zero LLM calls involved.
+      contains a delta heading (outside code fences), lacks `## Purpose`, or is
+      missing entirely for a delta'd capability; warns (stderr) for the rest of
+      the corpus; zero LLM calls involved.
 - [ ] Focused tests plus full `bun test` and `npm run typecheck` pass.
 
 ## Frozen-contract notes
