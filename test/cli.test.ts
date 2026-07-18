@@ -2462,6 +2462,18 @@ phases:
     expect(archiveTemplate).not.toContain("{{archive_command}}");
   });
 
+  test("archive prompt delegates spec work to a spec_sync sub-agent with escalation gate (B28)", () => {
+    const archiveTemplate = readTemplate("phase7_archive.md");
+
+    expect(archiveTemplate).toContain("spec_sync");
+    expect(archiveTemplate).toContain("Do not classify requirements, create delta specs, or edit any spec yourself");
+    expect(archiveTemplate).toContain("## Ripple search");
+    expect(archiveTemplate).toContain("## Gap control");
+    expect(archiveTemplate).toContain("## Truth direction and escalations");
+    expect(archiveTemplate).toContain("do not set `.phase-archive.json` to completed");
+    expect(archiveTemplate).toContain("commitLog");
+  });
+
   test("template renderer rejects unresolved placeholders", () => {
     const templatesDir = path.resolve(__dirname, "..", "templates");
     const tempTemplateName = "__test_unresolved_placeholders";
