@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { runArchive } from "../src/features/phase-control/archive-command";
+import { checkArchiveCompletion } from "../src/features/phase-control/check-archive";
 import { createArchiveState } from "../src/entities/change/archive-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { UnknownChangeError } from "../src/entities/change/change-errors";
@@ -483,5 +484,62 @@ describe("runArchive: Quick mode", () => {
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain("has not reached the final quick phase (quick_spec_revision)");
+  });
+});
+
+describe("checkArchiveCompletion live-spec lint (B28)", () => {
+  // mkArchived(name, "completed") produces
+  //   <testTmpDir>/.phasedev/changes/archive/<date>-<name>/.phase-archive.json (status completed)
+  // which is this test file's existing completed-archive fixture.
+
+  function writeArchiveDelta(archivePath: string, capability: string, content: string): void {
+    const dir = path.join(archivePath, "specs", capability);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "spec.md"), content);
+  }
+
+  function writeLiveSpec(projectDir: string, capability: string, content: string): void {
+    const dir = path.join(projectDir, ".phasedev", "specs", capability);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "spec.md"), content);
+  }
+
+  const ADDED_DELTA = "## ADDED Requirements\n\n### Requirement: Render\nThe system SHALL render.\n\n#### Scenario: Basic\n- WHEN opened\n- THEN rendered\n";
+  const REMOVED_DELTA = "## REMOVED Requirements\n\n### Requirement: Old model\nReason: superseded.\n";
+  const CLEAN_LIVE = "## Purpose\n\nReporting capability.\n\n### Requirement: Render\nThe system SHALL render.\n";
+
+  test("fails when a delta'd capability has no live spec (Rule C)", () => {
+    const archivePath = mkArchived("my-change", "completed");
+    writeArchiveDelta(archivePath, "reporting", ADDED_DELTA);
+    const result = checkArchiveCompletion(archivePath);
+    expect(result.ok).toBe(false);
+    expect(result.issues.some(issue => issue.includes("reporting"))).toBe(true);
+  });
+
+  test("passes for a REMOVED-only delta with no live spec (Rule C exemption)", () => {
+    const archivePath = mkArchived("my-change", "completed");
+    writeArchiveDelta(archivePath, "reporting", REMOVED_DELTA);
+    const result = checkArchiveCompletion(archivePath);
+    expect(result.ok).toBe(true);
+  });
+
+  test("fails when a touched live spec keeps a delta heading, warns for untouched", () => {
+    const archivePath = mkArchived("my-change", "completed");
+    writeArchiveDelta(archivePath, "reporting", ADDED_DELTA);
+    writeLiveSpec(testTmpDir, "reporting", "## ADDED Requirements\n\n### Requirement: Render\nThe system SHALL render.\n");
+    writeLiveSpec(testTmpDir, "billing", "## MODIFIED Requirements\n\n### Requirement: Pay\nThe system SHALL pay.\n");
+    const result = checkArchiveCompletion(archivePath);
+    expect(result.ok).toBe(false);
+    expect(result.issues.some(issue => issue.includes("reporting/spec.md"))).toBe(true);
+    expect(result.warnings.some(warning => warning.includes("billing/spec.md"))).toBe(true);
+  });
+
+  test("passes with a clean merged live spec and reports zero warnings", () => {
+    const archivePath = mkArchived("my-change", "completed");
+    writeArchiveDelta(archivePath, "reporting", ADDED_DELTA);
+    writeLiveSpec(testTmpDir, "reporting", CLEAN_LIVE);
+    const result = checkArchiveCompletion(archivePath);
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual([]);
   });
 });

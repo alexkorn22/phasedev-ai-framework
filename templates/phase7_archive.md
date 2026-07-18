@@ -1,6 +1,6 @@
 Phase 7. Archive.
 
-Your task is to complete the already archived change: sync long-lived specifications from the approved archived change artifacts, run the archive self-check, and complete the machine state.
+Your task is to complete the already archived change: delegate specification work to a `spec_sync` sub-agent, resolve its escalations with the user, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
@@ -47,16 +47,15 @@ Constraints:
 Work only with requirement-level changes derived from the archived change artifacts for `{{change_name}}`.
 
 1. Read inputs.
-2. Classify every `R#`.
-3. Create delta specs when needed.
-4. Sync `.phasedev/specs` when needed.
-5. Set `.phase-archive.json` to completed.
-6. Run the archive self-check.
-7. Report changed specs or skipped sync, then stop.
+2. Spawn exactly one `spec_sync` sub-agent. Its delegation prompt is the full content of the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `Ripple search`, `Gap control`, `UI literals`, and `Truth direction and escalations` below, plus the artifact links above. Do not classify requirements, create delta specs, or edit any spec yourself.
+3. Read the sub-agent report. If it contains escalations: stop, present every escalation to the user as a question, and do not set `.phase-archive.json` to completed until all are resolved. After the user answers, re-dispatch `spec_sync` with the decisions to apply and repeat this step.
+4. When the report has no unresolved escalations, set `.phase-archive.json` to completed.
+5. Run the archive self-check.
+6. Report, then stop: include the sub-agent's classification table, changed specs or skipped sync, ripple/gap findings, and escalation outcomes.
 
 ## Spec-level classification
 
-Before creating or updating specs, classify every `R#` requirement in the final response using this exact table:
+Before creating or updating specs, the `spec_sync` sub-agent classifies every `R#` requirement in its report using this exact table:
 
 ```text
 R# | Spec-level? | Capability | Operation | Target spec | Reason
@@ -126,10 +125,36 @@ Format rules:
 
 ## Sync specs
 
-After creating delta specs, sync them into `.phasedev/specs`:
+After creating delta specs, merge them into `.phasedev/specs`. Merging is never copying a delta file over a live spec:
 - carefully add new capabilities;
 - update existing capabilities only within the requirements of the current change;
-- preserve existing requirements/scenarios that the current change does not modify.
+- preserve existing requirements/scenarios that the current change does not modify;
+- when a requirement replaces a cancelled model, remove the obsolete requirement — do not leave it next to the new one;
+- delta section headings (`## ADDED Requirements`, `## MODIFIED Requirements`, `## REMOVED Requirements`, `## RENAMED Requirements`) must never appear in a live spec;
+- normalize every touched live spec so that its first `##` heading is `## Purpose` (a single leading `# ` title line may precede it).
+
+## Ripple search
+
+After the merge, check the rest of the spec corpus against what the change actually did:
+
+1. Read `commitLog` from `state.json` inside `{{archive_path}}` and take the change diff `commitLog.start..HEAD`. If `commitLog` is absent or has no `start` (the repository had no commits when the change was created), fall back to the change branch's full diff via git, and state in the report which diff source was used.
+2. From the diff, extract added/removed/renamed names: files, exported symbols, classes, routes, CSS variables, database fields, environment variables, and user-facing string literals.
+3. Grep every extracted name across all files under `.phasedev/specs`. For every hit, decide whether the change made that statement false. Token grep is the floor, not the ceiling: inside specs touched by the change, verify statements by meaning, not only by matched names.
+
+## Gap control
+
+For every persistent entity the diff adds (database column, route, environment variable, public CSS variable): if it is mentioned in no spec at all, record a finding `requirement not written` in the report. A zero-hit grep for a new entity is a finding, not a clean result.
+
+## UI literals
+
+Any spec statement that quotes user-facing text must be checked against the actual constant in code. When the change deliberately updated the literal, fix the spec text to match the code.
+
+## Truth direction and escalations
+
+A divergence between a spec statement and the code is a finding, not an automatic edit:
+- Edit the spec only in the obvious case: the spec lags behind a deliberate decision recorded in this change's `prd.md` or `iteration_plan.md`.
+- In every ambiguous case (the code may be defective, or the intent is unclear), do NOT edit. Add an escalation item to the report: spec file, quoted statement, what the code actually does, and why the truth direction is unclear.
+- The final report must list all spec edits, all ripple and gap findings, and all escalations. An empty escalation list must be stated explicitly.
 
 ## Complete archive state
 
@@ -151,7 +176,11 @@ If the check fails, fix only Archive artifacts allowed by this phase and rerun t
 
 Phase completion:
 - Stop after the archive self-check passes.
-- In the report, include the `R#` classification table and state which specs were created/updated or why sync was skipped.
+- In the report, include:
+  - the sub-agent's `R#` classification table;
+  - which specs were created/updated or why sync was skipped;
+  - all ripple and gap findings;
+  - all escalation outcomes, with an empty escalation list stated explicitly.
 - Include the final archive path: `{{archive_path}}`.
 - Include {{skill_compliance_line}}
 - Do not suggest running the next flow phase.
