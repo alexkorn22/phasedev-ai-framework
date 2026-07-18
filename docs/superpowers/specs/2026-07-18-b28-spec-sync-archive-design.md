@@ -79,7 +79,26 @@ as questions, and MUST NOT set `.phase-archive.json` to `completed`. After the
 user answers, it re-dispatches `spec_sync` (or a follow-up sub-agent) with the
 decisions to apply, then proceeds.
 
-The quick-flow archive template gets the same contract.
+**Quick flow gets an adapted contract, not a verbatim copy.** Quick changes have
+no PRD and no R# requirements — only `worklog.md` (`## Task / ## Short
+Specification / ## Plan`), and today's `quick_archive.md` writes a delta spec but
+never merges it into `.phasedev/specs` (the live corpus is not updated at all).
+The quick archive template gets its own `spec_sync` delegation section where:
+
+- the classification input is `worklog.md` (Short Specification + implemented
+  behavior), not R#s;
+- the merge-into-live-specs step is ADDED (it does not exist today) with the same
+  merge rules, ripple search, gap control, UI-literal check, truth-direction rule,
+  and escalation contract as standard.
+
+**Sequencing (both flows):** orchestrator spawns `spec_sync` → sub-agent writes
+deltas and merges → orchestrator runs `phasedev check-archive` → if the
+sub-agent's report has no escalations and the check passes, the orchestrator sets
+`.phase-archive.json` to `completed`. The R#/worklog classification table in the
+phase's final report is taken from the sub-agent's report. Existing template
+guardrails (no catch-all specs, one spec file per functional area, R#s as the
+only source, prefer omission over speculative requirements) move into the
+delegation prompt unchanged.
 
 ### 2. Live-spec lint in `check-archive` (mechanical, zero tokens)
 
@@ -95,16 +114,34 @@ also lint live specs under `.phasedev/specs`:
   so a spec may legitimately quote the delta format in an example.
 - **Rule B — purpose first:** the first `##`-level heading of a live `spec.md`
   must be `## Purpose`. An optional single leading `# `-title line is allowed
-  before it (existing corpus convention).
+  before it. This is a convention ESTABLISHED by this change, not a pre-existing
+  one — the bug report shows the corpus is mixed today. The delegation prompt
+  therefore instructs `spec_sync` to normalize the heading of every touched spec
+  to `## Purpose` during the merge; untouched specs with old headings produce
+  only warnings.
 - **Rule C — merge happened:** for every capability that has a delta in the
   current archive, `.phasedev/specs/<capability>/spec.md` must exist. This
   catches a wholesale skipped merge (delta written, live spec never created),
-  which Rules A/B cannot see because they only lint existing files.
+  which Rules A/B cannot see because they only lint existing files. Exception:
+  a delta consisting solely of `## REMOVED Requirements` / `## RENAMED
+  Requirements` sections may legitimately leave no live spec under the old
+  capability name — such capabilities are exempt from Rule C (for RENAMED, the
+  new name, when present in the delta, is checked instead).
 
-Implementation note: `checkArchiveCompletion()` currently receives only the
-archive path; the live-specs root is derived from it by walking up to the
-parent of `.phasedev` (the archive always lives under
-`.phasedev/changes/archive/`).
+Implementation notes:
+
+- `checkArchiveCompletion()` currently receives only the archive path; the
+  live-specs root is derived from it by walking up to the parent of `.phasedev`
+  (the archive always lives under `.phasedev/changes/archive/`).
+- `checkArchiveCompletion()` is a pure function (returns `{ok, message,
+  issues}`) called from four contexts; corpus warnings are returned as a
+  separate `warnings` field and printed to stderr by the CLI wrapper only —
+  not `console.warn` inside the pure function.
+- Rule A reuses the existing fence-aware helper
+  (`src/shared/markdown/code-fences.ts`) and the existing delta-heading set in
+  `check-archive.ts`; the new live-spec lint and the existing delta-spec
+  validation operate on disjoint directories (`.phasedev/specs` vs
+  `<archive>/specs`) and do not conflict.
 
 Severity is scoped to avoid bricking projects with pre-existing drift:
 
@@ -117,9 +154,14 @@ No other new commands, no config keys.
 
 ## Error handling
 
-- Missing/empty `commitLog` (e.g. `requireIterationCommit: false` flows): the
-  delegation prompt tells the sub-agent to fall back to asking git for the change
-  branch's diff, and to state in its report which diff source it used.
+- Missing/empty `commitLog`: `commitLog.start` is written unconditionally at
+  `create-change` time, so it is only absent when the repository had no HEAD
+  commit at that moment (fresh repo). For that case the delegation prompt tells
+  the sub-agent to fall back to asking git for the change branch's diff, and to
+  state in its report which diff source it used.
+- Escalation compliance is NOT mechanically guaranteed: the stop-on-escalations
+  rule is an orchestrator instruction, and the lint only checks merge hygiene.
+  This residual risk is accepted (see Frozen-contract notes).
 - Sub-agent cannot ask the user mid-task: all context (paths, rules, escalation
   format) lives in the delegation prompt; ambiguity always resolves to "escalate
   in the report", never to guessing.
@@ -134,7 +176,9 @@ Mechanical (automated, `bun test`):
   delta heading in an untouched live spec → pass with warning; missing
   `## Purpose` in a touched spec → fail; delta heading inside a fenced code
   block → pass; capability with a delta but no live spec file → fail (Rule C);
-  clean corpus → pass.
+  REMOVED-only / RENAMED-only delta with no live spec under the old name →
+  pass (Rule C exemption); corpus warnings returned in a `warnings` field and
+  printed only by the CLI wrapper; clean corpus → pass.
 - Template/prompt tests (existing pattern): archive prompt contains the
   `spec_sync` delegation section, the escalation stop rule, and no longer
   instructs the orchestrator to merge specs itself; quick template likewise.
@@ -153,9 +197,12 @@ Behavioral (manual acceptance, cannot be a `bun test`):
 
 - [ ] Archive phase prompt (standard + quick) delegates all spec work to one
       `spec_sync` sub-agent; orchestrator no longer edits specs.
-- [ ] Delegation prompt covers: R# classification, delta specs, merge rules,
-      diff-driven ripple search via `commitLog`, gap control, UI literal check,
-      truth-direction rule with escalation.
+- [ ] Delegation prompt covers: R# classification (standard) / worklog-based
+      classification (quick), delta specs, merge rules, diff-driven ripple
+      search via `commitLog`, gap control, UI literal check, truth-direction
+      rule with escalation, existing template guardrails.
+- [ ] Quick archive template gains the merge-into-live-specs step it lacks
+      today.
 - [ ] Orchestrator contract: unresolved escalations block `status: completed`
       and are surfaced to the user as questions.
 - [ ] `check-archive` fails when a live spec touched by the current archive
@@ -172,3 +219,11 @@ Behavioral (manual acceptance, cannot be a `bun test`):
   existing accessors only.
 - Prompt template changes are intentional wording/meaning updates approved by the
   user in the B28 conversation (2026-07-18).
+- Deviation from the bug report, per explicit user decision (2026-07-18): the
+  bug report's acceptance items requiring a mechanical CLI gate on a recorded
+  `spec_sync` verdict and a separate verifier agent are superseded. There is no
+  verdict artifact; the only mechanical gate is the live-spec lint, and the
+  escalation stop is a prompt-level contract.
+- Behavior change in quick flow: quick archive now merges deltas into
+  `.phasedev/specs` (previously it never updated the live corpus). Approved as
+  part of this design.
