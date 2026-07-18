@@ -29,11 +29,16 @@ Planning instructions:
 1. Use the Artifact Build Contract below as the only source of structure for [iteration_plan.md]({{plan_path}}).
 2. Create the implementation plan file: [iteration_plan.md]({{plan_path}}), filling that template for the current change.
 3. Apply the contract's canonical fill rules for comments, placeholders, status values, trace IDs, review formatting, and machine-readable fields.
-4. Split implementation into sequential autonomous iterations:
+4. Split implementation into sequential, self-contained iterations:
    - every iteration, including the only iteration, goes through `Implementation -> Iteration Validation`;
    - after successful Iteration Validation for all iterations, the flow proceeds to `Final Validation`;
    - each iteration must fit fully into one AI-agent working session without context overflow;
-   - the optimal iteration size is a 3-10 file change; do not artificially split a small change.
+   - self-containment: each iteration must bring its part of the functionality to a state that is fully verifiable by its checks and Iteration Validation immediately upon its completion, without relying on changes planned in later iterations;
+   - do not split tightly coupled functionality across iterations; failure criterion: if iteration N cannot be fully validated without changes planned in iteration N+1 or later, the boundaries are wrong and the split must be reworked;
+   - do not over-fragment: if two pieces of work are meaningful and verifiable only together, they are one iteration; split work only into iterations that do not depend on unfinished parts of each other;
+   - dependencies point forward only: iteration N+1 may build on the completed result of iteration N; backward and cyclic dependencies between iterations are forbidden;
+   - the optimal iteration size is a 3-10 file change, but this is a soft heuristic subordinate to self-containment: never split a coupled block only to satisfy it; if a tightly coupled block cannot fit into one working session, treat it as a material realignment blocker per instruction 7 instead of splitting it;
+   - boundary self-check: before finalizing the plan, answer for every iteration "Can this iteration be fully validated as complete if none of the later iterations have been executed?"; if the answer is no, rework the iteration boundaries before writing `iteration_plan.md`; do not record this check in the artifact or the final response.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - iteration sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
    - checks must cover each `SC#` according to its PRD `Evidence` type;
