@@ -2323,6 +2323,16 @@ describe("flow templates", () => {
     expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Archived change:"));
   });
 
+  test("quick archive prompt delegates spec work to spec_sync and merges into live specs (B28)", () => {
+    const template = readTemplate("quick_archive.md");
+
+    expect(template).toContain("spec_sync");
+    expect(template).toContain("worklog.md");
+    expect(template).toContain("{{main_specs_path}}");
+    expect(template).toContain("do not set the archive completed");
+    expect(template).toContain("commitLog");
+  });
+
   test("generated skill policy preserves configured stage boundaries", () => {
     const config = parseConfig(`
 phases:
