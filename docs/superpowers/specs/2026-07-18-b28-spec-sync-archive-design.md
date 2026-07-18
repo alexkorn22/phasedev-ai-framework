@@ -196,21 +196,21 @@ Behavioral (manual acceptance, cannot be a `bun test`):
 
 ## Acceptance criteria
 
-- [ ] Archive phase prompt (standard + quick) delegates all spec work to one
+- [x] Archive phase prompt (standard + quick) delegates all spec work to one
       `spec_sync` sub-agent; orchestrator no longer edits specs.
-- [ ] Delegation prompt covers: R# classification (standard) / worklog-based
+- [x] Delegation prompt covers: R# classification (standard) / worklog-based
       classification (quick), delta specs, merge rules, diff-driven ripple
       search via `commitLog`, gap control, UI literal check, truth-direction
       rule with escalation, existing template guardrails.
-- [ ] Quick archive template gains the merge-into-live-specs step it lacks
+- [x] Quick archive template gains the merge-into-live-specs step it lacks
       today.
-- [ ] Orchestrator contract: unresolved escalations block `status: completed`
+- [x] Orchestrator contract: unresolved escalations block `status: completed`
       and are surfaced to the user as questions.
-- [ ] `check-archive` fails when a live spec touched by the current archive
+- [x] `check-archive` fails when a live spec touched by the current archive
       contains a delta heading (outside code fences), lacks `## Purpose`, or is
       missing entirely for a delta'd capability; warns (stderr) for the rest of
       the corpus; zero LLM calls involved.
-- [ ] Focused tests plus full `bun test` and `npm run typecheck` pass.
+- [x] Focused tests plus full `bun test` and `npm run typecheck` pass.
 
 ## Frozen-contract notes
 
