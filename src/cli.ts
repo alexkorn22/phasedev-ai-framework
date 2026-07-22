@@ -130,10 +130,21 @@ function findingsTypeCoercion(projectPath: string, changeName?: string): "iterat
   return state ? (expectedFindingsType(state.activePhase) ?? undefined) : undefined;
 }
 
+const DEFAULT_LOCK_WAIT_MS = 15_000;
+
+/** Test-only override; unset or invalid values fall back to the default budget. */
+function lockWaitMs(): number {
+  const raw = process.env.PHASEDEV_LOCK_WAIT_MS;
+  if (raw === undefined) return DEFAULT_LOCK_WAIT_MS;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_LOCK_WAIT_MS;
+}
+
 /**
  * Serialize state-mutating commands for a project behind a single lock file so
  * two concurrent invocations cannot interleave writes to the same change. The
- * action owns its own console output and exit code; only a held lock short-circuits.
+ * action owns its own console output and exit code; only a lock still held
+ * after the wait budget short-circuits.
  */
 function runWithStateLock(projectPath: string, action: () => void): void {
   if (!fs.existsSync(path.join(projectPath, SYSTEM_DIR))) {
@@ -141,12 +152,13 @@ function runWithStateLock(projectPath: string, action: () => void): void {
   }
 
   const lockPath = path.join(projectPath, SYSTEM_DIR, "state.lock");
+  const waitMs = lockWaitMs();
   let lock: FileLock;
   try {
-    lock = acquireLock(lockPath);
+    lock = acquireLock(lockPath, undefined, waitMs);
   } catch (error: unknown) {
     if (error instanceof LockHeldError) {
-      console.log(`[PHASEDEV] BLOCKED: another PhaseDev operation holds the lock ${error.lockPath} (pid ${error.pid}). Wait for it to finish, or remove the lock file if that process is gone.`);
+      console.log(`[PHASEDEV] BLOCKED: another PhaseDev operation holds the lock ${error.lockPath} (pid ${error.pid}) and did not release it within ${waitMs}ms of waiting. The mutation was NOT applied — retry this command; remove the lock file only if that process is gone.`);
       process.exitCode = 1;
       return;
     }
