@@ -5,6 +5,7 @@ import { checkPhase, checkValidationCompletion, ValidationCheckOptions } from ".
 import { Phase } from "./entities/phase/types";
 import { getInitPrompt } from "./features/phase-control";
 import { renderHelp } from "./features/cli-help/render-help";
+import { CliCommandName } from "./features/cli-help/cli-command-names";
 import { initProject } from "./features/project-init/init-project";
 import { parseConfigPath, parseProjectPath } from "./shared/cli/parse-project-path";
 import { parseStringOption, FlagValueError } from "./shared/cli/parse-string-option";
@@ -866,7 +867,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "check-archive": handleCheckArchive,
   version: handleVersion,
   next: handleNext
-};
+} satisfies Record<CliCommandName, CommandHandler>;
 
 function main(): void {
   const args = process.argv.slice(2);
