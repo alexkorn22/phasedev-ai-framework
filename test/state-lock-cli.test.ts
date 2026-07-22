@@ -7,20 +7,22 @@ import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-worksp
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
 let workspace: string;
 
-function runCli(args: string[]): { exitCode: number; output: string } {
+function runCli(args: string[], env?: Record<string, string>): { exitCode: number; output: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, ...args],
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: env ? { ...process.env, ...env } : undefined
   });
   return { exitCode: result.exitCode, output: `${result.stdout.toString()}${result.stderr.toString()}` };
 }
 
-function spawnCli(args: string[]): Promise<{ exitCode: number; output: string }> {
+function spawnCli(args: string[], env?: Record<string, string>): Promise<{ exitCode: number; output: string }> {
   const proc = Bun.spawn({
     cmd: ["bun", "run", cliPath, ...args],
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: env ? { ...process.env, ...env } : undefined
   });
   return (async () => {
     const [out, err, exitCode] = await Promise.all([
@@ -65,7 +67,7 @@ describe("mutating commands honor the state lock", () => {
     let held: FileLock | undefined;
     try {
       held = acquireLock(path.join(workspace, ".phasedev", "state.lock"));
-      const r = runCli(["resolve-finding", "F1", "--resolution", "Fixed; bun test -> pass", "--file", findingsPath, "--project-path", workspace]);
+      const r = runCli(["resolve-finding", "F1", "--resolution", "Fixed; bun test -> pass", "--file", findingsPath, "--project-path", workspace], { PHASEDEV_LOCK_WAIT_MS: "200" });
       expect(r.exitCode).toBe(1);
       expect(r.output).toContain("BLOCKED: another PhaseDev operation holds the lock");
       expect(fs.readFileSync(findingsPath, "utf-8")).toBe(before);
@@ -81,7 +83,7 @@ describe("mutating commands honor the state lock", () => {
     let held: FileLock | undefined;
     try {
       held = acquireLock(path.join(workspace, ".phasedev", "state.lock"));
-      const r = runCli(["create-change", "concurrent-change", "--project-path", workspace]);
+      const r = runCli(["create-change", "concurrent-change", "--project-path", workspace], { PHASEDEV_LOCK_WAIT_MS: "200" });
       expect(r.exitCode).toBe(1);
       expect(r.output).toContain("BLOCKED: another PhaseDev operation holds the lock");
       expect(fs.existsSync(changeDir)).toBe(false);
@@ -137,6 +139,27 @@ describe("mutating commands honor the state lock", () => {
       // A blocked run made no write; its resolution text must be absent unless the other run also used it.
       // Both resolutions differ, so the blocked run's text must be absent.
       expect(content.includes(blockedResolution)).toBe(false);
+    }
+  });
+
+  test("a writer waits for the lock and applies its mutation after release", async () => {
+    initProject();
+    const findingsPath = writeFindings("waiting-writer");
+
+    let held: FileLock | undefined;
+    try {
+      held = acquireLock(path.join(workspace, ".phasedev", "state.lock"));
+      const pending = spawnCli(["resolve-finding", "F1", "--resolution", "Waited fix; bun test -> pass", "--file", findingsPath, "--project-path", workspace]);
+      await Bun.sleep(300);
+      held.release();
+      held = undefined;
+
+      const r = await pending;
+      expect(r.exitCode).toBe(0);
+      expect(r.output).toContain("[PHASEDEV RESOLVE-FINDING] OK");
+      expect(fs.readFileSync(findingsPath, "utf-8")).toContain("Waited fix");
+    } finally {
+      held?.release();
     }
   });
 });

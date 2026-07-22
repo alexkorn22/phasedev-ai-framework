@@ -430,6 +430,8 @@ describe("flow-cli state machine", () => {
     expect(help.output).toContain("Generated files:");
     expect(help.output).toContain("Phases:");
     expect(help.output).toContain("Examples:");
+    expect(help.output).toContain("Concurrency & locking:");
+    expect(help.output).toContain("Exit codes & output conventions:");
     for (const commandName of ["help", "init-project", "init", "next", "check", "check-validation", "check-archive"]) {
       expect(help.output).toContain(`phasedev ${commandName}`);
     }

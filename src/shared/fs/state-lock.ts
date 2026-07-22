@@ -2,6 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 
 const DEFAULT_STALE_MS = 60_000;
+const DEFAULT_WAIT_MS = 15_000;
+const INITIAL_RETRY_DELAY_MS = 100;
+const MAX_RETRY_DELAY_MS = 1_000;
 
 export class LockHeldError extends Error {
   constructor(public readonly lockPath: string, public readonly pid: number) {
@@ -48,16 +51,11 @@ function isStale(lockPath: string, staleMs: number): boolean {
   }
 }
 
-/**
- * Acquire an exclusive advisory lock file. Uses O_EXCL (open flag "wx") so
- * creation fails atomically when the file already exists. A pre-existing lock
- * is reclaimed when its owner process is gone (PID-liveness check) or when
- * its file age exceeds staleMs; otherwise a LockHeldError naming the path and
- * holder pid is thrown.
- */
-export function acquireLock(lockPath: string, staleMs: number = DEFAULT_STALE_MS): FileLock {
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 
+function tryAcquire(lockPath: string, staleMs: number): FileLock | null {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const fd = fs.openSync(lockPath, "wx");
@@ -76,11 +74,40 @@ export function acquireLock(lockPath: string, staleMs: number = DEFAULT_STALE_MS
         throw error;
       }
       if (!isStale(lockPath, staleMs)) {
-        throw new LockHeldError(lockPath, readLockPid(lockPath));
+        return null;
       }
       fs.rmSync(lockPath, { force: true });
     }
   }
+  return null;
+}
 
-  throw new LockHeldError(lockPath, readLockPid(lockPath));
+/**
+ * Acquire an exclusive advisory lock file. Uses O_EXCL (open flag "wx") so
+ * creation fails atomically when the file already exists. A pre-existing lock
+ * is reclaimed when its owner process is gone (PID-liveness check) or when
+ * its file age exceeds staleMs. A busy lock is retried with backoff for up to
+ * waitMs (each retry re-checks staleness, so a holder dying mid-wait is
+ * reclaimed); only after the budget is spent is a LockHeldError naming the
+ * path and holder pid thrown. waitMs = 0 fails fast on the first busy check.
+ */
+export function acquireLock(
+  lockPath: string,
+  staleMs: number = DEFAULT_STALE_MS,
+  waitMs: number = DEFAULT_WAIT_MS
+): FileLock {
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+
+  const deadline = Date.now() + waitMs;
+  let retryDelayMs = INITIAL_RETRY_DELAY_MS;
+  for (;;) {
+    const lock = tryAcquire(lockPath, staleMs);
+    if (lock) return lock;
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new LockHeldError(lockPath, readLockPid(lockPath));
+    }
+    sleepSync(Math.min(retryDelayMs, remainingMs));
+    retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
+  }
 }
