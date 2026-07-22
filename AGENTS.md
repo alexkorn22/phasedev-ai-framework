@@ -25,6 +25,8 @@ This file is the BINDING operating contract for every agent session in this repo
 
 `PhaseDev AI Framework` is an Agentic Engineering Flow controller. It does not implement product changes itself; it prints phase contracts for another agent and keeps flow state in project files.
 
+All work with the framework goes through a main orchestrator agent. The orchestrator (the shipped `skills/phasedev-orchestrator`, or `skills/express-orchestrator` for the stateless track) drives the flow loop — `phase` → `check` → `advance`, plus the standalone `archive <change-name>` command — and spawns a fresh sub-agent for each phase's work; it never executes phase work itself. Direct CLI usage by a human is a debugging/inspection aid, not the operating model. Evaluate every change to phases, prompts, or agent roles from the orchestrator's perspective first.
+
 Public entrypoints:
 
 - `src/cli.ts`: manual CLI. Run `phasedev help` (or `phasedev --help`) for the full, current command list.
@@ -67,6 +69,8 @@ These contracts are frozen. You MUST NOT change them unless the user explicitly 
 ## Config-Driven Skill Policy
 
 Phase skill routing is configured in `config.yaml`, not in a separate `skill_router.md` template.
+oh
+Current operational practice: per-phase `skills` lists in `config.yaml` are left empty and are NOT used. The main orchestrator drives the whole flow itself, and each phase sub-agent takes all applicable skills available in its runtime environment (the empty-config fallback rule below). The config mechanism and its contracts stay frozen in code; do not populate per-phase skill lists or assume they are in use unless the user explicitly asks.
 
 For each `phases.<phase>.skills` (or legacy `stages.<stage>.skills` / `codex.stages.<stage>.skills`):
 
