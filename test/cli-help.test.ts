@@ -6,7 +6,10 @@ describe("renderHelp completeness", () => {
   test("every registered CLI command is documented in help", () => {
     const help = renderHelp();
     for (const name of CLI_COMMAND_NAMES) {
-      expect(help).toContain(`phasedev ${name}`);
+      // Boundary-aware match: `name` must not be a strict prefix of another
+      // documented command (e.g. `check` ⊂ `check-validation`), which a plain
+      // substring check would miss.
+      expect(help).toMatch(new RegExp(`phasedev ${name}(?![\\w-])`));
     }
   });
 });
