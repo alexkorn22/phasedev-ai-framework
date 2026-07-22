@@ -73,6 +73,8 @@ Commands:
       Validate the active phase and transition to the next phase.
       Refuses if artifacts are invalid or require approval.
       Does not archive: once final validation passes, run phasedev archive.
+      Self-heals internal registry state (verdict: pending, type normalization)
+      during validation; agents never set those values themselves.
       Side effects: updates state.json, flips iteration status.
 
   phasedev archive <change-name> [--project-path <path>] [--config <path>]
@@ -168,6 +170,56 @@ Commands:
   phasedev reset-change [--project-path <path>] [--yes|--force]
       Reset (move to .trash) the current active change. Requires --yes to confirm.
       Side effects: moves the active change directory to .trash.
+
+Concurrency & locking:
+  Mutating commands serialize on one exclusive lock file per project:
+  .phasedev/state.lock. Parallel invocations are safe — the lock makes
+  interleaved writes to state.json or validation_findings.md impossible;
+  there is no data race to protect against.
+  A command that finds the lock busy waits up to ~15 seconds (with backoff)
+  for release. Only if the lock is still held after that does it print
+  "[PHASEDEV] BLOCKED: another PhaseDev operation holds the lock ..." and
+  exit 1 WITHOUT applying the mutation. On BLOCKED: retry the same command.
+  A mutation is applied only when the command printed its OK line; treat any
+  other outcome as not recorded.
+  Stale locks are reclaimed automatically (holder process dead, or lock file
+  older than 60 seconds). Remove .phasedev/state.lock by hand only when
+  BLOCKED keeps naming a pid that no longer exists.
+  Consequence for orchestration: running several finding-writing validation
+  sub-agents in parallel is safe and preferred — do not serialize them to
+  "protect" the registry.
+
+Exit codes & output conventions:
+  Exit code 0 = success. Exit code 1 = failure, refused transition, or blocker.
+  Human-readable results are prefixed [PHASEDEV <COMMAND>] OK | FAILED;
+  controller stops are prefixed [PHASEDEV] BLOCKED. OK = the effect was
+  applied. FAILED = the command was rejected and nothing was applied.
+  BLOCKED = a controller stop (lock contention, approval gate, missing
+  precondition) — the message always states what to do next.
+  With --json each command prints a single JSON envelope
+  { ok, kind, phase?, message?, issues?, data? } to stdout.
+
+Findings lifecycle:
+  add-finding creates a row (status: open) and allocates the next F<n> ID;
+  duplicate texts and duplicate IDs are refused. resolve-finding moves an
+  open/reopened row to resolved and requires concrete repair evidence.
+  reopen-finding moves a resolved row back to reopened and requires new
+  concrete evidence. set-verdict records the phase verdict
+  (ready | ready_with_risks | repair_required | repaired) and validates it
+  against the current rows; add-finding auto-corrects the verdict when a new
+  row contradicts it. The registry is append-only: rows are never deleted,
+  only their status changes. validation_findings.md is created and mutated
+  ONLY by these commands — never edit it by hand.
+
+Approval gates:
+  Gated artifacts carry YAML frontmatter approved: true plus a non-empty
+  approved_by; phasedev approve <file> --by <name> is the only way to stamp
+  them, and advance refuses while a required artifact is unapproved.
+  With autoApprove: true in config.yaml, advance still stamps nothing
+  itself: it emits a blocker instructing the orchestrator to spawn one
+  content-reading validation sub-agent that approves each gated artifact on
+  the merits via phasedev approve <file> --by "auto-approve-subagent".
+  An artifact with approved: true but an empty approved_by re-blocks advance.
 
 Options:
   --json                       Emit a single JSON envelope to stdout instead of human text. All commands.

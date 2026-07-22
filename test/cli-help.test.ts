@@ -12,4 +12,18 @@ describe("renderHelp completeness", () => {
       expect(help).toMatch(new RegExp(`phasedev ${name}(?![\\w-])`));
     }
   });
+
+  test("help documents the behavioral contracts", () => {
+    const help = renderHelp();
+    for (const section of [
+      "Concurrency & locking:",
+      "Exit codes & output conventions:",
+      "Findings lifecycle:",
+      "Approval gates:"
+    ]) {
+      expect(help).toContain(section);
+    }
+    expect(help).toContain(".phasedev/state.lock");
+    expect(help).toContain("append-only");
+  });
 });
