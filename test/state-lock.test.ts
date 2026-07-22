@@ -29,7 +29,7 @@ describe("acquireLock", () => {
   test("acquiring twice fails while the live holder is running", () => {
     const lock = acquireLock(lockPath);
 
-    expect(() => acquireLock(lockPath)).toThrow(LockHeldError);
+    expect(() => acquireLock(lockPath, 60_000, 0)).toThrow(LockHeldError);
 
     lock.release();
   });
@@ -58,7 +58,7 @@ describe("acquireLock", () => {
 
   test("blocks when holder pid is alive and the lock mtime is fresh", () => {
     const held = acquireLock(lockPath, 60_000);
-    expect(() => acquireLock(lockPath, 60_000)).toThrow(LockHeldError);
+    expect(() => acquireLock(lockPath, 60_000, 0)).toThrow(LockHeldError);
     held.release();
   });
 
@@ -85,5 +85,44 @@ describe("acquireLock", () => {
 
     // Clean up
     fs.rmSync(lockPath, { force: true });
+  });
+
+  test("waits for a busy lock and acquires it once the holder releases", async () => {
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    const holderScript =
+      `const fs = require("fs");` +
+      `const p = ${JSON.stringify(lockPath)};` +
+      `fs.writeFileSync(p, String(process.pid), "utf-8");` +
+      `setTimeout(() => fs.rmSync(p, { force: true }), 400);`;
+    const holder = Bun.spawn({ cmd: ["bun", "-e", holderScript], stdout: "ignore", stderr: "ignore" });
+    while (!fs.existsSync(lockPath)) {
+      await Bun.sleep(10);
+    }
+
+    const started = Date.now();
+    const lock = acquireLock(lockPath, 60_000, 5_000);
+    const waitedMs = Date.now() - started;
+
+    expect(fs.readFileSync(lockPath, "utf-8").trim()).toBe(String(process.pid));
+    expect(waitedMs).toBeGreaterThanOrEqual(200);
+    expect(waitedMs).toBeLessThan(5_000);
+    lock.release();
+    await holder.exited;
+  });
+
+  test("throws LockHeldError after the wait budget when the holder never releases", () => {
+    const held = acquireLock(lockPath, 60_000, 0);
+    const started = Date.now();
+    expect(() => acquireLock(lockPath, 60_000, 300)).toThrow(LockHeldError);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    held.release();
+  });
+
+  test("waitMs 0 fails immediately without sleeping", () => {
+    const held = acquireLock(lockPath, 60_000, 0);
+    const started = Date.now();
+    expect(() => acquireLock(lockPath, 60_000, 0)).toThrow(LockHeldError);
+    expect(Date.now() - started).toBeLessThan(100);
+    held.release();
   });
 });
