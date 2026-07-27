@@ -53,6 +53,12 @@ Context budget and stop condition:
 - If a new finding semantically matches an existing row (open or resolved), do not add it: reopen or leave the existing ID instead. Both `add-finding` and `phasedev check-validation` reject duplicate finding texts.
 - Do not reopen a `resolved` row without new concrete evidence from working code outside `.phasedev/**`.
 
+Concurrency of finding writers:
+
+- Running several finding-writing validators in parallel is safe: every mutating findings command (`add-finding`, `resolve-finding`, `reopen-finding`, `set-verdict`) is serialized by an exclusive framework lock. Parallel writers cannot corrupt the registry — do not serialize validation sub-agents for registry safety.
+- A finding counts as recorded ONLY after its command printed the `[PHASEDEV ADD-FINDING] OK` line (likewise the `OK` line for the other mutating commands). Always check the command outcome before reporting a finding as written.
+- `[PHASEDEV] BLOCKED: another PhaseDev operation holds the lock ...` means the command already waited for the lock internally and gave up; the write did NOT happen. Retry the same command until it prints OK.
+
 Readiness decision rule:
 
 - {{blocking_severity_policy}}
