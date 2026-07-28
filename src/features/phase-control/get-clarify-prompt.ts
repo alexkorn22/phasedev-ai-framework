@@ -31,16 +31,23 @@ export function hasClarifyContract(phase: Phase): phase is ClarifyPhase {
   return Object.prototype.hasOwnProperty.call(CLARIFY_SCOPES, phase);
 }
 
-function renderScope(phase: ClarifyPhase, routing: IntakeRouting): string {
-  return phase === "change_intake"
-    ? renderTemplate(CLARIFY_SCOPES.change_intake, { intake_routing: renderTemplate(INTAKE_ROUTING[routing], {}) })
-    : renderTemplate(CLARIFY_SCOPES[phase], {});
+// Only change_intake has a routing tail ({{intake_routing}}); the other two
+// scopes render with no extra data, so the routing selector is part of their
+// type only when the phase is change_intake.
+type ScopeSelector =
+  | { readonly phase: "change_intake"; readonly routing: IntakeRouting }
+  | { readonly phase: Exclude<ClarifyPhase, "change_intake"> };
+
+function renderScope(selector: ScopeSelector): string {
+  return selector.phase === "change_intake"
+    ? renderTemplate(CLARIFY_SCOPES.change_intake, { intake_routing: renderTemplate(INTAKE_ROUTING[selector.routing], {}) })
+    : renderTemplate(CLARIFY_SCOPES[selector.phase], {});
 }
 
-function renderClarify(phase: ClarifyPhase, activePhaseLabel: string, routing: IntakeRouting): string {
+function renderClarify(activePhaseLabel: string, selector: ScopeSelector): string {
   return renderTemplate("clarify", {
     active_phase: activePhaseLabel,
-    phase_scope: renderScope(phase, routing)
+    phase_scope: renderScope(selector)
   });
 }
 
@@ -76,7 +83,7 @@ export function getClarifyPrompt(projectPath: string, changeName?: string): Clar
       };
     }
     return {
-      prompt: renderClarify("change_intake", "change_intake (pre-flow: no change created yet)", "preflow"),
+      prompt: renderClarify("change_intake (pre-flow: no change created yet)", { phase: "change_intake", routing: "preflow" }),
       phase: "change_intake",
       blocked: false
     };
@@ -99,7 +106,8 @@ export function getClarifyPrompt(projectPath: string, changeName?: string): Clar
   }
 
   const phase = state.activePhase;
-  return { prompt: renderClarify(phase, phase, "activeChange"), phase, blocked: false };
+  const scopeSelector: ScopeSelector = phase === "change_intake" ? { phase, routing: "activeChange" } : { phase };
+  return { prompt: renderClarify(phase, scopeSelector), phase, blocked: false };
 }
 
 export function clarifyReminderFor(phase: Phase): string {

@@ -1,3 +1,5 @@
+Read first: the user's task text from the current conversation, nothing else — no artifacts exist yet.
+
 No change directory exists yet, so the agreed task is what creates it.
 
 Route the answers:

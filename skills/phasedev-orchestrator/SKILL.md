@@ -19,7 +19,7 @@ $phasedev-orchestrator [goal description]
 
 With no goal, the orchestrator resumes from the current PhaseDev state.
 
-**Goal injection:** for the first `change_intake` sub-agent only, prepend the goal description to the prompt as intake context. For every later phase, pass no goal — sub-agents read artifact files directly.
+**Goal injection:** for any `change_intake` sub-agent dispatch, prepend intake context to the prompt — the goal description on the first dispatch for a change, or the user's agreed decisions on a later dispatch after feedback resets the flow back to `change_intake`. For every other phase, pass no goal — sub-agents read artifact files directly.
 
 ## Command Invocation (mandatory)
 
@@ -137,7 +137,7 @@ Agent(
   model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
   prompt: `Execute the current PhaseDev phase (run from the project root).
 
-<goal description — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
+<intake context: the goal description on the first `change_intake` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
 
 <Your role: <Architect | API Designer | Code Reviewer | DB Designer | ...>. The contract describes the ENTIRE phase; your role covers only your part — do not do others' work. — OPTIONAL ROLE LINE; omit for single-agent phases>
 

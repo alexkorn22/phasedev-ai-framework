@@ -2,8 +2,6 @@
 
 Run this before the `change_intake` sub-agent writes anything. No phase artifact exists yet, whether or not the change directory has been created.
 
-Read first: the user's task text from the current conversation. Nothing else — `code_research` has not run, so there are no facts on disk yet.
-
 Ask about:
 - why the change is needed, and what must be true once it is done;
 - what is explicitly out of scope;
