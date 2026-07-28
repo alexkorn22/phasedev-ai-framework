@@ -29,6 +29,8 @@ describe("getClarifyPrompt", () => {
     expect(result.prompt).toContain("## Scope: task definition");
     expect(result.prompt).toContain("--task-file");
     expect(result.prompt).toContain("phasedev create-change");
+    expect(result.prompt).toContain("no artifacts exist yet");
+    expect(result.prompt).not.toContain("whatever intake artifacts already exist");
   });
 
   test("a change that already exists at change_intake keeps the intake scope but drops the create-change route", () => {
@@ -40,6 +42,8 @@ describe("getClarifyPrompt", () => {
     expect(result.phase).toBe("change_intake");
     expect(result.prompt).toContain("## Scope: task definition");
     expect(result.prompt).not.toContain("phasedev create-change");
+    expect(result.prompt).toContain("whatever intake artifacts already exist");
+    expect(result.prompt).not.toContain("no artifacts exist yet");
   });
 
   test("several changes with no --change block with the shared ambiguity contract", () => {

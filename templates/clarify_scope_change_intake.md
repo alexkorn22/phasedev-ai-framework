@@ -1,8 +1,6 @@
 ## Scope: task definition (before `change_intake`)
 
-Run this before the `change_intake` sub-agent writes anything. No phase artifact exists yet, whether or not the change directory has been created.
-
-Read first: the user's task text from the current conversation. Nothing else — `code_research` has not run, so there are no facts on disk yet.
+Run this before the `change_intake` sub-agent writes anything. No approved phase artifact exists yet: either nothing has been written, or a previous run's `prd.md` / `execution_contract.md` are on disk with their approval reset, and this phase will rewrite them.
 
 Ask about:
 - why the change is needed, and what must be true once it is done;
