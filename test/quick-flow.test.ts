@@ -126,6 +126,30 @@ describe("quickPhasePrompt", () => {
     const prompt = quickPhasePrompt(projectPath, DEFAULT_CONFIG, { ...state, activePhase: "final_validation" }, changeName);
     expect(prompt.blocked).toBe(true);
   });
+
+  it("injects the agreed intake_task.md description into the quick_plan prompt", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+    const changeDir = path.join(projectPath, ".phasedev", "changes", changeName);
+    fs.writeFileSync(path.join(changeDir, "intake_task.md"), "# Fix login flow\nAgreed task details.\n");
+    const state = loadFlowState(projectPath, changeName)!;
+
+    const prompt = quickPhasePrompt(projectPath, DEFAULT_CONFIG, state, changeName);
+
+    expect(prompt.blocked).toBe(false);
+    expect(prompt.prompt).toContain("=== CURRENT TASK DESCRIPTION ===");
+    expect(prompt.prompt).toContain("Agreed task details.");
+    expect(prompt.prompt).toContain("================================");
+  });
+
+  it("renders the quick_plan prompt with no task-description block when intake_task.md is absent", () => {
+    const { projectPath, changeName } = scaffoldQuick("quick_plan");
+    const state = loadFlowState(projectPath, changeName)!;
+
+    const prompt = quickPhasePrompt(projectPath, DEFAULT_CONFIG, state, changeName);
+
+    expect(prompt.blocked).toBe(false);
+    expect(prompt.prompt).not.toContain("=== CURRENT TASK DESCRIPTION ===");
+  });
 });
 
 describe("quickAdvance", () => {

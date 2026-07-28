@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { buildChangePaths } from "../../entities/change/paths";
 import { Config } from "../../entities/config/config";
@@ -57,6 +59,19 @@ export function urlsFor(paths: ReturnType<typeof buildChangePaths>) {
 
 function changeFlag(changeName?: string): string {
   return changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
+}
+
+/**
+ * Render the agreed task description recorded in `intake_task.md` (written by
+ * `create-change --task-file`) as a block to append to a phase prompt.
+ * Returns "" when there is no active change path or no such file — the caller
+ * concatenates the result onto its rendered template.
+ */
+export function taskContextBlock(changePath: string | null): string {
+  if (!changePath) return "";
+  const taskFilePath = path.join(changePath, "intake_task.md");
+  if (!fs.existsSync(taskFilePath)) return "";
+  return `\n\n=== CURRENT TASK DESCRIPTION ===\n${fs.readFileSync(taskFilePath, "utf-8")}\n================================`;
 }
 
 export function flowCheckCommand(projectPath: string, changeName?: string): string {

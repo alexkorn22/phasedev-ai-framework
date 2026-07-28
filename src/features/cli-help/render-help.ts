@@ -45,10 +45,13 @@ Commands:
       Print the PhaseDev init handshake prompt.
       Side effects: none. It must not create, read, edit, move, approve, test, or validate files.
 
-  phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]
+  phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]
       Create a new change directory with state.json (activePhase: change_intake).
       Refuses if an active change already exists.
       --task <text> also writes intake_task.md with the given task description.
+      --task-file <path> reads that description from a file instead; use it for multi-line
+      text so markdown never crosses a shell argument. Wins over --task when both are given.
+      Refuses if the path does not exist, is not readable, or is empty/whitespace-only.
       --quick starts a Quick-mode change (activePhase: quick_plan, flowMode: quick) and
       writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
@@ -63,6 +66,15 @@ Commands:
       Validate artifacts for the active phase (or --phase override).
       --check-orphans instead scans for orphaned or unfinished archive directories.
       Side effects: none.
+
+  phasedev clarify [--project-path <path>] [--change <name>]
+      Print the decision-points contract for the active phase (read-only, orchestrator-facing).
+      Defines how the orchestrator resolves open decisions with the user BEFORE a phase
+      sub-agent writes its artifact: build the decision tree, close code-answerable
+      branches with a sub-agent, ask only what changes this phase's artifact, then dispatch.
+      Contracts exist for change_intake, technical_design and iteration_planning; with no
+      change yet it prints the pre-flow task-definition contract. Other phases and
+      quick-mode changes get a non-blocking note. Side effects: none.
 
   phasedev feedback [--project-path <path>]
       Print the user-feedback processing contract for the active change (read-only).
@@ -233,6 +245,7 @@ Options:
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
   --task <text>                Initial task description for create-change; written to intake_task.md.
+  --task-file <path>          Read the create-change task description from a file instead of --task. Refuses on a missing, unreadable, or empty file.
   --quick                      Start create-change in Quick mode (state-driven quick phase sequence).
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).

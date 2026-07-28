@@ -14,7 +14,7 @@ Non-input:
 - The change folder slug is not user intake. Derive it yourself from the final task text unless the user has already specified an exact folder name.
 
 Decision flow:
-1. Complete intake before repository inspection. Required intake is the task/change description and the task-specific rules/constraints answer. If either item is missing, ask only for missing intake in one short batch and stop. An explicit "no additional constraints" answer is complete intake, not a blocker.
+1. Complete intake before repository inspection. Required intake is the task/change description and the task-specific rules/constraints answer. If either item is missing, ask only for missing intake in one short batch and stop. An explicit "no additional constraints" answer is complete intake, not a blocker. Content already recorded in `intake_task.md` is the user's own answer, agreed before this phase started: treat it as authoritative intake and do not re-ask it.
 2. After intake is complete, gather only enough local evidence to write stable setup artifacts:
    - Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change.
    - Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery, plus focused searches for concrete evidence.

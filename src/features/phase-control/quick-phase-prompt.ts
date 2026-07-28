@@ -4,7 +4,7 @@ import { FlowState, locateChangeDir } from "../../entities/change/flow-state";
 import { Prompt } from "../../entities/phase/types";
 import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { findPendingArchiveState } from "../../entities/change/archive-state";
-import { renderPhaseTemplate, flowCheckCommand } from "./prompt-render-helpers";
+import { renderPhaseTemplate, flowCheckCommand, taskContextBlock } from "./prompt-render-helpers";
 import { toFileUrl } from "./prompt-formatters";
 
 function blocked(phase: FlowState["activePhase"], message: string, reason: string): Prompt {
@@ -29,7 +29,7 @@ export function quickPhasePrompt(projectPath: string, config: Config, state: Flo
     case "quick_plan":
       return {
         command: "next", phase: state.activePhase, blocked: false,
-        prompt: renderPhaseTemplate("quick_plan", "quick_plan", { ...common, self_check_command: selfCheck }, config)
+        prompt: renderPhaseTemplate("quick_plan", "quick_plan", { ...common, self_check_command: selfCheck }, config) + taskContextBlock(changeDir)
       };
     case "quick_implementation":
       return {

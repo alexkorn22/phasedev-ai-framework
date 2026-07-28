@@ -66,6 +66,19 @@ Examples of required planning blockers:
 - Approved PRD and approved design disagree about a public contract, target behavior, risk boundary, or iteration-critical dependency.
 - A required `SC#` check cannot be named from PRD/rules/design/repository evidence without inventing validation authority.
 
+## Staged execution
+
+Your dispatch may assign you the fork-analysis stage of this phase instead of the whole phase. When it does:
+
+- Do the reading and analysis this contract requires, and resolve every choice the approved PRD and design already determine.
+- Return the remaining material forks — for each: the options, their consequences, and your recommended option with grounds. If none remain, say so explicitly. On most changes the approved design determines the split and none remain.
+- Do NOT create or partially write `iteration_plan.md`, and do not run the artifact self-check. The artifact is written only after the decisions come back to you.
+- The fork list is this stage's entire return: the `Plan ready` template and the blocker lines in `## Artifact self-check` describe the writing stage, not this one, so do not use them here.
+
+When the decisions arrive, or when your dispatch assigns the whole phase, write the plan exactly as this contract specifies.
+
+This clause changes only WHEN the artifact is written. The uncertainty decision flow above still governs what you resolve on your own.
+
 ## Artifact self-check
 
 After creating `iteration_plan.md`, immediately validate the new artifact before completing the phase:
