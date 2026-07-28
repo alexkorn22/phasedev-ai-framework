@@ -51,6 +51,7 @@ Commands:
       --task <text> also writes intake_task.md with the given task description.
       --task-file <path> reads that description from a file instead; use it for multi-line
       text so markdown never crosses a shell argument. Wins over --task when both are given.
+      Refuses if the path does not exist, is not readable, or is empty/whitespace-only.
       --quick starts a Quick-mode change (activePhase: quick_plan, flowMode: quick) and
       writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
@@ -244,7 +245,7 @@ Options:
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
   --task <text>                Initial task description for create-change; written to intake_task.md.
-  --task-file <path>          Read the create-change task description from a file instead of --task.
+  --task-file <path>          Read the create-change task description from a file instead of --task. Refuses on a missing, unreadable, or empty file.
   --quick                      Start create-change in Quick mode (state-driven quick phase sequence).
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
