@@ -665,13 +665,30 @@ function handleCreateChange(ctx: CommandContext): void {
     reportCliResult(ctx.jsonMode, {
       ok: false,
       kind: "create-change",
-      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]"
+      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]"
     });
     return;
   }
 
+  const taskFile = parseStringOption(ctx.args, "--task-file");
+  let taskText = parseStringOption(ctx.args, "--task");
+  if (taskFile) {
+    if (!fs.existsSync(taskFile)) {
+      reportCliResult(ctx.jsonMode, {
+        ok: false,
+        kind: "create-change",
+        humanMessage: `[PHASEDEV CREATE-CHANGE] FAILED: --task-file not found: ${taskFile}`,
+        jsonMessage: `--task-file not found: ${taskFile}`
+      });
+      return;
+    }
+    if (taskText) {
+      process.stderr.write("[PHASEDEV] Both --task and --task-file given; using --task-file.\n");
+    }
+    taskText = fs.readFileSync(taskFile, "utf-8").trimEnd();
+  }
+
   runWithOptionalStateLock(ctx.projectPath, () => {
-    const taskText = parseStringOption(ctx.args, "--task");
     const quick = hasFlag(ctx.args, "--quick");
     const result = createChange(ctx.projectPath, name, taskText, quick);
     reportCliResult(ctx.jsonMode, {

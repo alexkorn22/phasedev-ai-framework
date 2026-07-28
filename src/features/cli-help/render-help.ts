@@ -45,10 +45,12 @@ Commands:
       Print the PhaseDev init handshake prompt.
       Side effects: none. It must not create, read, edit, move, approve, test, or validate files.
 
-  phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]
+  phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]
       Create a new change directory with state.json (activePhase: change_intake).
       Refuses if an active change already exists.
       --task <text> also writes intake_task.md with the given task description.
+      --task-file <path> reads that description from a file instead; use it for multi-line
+      text so markdown never crosses a shell argument. Wins over --task when both are given.
       --quick starts a Quick-mode change (activePhase: quick_plan, flowMode: quick) and
       writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
@@ -233,6 +235,7 @@ Options:
   --by <name>                 Approver name for approve command.
   --file <path>               Explicit artifact path for set-iteration-status, add-finding, resolve-finding, reopen-finding, set-verdict.
   --task <text>                Initial task description for create-change; written to intake_task.md.
+  --task-file <path>          Read the create-change task description from a file instead of --task.
   --quick                      Start create-change in Quick mode (state-driven quick phase sequence).
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).

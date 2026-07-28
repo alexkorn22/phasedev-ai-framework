@@ -3657,9 +3657,51 @@ describe("code review finding tests", () => {
     expect(fs.existsSync(taskPath)).toBe(false);
   });
 
+  test("create-change --task-file writes intake_task.md from file content", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const briefPath = path.join(testTmpDir, "brief.md");
+    fs.writeFileSync(briefPath, "## Task\nUse `phasedev advance` and $HOME safely\n");
+
+    const result = runCli(["create-change", "brief-test", "--project-path", testTmpDir, "--task-file", briefPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("[PHASEDEV CREATE-CHANGE] OK");
+
+    const taskPath = path.join(testTmpDir, ".phasedev", "changes", "brief-test", "intake_task.md");
+    expect(fs.readFileSync(taskPath, "utf-8")).toBe("## Task\nUse `phasedev advance` and $HOME safely\n");
+  });
+
+  test("create-change --task-file refuses cleanly when the path does not exist", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["create-change", "missing-brief", "--project-path", testTmpDir, "--task-file", path.join(testTmpDir, "nope.md")]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("--task-file");
+
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes", "missing-brief"))).toBe(false);
+  });
+
+  test("create-change prefers --task-file over --task when both are given", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const briefPath = path.join(testTmpDir, "brief2.md");
+    fs.writeFileSync(briefPath, "from file\n");
+
+    const result = runCli(["create-change", "both-flags", "--project-path", testTmpDir, "--task", "from flag", "--task-file", briefPath]);
+    expect(result.exitCode).toBe(0);
+
+    const taskPath = path.join(testTmpDir, ".phasedev", "changes", "both-flags", "intake_task.md");
+    expect(fs.readFileSync(taskPath, "utf-8").trim()).toBe("from file");
+  });
+
+  test("help documents create-change --task-file usage", () => {
+    const help = runCli(["help"]);
+    expect(help.output).toContain("--task-file");
+  });
+
   test("help documents create-change --task usage", () => {
     const result = runCli(["help"]);
-    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]");
+    expect(result.output).toContain("phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]");
   });
 
   test("create-change --quick writes a quick state and a worklog skeleton", () => {
