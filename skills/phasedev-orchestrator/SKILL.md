@@ -29,6 +29,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `phasedev create-change --quick <name>` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
+- `phasedev clarify` — print the decision-points contract for the active phase (read-only, orchestrator-facing). Run it before spawning sub-agents at `change_intake`, `technical_design` and `iteration_planning`; with no change yet it prints the pre-flow task-definition contract. See [Decision Points](#decision-points).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. Drives every phase transition up to and including final validation; it does not touch the archive (see `phasedev archive` below).
 - `phasedev archive <change-name>` — the only command that mutates the archive: moves the change directory to `.phasedev/changes/archive/`, writes `.phase-archive.json`, switches `state.json` to `activePhase: archive`, and resumes/completes the archive phase on later calls (see [Archive Handling](#archive-handling)). Refuses before final validation passes.
@@ -45,9 +46,23 @@ All commands run from the **project root**. `phasedev` defaults to `process.cwd(
 
 **Framework questions go to `phasedev help` first.** When anything about framework behavior is ambiguous — locking/concurrency, exit codes, command semantics, findings lifecycle, approval gates — run `phasedev help` and read the relevant section; it is the authoritative, self-contained reference. Never open the framework's source code to answer such questions, and never guess: if `phasedev help` truly does not answer it, ask the user.
 
+## Decision Points
+
+Three points in the flow need the user's decision BEFORE a sub-agent writes an artifact: task definition (before the change exists), architecture (before `technical_design`), iteration split (before `iteration_planning`). At each one, run `phasedev clarify` and execute the contract it prints; `advance` reminds you when it switches into the last two.
+
+Three rules the contract enforces, restated here because they are easy to lose:
+
+1. **You present decisions, you do not invent them.** A sub-agent that read the artifacts and the code produces the facts, options and recommendations. You never read the repository in your own context to answer a decision question.
+2. **Ask only what changes THIS phase's artifact.** Nothing survives the materiality filter otherwise, and a question belonging to a later phase is dropped, not asked early. "No open decisions" is a normal outcome — dispatch immediately.
+3. **At `technical_design` and `iteration_planning`, dispatch in two stages.** Stage one returns the fork list with the artifact unwritten; you put the forks to the user; stage two writes the artifact with the decisions fixed. Continue the SAME sub-agent for stage two via `SendMessage` so it keeps its context, and fall back to a fresh dispatch (decisions in the prompt) only if that is unavailable.
+
+The task-definition point runs before any command creates the change, so it also produces the mode proposal — see [Mode Selection](#mode-selection) — and ends with `phasedev create-change <slug> [--quick] --task-file <path>`, which records the agreed summary in `intake_task.md` for the `change_intake` sub-agent.
+
 ## Mode Selection
 
 Mode selection happens BEFORE any artifacts exist for the change. The user may explicitly name a mode (Quick / Standard); otherwise assess the goal's complexity and PROPOSE one of the two — the user must CONFIRM before any command creates a change or artifact.
+
+The task-definition decision point runs first and grounds this choice: propose Quick or Standard from the understanding it produced, not from the goal sentence alone.
 
 - **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change --quick <name>`.
 - **Standard** — the full phase flow (`change_intake` → … → `archive`) described in the rest of this skill.
@@ -73,7 +88,7 @@ Both modes are available at the selection point.
 **Change selection.** Before the loop, select the change:
 
 1. Run `phasedev list`.
-2. If it reports no changes → create one: `phasedev create-change <name>` (`<name>` slugified from the user's goal).
+2. If it reports no changes → run the task-definition decision point ([Decision Points](#decision-points)), then create the change: `phasedev create-change <name> [--quick] --task-file <path>` (`<name>` slugified from the agreed task summary).
 3. If any unfinished changes exist → ALWAYS stop and ask the user one question: list each change (name, phase, iteration, task summary — from `list` output only) plus the option "create a new change for the current goal". This applies both with and without a goal argument.
 4. Fix the selected name as `<change>` for the whole session: one orchestrator — one change. Switching changes mid-session is a new orchestrator run.
 5. A change with an error marker in `list` may be selected; the normal loop handles it. A change pending archive is not in the default `list`; check `phasedev list --archived` (status `in_progress`) and select it by its original slug via `--change`.

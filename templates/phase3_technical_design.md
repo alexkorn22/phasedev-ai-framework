@@ -118,6 +118,18 @@ Prefer a complete, approvable design when the available inputs support one:
 
 `## Risks & Open Questions` is for bounded review notes that do not block approval of the proposed architecture. It is not a backlog for unresolved material decisions.
 
+## Staged execution
+
+Your dispatch may assign you the fork-analysis stage of this phase instead of the whole phase. When it does:
+
+- Do the reading and analysis this contract requires, and resolve every choice the input artifacts already determine.
+- Return the remaining material forks — for each: the options, their consequences, and your recommended option with grounds. If none remain, say so explicitly.
+- Do NOT create or partially write `architecture/design.md`, and do not run the completion self-check. The artifact is written only after the decisions come back to you.
+
+When the decisions arrive, or when your dispatch assigns the whole phase, write the package exactly as this contract specifies, with the returned decisions fixed as `D#` in `## Key Design Decisions`.
+
+This clause changes only WHEN the artifact is written. The uncertainty decision flow above still governs what you resolve on your own.
+
 ## Completion self-check
 
 Before completing the phase, confirm the rules defined above hold (do not restate them): decomposition/size respected; every linked subdocument listed in `Architecture Package Map` and linked from `architecture/design.md`, each starting with purpose plus a visual review surface without duplicating prose; a non-trivial package has at least one non-decorative Mermaid diagram; every `R#`/`SC#` appears in `Traceability Mapping` with valid `F#`/`S#` evidence or `not_applicable: <short reason>` plus valid `D#`; every `D#` defined once and referenced by a row; no divergence from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
