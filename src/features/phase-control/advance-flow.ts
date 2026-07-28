@@ -12,6 +12,7 @@ import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
 import { normalizeValidationState } from "./normalize-validation-state";
 import { quickAdvance } from "./quick-advance";
+import { clarifyReminderFor } from "./get-clarify-prompt";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 
 export type { AdvanceResult };
@@ -493,6 +494,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   return ok(
     finalNextState,
     `Advanced to ${finalNextState.activePhase}${iterSuffix}.` +
-      (normalization.changed ? ` ${normalization.notes.join(" ")}` : "")
+      (normalization.changed ? ` ${normalization.notes.join(" ")}` : "") +
+      clarifyReminderFor(finalNextState.activePhase)
   );
 }

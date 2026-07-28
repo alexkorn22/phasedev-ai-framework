@@ -38,6 +38,7 @@ import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-ph
 import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
+import { getClarifyPrompt } from "./features/phase-control/get-clarify-prompt";
 import { expectedFindingsType } from "./features/phase-control/expected-findings-type";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { runArchive } from "./features/phase-control/archive-command";
@@ -665,13 +666,48 @@ function handleCreateChange(ctx: CommandContext): void {
     reportCliResult(ctx.jsonMode, {
       ok: false,
       kind: "create-change",
-      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text>] [--quick]"
+      humanMessage: "[PHASEDEV] Usage: phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]"
     });
     return;
   }
 
+  const taskFile = parseStringOption(ctx.args, "--task-file");
+  let taskText = parseStringOption(ctx.args, "--task");
+  if (taskFile) {
+    const refuse = (reason: string): void => reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "create-change",
+      humanMessage: `[PHASEDEV CREATE-CHANGE] FAILED: ${reason}`,
+      jsonMessage: reason
+    });
+
+    if (!fs.existsSync(taskFile)) {
+      refuse(`--task-file not found: ${taskFile}`);
+      return;
+    }
+
+    let fileText: string;
+    try {
+      fileText = fs.readFileSync(taskFile, "utf-8");
+    } catch (error: unknown) {
+      refuse(`--task-file is not readable: ${taskFile} (${error instanceof Error ? error.message : String(error)})`);
+      return;
+    }
+
+    // The file is the entire interview payload; creating the change without it
+    // would silently drop the agreed task summary.
+    if (fileText.trim() === "") {
+      refuse(`--task-file has no task text: ${taskFile}`);
+      return;
+    }
+
+    if (taskText) {
+      process.stderr.write("[PHASEDEV] Both --task and --task-file given; using --task-file.\n");
+    }
+    taskText = fileText.trimEnd();
+  }
+
   runWithOptionalStateLock(ctx.projectPath, () => {
-    const taskText = parseStringOption(ctx.args, "--task");
     const quick = hasFlag(ctx.args, "--quick");
     const result = createChange(ctx.projectPath, name, taskText, quick);
     reportCliResult(ctx.jsonMode, {
@@ -708,6 +744,21 @@ function handleFeedback(ctx: CommandContext): void {
     kind: "feedback",
     humanMessage: result.prompt,
     jsonMessage: result.blocked ? (result.reason ?? "Blocked") : "Feedback contract ready.",
+    data: { prompt: result.prompt }
+  });
+  if (result.blocked) {
+    process.exitCode = 1;
+  }
+}
+
+function handleClarify(ctx: CommandContext): void {
+  const result = getClarifyPrompt(ctx.projectPath, ctx.changeName);
+  reportCliResult(ctx.jsonMode, {
+    ok: !result.blocked,
+    kind: "clarify",
+    phase: result.phase,
+    humanMessage: result.prompt,
+    jsonMessage: result.blocked ? (result.reason ?? "Blocked") : "Decision-points contract ready.",
     data: { prompt: result.prompt }
   });
   if (result.blocked) {
@@ -860,6 +911,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "create-change": handleCreateChange,
   phase: handlePhase,
   feedback: handleFeedback,
+  clarify: handleClarify,
   advance: handleAdvance,
   archive: handleArchive,
   check: handleCheck,

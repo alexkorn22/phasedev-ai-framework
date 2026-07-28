@@ -25,6 +25,7 @@ export const CLI_COMMAND_NAMES = [
   "create-change",
   "phase",
   "feedback",
+  "clarify",
   "advance",
   "archive",
   "check",

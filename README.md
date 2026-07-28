@@ -171,7 +171,8 @@ The orchestrator runs the whole flow itself — creates the change, drives every
 The CLI itself is agent-agnostic: any agent (or human) that can run shell commands can drive the loop — the Claude Code skills are just ready-made wiring. The same loop the orchestrator runs, from the working project's root:
 
 ```bash
-phasedev create-change my-change   # add --quick for Quick mode
+phasedev create-change my-change   # add --quick for Quick mode, --task-file <path> to seed intake_task.md
+phasedev clarify                   # print the decision-points contract for the active phase (read-only)
 phasedev phase                     # print the current phase contract → feed to your agent
 phasedev check                     # validate the phase's artifacts
 phasedev advance                   # transition to the next phase
@@ -190,8 +191,8 @@ Repeat `phase` / `check` / `advance` until `advance` reports final validation pa
 
 | Area | Commands |
 |---|---|
-| Setup | `init-project`, `init` (context handshake, no file changes), `create-change <name> [--task <text>] [--quick]` |
-| Flow loop | `phase`, `check [--phase <p>]`, `advance`, `archive <change-name>`, `feedback` |
+| Setup | `init-project`, `init` (context handshake, no file changes), `create-change <name> [--task <text> \| --task-file <path>] [--quick]` |
+| Flow loop | `phase`, `clarify` (decision-points contract, read-only), `check [--phase <p>]`, `advance`, `archive <change-name>`, `feedback` |
 | Approvals & artifacts | `approve <file> [--by <name>]`, `validate-artifact <file>`, `set-iteration-status <id> <status>` |
 | Findings | `add-finding <title> <severity> --required-fix <text>`, `resolve-finding <id> --resolution <text>`, `reopen-finding <id> --evidence <text>`, `set-verdict <verdict>` |
 | Validation checks | `check-validation --scope iteration --iteration-id <N>`, `check-validation --scope final`, `check-archive --archive-path <path>` |
