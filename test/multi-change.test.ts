@@ -15,6 +15,7 @@ import { advanceFlow } from "../src/features/phase-control/advance-flow";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig } from "../src/entities/config/config";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
+import { getClarifyPrompt } from "../src/features/phase-control/get-clarify-prompt";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -413,6 +414,21 @@ describe("listChanges multi-change", () => {
     expect(a?.taskSummary).toBe("Fix login flow");
     expect(b?.phase).toBe("implementation");
     expect(b?.activeIteration).toBe(2);
+  });
+
+  test("an intake_task.md in the shape clarify prescribes lists by its title, not by a section name", () => {
+    // The prescribed shape is read out of the rendered pre-flow clarify contract, so the
+    // orchestrator-facing instruction and the change picker cannot drift apart.
+    const prescribed = Array.from(getClarifyPrompt(root).prompt.matchAll(/`(#{1,6} [^`\n]+)`/g)).map(m => m[1]);
+    expect(prescribed).toContain("## Task");
+
+    const dir = mkChange(root, "gamma");
+    fs.writeFileSync(
+      path.join(dir, "intake_task.md"),
+      prescribed.map(heading => `${heading.replace("<one-line change title>", "Fix the login redirect loop")}\n\nplaceholder\n`).join("\n")
+    );
+
+    expect(renderChanges(listChanges(root))).toContain("Task: Fix the login redirect loop");
   });
 
   test("default list ignores the archive folder entirely, including pending archives", () => {

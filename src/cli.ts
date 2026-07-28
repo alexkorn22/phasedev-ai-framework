@@ -674,19 +674,37 @@ function handleCreateChange(ctx: CommandContext): void {
   const taskFile = parseStringOption(ctx.args, "--task-file");
   let taskText = parseStringOption(ctx.args, "--task");
   if (taskFile) {
+    const refuse = (reason: string): void => reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "create-change",
+      humanMessage: `[PHASEDEV CREATE-CHANGE] FAILED: ${reason}`,
+      jsonMessage: reason
+    });
+
     if (!fs.existsSync(taskFile)) {
-      reportCliResult(ctx.jsonMode, {
-        ok: false,
-        kind: "create-change",
-        humanMessage: `[PHASEDEV CREATE-CHANGE] FAILED: --task-file not found: ${taskFile}`,
-        jsonMessage: `--task-file not found: ${taskFile}`
-      });
+      refuse(`--task-file not found: ${taskFile}`);
       return;
     }
+
+    let fileText: string;
+    try {
+      fileText = fs.readFileSync(taskFile, "utf-8");
+    } catch (error: unknown) {
+      refuse(`--task-file is not readable: ${taskFile} (${error instanceof Error ? error.message : String(error)})`);
+      return;
+    }
+
+    // The file is the entire interview payload; creating the change without it
+    // would silently drop the agreed task summary.
+    if (fileText.trim() === "") {
+      refuse(`--task-file has no task text: ${taskFile}`);
+      return;
+    }
+
     if (taskText) {
       process.stderr.write("[PHASEDEV] Both --task and --task-file given; using --task-file.\n");
     }
-    taskText = fs.readFileSync(taskFile, "utf-8").trimEnd();
+    taskText = fileText.trimEnd();
   }
 
   runWithOptionalStateLock(ctx.projectPath, () => {

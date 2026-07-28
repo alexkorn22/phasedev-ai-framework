@@ -125,6 +125,7 @@ Your dispatch may assign you the fork-analysis stage of this phase instead of th
 - Do the reading and analysis this contract requires, and resolve every choice the input artifacts already determine.
 - Return the remaining material forks — for each: the options, their consequences, and your recommended option with grounds. If none remain, say so explicitly.
 - Do NOT create or partially write `architecture/design.md`, and do not run the completion self-check. The artifact is written only after the decisions come back to you.
+- The fork list is this stage's entire return: the final response format in `## Completion self-check` describes the writing stage, not this one, so do not use it here.
 
 When the decisions arrive, or when your dispatch assigns the whole phase, write the package exactly as this contract specifies, with the returned decisions fixed as `D#` in `## Key Design Decisions`.
 

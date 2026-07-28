@@ -3681,6 +3681,34 @@ describe("code review finding tests", () => {
     expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes", "missing-brief"))).toBe(false);
   });
 
+  test("create-change --task-file refuses cleanly when the path exists but cannot be read", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const dirPath = path.join(testTmpDir, "brief-dir");
+    fs.mkdirSync(dirPath, { recursive: true });
+
+    const result = runCli(["create-change", "unreadable-brief", "--project-path", testTmpDir, "--task-file", dirPath]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("[PHASEDEV CREATE-CHANGE] FAILED");
+    expect(result.output).toContain("--task-file");
+
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes", "unreadable-brief"))).toBe(false);
+  });
+
+  test("create-change --task-file refuses cleanly when the file has no task text", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const briefPath = path.join(testTmpDir, "blank-brief.md");
+    fs.writeFileSync(briefPath, "   \n\n\t\n");
+
+    const result = runCli(["create-change", "blank-brief", "--project-path", testTmpDir, "--task-file", briefPath]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("[PHASEDEV CREATE-CHANGE] FAILED");
+    expect(result.output).toContain("--task-file");
+
+    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "changes", "blank-brief"))).toBe(false);
+  });
+
   test("create-change prefers --task-file over --task when both are given", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
 
@@ -3760,6 +3788,7 @@ describe("code review finding tests", () => {
     runCli(["init-project", "--project-path", testTmpDir]);
     runCli(["create-change", "arch-clarify", "--project-path", testTmpDir]);
 
+    // Rewritten by hand rather than via writeStateJson: that helper would drop flowMode/repairCycleCount.
     const statePath = path.join(testTmpDir, ".phasedev", "changes", "arch-clarify", "state.json");
     const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
     fs.writeFileSync(statePath, JSON.stringify({ ...state, activePhase: "technical_design" }, null, 2) + "\n");

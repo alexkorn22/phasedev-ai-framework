@@ -26,7 +26,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 `phasedev` is a **globally installed CLI** on `PATH`. Always invoke it directly as `phasedev <command>`. **NEVER** wrap it in `npx`, `bunx`, `npm exec`, `npm run`, `bun run`, or `bun run src/cli.ts`. There is nothing to resolve and no fallback to try, unless the phase controller's self-check fallback block gives explicit alternatives — then follow its instructions. This applies to the orchestrator and to every sub-agent prompt.
 
 **Core orchestrator commands:**
-- `phasedev create-change <name>` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `phasedev create-change --quick <name>` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
+- `phasedev create-change <name> [--task-file <path>]` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `--task-file <path>` records the agreed task summary in `intake_task.md` and is how the task-definition decision point hands its result over (see [Decision Points](#decision-points)); it refuses on a missing, unreadable, or empty file. Adding `--quick` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
 - `phasedev clarify` — print the decision-points contract for the active phase (read-only, orchestrator-facing). Run it before spawning sub-agents at `change_intake`, `technical_design` and `iteration_planning`; with no change yet it prints the pre-flow task-definition contract. See [Decision Points](#decision-points).
@@ -54,9 +54,9 @@ Three rules the contract enforces, restated here because they are easy to lose:
 
 1. **You present decisions, you do not invent them.** A sub-agent that read the artifacts and the code produces the facts, options and recommendations. You never read the repository in your own context to answer a decision question.
 2. **Ask only what changes THIS phase's artifact.** Nothing survives the materiality filter otherwise, and a question belonging to a later phase is dropped, not asked early. "No open decisions" is a normal outcome — dispatch immediately.
-3. **At `technical_design` and `iteration_planning`, dispatch in two stages.** Stage one returns the fork list with the artifact unwritten; you put the forks to the user; stage two writes the artifact with the decisions fixed. Continue the SAME sub-agent for stage two via `SendMessage` so it keeps its context, and fall back to a fresh dispatch (decisions in the prompt) only if that is unavailable.
+3. **At `technical_design` and `iteration_planning`, dispatch in two stages.** Stage one returns the fork list with the artifact unwritten; you put the forks to the user; stage two writes the artifact with the decisions fixed. Assign stage one with the stage line of the canonical prompt ([Sub-Agent Spawning](#sub-agent-spawning)). Continue the SAME sub-agent for stage two via `SendMessage` so it keeps its context, and fall back to a fresh dispatch — the same canonical prompt with its decisions line filled in — only if that is unavailable.
 
-The task-definition point runs before any command creates the change, so it also produces the mode proposal — see [Mode Selection](#mode-selection) — and ends with `phasedev create-change <slug> [--quick] --task-file <path>`, which records the agreed summary in `intake_task.md` for the `change_intake` sub-agent.
+The task-definition point runs before any command creates the change, so it also produces the mode proposal — see [Mode Selection](#mode-selection) — and ends with `phasedev create-change <slug> [--quick] --task-file <path>`, which records the agreed summary in `intake_task.md`. In Standard mode the `change_intake` contract injects that file into its sub-agent's prompt. In Quick mode no contract injects it, so the summary reaches the `quick_plan` sub-agent only through that sub-agent's dispatch prompt — see [Quick Mode](#quick-mode).
 
 ## Mode Selection
 
@@ -64,7 +64,7 @@ Mode selection happens BEFORE any artifacts exist for the change. The user may e
 
 The task-definition decision point runs first and grounds this choice: propose Quick or Standard from the understanding it produced, not from the goal sentence alone.
 
-- **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change --quick <name>`.
+- **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change <name> --quick --task-file <path>`.
 - **Standard** — the full phase flow (`change_intake` → … → `archive`) described in the rest of this skill.
 
 Both modes are available at the selection point.
@@ -75,7 +75,7 @@ Both modes are available at the selection point.
 
 ## Quick Mode
 
-1. Create the change: `phasedev create-change --quick <name>` (`state.json`: `flowMode: "quick"`, `activePhase: quick_plan`).
+1. Create the change: `phasedev create-change <name> --quick --task-file <path>` — the same command shape as Standard ([Initialization](#initialization) step 2), so the task-definition decision point hands its result over the same way and `intake_task.md` is written here too (`state.json`: `flowMode: "quick"`, `activePhase: quick_plan`). No quick contract injects `intake_task.md`, so when you dispatch the `quick_plan` sub-agent, put the agreed summary into its dispatch prompt as intake context — that is the only path by which the interview reaches it.
 2. Drive the same primitives as Standard — `phasedev phase`, `phasedev check`, `phasedev advance` — but the phase sequence is the fixed linear chain `quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`; it branches before `resolveRoute` and does not use Standard's phase graph.
 3. Delegate each quick phase to a dedicated sub-agent exactly as in [Sub-Agent Spawning](#sub-agent-spawning) — the sub-agent reads its own contract via `phasedev phase`.
 4. **Single stop:** after `quick_plan`, the sub-agent fills `worklog.md` (`## Task` / `## Short Specification` / `## Plan`, English) — the orchestrator never writes the worklog itself. Stop and get the user's plan confirmation before `quick_implementation` starts.
@@ -93,7 +93,7 @@ Both modes are available at the selection point.
 4. Fix the selected name as `<change>` for the whole session: one orchestrator — one change. Switching changes mid-session is a new orchestrator run.
 5. A change with an error marker in `list` may be selected; the normal loop handles it. A change pending archive is not in the default `list`; check `phasedev list --archived` (status `in_progress`) and select it by its original slug via `--change`.
 
-Pass `--change <change>` on EVERY change-scoped command (`phase`, `check`, `advance`, `approve`, `add-finding`, `feedback`, `status`), even when only one change exists. `config` is not change-scoped.
+Pass `--change <change>` on EVERY change-scoped command (`phase`, `clarify`, `check`, `advance`, `approve`, `add-finding`, `feedback`, `status`), even when only one change exists. `config` is not change-scoped.
 
 After selecting the change, read orchestrator-safe settings via `phasedev config <key>`:
 
@@ -128,7 +128,7 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. When dispatching a generic type, always pass an explicit model and pick the CHEAPEST tier the task complexity allows: mechanical, narrowly-scoped work (e.g. archive delta specs) → the cheapest tier; routine single-phase artifact work → the mid tier; design-heavy, validation-heavy, or repair work needing real analysis → the strongest available tier. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
-**Sub-agent prompt** (the single canonical prompt; goal and role lines are optional slots):
+**Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots):
 
 ```javascript
 Agent(
@@ -140,6 +140,10 @@ Agent(
 <goal description — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
 
 <Your role: <Architect | API Designer | Code Reviewer | DB Designer | ...>. The contract describes the ENTIRE phase; your role covers only your part — do not do others' work. — OPTIONAL ROLE LINE; omit for single-agent phases>
+
+<Stage: fork analysis only. Follow the "Staged execution" clause of the phase contract: return the material forks and write no artifact. — OPTIONAL STAGE LINE; use it for stage one at technical_design and iteration_planning (see Decision Points rule 3), omit it to assign the whole phase>
+
+<Decisions already taken with the user, fixed for this writing stage: <one line per decision>. — OPTIONAL DECISIONS LINE; use it only on the fallback path of Decision Points rule 3, when the analysis-stage sub-agent could not be continued and a fresh one must write the artifact; omit it otherwise>
 
 phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, bun run, or bun run src/cli.ts to launch it — just run "phasedev ...".
 
@@ -153,7 +157,7 @@ You work ONLY on the change "<change>". Never pass a different --change value.
 )
 ```
 
-That is the entire prompt — no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator never enumerates or transmits a skill list — each sub-agent discovers skills from its own runtime environment, keeping the orchestrator's context thin and harness-agnostic; the orchestrator only requires the compliance section to be present in the report.
+That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator never enumerates or transmits a skill list — each sub-agent discovers skills from its own runtime environment, keeping the orchestrator's context thin and harness-agnostic; the orchestrator only requires the compliance section to be present in the report.
 
 ## User Feedback Handling
 

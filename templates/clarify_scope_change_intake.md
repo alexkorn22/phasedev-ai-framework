@@ -1,6 +1,6 @@
 ## Scope: task definition (before `change_intake`)
 
-Run this before `phasedev create-change`. No change directory exists yet, and no phase artifact exists.
+Run this before the `change_intake` sub-agent writes anything. No phase artifact exists yet, whether or not the change directory has been created.
 
 Read first: the user's task text from the current conversation. Nothing else — `code_research` has not run, so there are no facts on disk yet.
 
@@ -16,9 +16,4 @@ Do not ask:
 
 `from-evidence` sub-agent for this scope: read-only reconnaissance. It answers factual questions only — whether a module already exists, which test commands are real, where something lives — with `file:line` references, and writes nothing.
 
-Route the answers:
-1. Summarize the agreed task under these sections: `## Task`, `## Requirements`, `## Success signals`, `## Constraints`, `## Out of scope`, `## Assumptions`.
-2. Propose Quick or Standard from the understanding you just gained, and get the user's confirmation.
-3. Write the summary to a temporary file outside `.phasedev/`, then run:
-   `phasedev create-change <slug> [--quick] --task-file <path>`
-   The CLI writes it to `intake_task.md`, and the `change_intake` contract injects that file into the PRD sub-agent's prompt. Do not pass the summary as `--task "<text>"`: markdown in a shell argument can be mangled.
+{{intake_routing}}

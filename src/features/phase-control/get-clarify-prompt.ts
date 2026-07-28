@@ -1,4 +1,5 @@
-import { loadFlowState } from "../../entities/change/flow-state";
+import { FlowState, loadFlowState } from "../../entities/change/flow-state";
+import { AmbiguousChangeError } from "../../entities/change/change-errors";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { Phase } from "../../entities/phase/types";
 
@@ -8,7 +9,16 @@ const CLARIFY_SCOPES = {
   iteration_planning: "clarify_scope_iteration_planning"
 } as const;
 
+// The intake scope asks the same questions before and after the change directory
+// exists; only where the agreed answers go differs, so the routing tail is the
+// one part that varies.
+const INTAKE_ROUTING = {
+  preflow: "clarify_routing_preflow",
+  activeChange: "clarify_routing_active_change"
+} as const;
+
 type ClarifyPhase = keyof typeof CLARIFY_SCOPES;
+type IntakeRouting = keyof typeof INTAKE_ROUTING;
 
 export interface ClarifyPrompt {
   prompt: string;
@@ -17,22 +27,36 @@ export interface ClarifyPrompt {
   reason?: string;
 }
 
-export function hasClarifyContract(phase: Phase): boolean {
+export function hasClarifyContract(phase: Phase): phase is ClarifyPhase {
   return Object.prototype.hasOwnProperty.call(CLARIFY_SCOPES, phase);
 }
 
-function renderClarify(phase: ClarifyPhase, activePhaseLabel: string): string {
+function renderScope(phase: ClarifyPhase, routing: IntakeRouting): string {
+  return phase === "change_intake"
+    ? renderTemplate(CLARIFY_SCOPES.change_intake, { intake_routing: renderTemplate(INTAKE_ROUTING[routing], {}) })
+    : renderTemplate(CLARIFY_SCOPES[phase], {});
+}
+
+function renderClarify(phase: ClarifyPhase, activePhaseLabel: string, routing: IntakeRouting): string {
   return renderTemplate("clarify", {
     active_phase: activePhaseLabel,
-    phase_scope: renderTemplate(CLARIFY_SCOPES[phase], {})
+    phase_scope: renderScope(phase, routing)
   });
 }
 
 export function getClarifyPrompt(projectPath: string, changeName?: string): ClarifyPrompt {
-  let state;
+  let state: FlowState | null;
   try {
     state = loadFlowState(projectPath, changeName);
   } catch (error) {
+    if (error instanceof AmbiguousChangeError) {
+      return {
+        prompt: `[PHASEDEV] BLOCKED: ${error.message}\nTip: Use \`phasedev list\` to see all changes and their status.`,
+        phase: null,
+        blocked: true,
+        reason: "Ambiguous flow state"
+      };
+    }
     const message = error instanceof Error ? error.message : String(error);
     return {
       prompt: `[PHASEDEV] Cannot resolve flow state: ${message}`,
@@ -52,7 +76,7 @@ export function getClarifyPrompt(projectPath: string, changeName?: string): Clar
       };
     }
     return {
-      prompt: renderClarify("change_intake", "change_intake (pre-flow: no change created yet)"),
+      prompt: renderClarify("change_intake", "change_intake (pre-flow: no change created yet)", "preflow"),
       phase: "change_intake",
       blocked: false
     };
@@ -74,8 +98,8 @@ export function getClarifyPrompt(projectPath: string, changeName?: string): Clar
     };
   }
 
-  const phase = state.activePhase as ClarifyPhase;
-  return { prompt: renderClarify(phase, phase), phase, blocked: false };
+  const phase = state.activePhase;
+  return { prompt: renderClarify(phase, phase, "activeChange"), phase, blocked: false };
 }
 
 export function clarifyReminderFor(phase: Phase): string {

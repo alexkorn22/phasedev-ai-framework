@@ -28,6 +28,30 @@ describe("getClarifyPrompt", () => {
     expect(result.phase).toBe("change_intake");
     expect(result.prompt).toContain("## Scope: task definition");
     expect(result.prompt).toContain("--task-file");
+    expect(result.prompt).toContain("phasedev create-change");
+  });
+
+  test("a change that already exists at change_intake keeps the intake scope but drops the create-change route", () => {
+    writeState("alpha", { activePhase: "change_intake", activeIteration: null, repairCycleCount: 0 });
+
+    const result = getClarifyPrompt(projectPath, "alpha");
+
+    expect(result.blocked).toBe(false);
+    expect(result.phase).toBe("change_intake");
+    expect(result.prompt).toContain("## Scope: task definition");
+    expect(result.prompt).not.toContain("phasedev create-change");
+  });
+
+  test("several changes with no --change block with the shared ambiguity contract", () => {
+    writeState("alpha", { activePhase: "technical_design", activeIteration: null, repairCycleCount: 0 });
+    writeState("beta", { activePhase: "technical_design", activeIteration: null, repairCycleCount: 0 });
+
+    const result = getClarifyPrompt(projectPath);
+
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toBe("Ambiguous flow state");
+    expect(result.prompt).toContain("Multiple changes exist");
+    expect(result.prompt).toContain("phasedev list");
   });
 
   test("it returns the architecture scope at technical_design", () => {
