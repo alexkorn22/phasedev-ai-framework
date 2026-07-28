@@ -82,5 +82,5 @@ export function clarifyReminderFor(phase: Phase): string {
   if (phase === "change_intake" || !hasClarifyContract(phase)) {
     return "";
   }
-  return ` Before spawning sub-agents, run: phasedev clarify.`;
+  return " Before spawning sub-agents, run: phasedev clarify.";
 }

@@ -98,5 +98,6 @@ describe("clarifyReminderFor", () => {
     expect(clarifyReminderFor("implementation")).toBe("");
     expect(clarifyReminderFor("final_validation")).toBe("");
     expect(clarifyReminderFor("quick_plan")).toBe("");
+    expect(clarifyReminderFor("change_intake")).toBe("");
   });
 });
