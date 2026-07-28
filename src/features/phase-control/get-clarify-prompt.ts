@@ -77,3 +77,10 @@ export function getClarifyPrompt(projectPath: string, changeName?: string): Clar
   const phase = state.activePhase as ClarifyPhase;
   return { prompt: renderClarify(phase, phase), phase, blocked: false };
 }
+
+export function clarifyReminderFor(phase: Phase): string {
+  if (phase === "change_intake" || !hasClarifyContract(phase)) {
+    return "";
+  }
+  return ` Before spawning sub-agents, run: phasedev clarify.`;
+}

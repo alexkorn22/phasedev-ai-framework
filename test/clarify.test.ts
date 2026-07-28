@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
-import { getClarifyPrompt, hasClarifyContract } from "../src/features/phase-control/get-clarify-prompt";
+import { getClarifyPrompt, hasClarifyContract, clarifyReminderFor } from "../src/features/phase-control/get-clarify-prompt";
 import { createTempWorkspace, cleanupTempWorkspace } from "./helpers/temp-workspace";
 
 let projectPath: string;
@@ -84,5 +84,19 @@ describe("getClarifyPrompt", () => {
     expect(hasClarifyContract("code_research")).toBe(false);
     expect(hasClarifyContract("implementation")).toBe(false);
     expect(hasClarifyContract("quick_plan")).toBe(false);
+  });
+});
+
+describe("clarifyReminderFor", () => {
+  test("mid-flow decision points get a reminder", () => {
+    expect(clarifyReminderFor("technical_design")).toContain("phasedev clarify");
+    expect(clarifyReminderFor("iteration_planning")).toContain("phasedev clarify");
+  });
+
+  test("phases without a decision point get no reminder", () => {
+    expect(clarifyReminderFor("code_research")).toBe("");
+    expect(clarifyReminderFor("implementation")).toBe("");
+    expect(clarifyReminderFor("final_validation")).toBe("");
+    expect(clarifyReminderFor("quick_plan")).toBe("");
   });
 });

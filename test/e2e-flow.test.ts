@@ -613,6 +613,7 @@ describe("E2E flow via CLI subprocess", () => {
     const adv2 = run(["advance"]);
     expect(adv2.code).toBe(0);
     expect(adv2.out).toContain("technical_design");
+    expect(adv2.out).toContain("phasedev clarify");
     st = state();
     expect(st?.activePhase).toBe("technical_design");
 
