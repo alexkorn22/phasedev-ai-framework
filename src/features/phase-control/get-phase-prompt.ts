@@ -26,7 +26,7 @@ import { parseCurrentValidationFindings } from "../../entities/validation-findin
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
-import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES } from "./prompt-render-helpers";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES, taskContextBlock } from "./prompt-render-helpers";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
   const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
@@ -90,13 +90,7 @@ export function renderChangeIntake(projectPath: string, config: Config, activeCh
   const changeRoot = activeChangePath ?? path.join(projectPath, SYSTEM_DIR, "changes", "<derive-slug-from-final-task>");
   const selfCheckCommand = flowCheckCommand(projectPath, changeName);
 
-  let taskContext = "";
-  if (activeChangePath) {
-    const taskFilePath = path.join(activeChangePath, "intake_task.md");
-    if (fs.existsSync(taskFilePath)) {
-      taskContext = `\n\n=== CURRENT TASK DESCRIPTION ===\n${fs.readFileSync(taskFilePath, "utf-8")}\n================================`;
-    }
-  }
+  const taskContext = taskContextBlock(activeChangePath);
 
   return renderPhaseTemplate("change_intake", "phase1_change_intake", {
     date,

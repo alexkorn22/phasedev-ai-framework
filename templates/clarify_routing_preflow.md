@@ -5,4 +5,4 @@ Route the answers:
 2. Propose Quick or Standard from the understanding you just gained, and get the user's confirmation.
 3. Write the summary to a temporary file outside `.phasedev/`, then run:
    `phasedev create-change <slug> [--quick] --task-file <path>`
-   The CLI writes it to `intake_task.md`. In Standard mode the `change_intake` contract injects that file into the PRD sub-agent's prompt; in Quick mode no contract injects it, so also pass the agreed summary into the `quick_plan` sub-agent's dispatch prompt. Do not pass the summary as `--task "<text>"`: markdown in a shell argument can be mangled.
+   The CLI writes it to `intake_task.md`. Both the Standard `change_intake` contract and the Quick `quick_plan` contract inject that file into their sub-agent's prompt directly from disk. Do not pass the summary as `--task "<text>"`: markdown in a shell argument can be mangled.
