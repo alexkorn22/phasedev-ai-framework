@@ -3746,6 +3746,29 @@ describe("code review finding tests", () => {
     expect(fs.readFileSync(taskPath, "utf-8").trim()).toBe("quick task text");
   });
 
+  // ── clarify ──────────────────────────────────────────────────
+
+  test("clarify prints the pre-flow task-definition contract when no change exists", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+
+    const result = runCli(["clarify", "--project-path", testTmpDir]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("## Scope: task definition");
+  });
+
+  test("clarify prints the architecture contract at technical_design", () => {
+    runCli(["init-project", "--project-path", testTmpDir]);
+    runCli(["create-change", "arch-clarify", "--project-path", testTmpDir]);
+
+    const statePath = path.join(testTmpDir, ".phasedev", "changes", "arch-clarify", "state.json");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf-8"));
+    fs.writeFileSync(statePath, JSON.stringify({ ...state, activePhase: "technical_design" }, null, 2) + "\n");
+
+    const result = runCli(["clarify", "--project-path", testTmpDir, "--change", "arch-clarify"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("## Scope: architecture");
+  });
+
   // ── approve auto-resolution ─────────────────────────────────
 
   test("approve resolves bare filename to active change directory", () => {

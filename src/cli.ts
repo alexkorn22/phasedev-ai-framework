@@ -38,6 +38,7 @@ import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-ph
 import { syncState } from "./features/phase-control/sync-state";
 import { getPhasePrompt } from "./features/phase-control/get-phase-prompt";
 import { getFeedbackPrompt } from "./features/phase-control/get-feedback-prompt";
+import { getClarifyPrompt } from "./features/phase-control/get-clarify-prompt";
 import { expectedFindingsType } from "./features/phase-control/expected-findings-type";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { runArchive } from "./features/phase-control/archive-command";
@@ -732,6 +733,21 @@ function handleFeedback(ctx: CommandContext): void {
   }
 }
 
+function handleClarify(ctx: CommandContext): void {
+  const result = getClarifyPrompt(ctx.projectPath, ctx.changeName);
+  reportCliResult(ctx.jsonMode, {
+    ok: !result.blocked,
+    kind: "clarify",
+    phase: result.phase,
+    humanMessage: result.prompt,
+    jsonMessage: result.blocked ? (result.reason ?? "Blocked") : "Decision-points contract ready.",
+    data: { prompt: result.prompt }
+  });
+  if (result.blocked) {
+    process.exitCode = 1;
+  }
+}
+
 function handleAdvance(ctx: CommandContext): void {
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
@@ -877,6 +893,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "create-change": handleCreateChange,
   phase: handlePhase,
   feedback: handleFeedback,
+  clarify: handleClarify,
   advance: handleAdvance,
   archive: handleArchive,
   check: handleCheck,

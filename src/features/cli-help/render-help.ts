@@ -66,6 +66,15 @@ Commands:
       --check-orphans instead scans for orphaned or unfinished archive directories.
       Side effects: none.
 
+  phasedev clarify [--project-path <path>] [--change <name>]
+      Print the decision-points contract for the active phase (read-only, orchestrator-facing).
+      Defines how the orchestrator resolves open decisions with the user BEFORE a phase
+      sub-agent writes its artifact: build the decision tree, close code-answerable
+      branches with a sub-agent, ask only what changes this phase's artifact, then dispatch.
+      Contracts exist for change_intake, technical_design and iteration_planning; with no
+      change yet it prints the pre-flow task-definition contract. Other phases and
+      quick-mode changes get a non-blocking note. Side effects: none.
+
   phasedev feedback [--project-path <path>]
       Print the user-feedback processing contract for the active change (read-only).
       Defines how an agent classifies feedback (implementation defect vs scope change)
