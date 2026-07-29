@@ -32,14 +32,20 @@ const PHASE_SUMMARIES: Partial<Record<Phase, { output: string; selfCheck: string
   archive:              { output: "delta specs in archive",            selfCheck: "phasedev check-archive" },
 };
 
+const DISPATCH_PRECEDENCE_LINE =
+  "> - Precedence: this contract supersedes any phase-work details in your dispatch prompt (artifact read order, file inventories, review checklists, verdict policy, findings-command recipes). On conflict, follow this contract and report the discrepancy in your final response.";
+
 export function renderPhaseOpeningSummary(phase: Phase): string {
   const summary = PHASE_SUMMARIES[phase];
-  if (!summary) return "";
+  if (!summary) {
+    return ["> **Phase contract:**", DISPATCH_PRECEDENCE_LINE, ""].join("\n");
+  }
   return [
     "> **Phase summary:**",
     `> - Output: \`${summary.output}\` per embedded Artifact Build Contract.`,
     `> - Done when: \`${summary.selfCheck}\` passes.`,
     "> - Forbidden: change `approved` fields manually, write outside phase allowlist.",
+    DISPATCH_PRECEDENCE_LINE,
     ""
   ].join("\n");
 }

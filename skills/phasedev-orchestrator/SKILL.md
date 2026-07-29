@@ -128,7 +128,7 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. When dispatching a generic type, always pass an explicit model and pick the CHEAPEST tier the task complexity allows: mechanical, narrowly-scoped work (e.g. archive delta specs) → the cheapest tier; routine single-phase artifact work → the mid tier; design-heavy, validation-heavy, or repair work needing real analysis → the strongest available tier. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
-**Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots):
+**Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots). Copy the fixed body VERBATIM — the orchestrator's entire authorship is filling the four optional slots. Adding ANY other instruction about the phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict):
 
 ```javascript
 Agent(
