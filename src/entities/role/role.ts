@@ -74,6 +74,9 @@ function parseRole(name: string, value: unknown, key: string): RoleConfig {
 /**
  * Role names are free-form: PhaseDev validates the shape of a role, never its
  * name, so a project can add its own role without a framework change.
+ * Source order is preserved for ordinary role names, but a role name that is
+ * an integer-like string (e.g. "2") sorts ahead of the rest, in ascending
+ * numeric order, because of JavaScript object key ordering.
  */
 export function parseRoles(value: unknown, key: string): RoleConfig[] {
   const roles = asRecord(value, key);

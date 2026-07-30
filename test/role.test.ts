@@ -19,6 +19,16 @@ roles:
     ]);
   });
 
+  test("sorts an integer-like role name ahead of the rest, per JS object key ordering", () => {
+    const roles = rolesFrom(`
+roles:
+  implementer: { tier: standard, skills: [tdd-method] }
+  "2": { tier: cheap, skills: [codebase-recon] }
+  research: { tier: cheap, skills: [codebase-recon] }
+`);
+    expect(roles.map(role => role.name)).toEqual(["2", "implementer", "research"]);
+  });
+
   test("returns an empty catalog for missing or empty roles", () => {
     expect(parseRoles(undefined, "roles")).toEqual([]);
     expect(rolesFrom("roles: {}\n")).toEqual([]);
