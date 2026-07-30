@@ -10,7 +10,6 @@ import { toFileUrl } from "./prompt-formatters";
 import { formatPhaseExcerpt, formatPlanMap } from "./prompt-formatters";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
-import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Prompt } from "../../entities/phase/types";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { resolveChangeDir } from "../../entities/change/active-change";

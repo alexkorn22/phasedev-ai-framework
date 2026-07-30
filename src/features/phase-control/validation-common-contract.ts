@@ -1,7 +1,7 @@
 import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
-import { renderSkillComplianceLine, renderSkillPolicyInlineRef } from "./skill-policy";
+import { renderSkillComplianceLine } from "./skill-policy";
 import { renderBlockingSeverityPolicy } from "./blocking-severity-policy";
 
 type ValidationCommonVariableKey =
@@ -45,8 +45,7 @@ export function renderValidationCommonContract(phase: Phase, config: Config): st
   const variables = phase === "final_validation" ? FINAL_VALIDATION_COMMON : PHASE_VALIDATION_COMMON;
   return renderTemplate("validation_common", {
     ...variables,
-    skill_policy_inline_ref: renderSkillPolicyInlineRef(phase, config),
-    skill_compliance_line: renderSkillComplianceLine(phase, config),
+    skill_compliance_line: renderSkillComplianceLine(),
     blocking_severity_policy: renderBlockingSeverityPolicy(config.blockingSeverity)
   });
 }

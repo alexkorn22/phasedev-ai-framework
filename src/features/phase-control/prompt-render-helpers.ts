@@ -6,7 +6,7 @@ import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { toFileUrl } from "./prompt-formatters";
-import { renderSkillComplianceLine, renderSkillPolicy, renderPhaseSkillNote, renderPhaseSkillStep } from "./skill-policy";
+import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { Prompt } from "../../entities/phase/types";
@@ -113,11 +113,8 @@ export function renderPhaseTemplate(
     phase_opening_summary: renderPhaseOpeningSummary(phase),
     self_check_fallback: SELF_CHECK_FALLBACK,
     validation_common_contract: renderValidationCommonContract(phase, config),
-    skill_policy: renderSkillPolicy(phase, config),
-    skill_compliance_line: renderSkillComplianceLine(phase, config),
-    phase_skill_step: renderPhaseSkillStep(phase, config),
-    phase_skill_note: renderPhaseSkillNote(phase, config),
-    skill_policy_inline_ref: "",
+    skill_policy: renderSkillPolicy(),
+    skill_compliance_line: renderSkillComplianceLine(),
   });
 }
 

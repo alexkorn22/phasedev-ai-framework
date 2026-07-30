@@ -28,8 +28,8 @@ export function archiveTemplateVariables(projectPath: string, changeName: string
     change_specs_path: toFileUrl(path.join(archivePath, "specs")),
     archive_state_path: toFileUrl(path.join(archivePath, ".phase-archive.json")),
     archive_path: archivePath,
-    skill_policy: renderSkillPolicy("archive", config),
-    skill_compliance_line: renderSkillComplianceLine("archive", config)
+    skill_policy: renderSkillPolicy(),
+    skill_compliance_line: renderSkillComplianceLine()
   };
 }
 

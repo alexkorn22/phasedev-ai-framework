@@ -97,13 +97,14 @@ describe("startArchiveStage flowMode preservation", () => {
 });
 
 describe("quickPhasePrompt", () => {
-  it("renders the quick_plan contract with the env-discovery skill policy and no configured-skill block", () => {
+  it("renders the quick_plan contract with the static skill boundary section", () => {
     const { projectPath, changeName } = scaffoldQuick("quick_plan");
     const state = loadFlowState(projectPath, changeName)!;
     const prompt = quickPhasePrompt(projectPath, DEFAULT_CONFIG, state, changeName);
     expect(prompt.blocked).toBe(false);
     expect(prompt.prompt).toContain("Quick Phase: Plan");
-    expect(prompt.prompt).toContain("Discover and apply skills from your runtime environment");
+    expect(prompt.prompt).toContain("## Skill Boundary");
+    expect(prompt.prompt).toContain("Your role and the skills mandatory for it are named in your dispatch prompt.");
   });
 
   it("renders the quick archive contract with the bare change name, not the dated archive basename", () => {

@@ -16,12 +16,10 @@ Use this bounded retrieval order before planning:
 2. Confirm that [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) exist and are readable. If any required input is missing or unreadable, report `Missing required input artifact: <exact linked path>` and stop without creating or partially writing `iteration_plan.md`.
 3. Read [prd.md]({{prd_path}}), [design.md]({{design_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized. Verify that `prd.md` and `design.md` have `approved: true`; if either is not approved, report the route inconsistency and do not create `iteration_plan.md`.
 4. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, each `SC#` Evidence type, and every relevant approved `D#`.
-{{phase_skill_step}}
 5. Inspect repository files only to answer a concrete planning question about iteration boundaries, change surface, checks, or sequencing. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm the answer.
 
 Context budget and stop condition:
 - Start with approved PRD, approved design, rules, and active change paths; do not broad-scan the repository by default.
-{{phase_skill_note}}
 - Stop retrieval when every `R#`, `SC#`, Evidence type, relevant `D#`, and risk boundary can be mapped to at least one iteration, expected change surface row, task, and check, or once a material PRD/design realignment blocker is identified.
 - Do not inspect `config.yaml`, framework template files, generated prompt output, or unrelated project areas unless an approved input explicitly requires that evidence.
 

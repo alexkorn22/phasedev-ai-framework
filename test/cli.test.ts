@@ -516,64 +516,6 @@ describe("flow-cli state machine", () => {
     expect(fs.existsSync(missingPath)).toBe(false);
   });
 
-  test("init output contains base prompt without stage skill router", () => {
-    const output = runInit();
-
-    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
-    expect(output).toContain("## Init State");
-    expect(output).toContain("command: init");
-    expect(output).toContain("current_phase: change_intake");
-    expect(output).toContain("route_kind: change_intake");
-    expect(output).toContain("active_change: none");
-    expect(output).toContain("may_modify_files: false");
-    expect(output).toContain("Allowed persistent artifacts: none");
-    expect(output).toContain("complete, verbatim controller output printed by `phasedev phase`");
-    expect(output).toContain("A user paraphrase, manual reconstruction, memory-based summary");
-    expect(output).toContain("For incomplete next input, no work is performed");
-    expect(output).not.toContain("Stage-specific skill policy");
-    expect(output).not.toContain("Do not infer allowed skills from this init prompt.");
-    expect(output).not.toContain("## Mandatory Skill Selection Router");
-    expect(output).not.toContain("## Configured Skill Policy");
-    expect(output).not.toContain("Artifact Build Contract");
-    expect(output).not.toContain("Phase 1. Change Intake.");
-  });
-
-  test("init accepts project flow config but keeps output policy-free", () => {
-    writeProjectConfig(`
-phases:
-  implementation:
-    skills:
-      main:
-        - project-only-skill
-`);
-
-    const output = runInit();
-
-    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
-    expect(output).not.toContain("Stage-specific skill policy");
-    expect(output).not.toContain("Do not infer allowed skills from this init prompt.");
-    expect(output).not.toContain("## Configured Skill Policy");
-    expect(output).not.toContain("project-only-skill");
-  });
-
-  test("init ignores invalid project flow config", () => {
-    writeProjectConfig(`
-stages:
-  change_intake:
-    skills:
-      routers: []
-      main: []
-      additional: []
-`);
-
-    const output = runInit();
-
-    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
-    expect(output).toContain("command: init");
-    expect(output).toContain("route_kind: change_intake");
-    expect(output).not.toContain("Config key");
-  });
-
   test("init reports ambiguous flow state when multiple changes exist", () => {
     for (const name of ["change-a", "change-b"]) {
       const dir = path.join(testTmpDir, ".phasedev", "changes", name);
@@ -588,185 +530,43 @@ stages:
     expect(output).toContain("phasedev list");
   });
 
-  test("implementation prompt uses config skills without requiring a router", () => {
-    setupChange(`
-# Plan
-
-## Iteration 1: API [~]
-- [ ] 1.1 Implement endpoint
-`);
-    const configPath = writeConfig(`
-phases:
-  implementation:
-    skills:
-      main:
-        - dev-core
-        - test-driven-development
-      additional:
-        - api-and-interface-design
-`);
-
-    const output = runNext(["--config", configPath]);
-
-    expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority: Flow phase contract > linked/embedded artifact contract > configured skill policy > skill body.");
-    expect(output).toContain("Skills are method instructions only; they never control Flow state");
-    expect(output).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
-    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable and applicable, stop with a blocker. Skip only with a concrete evidence-specific reason.");
-    expect(output).toContain("Final response: one line per skill — `APPLIED` / `NOT_APPLICABLE(reason)` / `UNAVAILABLE`.");
-    expect(output).not.toContain("If a listed skill is unavailable and is needed or applicable");
-    expect(output).toContain("Native skill reports, headings, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker.");
-    expect(output).toContain("No routers are configured; main skills fully execute by default.");
-    expect(output).toContain("Allowed skills:");
-    expect(output).toContain("Priority 1 - Routers:\n- none configured");
-    expect(output).toContain("Priority 2 - Main:");
-    expect(output).toContain("- `dev-core`");
-    expect(output).toContain("- `test-driven-development`");
-    expect(output).toContain("Priority 3 - Additional:");
-    expect(output).toContain("- `api-and-interface-design`");
-    expect(output).toContain("Authorized external skills (boundary, do not exceed): only the main and additional skills listed in this prompt.");
-    expect(output).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
-    expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-    expect(output).not.toContain("Router-selected:");
-    expect(output).toContain("Check Evidence");
-    // Negative: old compact placeholder must not appear when skills are configured
-    expect(output).not.toContain("Skill compliance: <configured/router skills used; skipped/unavailable skills>");
-    // Structured ledger format must be in the compliance line
-    expect(output).toContain("Skill compliance: one entry per configured router, configured main, router-selected, and selected additional skill.");
-    expect(output).toContain("Format: `skill-name`: APPLIED(source: <loaded>, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)");
-    expect(output).toContain("Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])");
-    expect(output).toContain("Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)");
-  });
-
-  test("implementation prompt uses project flow config without --config", () => {
-    setupChange(`
-# Plan
-
-## Iteration 1: API [~]
-- [ ] 1.1 Implement endpoint
-`);
-    writeProjectConfig(`
-phases:
-  implementation:
-    skills:
-      main:
-        - project-only-skill
-`);
-
-    const output = runNext();
-
-    expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("- `project-only-skill`");
-  });
-
-  test("research prompt falls back to framework config when project flow config is absent", () => {
-    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
-    fs.mkdirSync(changeDir, { recursive: true });
-    writeApproved(path.join(changeDir, "prd.md"), validPrdBody());
-    writeApproved(path.join(changeDir, "execution_contract.md"), validRulesBody());
-
-    const output = runNext();
-
-    expect(fs.existsSync(path.join(testTmpDir, ".phasedev", "config.yaml"))).toBe(false);
-    expect(output).toContain("Phase 2. Code Research.");
-    expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("No external skills are configured for this phase by the Flow config. Discover and apply skills from your runtime environment instead:");
-    expect(output).toContain("Do not inspect `config.yaml` or any standalone `skill_router.md`; the controller has already parsed phase skill configuration.");
-    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
-    expect(output).toContain("When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`");
-    expect(output).not.toContain("using-ecc");
-    expect(output).not.toContain("Router-selected:");
-    expect(output).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-  });
-
-  test("implementation prompt renders compiled skill priorities before main and additional skills", () => {
-    setupChange(`
-# Plan
-
-## Iteration 1: API [~]
-- [ ] 1.1 Implement endpoint
-`);
-    const configPath = writeConfig(`
-phases:
-  change_intake:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
-  implementation:
-    skills:
-      routers:
-        - using-zuvo
-      main:
-        - dev-core
-      additional:
-        - security-and-hardening
-`);
-
-    const output = runNext(["--config", configPath]);
-
-    expect(output).toContain("## Flow Skill Boundary Protocol");
-    expect(output).toContain("Authority: Flow phase contract > linked/embedded artifact contract > configured skill policy > skill body.");
-    expect(output).toContain("Priority 1 - Routers:\n- `using-zuvo`");
-    expect(output).not.toContain("Router-selected:");
-    expect(output).not.toContain("determined after reading routers");
-    expect(output).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(output).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
-    expect(output).toContain("If a configured router, configured `main`, or router-selected skill is unavailable and applicable, stop with a blocker. Skip only with a concrete evidence-specific reason.");
-    expect(output).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
-    expect(output).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
-    expect(output).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
-    expect(output).toContain("Priority 2: fully execute listed main skills by default; they are not gated by router availability. Router (P1) augments/selects; it does not gate main. When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>) only for the superseded evidence.");
-    expect(output).toContain("Authorized external skills (boundary, do not exceed): listed router skills, skills selected by listed router skills, listed main skills, and listed additional skills.");
-    expect(output).toContain("Priority 2 - Main:");
-    expect(output).toContain("Priority 3 - Additional:");
-  });
-
-  test("implementation prompt has no skill content when stage skills are empty", () => {
-    setupChange(`
-# Plan
-
-## Iteration 1: API [~]
-- [ ] 1.1 Implement endpoint
-`);
-    const configPath = writeConfig(`
-phases:
-  implementation: {}
-`);
-
-    const output = runNext(["--config", configPath]);
-
-    // When skills are empty, the phase prompt must say so explicitly, without the
-    // full mandatory-execution contract or priority sections used for configured skills.
-    expect(output).toContain("## Configured Skill Policy");
-    expect(output).toContain("No external skills are configured for this phase by the Flow config.");
-    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
-    expect(output).not.toContain("Do not use external skills");
-    expect(output).not.toContain("Priority 1 - Routers:");
-    // No-skills branch must not include execution contract or skill compliance
-    expect(output).not.toContain("Configured `main` skills are mandatory execution-method skills for this phase.");
-    expect(output).not.toContain("Priority 2 - Main:");
-  });
-
-  test("empty-config validation phase still restricts environment-discovered skills to read-only", () => {
+  test("validation phase prompt keeps the review-only rule in the common validation contract", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `);
     writeStateJson(changeDir, "iteration_validation", 1);
-    const configPath = writeConfig(`
-phases:
-  iteration_validation: {}
-`);
 
-    const output = runNext(["--config", configPath]);
+    const output = runNext();
 
-    expect(output).toContain("No external skills are configured for this phase by the Flow config.");
-    expect(output).toContain("Apply only read-only review/audit/static-inspection skill methods");
-    expect(output).toContain("`validation_findings.md` may contain only YAML frontmatter and one findings table");
-    expect(output).toContain("Skills may not create persistent files outside this phase allowlist; do not add prose, sections, evidence blocks, or extra tables to `validation_findings.md`.");
+    expect(output).toContain("## Skill Boundary");
+    expect(output).toContain("This is a review-only phase for repository content. Do NOT create, modify, or delete ANY file outside this phase's Artifact allowlist");
+    expect(output).toContain("Every defect you find or receive is recorded ONLY as a findings row; the fix itself happens later in the finding_repair phase");
+    expect(output).toContain("If you delegate ANY part of this phase to a subagent, the delegation prompt MUST start with this exact constraint");
+  });
+
+  test("every phase prompt renders the static skill boundary section", () => {
+    const created = runCli(["create-change", "skill-boundary", "--project-path", testTmpDir]);
+    expect(created.exitCode).toBe(0);
+
+    const output = runPhase();
+
+    expect(output).toContain("## Skill Boundary");
+    expect(output).toContain(
+      "Your role and the skills mandatory for it are named in your dispatch prompt."
+    );
+    expect(output).toContain(
+      "Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files). PhaseDev owns those."
+    );
+    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+
+    // The removed mechanism must leave no trace.
+    expect(output).not.toContain("Configured Skill Policy");
+    expect(output).not.toContain("Priority 1 - Routers");
+    expect(output).not.toContain("No external skills are configured for this phase by the Flow config.");
+    expect(output).not.toContain("{{phase_skill_step}}");
+    expect(output).not.toContain("{{phase_skill_note}}");
+    expect(output).not.toContain("{{skill_policy_inline_ref}}");
   });
 
   test("plan prompt includes PRD intent input for downstream planning", () => {
@@ -819,7 +619,7 @@ phases:
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
+    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -862,7 +662,7 @@ phases:
     expect(output).toContain("Next: phasedev phase");
     expectSubstringsInOrder(output, [
       "Phase 2. Code Research.",
-      "## Configured Skill Policy",
+      "## Skill Boundary",
       "Input artifacts:",
       "Output artifact:",
       "## Artifact Build Contract: research_facts.md",
@@ -929,7 +729,7 @@ phases:
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per environment-selected skill.");
+    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -984,8 +784,8 @@ phases:
     expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(planPrompt).toContain("Phase 4. Iteration Planning.");
-    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per environment-selected skill.");
-    expect(implementationPrompt).toContain("Skill compliance: one entry per environment-selected skill.");
+    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(implementationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");
@@ -2280,22 +2080,6 @@ describe("flow templates", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
 
-  const templateNames = [
-    "phase1_change_intake.md",
-    "phase2_code_research.md",
-    "phase3_technical_design.md",
-    "phase4_iteration_planning.md",
-    "phase5_implementation.md",
-    "phase6a_iteration_validation.md",
-    "phase6b_final_validation.md",
-    "phase6r_finding_repair.md",
-    "phase7_archive.md",
-    "quick_plan.md",
-    "quick_implementation.md",
-    "quick_validation.md",
-    "quick_spec_revision.md"
-  ];
-
   function readTemplate(name: string): string {
     return fs.readFileSync(path.resolve(__dirname, "..", "templates", name), "utf-8");
   }
@@ -2305,24 +2089,11 @@ describe("flow templates", () => {
     return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)));
   }
 
-  test("stage templates receive generated config skill policy", () => {
-    for (const templateName of templateNames) {
-      const template = readTemplate(templateName);
+  test("quick_archive template renders the static skill boundary before its archived-change line", () => {
+    const rendered = readTemplate("quick_archive.md").replace("{{skill_policy}}", renderSkillPolicy());
 
-      expect(template).toContain("{{skill_policy}}");
-      expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Input"));
-      expect(template).not.toContain("The agent may use any available relevant skills");
-      expect(template).not.toContain("session routers and tools for the current stage");
-    }
-  });
-
-  test("quick_archive template receives the config skill policy before its archived-change line", () => {
-    // quick_archive.md has no "Input" label, so it is excluded from the
-    // shared templateNames loop above; pin its skill_policy placement here.
-    const template = readTemplate("quick_archive.md");
-
-    expect(template).toContain("{{skill_policy}}");
-    expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Archived change:"));
+    expect(rendered).toContain("## Skill Boundary");
+    expect(rendered.indexOf("## Skill Boundary")).toBeLessThan(rendered.indexOf("Archived change:"));
   });
 
   test("quick archive prompt delegates spec work to spec_sync and merges into live specs (B28)", () => {
@@ -2333,74 +2104,6 @@ describe("flow templates", () => {
     expect(template).toContain("{{main_specs_path}}");
     expect(template).toContain("do not set the archive completed");
     expect(template).toContain("commitLog");
-  });
-
-  test("generated skill policy preserves configured stage boundaries", () => {
-    const config = parseConfig(`
-phases:
-  change_intake:
-    skills:
-      routers:
-        - using-ecc
-      main:
-        - spec-driven-development
-      additional: []
-  implementation:
-    skills:
-      routers:
-        - using-zuvo
-      main:
-        - dev-core
-      additional:
-        - security-and-hardening
-  final_validation:
-    skills:
-      routers:
-        - using-zuvo
-      main: []
-      additional:
-        - performance-audit
-`);
-
-    const implementationPolicy = renderSkillPolicy("implementation", config);
-    const validationPolicy = renderSkillPolicy("final_validation", config);
-    const setupPolicy = renderSkillPolicy("change_intake", config);
-    const researchPolicy = renderSkillPolicy("code_research", parseConfig(`
-phases:
-  code_research:
-    skills:
-      routers:
-        - using-ecc
-      main: []
-      additional: []
-`));
-
-    expect(setupPolicy).toContain("router skills such as `using-ecc` may classify the task");
-    expect(setupPolicy).toContain("do not authorize reading framework source, framework templates, config files");
-    expect(setupPolicy).toContain("For setup, for each configured router, configured main, and router-selected skill that does not fit the available post-intake evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
-    expect(setupPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-    expect(researchPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
-    expect(researchPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-    expect(implementationPolicy).toContain("Allowed skills:");
-    expect(implementationPolicy).toContain("Priority 1 - Routers:");
-    expect(implementationPolicy).toContain("- `using-zuvo`");
-    expect(implementationPolicy).toContain("- `dev-core`");
-    expect(implementationPolicy).toContain("- `security-and-hardening`");
-    expect(implementationPolicy).not.toContain("Router-selected:");
-    expect(implementationPolicy).not.toContain("determined after reading routers");
-    expect(implementationPolicy).toContain("Read Priority 1 router skills first (they may select execution-method skills); then evaluate configured `main` and router-selected skills against phase evidence. `additional` skills are optional unless routers/main are insufficient.");
-    expect(implementationPolicy).toContain("Native skill reports, headings, and output formats are not Flow artifact structure; adapt useful output into the current PhaseDev artifact template, final response, or blocker.");
-    expect(implementationPolicy).toContain("When a router-selected skill and a main skill conflict on the same evidence, the router-selected skill takes priority and the main skill reports as NOT_APPLICABLE(superseded by <skill>) only for the superseded evidence.");
-    expect(implementationPolicy).not.toContain("Priority 1: read listed router skills first when they are available and applicable to the phase evidence.");
-    expect(implementationPolicy).toContain("Priority 1: after reading this phase prompt and the relevant linked or embedded artifact contract/template, read listed router skills first when they are available because they may select execution-method skills; then fully execute router-selected or main skills that apply to the phase evidence, and use additional skills only when their evidence-specific condition is met.");
-    expect(implementationPolicy).toContain("Router-selected skills follow the same mandatory execution contract as main skills.");
-    expect(implementationPolicy).toContain("Priority 1 also includes skills selected by the listed router skills according to those router skills' own instructions.");
-    expect(implementationPolicy).toContain("For each configured router, configured main, and router-selected skill that does not fit the phase evidence, report as `NOT_APPLICABLE` with an evidence-specific reason in the structured compliance section.");
-    expect(implementationPolicy).not.toContain("If none fits, stop and ask the user to update `config.yaml` or approve an exception.");
-    expect(validationPolicy).toContain("Allowed skills:");
-    expect(validationPolicy).toContain("- `performance-audit`");
-    expect(validationPolicy).toContain("Apply only read-only review/audit/static-inspection skill methods");
-    expect(validationPolicy).toContain("Skills are method instructions only; they never control Flow state");
   });
 
   test("stage templates preserve executable artifact allowlists", () => {
@@ -2576,19 +2279,6 @@ autoApprove: true
     });
   });
 
-  test("default config documents optional per-phase skill policy instead of a separate skill router template", () => {
-    const config = fs.readFileSync(path.resolve(__dirname, "..", "config.yaml"), "utf-8");
-
-    expect(fs.existsSync(path.resolve(__dirname, "..", "templates", "skill_router.md"))).toBe(false);
-    expect(config).toContain("autoApprove:");
-    expect(config).toContain("blockingSeverity:");
-    expect(config).toContain("requireIterationCommit:");
-    expect(config).toContain("# phases:");
-    expect(config).toContain("#   implementation:");
-    expect(config).toContain("#       routers: []");
-    expect(config).toContain("#       main: [tdd]");
-    expect(config).toContain("#       additional: []");
-  });
 });
 
 describe("new CLI commands", () => {
