@@ -8,6 +8,6 @@ describe("parseConfig on malformed YAML", () => {
 
   test("falls back to defaults on empty content", () => {
     const cfg = parseConfig("");
-    expect(cfg.phases).toEqual({});
+    expect(cfg.roles).toEqual([]);
   });
 });

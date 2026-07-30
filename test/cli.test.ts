@@ -2321,7 +2321,7 @@ stages:
     skills:
       main: ["test-skill"]
 `);
-      expect(config.phases).toEqual({});
+      expect(config.roles).toEqual([]);
       const value = getConfigValue(config, "codex.stages.setup.skills.main");
       expect(value).toBeUndefined();
     });
@@ -2858,7 +2858,6 @@ ${rows ?? ""}`;
     writeStateJson(changeDir, "iteration_validation", 1);
     writeProjectConfig(`
 blockingSeverity: recommended
-phases: {}
 `);
 
     const addResult = runCli(["add-finding", "Naming inconsistent", "RECOMMENDED", "--required-fix", "Rename", "--class", "implementation", "--iteration", "Iteration 1", "--project-path", testTmpDir]);
@@ -3077,7 +3076,6 @@ phases: {}
     writeStateJson(changeDir, "archive");
     writeProjectConfig(`
 blockingSeverity: recommended
-phases: {}
 `);
 
     const result = runCli(["sync-state", "--project-path", testTmpDir, "--json"]);

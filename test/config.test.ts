@@ -5,7 +5,6 @@ import {
   DEFAULT_CONFIG,
   defaultConfigPath,
   getConfigValue,
-  getPhaseSkillConfig,
   loadConfig,
   parseConfig,
   projectConfigPath,
@@ -41,7 +40,7 @@ describe("parseConfig", () => {
     expect(c.autoApprove).toBe(false);
     expect(c.blockingSeverity).toBe("must_fix");
     expect(c.requireIterationCommit).toBe(true);
-    expect(c.phases).toEqual({});
+    expect(c.roles).toEqual([]);
     expect((c as unknown as Record<string, unknown>).runArchiveStage).toBeUndefined();
     expect((c as unknown as Record<string, unknown>).maxIterations).toBeUndefined();
   });
@@ -61,124 +60,54 @@ describe("parseConfig", () => {
     const spy = spyOn(console, "warn").mockImplementation((m: string) => warnings.push(m));
     const c = parseConfig("stages:\n  plan:\n    skills:\n      main: [tdd]\ncodex:\n  stages: {}\n");
     spy.mockRestore();
-    expect(c.phases).toEqual({});
+    expect(c.roles).toEqual([]);
     expect(warnings.some(w => w.includes('"stages"'))).toBe(true);
     expect(warnings.some(w => w.includes('"codex"'))).toBe(true);
   });
 
-  test("unknown phase name warns and is skipped, flow not blocked", () => {
-    const warnings: string[] = [];
-    const spy = spyOn(console, "warn").mockImplementation((m: string) => warnings.push(m));
-    const c = parseConfig("phases:\n  not_a_phase:\n    skills:\n      main: [x]\n  implementation:\n    skills:\n      main: [tdd]\n");
-    spy.mockRestore();
-    expect(c.phases.implementation?.skills.main).toEqual(["tdd"]);
-    expect(c.phases).not.toHaveProperty("not_a_phase");
-    expect(warnings.some(w => w.includes("not_a_phase"))).toBe(true);
-  });
-
-  test("rejects quick_* phase names under phases: (warn+skip, not a hard error)", () => {
-    const warnings: string[] = [];
-    const spy = spyOn(console, "warn").mockImplementation((m: string) => warnings.push(m));
-    const c = parseConfig("phases:\n  quick_plan:\n    skills:\n      main: [foo]\n");
-    spy.mockRestore();
-    expect(c.phases).not.toHaveProperty("quick_plan");
-    expect(warnings.some(w => w.includes('quick_plan'))).toBe(true);
-  });
-
-  test("parses empty/missing phases to empty object", () => {
-    const config = parseConfig(`{}`);
-    expect(config.phases).toEqual({});
-  });
-
-  test("parses phases with empty skills", () => {
+  test("parses the roles catalog", () => {
     const config = parseConfig(`
-phases:
-  change_intake:
-    skills:
-      routers: []
-      main: []
-      additional: []
+autoApprove: false
+roles:
+  implementer: { tier: standard, skills: [tdd-method] }
+  security-review: { tier: strong, skills: [security-review-method] }
 `);
-    expect(config.phases.change_intake?.skills).toEqual({ routers: [], main: [], additional: [] });
-    expect(config.phases.implementation).toBeUndefined();
+    expect(config.roles).toEqual([
+      { name: "implementer", tier: "standard", skills: ["tdd-method"] },
+      { name: "security-review", tier: "strong", skills: ["security-review-method"] }
+    ]);
   });
 
-  test("deduplicates phase skills by priority", () => {
-    const config = parseConfig(`
-phases:
-  change_intake:
-    skills:
-      routers:
-        - using-zuvo
-        - using-zuvo
-      main:
-        - using-zuvo
-        - dev-core
-        - dev-core
-      additional:
-        - dev-core
-        - test-driven-development
-        - test-driven-development
-`);
-    expect(config.phases.change_intake?.skills).toEqual({
-      routers: ["using-zuvo"],
-      main: ["dev-core"],
-      additional: ["test-driven-development"]
-    });
+  test("defaults roles to an empty catalog when absent", () => {
+    expect(parseConfig("autoApprove: true\n").roles).toEqual([]);
   });
 
-  test("getPhaseSkillConfig returns correct skills for a phase", () => {
+  test("legacy phases: key warns and is ignored without blocking the flow", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     const config = parseConfig(`
 phases:
   implementation:
     skills:
-      routers: ["using-zuvo"]
-      main: ["dev-core"]
-      additional: ["security-and-hardening"]
+      main: [tdd]
+roles:
+  implementer: { tier: standard, skills: [tdd-method] }
 `);
-    expect(getPhaseSkillConfig(config, "implementation")).toEqual({
-      routers: ["using-zuvo"],
-      main: ["dev-core"],
-      additional: ["security-and-hardening"]
-    });
+    expect(config.roles).toEqual([{ name: "implementer", tier: "standard", skills: ["tdd-method"] }]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
-  test("getPhaseSkillConfig returns empty for init stage", () => {
-    const config = parseConfig(`{}`);
-    expect(getPhaseSkillConfig(config, "init")).toEqual({ routers: [], main: [], additional: [] });
+  test("rejects an invalid tier inside roles", () => {
+    expect(() => parseConfig("roles:\n  a: { tier: turbo, skills: [s] }\n")).toThrow(
+      "Config key roles.a.tier must be one of: cheap, standard, strong."
+    );
   });
 
-  test("getPhaseSkillConfig returns empty for unconfigured phase", () => {
-    const config = parseConfig(`
-phases:
-  implementation:
-    skills:
-      main: ["dev-core"]
-`);
-    expect(getPhaseSkillConfig(config, "change_intake")).toEqual({ routers: [], main: [], additional: [] });
-  });
-
-  test("canonical 'phases:' key works and parses correctly", () => {
-    const config = parseConfig(`
-phases:
-  change_intake:
-    skills:
-      routers: ["using-zuvo"]
-      main: ["dev-core"]
-      additional: ["security-and-hardening"]
-  implementation:
-    skills:
-      main: ["test-driven-development"]
-autoApprove: true
-`);
-    expect(config.phases.change_intake).toBeDefined();
-    expect(config.phases.change_intake?.skills).toEqual({
-      routers: ["using-zuvo"],
-      main: ["dev-core"],
-      additional: ["security-and-hardening"]
-    });
-    expect(config.phases.implementation?.skills.main).toEqual(["test-driven-development"]);
-    expect(config.autoApprove).toBe(true);
+  test("reads a role by dot-notation config key", () => {
+    const config = parseConfig("roles:\n  implementer: { tier: standard, skills: [tdd-method] }\n");
+    expect(getConfigValue(config, "roles")).toEqual([
+      { name: "implementer", tier: "standard", skills: ["tdd-method"] }
+    ]);
   });
 
   test("parses blockingSeverity values", () => {
@@ -198,7 +127,7 @@ autoApprove: true
 
   test("defaults requireIterationCommit to true when absent", () => {
     expect(DEFAULT_CONFIG.requireIterationCommit).toBe(true);
-    expect(parseConfig("phases: {}\n").requireIterationCommit).toBe(true);
+    expect(parseConfig("roles: {}\n").requireIterationCommit).toBe(true);
   });
 
   test("reads an explicit requireIterationCommit: false", () => {
@@ -220,19 +149,17 @@ describe("loadConfig", () => {
 
   test("loads config from existing path", () => {
     const configPath = writeProjectConfig(testTmpDir, `
-phases:
-  implementation:
-    skills:
-      main: ["dev-core"]
+roles:
+  implementer: { tier: standard, skills: [dev-core] }
 `);
     const config = loadConfig(configPath);
-    expect(config.phases.implementation?.skills.main).toEqual(["dev-core"]);
+    expect(config.roles).toEqual([{ name: "implementer", tier: "standard", skills: ["dev-core"] }]);
     expect(config.autoApprove).toBe(false);
   });
 
   test("returns DEFAULT_CONFIG when config file does not exist", () => {
     const config = loadConfig("/nonexistent/path/config.yaml");
-    expect(config.phases).toEqual({});
+    expect(config.roles).toEqual([]);
     expect(config.autoApprove).toBe(false);
   });
 });
@@ -249,35 +176,29 @@ describe("resolveConfigPath", () => {
     const projectPath = path.join(testTmpDir, "project");
     const explicitConfigPath = path.join(testTmpDir, "explicit-config.yaml");
     writeProjectConfig(projectPath, `
-phases:
-  implementation:
-    skills:
-      main: ["project-skill"]
+roles:
+  implementer: { tier: standard, skills: [project-skill] }
 `);
     fs.writeFileSync(explicitConfigPath, `
-phases:
-  implementation:
-    skills:
-      main: ["explicit-skill"]
+roles:
+  implementer: { tier: standard, skills: [explicit-skill] }
 `, "utf-8");
 
     const resolvedPath = resolveConfigPath(projectPath, explicitConfigPath);
     expect(resolvedPath).toBe(path.resolve(explicitConfigPath));
-    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["explicit-skill"]);
+    expect(loadConfig(resolvedPath).roles).toEqual([{ name: "implementer", tier: "standard", skills: ["explicit-skill"] }]);
   });
 
   test("resolves project flow config before root default config", () => {
     const projectPath = path.join(testTmpDir, "project");
     writeProjectConfig(projectPath, `
-phases:
-  implementation:
-    skills:
-      main: ["project-skill"]
+roles:
+  implementer: { tier: standard, skills: [project-skill] }
 `);
 
     const resolvedPath = resolveConfigPath(projectPath);
     expect(resolvedPath).toBe(projectConfigPath(projectPath));
-    expect(loadConfig(resolvedPath).phases.implementation?.skills.main).toEqual(["project-skill"]);
+    expect(loadConfig(resolvedPath).roles).toEqual([{ name: "implementer", tier: "standard", skills: ["project-skill"] }]);
   });
 
   test("resolves root default config when project config is missing", () => {
@@ -293,14 +214,12 @@ phases:
 describe("getConfigValue", () => {
   test("gets values from the 4-key config shape", () => {
     const config = parseConfig(`
-phases:
-  change_intake:
-    skills:
-      main: ["dev-core"]
+roles:
+  implementer: { tier: standard, skills: [dev-core] }
 autoApprove: true
 `);
     expect(getConfigValue(config, "autoApprove")).toBe(true);
-    expect(getConfigValue(config, "phases.change_intake.skills.main")).toEqual(["dev-core"]);
+    expect(getConfigValue(config, "roles")).toEqual([{ name: "implementer", tier: "standard", skills: ["dev-core"] }]);
   });
 
   test("has no loop.*/stages.*/codex.stages.* mapping", () => {
