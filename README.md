@@ -212,7 +212,7 @@ Repeat `phase` / `check` / `advance` until `advance` reports final validation pa
 
 ## 🛠️ Configuration
 
-`.phasedev/config.yaml` has exactly four keys — the minimal bundled template (`phasedev init` scaffolds this):
+`.phasedev/config.yaml` has exactly four keys — the minimal bundled template (`phasedev init-project` scaffolds this):
 
 ```yaml
 # PhaseDev config
@@ -240,7 +240,7 @@ roles:
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
 - `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
 - `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
-- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`) and a mandatory `skills` list. It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model and mandatory skills — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier` and `skills` are validated.
+- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`) and a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list). It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model and mandatory skills — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier` and `skills` are validated.
 
 Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
 

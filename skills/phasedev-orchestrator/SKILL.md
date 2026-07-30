@@ -29,7 +29,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev create-change <name> [--task-file <path>]` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `--task-file <path>` records the agreed task summary in `intake_task.md` and is how the task-definition decision point hands its result over (see [Decision Points](#decision-points)); it refuses on a missing, unreadable, or empty file. Adding `--quick` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
-- `phasedev spawn-plan --harness <name>` — print the role catalog for sub-agent dispatch: one line per role with its mandatory skills and the model resolved for your harness. Read-only, not change-scoped. Pass the harness you are running in (`claude-code`, `opencode`, …). Run it before spawning the sub-agents of a phase; if the model column shows tiers instead of model names, the machine's tier mapping is not configured — run sub-agents on the session model and say so in your report.
+- `phasedev spawn-plan --harness <name>` — print the role catalog for sub-agent dispatch: one line per role with its mandatory skills and the model resolved for your harness. Read-only, not change-scoped. Pass the harness you are running in (`claude-code`, `opencode`, …). Run it before spawning the sub-agents of a phase; if the model column shows a tier instead of a model name for a role, that role's tier has no mapped model on this machine (the mapping can be unset entirely or only partially cover the harness) — run that sub-agent on the session model and say so in your report.
 - `phasedev clarify` — print the decision-points contract for the active phase (read-only, orchestrator-facing). Run it before spawning sub-agents at `change_intake`, `technical_design` and `iteration_planning`; with no change yet it prints the pre-flow task-definition contract. See [Decision Points](#decision-points).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. Drives every phase transition up to and including final validation; it does not touch the archive (see `phasedev archive` below).
@@ -129,14 +129,14 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Model selection:** every dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive).
 
-The model comes from the chosen role's `spawn-plan` line, not from your own guess: pick the role, pass its model. Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` prints tiers instead of model names, the machine's tier mapping is unset: run on the session model and report that. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
+The model comes from the chosen role's `spawn-plan` line, not from your own guess: pick the role, pass its model. Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` prints a tier instead of a model name for a role, that role's tier has no mapped model on this machine — whether because the mapping is unset entirely or only partially covers this harness (other roles can still resolve to real model names in the same run): run that role on the session model and report that. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
 **Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots). Copy the fixed body VERBATIM — the orchestrator's entire authorship is filling the four optional slots. Adding ANY other instruction about the phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict):
 
 ```javascript
 Agent(
   description: "<phase-name>: execute phase contract",
-  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
   prompt: `Execute the current PhaseDev phase (run from the project root).
 
 <intake context: the goal description on the first `change_intake` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
@@ -178,7 +178,7 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 ```javascript
 Agent(
   description: "process user feedback on PhaseDev change",
-  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
   prompt: `The user has feedback on the current PhaseDev change.
 
 Feedback: <user's full feedback text>
@@ -218,7 +218,7 @@ On that blocker, run `phasedev spawn-plan --harness <your harness>` to pick a ro
 ```javascript
 Agent(
   description: "auto-approve validation: review <phase> artifacts",
-  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
   prompt: `Review the following PhaseDev artifact(s) for the change "<change>" on their merits before approving.
 
 Artifacts:

@@ -28,6 +28,9 @@ function readInitialConfig(): string {
     return fs.readFileSync(bundledConfigPath, "utf-8");
   }
 
+  console.warn(
+    `[config] Bundled config.yaml not found at ${bundledConfigPath} — scaffolded config has an empty roles catalog.`
+  );
   return stringifyYaml(toYamlConfig(DEFAULT_CONFIG));
 }
 
