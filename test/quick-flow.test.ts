@@ -104,7 +104,7 @@ describe("quickPhasePrompt", () => {
     expect(prompt.blocked).toBe(false);
     expect(prompt.prompt).toContain("Quick Phase: Plan");
     expect(prompt.prompt).toContain("## Skill Boundary");
-    expect(prompt.prompt).toContain("Your role and the skills mandatory for it are named in your dispatch prompt.");
+    expect(prompt.prompt).toContain("Your role, and any mandatory skills for it, are named in your dispatch prompt");
   });
 
   it("renders the quick archive contract with the bare change name, not the dated archive basename", () => {
