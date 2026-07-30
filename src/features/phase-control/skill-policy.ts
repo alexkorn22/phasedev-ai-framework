@@ -22,6 +22,7 @@ export function renderSkillComplianceLine(): string {
     "Skill compliance: one entry per skill named in your dispatch prompt.",
     "Format: `skill-name`: APPLIED(mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>)",
     "Format: `skill-name`: NOT_APPLICABLE(reason: <evidence-specific>, evidence: [<ref>])",
-    "Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)"
+    "Format: `skill-name`: UNAVAILABLE(exact_name: <name>, reason: <not found/unavailable/error>)",
+    "Format: `no role assigned` (the whole section, only when your dispatch carried no role line)"
   ].join("\n");
 }

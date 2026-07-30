@@ -67,7 +67,7 @@ Completion checklist:
 - finish only when the controller self-check passes or the current iteration is honestly recorded as `blocked`;
 - use the compact final response template below.
 
-Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`. It must use this compact template and include no extra sections beyond the structured Skill compliance section required by the Configured Skill Policy:
+Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`. It must use this compact template and include no extra sections beyond the structured Skill compliance section required by the Skill Boundary:
 - `Implementation ready: {{phase_id}}`
 - `Change set: <1-3 bullets or one concise sentence>`
 - `Gate evidence: <check command/method -> result>`

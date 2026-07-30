@@ -111,7 +111,7 @@ Each iteration:
    - If advance refuses with `*_approval` (needs approval), the phase work is already done and valid — do NOT spawn sub-agents; handle per [Auto-Approval](#auto-approval), otherwise stop per [Termination](#termination).
 3. **Verify:** when all sub-agents for the phase have reported with passing self-checks, run `phasedev advance`. If it accepts, loop from step 1. If it refuses, handle per [Auto-Approval](#auto-approval), [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), or [Termination](#termination).
 
-**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Whether the phase's sub-agents run **sequentially or in parallel** is also the orchestrator's per-phase decision — e.g., during a validation phase a code-review agent and a security-review agent may run concurrently. Each sub-agent reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. Several concurrent sub-agents may safely mutate the same registry (e.g., multiple `phasedev add-finding` writers on `validation_findings.md`): every mutating phasedev command is serialized by an exclusive framework lock, so parallel writers cannot corrupt state — never serialize writers for registry safety. The only obligation sits with each writer: check the command outcome and retry on `[PHASEDEV] BLOCKED` — a mutation counts as applied only after its `OK` line (the CLI already waits for a busy lock internally, so BLOCKED is a rare exception, not the normal parallel outcome). The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock keeps N agents on a phase safe whether they run sequentially or in parallel.
+**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Whether the phase's sub-agents run **sequentially or in parallel** is also the orchestrator's per-phase decision — e.g., two sub-agents holding different roles may run concurrently on the same phase. Each sub-agent reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. Several concurrent sub-agents may safely mutate the same registry (e.g., multiple `phasedev add-finding` writers on `validation_findings.md`): every mutating phasedev command is serialized by an exclusive framework lock, so parallel writers cannot corrupt state — never serialize writers for registry safety. The only obligation sits with each writer: check the command outcome and retry on `[PHASEDEV] BLOCKED` — a mutation counts as applied only after its `OK` line (the CLI already waits for a busy lock internally, so BLOCKED is a rare exception, not the normal parallel outcome). The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock keeps N agents on a phase safe whether they run sequentially or in parallel.
 
 What NOT to do:
 - **Do not introduce** any phase→agent-count or phase→agent-type table, and do not hardcode per-phase counts ("for design — 3 agents").
@@ -125,9 +125,9 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Before spawning:** run `phasedev spawn-plan --harness <your harness>` once per phase. Which roles the phase needs, and how many sub-agents to spawn, remains your judgment — the catalog does not bind composition. But once you choose a role, its skills and its model are mandatory: copy them into the dispatch prompt's role slot and the `model` argument exactly as printed. Never invent a skill name, never substitute a model, and never enumerate roles from memory — re-run the command each phase.
 
-**Agent type selection:** On EVERY run, review the list of available agent types for the `Agent` tool in the current session environment (the tool's agent-type list itself — NOT a static on-disk agent-definition folder, which may not reflect what the running session actually exposes). For each phase you MUST use a custom agent type whose description matches that phase's work when one exists; fall back to the generic/general-purpose type only when no available custom type fits. This is a per-phase, per-change judgment, made fresh each time — never fixed into a static phase→type table. If a custom agent's reports show it cannot access skills and the phase materially benefits from skills, you MAY prefer a generic agent (which has skill access by default) for that phase on the next dispatch — a per-phase judgment, not a fixed rule.
+**Agent type:** the orchestrator never selects a custom agent type. Every dispatch is a generic sub-agent (`Agent` tool with no `subagent_type`) carrying the role, mandatory skills, and model from `spawn-plan` — a static on-disk agent definition would be exactly the second authority for "role → skills + model" this design exists to eliminate.
 
-**Model selection:** When dispatching a `subagent_type` that has no pinned model (general-purpose and similar catch-all types), the `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). When dispatching a custom agent that pins its model in its own definition, do NOT pass or override `model` for it.
+**Model selection:** every dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive).
 
 The model comes from the chosen role's `spawn-plan` line, not from your own guess: pick the role, pass its model. Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` prints tiers instead of model names, the machine's tier mapping is unset: run on the session model and report that. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
@@ -136,8 +136,7 @@ The model comes from the chosen role's `spawn-plan` line, not from your own gues
 ```javascript
 Agent(
   description: "<phase-name>: execute phase contract",
-  subagent_type: "<custom agent type matching the phase — see Agent type selection; OMIT for general-purpose>",
-  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
   prompt: `Execute the current PhaseDev phase (run from the project root).
 
 <intake context: the goal description on the first `change_intake` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
@@ -179,8 +178,7 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 ```javascript
 Agent(
   description: "process user feedback on PhaseDev change",
-  subagent_type: "<custom agent type matching this work — see Agent type selection; OMIT for general-purpose>",
-  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
   prompt: `The user has feedback on the current PhaseDev change.
 
 Feedback: <user's full feedback text>
@@ -205,7 +203,7 @@ This applies equally on a fresh session where the user says "I have feedback on 
 
 An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning sub-agent reported completion without a passing self-check (or the state broke on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
-1. Spawn ONE sub-agent for the owning phase, with the same role line (skills and model from `phasedev spawn-plan`) as the original dispatch. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), apply the role's mandatory skills, fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
+1. Re-run `phasedev spawn-plan --harness <your harness>` and spawn ONE sub-agent for the owning phase under the same role as the original dispatch, with the skills and model that command prints now. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), apply the role's mandatory skills, fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
 2. After it returns, call `phasedev check`:
    - Phase valid → continue the loop.
    - Same phase still invalid → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the issues. Do not spawn again.
@@ -220,8 +218,7 @@ On that blocker, spawn exactly ONE dedicated validation sub-agent — never appr
 ```javascript
 Agent(
   description: "auto-approve validation: review <phase> artifacts",
-  subagent_type: "general-purpose",   // or a custom type whose description matches artifact review — see Agent type selection
-  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when the machine's tier mapping is unset>",
   prompt: `Review the following PhaseDev artifact(s) for the change "<change>" on their merits before approving.
 
 Artifacts:
