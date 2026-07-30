@@ -24,6 +24,7 @@ export const CLI_COMMAND_NAMES = [
   "init",
   "create-change",
   "phase",
+  "spawn-plan",
   "feedback",
   "clarify",
   "advance",
