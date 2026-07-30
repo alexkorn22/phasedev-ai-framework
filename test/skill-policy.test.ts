@@ -18,8 +18,16 @@ describe("renderSkillPolicy", () => {
   test("reserves the genuinely-empty terminal for no role line plus nothing found in the environment", () => {
     const text = renderSkillPolicy();
     expect(text).toContain(
-      "if your dispatch also carried no role line and no such skill is visible there either, no role was assigned and no skill applies"
+      "if your dispatch also carried no role line and no such skill is visible there either, no role was assigned and none was selected"
     );
+  });
+
+  test("does not echo the other case's terminal label in this case's guard prose", () => {
+    const text = renderSkillPolicy();
+    const noRoleClauseStart = text.indexOf("if your dispatch also carried no role line");
+    const noRoleClauseEnd = text.indexOf(". If your dispatch instead named a role", noRoleClauseStart);
+    const noRoleClause = text.slice(noRoleClauseStart, noRoleClauseEnd);
+    expect(noRoleClause).not.toContain("no skill applies");
   });
 
   test("states the distinct terminal for a role assigned with no named skill and nothing found in the environment", () => {
