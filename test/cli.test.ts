@@ -566,7 +566,7 @@ describe("flow-cli state machine", () => {
 
     expect(output).toContain("## Skill Boundary");
     expect(output).toContain(
-      "Your role and the skills mandatory for it are named in your dispatch prompt."
+      "Your role, and any mandatory skills for it, are named in your dispatch prompt"
     );
     expect(output).toContain(
       "Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files). PhaseDev owns those."

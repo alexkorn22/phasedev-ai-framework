@@ -4,14 +4,22 @@ import { renderSkillPolicy, renderSkillComplianceLine } from "../src/features/ph
 describe("renderSkillPolicy", () => {
   test("states the mandatory case for a named role skill", () => {
     const text = renderSkillPolicy();
-    expect(text).toContain("Your role and the skills mandatory for it are named in your dispatch prompt.");
-    expect(text).toContain("do not substitute your own discovery");
+    expect(text).toContain("Your role, and any mandatory skills for it, are named in your dispatch prompt");
+    expect(text).toContain("do not substitute your own discovery when your dispatch names any skill for it");
   });
 
   test("states the discovery permission when the dispatch names no skill for the role", () => {
     const text = renderSkillPolicy();
     expect(text).toContain("no role line at all");
     expect(text).toContain("select applicable skills from your own runtime environment");
+    expect(text).toContain("under the same boundary rules below");
+  });
+
+  test("reserves the genuinely-empty terminal for no role line plus nothing found in the environment", () => {
+    const text = renderSkillPolicy();
+    expect(text).toContain(
+      "if your dispatch also carried no role line and no such skill is visible there either, no role was assigned and no skill applies"
+    );
   });
 
   test("keeps the shared boundary rules for both cases", () => {
@@ -40,8 +48,27 @@ describe("renderSkillComplianceLine", () => {
     );
   });
 
-  test("keeps the no-role-assigned line working", () => {
+  test("labels each APPLIED format line with the case it belongs to", () => {
     const text = renderSkillComplianceLine();
-    expect(text).toContain("Format: `no role assigned` (the whole section, only when your dispatch carried no role line)");
+    expect(text).toContain(
+      "Format: `skill-name`: APPLIED(mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>) — dispatch named this skill for your role."
+    );
+    expect(text).toContain(
+      "Format: `skill-name`: APPLIED(source: environment, mandatory_steps: <done/skipped/blocked>, evidence: <files/commands>, mapped_output: <artifact/response/blocker>) — you selected this skill yourself because your dispatch named none."
+    );
+  });
+
+  test("states the environment report is the normal case whenever no skill was named", () => {
+    const text = renderSkillComplianceLine();
+    expect(text).toContain(
+      "When your dispatch names no skill for your role, report one entry per skill you selected from your own runtime environment instead"
+    );
+  });
+
+  test("keeps the no-role-assigned line working as the genuinely-empty terminal", () => {
+    const text = renderSkillComplianceLine();
+    expect(text).toContain(
+      "Format: `no role assigned` (the whole section, only when your dispatch carried no role line AND no applicable skill was visible in your runtime environment)"
+    );
   });
 });
