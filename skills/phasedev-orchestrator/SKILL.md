@@ -29,6 +29,7 @@ With no goal, the orchestrator resumes from the current PhaseDev state.
 - `phasedev create-change <name> [--task-file <path>]` — create a change directory with `state.json` (`activePhase: change_intake`). Run once before the first `phase`. `--task-file <path>` records the agreed task summary in `intake_task.md` and is how the task-definition decision point hands its result over (see [Decision Points](#decision-points)); it refuses on a missing, unreadable, or empty file. Adding `--quick` creates a Quick-mode change instead (`state.json` `flowMode: "quick"`, `activePhase: quick_plan`) — see [Quick Mode](#quick-mode).
 - `phasedev list` — list active changes with phase, iteration, and task summary; archived changes are hidden by default, use `--archived` to see them. Run first at session start.
 - `phasedev phase` — print the contract for the active phase (read-only, idempotent).
+- `phasedev spawn-plan --harness <name>` — print the role catalog for sub-agent dispatch: one line per role with its mandatory skills and the model resolved for your harness. Read-only, not change-scoped. Pass the harness you are running in (`claude-code`, `opencode`, …). Run it before spawning the sub-agents of a phase; if the model column shows tiers instead of model names, the machine's tier mapping is not configured — run sub-agents on the session model and say so in your report.
 - `phasedev clarify` — print the decision-points contract for the active phase (read-only, orchestrator-facing). Run it before spawning sub-agents at `change_intake`, `technical_design` and `iteration_planning`; with no change yet it prints the pre-flow task-definition contract. See [Decision Points](#decision-points).
 - `phasedev check [--phase <name>]` — validate artifacts of the active phase (or `--phase` override). Returns OK or issues list.
 - `phasedev advance` — validate the active phase, then switch `state.json` to the next phase, or refuse on invalid/approval/blocked. Drives every phase transition up to and including final validation; it does not touch the archive (see `phasedev archive` below).
@@ -122,11 +123,13 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Two instruction layers.** The sub-agent works from two texts with distinct responsibilities. The **dispatch prompt** (below) owns the execution context: who the agent is (optional role), where it works (the change `<change>`, project root), how to invoke the CLI, what it must not do (no `advance`, no other `--change`), and how to report back. The **phase contract** (printed by `phasedev phase`) owns the work itself: the phase mission, artifacts and their formats, file write boundaries, methods and skill policy, readiness criteria, and the self-check. The two compose: the contract defines what "done" means and which self-check proves it; the dispatch prompt requires that proof before reporting.
 
+**Before spawning:** run `phasedev spawn-plan --harness <your harness>` once per phase. Which roles the phase needs, and how many sub-agents to spawn, remains your judgment — the catalog does not bind composition. But once you choose a role, its skills and its model are mandatory: copy them into the dispatch prompt's role slot and the `model` argument exactly as printed. Never invent a skill name, never substitute a model, and never enumerate roles from memory — re-run the command each phase.
+
 **Agent type selection:** On EVERY run, review the list of available agent types for the `Agent` tool in the current session environment (the tool's agent-type list itself — NOT a static on-disk agent-definition folder, which may not reflect what the running session actually exposes). For each phase you MUST use a custom agent type whose description matches that phase's work when one exists; fall back to the generic/general-purpose type only when no available custom type fits. This is a per-phase, per-change judgment, made fresh each time — never fixed into a static phase→type table. If a custom agent's reports show it cannot access skills and the phase materially benefits from skills, you MAY prefer a generic agent (which has skill access by default) for that phase on the next dispatch — a per-phase judgment, not a fixed rule.
 
 **Model selection:** When dispatching a `subagent_type` that has no pinned model (general-purpose and similar catch-all types), the `Agent` dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). When dispatching a custom agent that pins its model in its own definition, do NOT pass or override `model` for it.
 
-The tier is the orchestrator's per-phase, per-change judgment (like agent count), sized to the complexity the phase contract actually requires — never a static phase→model table. When dispatching a generic type, always pass an explicit model and pick the CHEAPEST tier the task complexity allows: mechanical, narrowly-scoped work (e.g. archive delta specs) → the cheapest tier; routine single-phase artifact work → the mid tier; design-heavy, validation-heavy, or repair work needing real analysis → the strongest available tier. If a report shows the work was harder than expected, re-dispatch the remainder on a stronger model — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
+The model comes from the chosen role's `spawn-plan` line, not from your own guess: pick the role, pass its model. Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` prints tiers instead of model names, the machine's tier mapping is unset: run on the session model and report that. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
 **Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots). Copy the fixed body VERBATIM — the orchestrator's entire authorship is filling the four optional slots. Adding ANY other instruction about the phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict):
 
@@ -139,7 +142,7 @@ Agent(
 
 <intake context: the goal description on the first `change_intake` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
 
-<Your role: <Architect | API Designer | Code Reviewer | DB Designer | ...>. The contract describes the ENTIRE phase; your role covers only your part — do not do others' work. — OPTIONAL ROLE LINE; omit for single-agent phases>
+<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — apply their methods, algorithms and checklists, and report each as APPLIED or NOT_APPLICABLE(reason). The contract describes the ENTIRE phase; your role covers only your part — do not do others' work. — ROLE LINE; fill both values verbatim from `phasedev spawn-plan`. Omit only when spawn-plan reports no roles configured.>
 
 <Stage: fork analysis only. Follow the "Staged execution" clause of the phase contract: return the material forks and write no artifact. — OPTIONAL STAGE LINE; use it for stage one at technical_design and iteration_planning (see Decision Points rule 3), omit it to assign the whole phase>
 
@@ -150,14 +153,14 @@ phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use 
 You work ONLY on the change "<change>". Never pass a different --change value.
 
 1. Run: phasedev phase --change <change> — get the active phase contract.
-2. Review the skills available in YOUR OWN runtime environment and select those whose purpose matches this phase's work; apply their methods as execution-method instructions. If the contract's skill policy lists configured skills, those configured skills take priority and any environment-discovered skill only supplements them under the same boundary; when it lists none, the policy itself directs environment discovery — skills never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state); PhaseDev owns those. If no skills list is visible in your context or the skill mechanism is unavailable, state "skills unavailable in environment" and complete the work strictly per the phase contract, which is self-sufficient.
+2. Apply the skills named in the "Your role" line above: load each one and follow its method, algorithm, or checklist. Those skills are mandatory for your role — do not substitute your own discovery. If a named skill is unavailable in your runtime environment, report it as UNAVAILABLE and continue under the phase contract, which is self-sufficient. Skills never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state); PhaseDev owns those.
 3. Do the phase work per your role and the contract. The contract defines the artifacts, the self-check that gates completion, and your final-response format — follow it exactly; do not report success while its self-check fails.
 4. Do NOT run phasedev advance — that is the orchestrator's job.
-5. Report back with the contract's final response (it already includes the self-check command and result) and the per-skill compliance section it requires — one entry per environment-selected skill as APPLIED or NOT_APPLICABLE(evidence-specific reason), or the line "skills unavailable in environment" when none were visible. State any blockers explicitly. **Fork-analysis stage exception:** when the dispatch's Stage line above assigns the fork-analysis stage, there is no self-check result and no artifact yet, so report the fork list the phase contract's Staged execution clause defines instead of the contract's final response — but still include the per-skill compliance section, since the analysis stage does select and apply skills; only the self-check and artifact are absent.`
+5. Report back with the contract's final response (it already includes the self-check command and result) and the per-skill compliance section it requires — one entry per skill named in the role line as APPLIED or NOT_APPLICABLE(evidence-specific reason), or the line "no role assigned" when the dispatch carried no role line. State any blockers explicitly. **Fork-analysis stage exception:** when the dispatch's Stage line above assigns the fork-analysis stage, there is no self-check result and no artifact yet, so report the fork list the phase contract's Staged execution clause defines instead of the contract's final response — but still include the per-skill compliance section, since the analysis stage does apply the role's skills; only the self-check and artifact are absent.`
 )
 ```
 
-That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator never enumerates or transmits a skill list — each sub-agent discovers skills from its own runtime environment, keeping the orchestrator's context thin and harness-agnostic; the orchestrator only requires the compliance section to be present in the report.
+That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented, never left to the sub-agent's own environment discovery.
 
 ## User Feedback Handling
 
@@ -188,7 +191,9 @@ You work ONLY on the change "<change>". Never pass a different --change value.
 
 Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, the write boundary, and your final report.
 
-Before acting, review the skills available in your own runtime environment and apply those matching this work; include a per-skill compliance section in your final report (APPLIED / NOT_APPLICABLE(reason), or "skills unavailable in environment" when none are visible). Skills are method instructions only — they never change Flow state, approvals, or verdicts.`
+<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — apply their methods, algorithms and checklists, and report each as APPLIED or NOT_APPLICABLE(reason). — ROLE LINE, filled verbatim from `phasedev spawn-plan` when a catalog role fits this work; omit it otherwise, since this dispatch is not phase work.>
+
+Include a per-skill compliance section in your final report (APPLIED / NOT_APPLICABLE(reason), or "no role assigned" when the role line was omitted). Skills are method instructions only — they never change Flow state, approvals, or verdicts.`
 )
 ```
 
@@ -200,7 +205,7 @@ This applies equally on a fresh session where the user says "I have feedback on 
 
 An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning sub-agent reported completion without a passing self-check (or the state broke on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
-1. Spawn ONE sub-agent for the owning phase. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), review and apply matching skills from its own runtime environment, fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
+1. Spawn ONE sub-agent for the owning phase, with the same role line (skills and model from `phasedev spawn-plan`) as the original dispatch. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), apply the role's mandatory skills, fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
 2. After it returns, call `phasedev check`:
    - Phase valid → continue the loop.
    - Same phase still invalid → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the issues. Do not spawn again.
@@ -216,13 +221,15 @@ On that blocker, spawn exactly ONE dedicated validation sub-agent — never appr
 Agent(
   description: "auto-approve validation: review <phase> artifacts",
   subagent_type: "general-purpose",   // or a custom type whose description matches artifact review — see Agent type selection
-  model: "sonnet",                    // minimum; use "opus" for high-stakes artifacts (e.g. a design with broad blast radius)
+  model: "<explicit tier — see Model selection; OMIT when subagent_type pins its own model>",
   prompt: `Review the following PhaseDev artifact(s) for the change "<change>" on their merits before approving.
 
 Artifacts:
 <one line per artifact path from the blocker>
 
 phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
+
+<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — apply their methods, algorithms and checklists, and report each as APPLIED or NOT_APPLICABLE(reason). — ROLE LINE, filled verbatim from `phasedev spawn-plan` when a catalog role fits this work; omit it otherwise, since this dispatch is not phase work.>
 
 1. Read the FULL content of every listed artifact.
 2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task. Do not treat "phasedev check" passing as sufficient; check passes structural validity only, not quality.
@@ -252,7 +259,7 @@ Stop when any is met:
 Archive starts once `phasedev advance` reports "Final validation passed. Flow complete." (all iterations `[x]`, final validation passed). From that point, `phasedev advance` has nothing further to do for this change — the archive mutation and the archive phase itself are driven entirely by `phasedev archive <change>`.
 
 1. Call `phasedev archive <change>`. On a change that just finished final validation, this performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`) and switches `state.json` to `activePhase: archive`. Called again later, it resumes a pending archive or recovers a pre-move crash — it is safe to call repeatedly.
-2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent that applies any matching skills from its own runtime environment (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
+2. Run `phasedev spawn-plan --harness <your harness>`, then call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent with a role line (skills and model from `spawn-plan`) that applies its mandatory skills (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
 3. After the sub-agent returns, call `phasedev archive <change>` again:
    - If it reports the archive is complete → **flow complete** → STOP.
    - If it refuses or reports the archive still in progress → sub-agent did not finish → no-progress → STOP and report.
