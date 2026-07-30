@@ -1712,7 +1712,7 @@ No markdown finding table here.
     });
 
     // The archive mutation is owned by advance; prompt resolution is read-only.
-    startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    startArchiveStage(testTmpDir, changeDir, new Date());
     const output = runNext();
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
@@ -1740,7 +1740,7 @@ No markdown finding table here.
       findings: validationFindings("ready", "final")
     });
 
-    startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    startArchiveStage(testTmpDir, changeDir, new Date());
     const first = runNext();
     const second = runNext();
 
@@ -1760,7 +1760,7 @@ No markdown finding table here.
       findings: validationFindings("ready_with_risks", "final", "| F1 | open | RECOMMENDED | implementation | Final | Minor follow-up. | Track as follow-up. |\n")
     });
 
-    startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    startArchiveStage(testTmpDir, changeDir, new Date());
     const output = runNext();
     const today = new Date().toISOString().split("T")[0];
     const archivedDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);

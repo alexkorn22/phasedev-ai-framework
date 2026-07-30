@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Config, loadConfig } from "../../entities/config/config";
 import { createArchiveState, findPendingArchiveState, markArchiveMoved, readArchiveState, ArchiveState } from "../../entities/change/archive-state";
 import { FLOW_STATE_FILE, loadFlowState, writeFlowState } from "../../entities/change/flow-state";
 import { archiveRootPath, archiveTargetPath, buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
@@ -12,7 +11,7 @@ import { toFileUrl } from "./prompt-formatters";
 import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { urlsFor } from "./prompt-render-helpers";
 
-export function archiveTemplateVariables(projectPath: string, changeName: string, archivePath: string, config: Config): Record<string, string> {
+export function archiveTemplateVariables(projectPath: string, changeName: string, archivePath: string): Record<string, string> {
   const archivedPaths = buildChangePaths(archivePath);
   const urls = urlsFor(archivedPaths);
 
@@ -33,16 +32,16 @@ export function archiveTemplateVariables(projectPath: string, changeName: string
   };
 }
 
-export function archivePrompt(projectPath: string, state: ArchiveState, config: Config): Prompt {
-  return prompt("next", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath, config)));
+export function archivePrompt(projectPath: string, state: ArchiveState): Prompt {
+  return prompt("next", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath)));
 }
 
-export function getPendingArchivePrompt(projectPath: string, config: Config = loadConfig(), changeName?: string): Prompt | null {
+export function getPendingArchivePrompt(projectPath: string, changeName?: string): Prompt | null {
   const pendingState = findPendingArchiveState(projectPath, changeName);
-  return pendingState ? archivePrompt(projectPath, pendingState, config) : null;
+  return pendingState ? archivePrompt(projectPath, pendingState) : null;
 }
 
-export function startArchiveStage(projectPath: string, changeDir: string, now: Date, config: Config = loadConfig()): Prompt {
+export function startArchiveStage(projectPath: string, changeDir: string, now: Date): Prompt {
   const changeName = path.basename(changeDir);
   const pendingState = findPendingArchiveState(projectPath, changeName);
   if (pendingState) {
@@ -58,7 +57,7 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
         );
       }
     }
-    return archivePrompt(projectPath, pendingState, config);
+    return archivePrompt(projectPath, pendingState);
   }
 
   const today = now.toISOString().split("T")[0];
@@ -98,5 +97,5 @@ export function startArchiveStage(projectPath: string, changeDir: string, now: D
   // Phase 3: mark moved now that the target path is authoritative.
   markArchiveMoved(archiveTarget, now.toISOString());
   const movedState = { ...state, archivePath: archiveTarget, movedAt: now.toISOString() };
-  return archivePrompt(projectPath, movedState, config);
+  return archivePrompt(projectPath, movedState);
 }
