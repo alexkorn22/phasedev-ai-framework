@@ -58,7 +58,7 @@ function continueArchiveLifecycle(
   if (activeDir) {
     const preMoveState = readArchiveState(activeDir);
     if (preMoveState && preMoveState.status === "in_progress" && !preMoveState.movedAt) {
-      const archiveResult = startArchiveStage(projectPath, activeDir, new Date(), config);
+      const archiveResult = startArchiveStage(projectPath, activeDir, new Date());
       if (archiveResult.blocked) {
         return refuse(
           `Cannot recover archive transition: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`,
@@ -104,7 +104,7 @@ function runQuickArchive(
     return refuse("Cannot locate quick change directory.");
   }
 
-  const archiveResult = startArchiveStage(projectPath, changeDir, new Date(), config);
+  const archiveResult = startArchiveStage(projectPath, changeDir, new Date());
   if (archiveResult.blocked) {
     return refuse(
       `Cannot advance to archive: ${archiveResult.reason ?? "archive mutation blocked"}.`,
@@ -129,7 +129,7 @@ function runStandardArchive(
 
     clearFindingsBaseline(route.paths.statePath);
 
-    const archiveResult = startArchiveStage(projectPath, route.activeChangePath, new Date(), config);
+    const archiveResult = startArchiveStage(projectPath, route.activeChangePath, new Date());
     if (archiveResult.blocked) {
       return refuse(
         `Cannot advance to archive: ${archiveResult.reason ?? "archive mutation blocked"}.\n${archiveResult.prompt}`,

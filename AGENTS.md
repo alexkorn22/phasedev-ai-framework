@@ -39,7 +39,8 @@ You MUST NOT reintroduce separate root archive, parser, checker, template, contr
 Root `src/` MUST stay thin. Logic belongs in:
 
 - `src/features/phase-control`: phase routing, prompt construction, blockers, archive phase orchestration.
-- `src/entities/*`: `phase` (phase types), `change` (paths/state/approval/archive state), `config` (config parsing), `iteration-plan` (plan parsing/validation), `validation-findings`, `prd`, `design`, `research-facts`, `execution-contract`, `test-commands`, `schema`.
+- `src/entities/*`: `phase` (phase types), `change` (paths/state/approval/archive state), `config` (config parsing), `iteration-plan` (plan parsing/validation), `validation-findings`, `prd`, `design`, `research-facts`, `execution-contract`, `test-commands`, `schema`, `role`, `model-tiers`.
+- `src/features/spawn-plan`: resolves a role catalog entry to its mandatory skills and a model, for the `phasedev spawn-plan --harness <name>` command.
 - `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
 
 Dependency direction MUST be:
@@ -59,39 +60,14 @@ These contracts are frozen. You MUST NOT change them unless the user explicitly 
 - `state.json = { activePhase, activeIteration, repairCycleCount, flowMode?, commitLog?, findingsBaseline? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`. `commitLog`/`findingsBaseline` are optional sections present only when data exists; legacy standalone `.commit-log.json`/`.findings-baseline.json` files are ignored with a warning. `.phase-archive.json` remains a separate file.
 - Iteration heading format: `## Iteration N: Name [x|~| |/]`.
 - YAML keys: `approved`, `verdict`, `type`. `verdict: pending` and CLI-owned `type` normalization are internal self-heal mechanics (advance/sync-state and set-verdict re-run), not agent-settable values.
-- `config.yaml` has exactly `autoApprove` (default `false`), `blockingSeverity` (default `must_fix`), `requireIterationCommit` (default `true`), and `phases.<phase>.skills.{routers,main,additional}`. Unknown or removed keys produce a stderr warning, are ignored, and never block the flow.
+- `config.yaml` has exactly `autoApprove` (default `false`), `blockingSeverity` (default `must_fix`), `requireIterationCommit` (default `true`), and `roles`. Unknown or removed keys — including the legacy `phases` section — produce a stderr warning, are ignored, and never block the flow.
+- `roles` is a flat catalog: each entry has `tier` (`cheap | standard | strong`) and `skills` (array of skill names). Role names are free-form and are never validated against a fixed list. The catalog is read only by `phasedev spawn-plan --harness <name>`, which resolves each role to its mandatory skills and a model and prints one line per role. Tier→model names live outside the project in `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`); a missing file or unknown harness degrades to printing tiers, never an error.
+- The orchestrator delivers a sub-agent's role and mandatory skills through the dispatch prompt's role slot, filled verbatim from `spawn-plan` output. The phase contract prints only the static Skill Boundary section — it never enumerates skills. Which roles a phase needs and how many sub-agents to spawn remains the orchestrator's per-phase decision.
 - `ready_with_risks` final validation semantics.
 - Prompt templates by meaning, except for intentional wording updates.
 - Quick routing is a separate state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`) that branches before `resolveRoute`; `resolveRoute` and Standard routing are unchanged.
 - The archive mutation (move + `.phase-archive.json`) is owned exclusively by the standalone `phasedev archive <change-name>` command — never by `advance`. `advance` is archive-silent: at the point that used to be `archive_ready` it now returns "Final validation passed. Flow complete." without moving anything; it never recovers a pre-move crash or resumes a pending archive.
 - Under `autoApprove: true`, `advance` never auto-stamps an artifact's `approved`/`approved_by` fields itself. At each approval gate it emits the auto-approval blocker instructing the orchestrator to spawn one content-reading validation sub-agent that approves each gated artifact on the merits via `phasedev approve <file> --by "auto-approve-subagent"`. An approval-integrity gate then requires every `approved: true` artifact to carry a non-empty `approved_by` before `advance` proceeds — a bare `approved: true` with empty `approved_by` re-blocks.
-
-## Config-Driven Skill Policy
-
-Phase skill routing is configured in `config.yaml`, not in a separate `skill_router.md` template.
-oh
-Current operational practice: per-phase `skills` lists in `config.yaml` are left empty and are NOT used. The main orchestrator drives the whole flow itself, and each phase sub-agent takes all applicable skills available in its runtime environment (the empty-config fallback rule below). The config mechanism and its contracts stay frozen in code; do not populate per-phase skill lists or assume they are in use unless the user explicitly asks.
-
-For each `phases.<phase>.skills` (or legacy `stages.<stage>.skills` / `codex.stages.<stage>.skills`):
-
-- `routers`: optional routing/control skills. If present, the generated phase prompt MUST tell the agent to read them first.
-- `main`: primary allowed method skills. Not mandatory preloads; the agent loads them only when phase evidence requires them.
-- `additional`: secondary allowed method skills. Used only when `main` is insufficient or an additional skill is clearly more suitable.
-
-These contracts are frozen (same rule as "Behavior To Preserve"):
-
-- Allowed external skills for a phase are configured `routers`, router-selected skills explicitly named by router content, `main`, and `additional`.
-- When no skills are configured for a phase, skills discovered in the executing agent's runtime environment that match the phase work are allowed under the same boundary rules (method instructions only; no Flow-state authority).
-- Router-selected skills are authorized by router content and have priority over `main` and `additional`.
-- Configured skills are execution-method instructions, not flow-state authorities.
-- If a selected skill applies to the phase work, the agent MUST use its method, algorithm, checklist, or review logic.
-- PhaseDev owns artifact formats, phase transitions, approval state, validation verdicts, archive state, and allowed persistent files.
-- Skill-specific reports, headings, tables, lifecycle steps, approval changes, and state changes MUST be adapted into the current PhaseDev artifact contract, final response, or blocker — never copied into PhaseDev artifacts.
-- When skills are configured and a needed skill is not available from configured routers, router-selected skills, `main`, or `additional`, the agent MUST stop and ask the user to update config/router or approve an exception.
-- Skills do not inherit from a default config; they are explicit per phase.
-- If `skills` is omitted or empty, the generated phase prompt MUST instruct the agent to discover and select applicable skills from its runtime environment under the Flow Skill Boundary Protocol, and to state that skills are unavailable in the environment when none are visible.
-- `phasedev init` MUST NOT include phase-specific skill policy; executable `phasedev phase` prompts inject it.
-- Approval/blocker prompts stay policy-free because they are controller stop messages.
 
 ## Archive Phase
 

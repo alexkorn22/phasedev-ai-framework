@@ -10,7 +10,6 @@ import { toFileUrl } from "./prompt-formatters";
 import { formatPhaseExcerpt, formatPlanMap } from "./prompt-formatters";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
-import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Prompt } from "../../entities/phase/types";
 import { shellQuote } from "../../shared/shell/shell-quote";
 import { resolveChangeDir } from "../../entities/change/active-change";
@@ -245,9 +244,9 @@ export function renderFindingRepair(projectPath: string, config: Config, paths: 
   }, config);
 }
 
-export function renderArchiveContract(projectPath: string, config: Config, activeChangePath: string): string {
+export function renderArchiveContract(projectPath: string, activeChangePath: string): string {
   const changeName = path.basename(activeChangePath);
-  return renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, changeName, activeChangePath, config));
+  return renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, changeName, activeChangePath));
 }
 
 // ── phase command ──────────────────────────────────────────
@@ -406,7 +405,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       return {
         command: "next",
         phase: "archive",
-        prompt: renderArchiveContract(projectPath, config, changeDir),
+        prompt: renderArchiveContract(projectPath, changeDir),
         blocked: false
       };
 

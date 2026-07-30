@@ -386,8 +386,7 @@ Test fixture only.
     expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
-    expect(result.prompt).toContain("Skill compliance: one entry per environment-selected skill.");
-    expect(result.prompt).toContain("When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`");
+    expect(result.prompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
@@ -449,8 +448,7 @@ Test fixture only.
     expect(result.prompt).toContain("Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed.");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
     expect(result.prompt).toContain("Final response must be compact and include");
-    expect(result.prompt).toContain("Skill compliance: one entry per environment-selected skill.");
-    expect(result.prompt).toContain("When no skills are visible in the environment, use exactly this line instead: `Skill compliance: no skills available in environment.`");
+    expect(result.prompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("Self-check command:");
 
@@ -1256,7 +1254,7 @@ Complete API work.
     expect(promptResult.prompt).toContain("phasedev advance");
     expect(fs.existsSync(changeDir)).toBe(true);
 
-    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const result = startArchiveStage(testTmpDir, changeDir, new Date());
     const today = new Date().toISOString().split("T")[0];
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
     const statePath = path.join(archiveDir, ".phase-archive.json");
@@ -1282,7 +1280,7 @@ Complete API work.
       findings: validationFindings("ready", "final")
     });
 
-    const first = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const first = startArchiveStage(testTmpDir, changeDir, new Date());
     const second = getRoutePrompt(testTmpDir, DEFAULT_CONFIG);
 
     expect(first.phase).toBe("archive");
@@ -1427,7 +1425,7 @@ Complete API work.
     expect(fs.existsSync(path.join(changeDir, ".phase-archive.json"))).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(true);
 
-    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const result = startArchiveStage(testTmpDir, changeDir, new Date());
 
     expect(result.phase).toBe("archive");
     expect(result.blocked).toBeFalsy();
@@ -1458,7 +1456,7 @@ Complete API work.
     expect(fs.existsSync(changeDir)).toBe(true);
     expect(fs.existsSync(archiveDir)).toBe(true);
 
-    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const result = startArchiveStage(testTmpDir, changeDir, new Date());
 
     expect(result.phase).toBe("archive");
     expect(result.blocked).toBeFalsy();
@@ -1480,7 +1478,7 @@ Complete API work.
     // Diverge the source after the "crash".
     fs.writeFileSync(path.join(changeDir, "divergent.txt"), "edited after crash", "utf-8");
 
-    const result = startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    const result = startArchiveStage(testTmpDir, changeDir, new Date());
 
     expect(result.blocked).toBe(true);
     expect(fs.existsSync(changeDir)).toBe(true);        // nothing deleted
@@ -1745,7 +1743,7 @@ Test fixture only.
     const today = new Date().toISOString().split("T")[0];
     const archiveDir = path.join(testTmpDir, ".phasedev", "changes", "archive", `${today}-sample-change`);
 
-    startArchiveStage(testTmpDir, changeDir, new Date(), DEFAULT_CONFIG);
+    startArchiveStage(testTmpDir, changeDir, new Date());
 
     const archivedState = JSON.parse(fs.readFileSync(path.join(archiveDir, "state.json"), "utf-8"));
     expect(archivedState.activePhase).toBe("archive");

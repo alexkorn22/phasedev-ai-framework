@@ -15,7 +15,6 @@ Use this bounded retrieval order before designing:
 1. Read this prompt and the embedded Artifact Build Contract so the output shape is fixed before analysis.
 2. Read [prd.md]({{prd_path}}), [research_facts.md]({{research_path}}), and [execution_contract.md]({{rules_path}}) completely when they are reasonably sized.
    If a phase input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands), then read only the sections needed for design decisions and final traceability.
-{{phase_skill_step}}
 3. Inspect repository files only to answer a concrete PRD/research/design question. Prefer targeted `rg` searches and open only the smallest set of files needed to confirm contracts, boundaries, ownership, or feasibility.
 
 Context budget and stop condition:

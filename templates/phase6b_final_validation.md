@@ -24,8 +24,8 @@ Required phase-contract checks:
 - change-set inventory gate: before deciding the verdict, identify the complete set of repository files changed outside `.phasedev/**` from available read-only repository evidence;
 - inspect every changed production/source/config/test file outside `.phasedev/**`, not only the flow artifacts, implementation plan, or `Check Evidence`;
 - final requirements conformance pass: verify that the actual changed code implements exactly the initial change requirements from PRD, approved design, and implementation plan artifacts; if behavior is missing, extra, contradictory, or only implied by `Check Evidence`, add a finding;
-- final code review pass: perform a full read-only code review of the changed files outside `.phasedev/**` using the configured skill policy;
-- final security review pass: perform a read-only security review of the changed files outside `.phasedev/**` using the configured skill policy;
+- final code review pass: perform a full read-only code review of the changed files outside `.phasedev/**` using the applicable skills per the Skill Boundary;
+- final security review pass: perform a read-only security review of the changed files outside `.phasedev/**` using the applicable skills per the Skill Boundary;
 - PRD-first check: the actual change set must satisfy the approved [prd.md]({{prd_path}}), not only the implementation plan;
 - `Intent`: `Change type`, `Why`, `Target state`, and `Risk boundaries` align with actual implementation and validation evidence;
 - `Requirements`: every `R#` is implemented by the actual change set or has a finding;

@@ -24,7 +24,6 @@ Ordered workflow:
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-iteration tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current iteration, plus any directly referenced prior-iteration contract needed to avoid conflicting with already completed work.
 4. Identify the current iteration `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-iteration boundary that the current iteration must preserve.
-{{phase_skill_step}}
 5. Inspect repository files only after the current iteration scope is understood, and only files or narrow searches needed by the current iteration `Expected Change Surface`.
 6. Implement the smallest change set that completes the current iteration tasks, then run checks, update current-iteration task checkboxes and `Check Evidence`, run the controller self-check, and stop.
 
@@ -68,7 +67,7 @@ Completion checklist:
 - finish only when the controller self-check passes or the current iteration is honestly recorded as `blocked`;
 - use the compact final response template below.
 
-Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`. It must use this compact template and include no extra sections beyond the structured Skill compliance section required by the Configured Skill Policy:
+Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`. It must use this compact template and include no extra sections beyond the structured Skill compliance section required by the Skill Boundary:
 - `Implementation ready: {{phase_id}}`
 - `Change set: <1-3 bullets or one concise sentence>`
 - `Gate evidence: <check command/method -> result>`
