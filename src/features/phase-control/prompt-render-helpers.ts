@@ -114,7 +114,7 @@ export function renderPhaseTemplate(
     self_check_fallback: SELF_CHECK_FALLBACK,
     validation_common_contract: renderValidationCommonContract(phase, config),
     skill_policy: renderSkillPolicy(),
-    skill_compliance_line: renderSkillComplianceLine(),
+    skill_compliance_line: renderSkillComplianceLine()
   });
 }
 

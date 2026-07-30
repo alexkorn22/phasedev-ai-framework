@@ -530,6 +530,17 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("phasedev list");
   });
 
+  test("init prompt documents the handshake contract and does not leak the phase contract", () => {
+    const output = runInit();
+
+    expect(output).toContain("Use this prompt only to acknowledge the current PhaseDev init handshake.");
+    expect(output).toContain("complete, verbatim controller output printed by `phasedev phase`");
+    expect(output).toContain("A user paraphrase, manual reconstruction, memory-based summary");
+    expect(output).toContain("For incomplete next input, no work is performed");
+    expect(output).not.toContain("Artifact Build Contract");
+    expect(output).not.toContain("Phase 1. Change Intake.");
+  });
+
   test("validation phase prompt keeps the review-only rule in the common validation contract", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [x]
@@ -545,7 +556,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("If you delegate ANY part of this phase to a subagent, the delegation prompt MUST start with this exact constraint");
   });
 
-  test("every phase prompt renders the static skill boundary section", () => {
+  test("change_intake phase prompt renders the static skill boundary section", () => {
     const created = runCli(["create-change", "skill-boundary", "--project-path", testTmpDir]);
     expect(created.exitCode).toBe(0);
 
@@ -2088,6 +2099,55 @@ describe("flow templates", () => {
     const stage = name === "phase6b_final_validation.md" ? "final_validation" : "iteration_validation";
     return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)));
   }
+
+  test("phase templates carry {{skill_policy}} before Input, and {{skill_compliance_line}} where configured", () => {
+    const skillPolicyTemplates = [
+      "phase1_change_intake.md",
+      "phase2_code_research.md",
+      "phase3_technical_design.md",
+      "phase4_iteration_planning.md",
+      "phase5_implementation.md",
+      "phase6a_iteration_validation.md",
+      "phase6b_final_validation.md",
+      "phase6r_finding_repair.md",
+      "phase7_archive.md",
+      "quick_plan.md",
+      "quick_implementation.md",
+      "quick_validation.md",
+      "quick_spec_revision.md"
+    ];
+
+    for (const templateName of skillPolicyTemplates) {
+      const template = readTemplate(templateName);
+      expect(template).toContain("{{skill_policy}}");
+      expect(template.indexOf("{{skill_policy}}")).toBeLessThan(template.indexOf("Input"));
+    }
+
+    // quick_archive.md has no "Input" label; it leads with its archived-change line instead.
+    const quickArchive = readTemplate("quick_archive.md");
+    expect(quickArchive).toContain("{{skill_policy}}");
+    expect(quickArchive.indexOf("{{skill_policy}}")).toBeLessThan(quickArchive.indexOf("Archived change:"));
+
+    const skillComplianceTemplates = [
+      "phase1_change_intake.md",
+      "phase2_code_research.md",
+      "phase3_technical_design.md",
+      "phase4_iteration_planning.md",
+      "phase5_implementation.md",
+      "phase6r_finding_repair.md",
+      "phase7_archive.md",
+      "quick_archive.md",
+      "quick_implementation.md",
+      "quick_plan.md",
+      "quick_spec_revision.md",
+      "quick_validation.md",
+      "validation_common.md"
+    ];
+
+    for (const templateName of skillComplianceTemplates) {
+      expect(readTemplate(templateName)).toContain("{{skill_compliance_line}}");
+    }
+  });
 
   test("quick_archive template renders the static skill boundary before its archived-change line", () => {
     const rendered = readTemplate("quick_archive.md").replace("{{skill_policy}}", renderSkillPolicy());
