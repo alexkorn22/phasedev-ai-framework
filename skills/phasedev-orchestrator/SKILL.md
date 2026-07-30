@@ -173,7 +173,7 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 
 (Command semantics are in the `add-finding` entry under [Command Invocation](#command-invocation-mandatory).) Then continue the loop — `phasedev advance` routes to finding_repair where the fix is implemented. Never hand-edit the findings registry and never edit repository code to handle feedback.
 
-**Delegated path (feedback needs analysis).** When it is unclear whether the feedback is an implementation defect or a scope/design/plan change, or it is mixed, spawn a dedicated sub-agent:
+**Delegated path (feedback needs analysis).** When it is unclear whether the feedback is an implementation defect or a scope/design/plan change, or it is mixed, run `phasedev spawn-plan --harness <your harness>` to pick a role's skills and model, then spawn a dedicated sub-agent:
 
 ```javascript
 Agent(
@@ -213,7 +213,7 @@ An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid
 
 When `phasedev config autoApprove` (from Initialization) is `true`, `phasedev advance` never auto-stamps an artifact at an approval gate. Instead, when it refuses with an `*_approval` refusal, it prints an auto-approval blocker naming the phase and listing the exact artifact path(s) for that gate (`prd.md` + `execution_contract.md` for `change_intake_approval`, `design.md` for `technical_design_approval`, `iteration_plan.md` for `iteration_planning_approval`). The orchestrator MUST NOT approve manually under `autoApprove` — approval requires content review.
 
-On that blocker, spawn exactly ONE dedicated validation sub-agent — never approve directly yourself:
+On that blocker, run `phasedev spawn-plan --harness <your harness>` to pick a role's skills and model, then spawn exactly ONE dedicated validation sub-agent — never approve directly yourself:
 
 ```javascript
 Agent(

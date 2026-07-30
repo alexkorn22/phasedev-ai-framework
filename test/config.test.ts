@@ -253,3 +253,37 @@ test("initProject creates config.yaml", () => {
     cleanupTempWorkspace(dir);
   }
 });
+
+// Regression for the fallback used when the bundled repo-root config.yaml is
+// missing: it must emit YAML that parseConfig can actually load, not throw.
+test("initProject falls back to a parseable config.yaml when the bundled template is missing", () => {
+  const dir = createTempWorkspace("init-config-fallback");
+  const realExistsSync = fs.existsSync;
+  const spy = spyOn(fs, "existsSync").mockImplementation((target: fs.PathLike) => {
+    if (target === defaultConfigPath()) return false;
+    return realExistsSync(target);
+  });
+  try {
+    const result = initProject(dir);
+    expect(result.ok).toBe(true);
+
+    const configPath = projectConfigPath(dir);
+    spy.mockRestore();
+    expect(() => loadConfig(configPath)).not.toThrow();
+    expect(loadConfig(configPath).roles).toEqual([]);
+  } finally {
+    spy.mockRestore();
+    cleanupTempWorkspace(dir);
+  }
+});
+
+// Direct guard for the class of bug in Fix 1: the shipped template used as
+// both the init scaffold and loadConfig's default must actually parse.
+test("loadConfig parses the shipped default config.yaml into a valid roles catalog", () => {
+  const config = loadConfig(defaultConfigPath());
+  expect(config.roles).toHaveLength(8);
+  const validTiers = ["cheap", "standard", "strong"];
+  for (const role of config.roles) {
+    expect(validTiers).toContain(role.tier);
+  }
+});

@@ -197,7 +197,7 @@ Repeat `phase` / `check` / `advance` until `advance` reports final validation pa
 | Findings | `add-finding <title> <severity> --required-fix <text>`, `resolve-finding <id> --resolution <text>`, `reopen-finding <id> --evidence <text>`, `set-verdict <verdict>` |
 | Validation checks | `check-validation --scope iteration --iteration-id <N>`, `check-validation --scope final`, `check-archive --archive-path <path>` |
 | Recovery | `sync-state`, `reopen <design\|plan>`, `reset-change --yes` (destructive) |
-| Info | `status`, `list [--archived]`, `log [--tail N]`, `config <key>`, `version` |
+| Info | `status`, `list [--archived]`, `log [--tail N]`, `config <key>`, `spawn-plan --harness <name>`, `version` |
 
 ---
 
@@ -220,21 +220,29 @@ autoApprove: false
 blockingSeverity: must_fix   # must_fix | recommended | nit
 requireIterationCommit: true
 
-# Per-phase skill policy (optional):
-# phases:
-#   implementation:
-#     skills:
-#       routers: []
-#       main: [tdd]
-#       additional: []
+# Sub-agent roles. `phasedev spawn-plan --harness <name>` resolves each role to
+# its mandatory skills and a model, and the orchestrator puts that line into the
+# sub-agent's dispatch prompt. Tier is an abstraction: cheap | standard | strong.
+# Model names live outside the project, in ~/.config/phasedev/models.yaml.
+# Which roles a phase needs, and how many sub-agents to spawn, stays the
+# orchestrator's per-phase decision — this catalog does not bind it.
+roles:
+  research:             { tier: cheap,    skills: [] }
+  planner:              { tier: strong,   skills: [] }
+  implementer:          { tier: standard, skills: [] }
+  implementation-check: { tier: standard, skills: [] }
+  code-review:          { tier: standard, skills: [] }
+  security-review:      { tier: strong,   skills: [] }
+  validator:            { tier: standard, skills: [] }
+  spec_sync:            { tier: cheap,    skills: [] }
 ```
 
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
 - `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
 - `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
-- `phases.<phase>.skills` — declares which external agent skills a phase prompt may authorize (`routers` / `main` / `additional`); injected into `phasedev phase` prompts only. **Optional**: when `skills` is omitted or left empty for a phase, the phase prompt instead tells the executing agent to look at whatever skills are available in its own session and pick the ones that fit that phase's work — so with no configuration at all, every phase still uses suitable skills automatically. Fill the lists only when you want to restrict or pin a phase to specific skills. A typo'd phase name under `phases:` is a hard error, not a silent drop.
+- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`) and a mandatory `skills` list. It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model and mandatory skills — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier` and `skills` are validated.
 
-Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys print a stderr warning and are ignored.
+Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
 
 ---
 

@@ -1,5 +1,6 @@
 import { Config } from "../../entities/config/config";
 import { knownHarnesses, ModelTiers, resolveModel } from "../../entities/model-tiers/model-tiers";
+import { Tier } from "../../entities/role/role";
 
 export interface SpawnPlanRole {
   name: string;
@@ -22,7 +23,7 @@ function pad(value: string, width: number): string {
   return value.padEnd(width, " ");
 }
 
-function degradationNote(tiers: ModelTiers, harness: string): string | undefined {
+function degradationNote(tiers: ModelTiers, harness: string, missingTiers: Set<Tier>): string | undefined {
   if (tiers.source === "missing") {
     return "Tier-to-model mapping is not configured — run every sub-agent on the session model. The model column shows tiers.";
   }
@@ -32,18 +33,26 @@ function degradationNote(tiers: ModelTiers, harness: string): string | undefined
     return `Harness "${harness}" is not in the model tiers file — run every sub-agent on the session model. The model column shows tiers. Known harnesses: ${harnesses.join(", ")}.`;
   }
 
+  if (missingTiers.size > 0) {
+    const sortedTiers = [...missingTiers].sort();
+    return `Harness "${harness}" has no model mapped for tier(s): ${sortedTiers.join(", ")} — those roles fall back to printing the tier name, which is not a real model. Add them to the harness in ~/.config/phasedev/models.yaml (or PHASEDEV_MODELS_FILE).`;
+  }
+
   return undefined;
 }
 
 export function renderSpawnPlan(config: Config, tiers: ModelTiers, harness: string): SpawnPlanResult {
-  const roles: SpawnPlanRole[] = config.roles.map(role => ({
-    name: role.name,
-    model: resolveModel(tiers, harness, role.tier) ?? role.tier,
-    skills: role.skills
-  }));
+  const missingTiers = new Set<Tier>();
+  const roles: SpawnPlanRole[] = config.roles.map(role => {
+    const model = resolveModel(tiers, harness, role.tier);
+    if (model === undefined) {
+      missingTiers.add(role.tier);
+    }
+    return { name: role.name, model: model ?? role.tier, skills: role.skills };
+  });
 
   const header = [`Roles for sub-agent dispatch (${harness}).`, ...HEADER_TAIL].join("\n");
-  const note = degradationNote(tiers, harness);
+  const note = degradationNote(tiers, harness, missingTiers);
 
   if (roles.length === 0) {
     return {

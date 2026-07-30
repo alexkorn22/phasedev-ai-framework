@@ -17,4 +17,4 @@ roles:
   code-review:          { tier: standard, skills: [] }
   security-review:      { tier: strong,   skills: [] }
   validator:            { tier: standard, skills: [] }
-  spec-sync:            { tier: cheap,    skills: [] }
+  spec_sync:            { tier: cheap,    skills: [] }

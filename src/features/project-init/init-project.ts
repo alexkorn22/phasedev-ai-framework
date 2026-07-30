@@ -1,12 +1,25 @@
 import * as fs from "fs";
 import * as path from "path";
 import { stringify as stringifyYaml } from "yaml";
-import { DEFAULT_CONFIG, defaultConfigPath, projectConfigPath } from "../../entities/config/config";
+import { Config, DEFAULT_CONFIG, defaultConfigPath, projectConfigPath } from "../../entities/config/config";
+import { RoleConfig } from "../../entities/role/role";
 import { SYSTEM_DIR } from "../../entities/change/paths";
 
 export interface InitProjectResult {
   ok: boolean;
   message: string;
+}
+
+// Config.roles is a RoleConfig[] in TypeScript but a name-keyed map in YAML
+// (see parseRoles); stringifying DEFAULT_CONFIG as-is would emit a YAML array
+// that parseConfig then rejects. Convert to the map shape before serializing.
+function toYamlConfig(config: Config): Record<string, unknown> {
+  const roles: Record<string, { tier: RoleConfig["tier"]; skills: string[] }> = {};
+  for (const role of config.roles) {
+    roles[role.name] = { tier: role.tier, skills: role.skills };
+  }
+
+  return { ...config, roles };
 }
 
 function readInitialConfig(): string {
@@ -15,7 +28,7 @@ function readInitialConfig(): string {
     return fs.readFileSync(bundledConfigPath, "utf-8");
   }
 
-  return stringifyYaml(DEFAULT_CONFIG);
+  return stringifyYaml(toYamlConfig(DEFAULT_CONFIG));
 }
 
 export function initProject(projectPath: string): InitProjectResult {

@@ -71,6 +71,21 @@ describe("renderSpawnPlan", () => {
     expect(result.roles.map(role => role.model)).toEqual(["haiku", "standard", "strong"]);
   });
 
+  test("notes the missing tiers when the harness is only partially mapped", () => {
+    const partial: ModelTiers = { source: "file", harnesses: { "claude-code": { cheap: "haiku" } } };
+    const result = renderSpawnPlan(CONFIG, partial, "claude-code");
+
+    expect(result.message).toContain('Harness "claude-code"');
+    expect(result.message).toContain("standard, strong");
+    expect(result.message).not.toContain("Tier-to-model mapping is not configured");
+    expect(result.message).not.toContain("is not in the model tiers file");
+  });
+
+  test("prints no degradation note when the harness maps every tier a role needs", () => {
+    const result = renderSpawnPlan(CONFIG, TIERS, "claude-code");
+    expect(result.message).not.toContain("Harness \"claude-code\"");
+  });
+
   test("reports an empty catalog when no roles are configured", () => {
     const result = renderSpawnPlan(parseConfig("autoApprove: false\n"), TIERS, "claude-code");
 
