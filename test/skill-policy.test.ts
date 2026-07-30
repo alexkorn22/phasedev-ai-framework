@@ -22,6 +22,13 @@ describe("renderSkillPolicy", () => {
     );
   });
 
+  test("states the distinct terminal for a role assigned with no named skill and nothing found in the environment", () => {
+    const text = renderSkillPolicy();
+    expect(text).toContain(
+      "If your dispatch instead named a role with an empty skill list and no such skill is visible there either, your role still applies but no skill does."
+    );
+  });
+
   test("keeps the shared boundary rules for both cases", () => {
     const text = renderSkillPolicy();
     expect(text).toContain(
@@ -69,6 +76,13 @@ describe("renderSkillComplianceLine", () => {
     const text = renderSkillComplianceLine();
     expect(text).toContain(
       "Format: `no role assigned` (the whole section, only when your dispatch carried no role line AND no applicable skill was visible in your runtime environment)"
+    );
+  });
+
+  test("gives the role-assigned-but-empty-list-and-nothing-found case its own distinct terminal", () => {
+    const text = renderSkillComplianceLine();
+    expect(text).toContain(
+      "Format: `no skill applies` (the whole section, only when your dispatch named a role with an empty skill list AND no applicable skill was visible in your runtime environment)"
     );
   });
 });
