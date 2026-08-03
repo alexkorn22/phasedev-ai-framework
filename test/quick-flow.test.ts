@@ -61,7 +61,7 @@ function scaffoldQuick(activePhase: string, worklogBody = "# Worklog\n\n## Task\
 describe("startArchiveStage flowMode preservation", () => {
   it("carries flowMode:quick into the archived state.json", () => {
     const { projectPath, changeDir } = quickChangeDir();
-    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"), DEFAULT_CONFIG);
+    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"));
     expect(result.blocked).toBeFalsy();
     const archived = path.join(projectPath, ".phasedev", "changes", "archive", "2026-07-11-c1", "state.json");
     const state = JSON.parse(fs.readFileSync(archived, "utf-8"));
@@ -71,7 +71,7 @@ describe("startArchiveStage flowMode preservation", () => {
 
   it("resolves the archive-dir active change path for a quick change pending archive (init prompt)", () => {
     const { projectPath, changeDir } = quickChangeDir();
-    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"), DEFAULT_CONFIG);
+    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"));
     expect(result.blocked).toBeFalsy();
 
     const archived = path.join(projectPath, ".phasedev", "changes", "archive", "2026-07-11-c1");
@@ -90,25 +90,26 @@ describe("startArchiveStage flowMode preservation", () => {
     fs.mkdirSync(changeDir, { recursive: true });
     fs.writeFileSync(path.join(changeDir, "state.json"),
       JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n");
-    startArchiveStage(root, changeDir, new Date("2026-07-11T00:00:00Z"), DEFAULT_CONFIG);
+    startArchiveStage(root, changeDir, new Date("2026-07-11T00:00:00Z"));
     const state = JSON.parse(fs.readFileSync(path.join(root, ".phasedev", "changes", "archive", "2026-07-11-c2", "state.json"), "utf-8"));
     expect("flowMode" in state).toBe(false);
   });
 });
 
 describe("quickPhasePrompt", () => {
-  it("renders the quick_plan contract with the env-discovery skill policy and no configured-skill block", () => {
+  it("renders the quick_plan contract with the static skill boundary section", () => {
     const { projectPath, changeName } = scaffoldQuick("quick_plan");
     const state = loadFlowState(projectPath, changeName)!;
     const prompt = quickPhasePrompt(projectPath, DEFAULT_CONFIG, state, changeName);
     expect(prompt.blocked).toBe(false);
     expect(prompt.prompt).toContain("Quick Phase: Plan");
-    expect(prompt.prompt).toContain("Discover and apply skills from your runtime environment");
+    expect(prompt.prompt).toContain("## Skill Boundary");
+    expect(prompt.prompt).toContain("Your role, and any mandatory skills for it, are named in your dispatch prompt");
   });
 
   it("renders the quick archive contract with the bare change name, not the dated archive basename", () => {
     const { projectPath, changeDir } = quickChangeDir();
-    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"), DEFAULT_CONFIG);
+    const result = startArchiveStage(projectPath, changeDir, new Date("2026-07-11T00:00:00Z"));
     expect(result.blocked).toBeFalsy();
 
     const state = loadFlowState(projectPath, "c1")!;

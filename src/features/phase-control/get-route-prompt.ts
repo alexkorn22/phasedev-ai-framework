@@ -48,7 +48,7 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
         route.invalidArchiveState.reason
       );
     case "pending_archive":
-      return archivePrompt(projectPath, route.archiveState, config);
+      return archivePrompt(projectPath, route.archiveState);
     case "change_intake":
       return prompt("next", "change_intake", renderChangeIntake(projectPath, config, route.activeChangePath));
     case "invalid_prd":

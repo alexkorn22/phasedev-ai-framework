@@ -61,6 +61,18 @@ Commands:
       Idempotent: repeated calls (without advance) return the same contract.
       Side effects: none.
 
+  phasedev spawn-plan --harness <name> [--project-path <path>] [--config <path>]
+      Print the role catalog for sub-agent dispatch: one line per role with its
+      resolved model and its mandatory skills. Read-only, not change-scoped.
+      Roles come from the roles section of .phasedev/config.yaml; models come from
+      the tier mapping in ~/.config/phasedev/models.yaml (override the path with
+      PHASEDEV_MODELS_FILE).
+      Choosing which roles a phase needs, and how many sub-agents to spawn, stays
+      the orchestrator's decision; the skills and model of a chosen role do not.
+      When the models file or the requested harness is missing, the model column
+      shows tiers (cheap/standard/strong) and a note says the mapping is unset.
+      Side effects: none.
+
   phasedev check [--project-path <path>] [--phase <phase>]
   phasedev check --check-orphans [--project-path <path>]
       Validate artifacts for the active phase (or --phase override).

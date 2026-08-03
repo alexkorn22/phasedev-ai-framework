@@ -6,7 +6,7 @@ import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
 import { toFileUrl } from "./prompt-formatters";
-import { renderSkillComplianceLine, renderSkillPolicy, renderPhaseSkillNote, renderPhaseSkillStep } from "./skill-policy";
+import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { Prompt } from "../../entities/phase/types";
@@ -32,14 +32,20 @@ const PHASE_SUMMARIES: Partial<Record<Phase, { output: string; selfCheck: string
   archive:              { output: "delta specs in archive",            selfCheck: "phasedev check-archive" },
 };
 
+const DISPATCH_PRECEDENCE_LINE =
+  "> - Precedence: this contract supersedes any phase-work details in your dispatch prompt (artifact read order, file inventories, review checklists, verdict policy, findings-command recipes). On conflict, follow this contract and report the discrepancy in your final response.";
+
 export function renderPhaseOpeningSummary(phase: Phase): string {
   const summary = PHASE_SUMMARIES[phase];
-  if (!summary) return "";
+  if (!summary) {
+    return ["> **Phase contract:**", DISPATCH_PRECEDENCE_LINE, ""].join("\n");
+  }
   return [
     "> **Phase summary:**",
     `> - Output: \`${summary.output}\` per embedded Artifact Build Contract.`,
     `> - Done when: \`${summary.selfCheck}\` passes.`,
     "> - Forbidden: change `approved` fields manually, write outside phase allowlist.",
+    DISPATCH_PRECEDENCE_LINE,
     ""
   ].join("\n");
 }
@@ -107,11 +113,8 @@ export function renderPhaseTemplate(
     phase_opening_summary: renderPhaseOpeningSummary(phase),
     self_check_fallback: SELF_CHECK_FALLBACK,
     validation_common_contract: renderValidationCommonContract(phase, config),
-    skill_policy: renderSkillPolicy(phase, config),
-    skill_compliance_line: renderSkillComplianceLine(phase, config),
-    phase_skill_step: renderPhaseSkillStep(phase, config),
-    phase_skill_note: renderPhaseSkillNote(phase, config),
-    skill_policy_inline_ref: "",
+    skill_policy: renderSkillPolicy(),
+    skill_compliance_line: renderSkillComplianceLine()
   });
 }
 

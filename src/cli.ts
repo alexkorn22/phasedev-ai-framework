@@ -42,6 +42,8 @@ import { getClarifyPrompt } from "./features/phase-control/get-clarify-prompt";
 import { expectedFindingsType } from "./features/phase-control/expected-findings-type";
 import { advanceFlow } from "./features/phase-control/advance-flow";
 import { runArchive } from "./features/phase-control/archive-command";
+import { loadModelTiers } from "./entities/model-tiers/model-tiers";
+import { renderMissingHarnessUsage, renderSpawnPlan } from "./features/spawn-plan/render-spawn-plan";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
 import * as fs from "fs";
 import * as path from "path";
@@ -571,6 +573,30 @@ function handleConfig(ctx: CommandContext): void {
   process.exitCode = 0;
 }
 
+function handleSpawnPlan(ctx: CommandContext): void {
+  const harness = parseStringOption(ctx.args, "--harness");
+  const tiers = loadModelTiers();
+
+  if (!harness || harness.trim() === "") {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "spawn-plan",
+      humanMessage: renderMissingHarnessUsage(tiers)
+    });
+    return;
+  }
+
+  const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
+  const result = renderSpawnPlan(config, tiers, harness.trim());
+
+  reportCliResult(ctx.jsonMode, {
+    ok: result.ok,
+    kind: "spawn-plan",
+    humanMessage: result.message,
+    data: { harness: harness.trim(), roles: result.roles, modelTiers: tiers.source }
+  });
+}
+
 function handleLog(ctx: CommandContext): void {
   const tail = parseTail(ctx.args);
   const humanMessage = viewLog(ctx.projectPath, tail);
@@ -910,6 +936,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   init: handleInit,
   "create-change": handleCreateChange,
   phase: handlePhase,
+  "spawn-plan": handleSpawnPlan,
   feedback: handleFeedback,
   clarify: handleClarify,
   advance: handleAdvance,
