@@ -6,6 +6,8 @@ Applies strictly when designing, writing, editing, or refactoring TypeScript on 
 
 ## 1. Architectural Blueprint (Server-Side Hybrid Architecture)
 
+Scope: this blueprint applies to new projects, new bounded contexts, and codebases without an established structure. In a codebase with an established architecture, the core discipline wins: follow the existing structure and its conventions — never impose this blueprint over it.
+
 Enforce a 3-tier hybrid architecture to ensure long-term scalability, low cognitive load, zero "Flat Feature Hell", and zero "Layered Mud":
 
 ### 1.1 Macro-Level: Modular Monolith (Bounded Contexts)

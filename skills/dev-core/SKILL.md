@@ -1,6 +1,7 @@
 ---
 name: dev-core
 description: Use when writing, editing, designing, or reviewing code in any language or stack — features, bugfixes, refactors, tests, config, dev tooling, or specs that directly drive implementation. Also use when deciding where new code belongs, how to structure a change, or whether a new abstraction or layer is warranted.
+version: 1.4.0
 compatibility: opencode, codex, antigravity, claude
 metadata:
   category: engineering
@@ -23,9 +24,8 @@ Good code sits between them: the smallest complete change, placed correctly, tha
 
 ## Mindset: Code Audience & Zero-Shortcut Imperative
 
-Write code as if it will be reviewed and maintained by a ruthless, exhausted senior engineer who will reject any bloated diff or hidden complexity — write for long-term clarity, not quick compliance.
+Write code as if it will be reviewed and maintained by a ruthless, exhausted senior engineer who will reject any bloated diff or hidden complexity — write for long-term clarity, not quick compliance. If the change is not obvious, self-explanatory, and surgical on first read, it is unacceptable.
 
-- **Ruthless Maintainer Rule**: Assume the reviewer has zero patience for unnecessary diff noise, speculative abstractions, or sloppy hacks. If the change is not obvious, self-explanatory, and surgical on first read, it is unacceptable.
 - **Dual Maintainer Compatibility (Human & AI)**: Code is read by both humans (in MRs/code reviews) and future AI agents. It must be explicit, self-contained, and free of hidden coupling or implicit magic so any future maintainer — human or AI — can safely extend it in minutes without a rewrite.
 - **Zero Shortcuts**: Never choose a quick patch, dummy fallback, or suppressed check to make a prompt pass. Every change must be engineered for the long-term health of the codebase.
 
@@ -63,6 +63,11 @@ Minimal **scope** is not minimal **effort**:
 - Surgical mutation — preserve working code, existing abstractions, and nearby patterns. Never rewrite an existing working module or create massive code churn (+1000 lines diff for a minor feature) when a targeted extension point is possible.
 
 A symptom patch that adds a special-case branch for the failing input is not a smaller change; it is a wrong-level change.
+
+Locality in practice — every changed line must connect to the request or to preserving a correct boundary:
+
+- Do not move, rename, or reformat unrelated code; no drive-by fixes or style cleanup of untouched code.
+- Remove only dead code created by your own change; preserve unrelated user or teammate changes.
 
 ## Think Before Coding
 
@@ -114,6 +119,8 @@ Before adding files, moving code, or introducing a module, answer internally:
 
 Place code by responsibility, not by convenience. If the project has an explicit architecture, follow it; if not, infer the local architecture from nearby code before editing.
 
+Feature-envy check: a function that mostly reads and combines another module's data belongs to that module — move the function to the data instead of reaching across the boundary.
+
 ## Abstraction Calibration
 
 Introduce a new layer, interface, abstraction, module, or file ONLY when at least one observable predicate holds:
@@ -123,7 +130,7 @@ Introduce a new layer, interface, abstraction, module, or file ONLY when at leas
 3. **Unstable boundary**: it isolates an external or unstable system (API, DB, framework, transport) the way the project already isolates such things.
 4. **Existing boundary**: the boundary already exists in the project — extend it; never build a parallel one.
 
-No predicate holds → write direct code in the existing place. This gate is what keeps one action from becoming 15 files.
+No predicate holds → write direct code in the existing place. This gate is what keeps one action from becoming 15 files. It applies to named design patterns too: a pattern is introduced because a predicate holds, never because the pattern has a name — "let's use a Factory/Observer here" is not a justification.
 
 Example: "send a welcome email after signup" gets a direct call in the signup flow — not an `EmailProviderInterface` + factory + config layer. When a second provider actually arrives (predicate 2), building that seam becomes its own small change.
 
@@ -146,6 +153,7 @@ Example: "send a welcome email after signup" gets a direct call in the signup fl
 - Type-switching conditionals where existing variants already justify polymorphism.
 - UI, data access, validation, domain logic, and orchestration mixed without a boundary.
 - Hidden side effects, implicit global coupling, dependencies flowing backwards.
+- Message chains reaching through foreign structures (`a.b().c().d()`) instead of asking the nearest boundary for what is needed.
 - Magic strings or numbers where a named constant or enum states the meaning.
 
 **Over-abstraction (framework disease):**
@@ -167,10 +175,32 @@ Apply to files, modules, packages, and layers — to prevent architectural spagh
 - Same boundary → same contract: inputs, outputs, errors, side effects.
 - No fat interfaces consumers only partially use.
 - Orchestration depends on stable contracts, not concrete low-level details.
+- Composition over inheritance: inherit only for a true is-a with a fully substitutable contract; reuse code through composition or delegation. A hierarchy deeper than two levels is a smell.
 
 ## Ubiquitous Domain Language
 
 Name classes, functions, variables, and modules by domain meaning, not technical noise: `CancelSubscriptionAction`, not `SubscriptionManagerHelper`.
+
+These rules are semantic and language-agnostic; take casing and affix idioms from the stack reference and the surrounding code:
+
+- **Generic names are forbidden** for modules, classes, and functions: `utils`, `helpers`, `common`, `Manager`, `processData`, `handleItem`, `temp`, `data2`. A name that could label anything explains nothing — name the responsibility it holds.
+- **A boolean name reads as a yes/no question** about its subject; a name that does not answer yes or no does not belong on a boolean.
+- **A value with a unit or scale carries the unit in its name**: a timeout, size, or amount states its milliseconds, bytes, or currency — the reader must never guess.
+- **A function name starts with the action it performs and covers everything it does**: a function doing more than its name promises is misnamed or doing too much.
+
+## Function-Level Readability
+
+Modules decide structure; functions decide readability. These are observable triggers, not taste — when one fires, restructure before finishing:
+
+- **Nesting deeper than two levels** → flatten with guard clauses or extract the inner block as a named step.
+- **A boolean flag parameter that switches behavior** → split into two functions named for each behavior; a flag is two responsibilities sharing one signature.
+- **More than four parameters** → group them into a single typed parameter object.
+- **The same group of parameters traveling through several signatures together (data clump)** → introduce a type for the group; it is an undeclared domain concept.
+- **Orchestration mixed with low-level detail in one body** → extract the detail into named steps so the function reads at a single level of abstraction, top to bottom.
+- **A function that both answers a question and mutates state** → split it into a query and a command (command–query separation); an atomic operation that must do both (pop, check-and-set) carries both actions in its name.
+- **A compound condition or expression the reader must decode** → extract it into a named predicate or explaining variable.
+
+Pass condition: a reviewer reads the function once, top to bottom, and can state what it does without pausing to decode any part.
 
 ---
 
@@ -178,11 +208,15 @@ Name classes, functions, variables, and modules by domain meaning, not technical
 
 - **Guard clauses**: validate preconditions and error conditions early, return or throw immediately; no nested if-else pyramids.
 - **Make invalid states unrepresentable**: strict types, enums, tagged/discriminated unions, sealed types, validation schemas — whatever the language offers.
+- **Domain concepts get domain types**: an identifier, money amount, email, or quantity does not travel as a bare string or number — wrap it the way the project or stack reference prescribes (value object, branded type, backed enum) so mixed-up arguments fail at the type level.
 - **Validate at boundaries**: parse and validate all external input (requests, DB rows, env vars, CLI args, file content) at entry points, before domain processing.
+- **Trust types past the boundary**: once input is parsed and validated at the entry point, domain code trusts its types. Re-checking what the type system already guarantees — null checks on non-nullable values, re-validation of already-parsed data — is forbidden noise.
 - **Injection-safe by default**: never interpolate data into queries or shell commands — parameter binding only. Never leak secrets, tokens, or stack traces into responses or logs.
 - **Atomicity**: wrap state changes spanning multiple entities or tables in explicit transactions.
+- **Every invariant has one owner (aggregate)**: when a business invariant spans several entities, one owning unit — the aggregate root — enforces it, every mutation goes through that owner, and the transaction boundary is the aggregate. No multi-entity invariant → no aggregate: plain CRUD stays plain CRUD.
 - **Explicit errors**: fail fast with typed or domain errors. Never swallow errors silently or return vague fallbacks where failure must surface.
-- **Immutability by default**: prefer creating new immutable values over mutating shared structures in place.
+- **Catch where you can act**: handle an error only at the level that can recover, translate it into a domain error, or fulfill the operation's contract; everywhere else let it propagate. No blanket try/catch wrappers, no intermediate catch-log-rethrow layers. Exceptions are not control flow: for an expected condition, test the condition or return a typed result instead of probing with try/catch.
+- **Immutability by default**: prefer creating new immutable values over mutating shared structures in place. Never reassign or mutate function parameters; never expose internal mutable collections or structures — return a copy or a read-only view.
 - **Isolate side effects**: keep core domain logic pure; push I/O, network, persistence, and rendering to the edges.
 - **Deterministic cleanup**: release connections, handles, and locks (try/finally, RAII, using); explicit timeouts on all network and async operations.
 
@@ -215,17 +249,6 @@ When production behavior or contracts change, updating the affected tests is par
 - Run independent async operations concurrently; never leave promises/futures floating unawaited.
 - No quadratic passes where a linear or indexed path exists at plausible data sizes.
 - Symmetric limit: no speculative optimization — optimize when evidence or obvious scale demands it.
-
-## Locality Rule & Code Churn Prevention
-
-Touch only what the task requires. Keep diffs minimal, clean, and human-reviewable.
-
-- Do not move, rename, or reformat unrelated code; no drive-by fixes or style cleanup of untouched code.
-- Prevent code churn: adding a feature or bugfix must not rewrite surrounding working code or bloat the diff.
-- Remove only dead code created by your own change.
-- Preserve unrelated user or teammate changes.
-
-Every changed line must connect to the request or to preserving a correct boundary.
 
 ## Comment Rule
 
@@ -299,6 +322,7 @@ Confirm internally before finishing; any "no" means fix the change first:
 9. Tests assert real behavior; no ballast tests; affected tests updated.
 10. No I/O in loops, no unbounded reads; independent async runs concurrently.
 11. Only task-required lines changed, and the most relevant check actually ran.
+12. Every Function-Level Readability trigger respected; no generic names; domain concepts typed.
 
 ## Stack References
 
