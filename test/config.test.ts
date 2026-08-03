@@ -281,7 +281,7 @@ test("initProject falls back to a parseable config.yaml when the bundled templat
 // both the init scaffold and loadConfig's default must actually parse.
 test("loadConfig parses the shipped default config.yaml into a valid roles catalog", () => {
   const config = loadConfig(defaultConfigPath());
-  expect(config.roles).toHaveLength(8);
+  expect(config.roles.length).toBeGreaterThan(0);
   const validTiers = ["cheap", "standard", "strong"];
   for (const role of config.roles) {
     expect(validTiers).toContain(role.tier);

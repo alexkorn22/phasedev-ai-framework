@@ -10,11 +10,15 @@ requireIterationCommit: true
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
-  research:             { tier: cheap,    skills: [] }
-  planner:              { tier: strong,   skills: [] }
-  implementer:          { tier: standard, skills: [] }
+  evidence-scout:       { tier: cheap,    skills: [] }           # clarify, before phase 1
+  approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
+  intake-analyst:       { tier: strong,   skills: [] }           # phase 1
+  research:             { tier: cheap,    skills: [] }           # phase 2
+  architect:            { tier: strong,   skills: [dev-core] }   # phase 3
+  planner:              { tier: strong,   skills: [dev-core] }
+  implementer:          { tier: standard, skills: [dev-core] }
   implementation-check: { tier: standard, skills: [] }
-  code-review:          { tier: standard, skills: [] }
+  code-review:          { tier: standard, skills: [dev-core] }
   security-review:      { tier: strong,   skills: [] }
-  validator:            { tier: standard, skills: [] }
+  final-validator:      { tier: strong,   skills: [dev-core] }   # phase 6B
   spec_sync:            { tier: cheap,    skills: [] }

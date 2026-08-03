@@ -4,7 +4,7 @@
 
 # ⚙️ PhaseDev AI Framework
 
-[![Version](https://img.shields.io/badge/version-1.3.4-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.3.5-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -133,12 +133,13 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the orchestrator skills (Claude Code example)
 
-The repo ships two agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick) and `express-orchestrator` (stateless track). Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships three agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), and `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
 mkdir -p ~/.claude/skills
 ln -s /absolute/path/to/phasedev-ai-framework/skills/phasedev-orchestrator ~/.claude/skills/phasedev-orchestrator
 ln -s /absolute/path/to/phasedev-ai-framework/skills/express-orchestrator  ~/.claude/skills/express-orchestrator
+ln -s /absolute/path/to/phasedev-ai-framework/skills/dev-core              ~/.claude/skills/dev-core
 ```
 
 Symlinks (not copies) keep the skills in sync with the CLI on `git pull`. To tailor the orchestrator per project (mandate TDD, pin reviewer sub-agents, …), add a dedicated section to the project's `CLAUDE.md` / `AGENTS.md` — project instructions take precedence over the skill.
@@ -228,13 +229,17 @@ requireIterationCommit: true
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
-  research:             { tier: cheap,    skills: [] }
-  planner:              { tier: strong,   skills: [] }
-  implementer:          { tier: standard, skills: [] }
+  evidence-scout:       { tier: cheap,    skills: [] }           # clarify, before phase 1
+  approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
+  intake-analyst:       { tier: strong,   skills: [] }           # phase 1
+  research:             { tier: cheap,    skills: [] }           # phase 2
+  architect:            { tier: strong,   skills: [dev-core] }   # phase 3
+  planner:              { tier: strong,   skills: [dev-core] }
+  implementer:          { tier: standard, skills: [dev-core] }
   implementation-check: { tier: standard, skills: [] }
-  code-review:          { tier: standard, skills: [] }
+  code-review:          { tier: standard, skills: [dev-core] }
   security-review:      { tier: strong,   skills: [] }
-  validator:            { tier: standard, skills: [] }
+  final-validator:      { tier: strong,   skills: [dev-core] }   # phase 6B
   spec_sync:            { tier: cheap,    skills: [] }
 ```
 
