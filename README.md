@@ -133,7 +133,7 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the orchestrator skills (Claude Code example)
 
-The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (currently `codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (currently `codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
 mkdir -p ~/.claude/skills
@@ -235,7 +235,7 @@ roles:
   research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
   architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
   planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
-  implementer:          { tier: standard, skills: [dev-core] }
+  implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
   implementation-check: { tier: standard, skills: [] }
   code-review:          { tier: standard, skills: [dev-core] }
   security-review:      { tier: strong,   skills: [] }

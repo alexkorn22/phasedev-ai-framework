@@ -16,7 +16,7 @@ roles:
   research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
   architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
   planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
-  implementer:          { tier: standard, skills: [dev-core] }
+  implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
   implementation-check: { tier: standard, skills: [] }
   code-review:          { tier: standard, skills: [dev-core] }
   security-review:      { tier: strong,   skills: [] }
