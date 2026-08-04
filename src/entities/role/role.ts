@@ -6,9 +6,10 @@ export interface RoleConfig {
   name: string;
   tier: Tier;
   skills: string[];
+  comment?: string;
 }
 
-const KNOWN_ROLE_KEYS = new Set(["tier", "skills"]);
+const KNOWN_ROLE_KEYS = new Set(["tier", "skills", "comment"]);
 
 function asRecord(value: unknown, key: string): Record<string, unknown> {
   if (value === undefined || value === null) {
@@ -48,6 +49,15 @@ export function readSkillArray(value: unknown, key: string): string[] {
   return skills;
 }
 
+function readComment(value: unknown, key: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`Config key ${key} must be a string.`);
+  }
+  const comment = value.trim();
+  return comment === "" ? undefined : comment;
+}
+
 function readTier(value: unknown, key: string): Tier {
   if (typeof value !== "string" || !TIER_VALUES.includes(value as Tier)) {
     throw new Error(`Config key ${key} must be one of: ${TIER_VALUES.join(", ")}.`);
@@ -60,14 +70,16 @@ function parseRole(name: string, value: unknown, key: string): RoleConfig {
 
   for (const roleKey of Object.keys(role)) {
     if (!KNOWN_ROLE_KEYS.has(roleKey)) {
-      console.warn(`[config] Unknown key "${roleKey}" in ${key} — ignored. Valid keys: tier, skills.`);
+      console.warn(`[config] Unknown key "${roleKey}" in ${key} — ignored. Valid keys: tier, skills, comment.`);
     }
   }
 
+  const comment = readComment(role.comment, `${key}.comment`);
   return {
     name,
     tier: readTier(role.tier, `${key}.tier`),
-    skills: readSkillArray(role.skills, `${key}.skills`)
+    skills: readSkillArray(role.skills, `${key}.skills`),
+    ...(comment === undefined ? {} : { comment })
   };
 }
 

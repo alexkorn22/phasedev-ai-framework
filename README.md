@@ -229,24 +229,21 @@ requireIterationCommit: true
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
-  evidence-scout:       { tier: cheap,    skills: [codebase-recon, design-fidelity-method] }  # clarify, before phase 1
-  approval-reviewer:    { tier: strong,   skills: [acceptance-criteria-method, design-fidelity-method] }  # autoApprove gate
-  intake-analyst:       { tier: strong,   skills: [codebase-recon, acceptance-criteria-method, design-fidelity-method] }  # phase 1
-  research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
-  architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
-  planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
-  implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
-  implementation-check: { tier: standard, skills: [verification-method, test-quality-method] }
-  code-review:          { tier: standard, skills: [dev-core, code-review-method] }
-  security-review:      { tier: strong,   skills: [security-review-method] }
-  final-validator:      { tier: strong,   skills: [dev-core, verification-method, code-review-method] }  # phase 6B
-  spec_sync:            { tier: cheap,    skills: [spec-delta-method] }
+  research:
+    tier: cheap
+    skills: [codebase-recon]
+    comment: Phase 2 — read-only codebase reconnaissance
+  implementer:
+    tier: standard
+    skills: [dev-core, tdd-method, debugging-method]
+    comment: Implements one iteration test-first and debugs failures to root cause
+  # ... one entry per role; the full shipped catalog lives in config.yaml
 ```
 
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
 - `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
 - `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
-- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`) and a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list). It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model and mandatory skills — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier` and `skills` are validated. An empty `skills` list (the shipped default above, until a distilled skill library populates it) does not mean the sub-agent may use no skills at all — it means the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary rules that govern named skills. Once a role's `skills` list is non-empty, that list is mandatory again and discovery is not substituted for it.
+- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`), a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list), and an optional free-text `comment` describing what the role does. It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model, mandatory skills, and the comment when present — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier`, `skills`, and `comment` are validated. An empty `skills` list does not mean the sub-agent may use no skills at all — it means the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary rules that govern named skills. Once a role's `skills` list is non-empty (the shipped default since the distilled skill library landed), that list is mandatory again and discovery is not substituted for it.
 
 Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
 

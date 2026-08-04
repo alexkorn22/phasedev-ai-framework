@@ -39,6 +39,23 @@ describe("renderSpawnPlan", () => {
     expect(result.message).not.toContain("opencode");
   });
 
+  test("prints a role comment as a trailing column and omits it when absent", () => {
+    const config = parseConfig(`
+roles:
+  research:    { tier: cheap,    skills: [codebase-recon], comment: "Read-only codebase recon" }
+  implementer: { tier: standard, skills: [tdd-method] }
+`);
+    const result = renderSpawnPlan(config, TIERS, "claude-code");
+
+    expect(result.roles).toEqual([
+      { name: "research", model: "haiku", skills: ["codebase-recon"], comment: "Read-only codebase recon" },
+      { name: "implementer", model: "sonnet", skills: ["tdd-method"] }
+    ]);
+    expect(result.message).toContain("research    | haiku  | codebase-recon | Read-only codebase recon");
+    expect(result.message).toContain("implementer | sonnet | tdd-method");
+    expect(result.message).not.toContain("tdd-method |");
+  });
+
   test("aligns the role and model columns", () => {
     const lines = renderSpawnPlan(CONFIG, TIERS, "claude-code").message.split("\n");
     const rows = lines.filter(line => line.includes(" | "));

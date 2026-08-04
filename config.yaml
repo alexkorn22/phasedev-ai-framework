@@ -10,15 +10,51 @@ requireIterationCommit: true
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
-  evidence-scout:       { tier: cheap,    skills: [codebase-recon, design-fidelity-method] }  # clarify, before phase 1
-  approval-reviewer:    { tier: strong,   skills: [acceptance-criteria-method, design-fidelity-method] }  # autoApprove gate
-  intake-analyst:       { tier: strong,   skills: [codebase-recon, acceptance-criteria-method, design-fidelity-method] }  # phase 1
-  research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
-  architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
-  planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
-  implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
-  implementation-check: { tier: standard, skills: [verification-method, test-quality-method] }
-  code-review:          { tier: standard, skills: [dev-core, code-review-method] }
-  security-review:      { tier: strong,   skills: [security-review-method] }
-  final-validator:      { tier: strong,   skills: [dev-core, verification-method, code-review-method] }  # phase 6B
-  spec_sync:            { tier: cheap,    skills: [spec-delta-method] }
+  evidence-scout:
+    tier: cheap
+    skills: [codebase-recon, design-fidelity-method]
+    comment: Pre-phase-1 scout — gathers codebase facts and design-artifact constraints to ground clarify questions
+  approval-reviewer:
+    tier: strong
+    skills: [acceptance-criteria-method, design-fidelity-method]
+    comment: Reviews gate artifacts (PRD, design, plan) on the merits at autoApprove gates — judges artifacts, not code
+  intake-analyst:
+    tier: strong
+    skills: [codebase-recon, acceptance-criteria-method, design-fidelity-method]
+    comment: Phase 1 — interviews and scopes the request into a PRD with observable acceptance criteria
+  research:
+    tier: cheap
+    skills: [codebase-recon]
+    comment: Phase 2 — read-only codebase reconnaissance
+  architect:
+    tier: strong
+    skills: [dev-core, design-fidelity-method]
+    comment: Phase 3 — designs the technical solution within the existing architecture
+  planner:
+    tier: strong
+    skills: [dev-core, acceptance-criteria-method]
+    comment: Slices the design into iterations with verifiable acceptance criteria
+  implementer:
+    tier: standard
+    skills: [dev-core, tdd-method, debugging-method]
+    comment: Implements one iteration test-first and debugs failures to root cause
+  implementation-check:
+    tier: standard
+    skills: [verification-method, test-quality-method]
+    comment: Verifies iteration completion with fresh command evidence and audits test quality
+  code-review:
+    tier: standard
+    skills: [dev-core, code-review-method]
+    comment: Reviews the iteration diff for real, evidenced findings
+  security-review:
+    tier: strong
+    skills: [security-review-method]
+    comment: Traces attacker-controlled input through the diff's security-sensitive surfaces
+  final-validator:
+    tier: strong
+    skills: [dev-core, verification-method, code-review-method]
+    comment: Phase 6B — whole-change validation, re-runs proofs and reviews the full diff
+  spec_sync:
+    tier: cheap
+    skills: [spec-delta-method]
+    comment: Archive phase — mines behavioral deltas of the change into the living specs
