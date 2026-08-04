@@ -133,7 +133,7 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the orchestrator skills (Claude Code example)
 
-The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
 mkdir -p ~/.claude/skills
@@ -240,7 +240,7 @@ roles:
   code-review:          { tier: standard, skills: [dev-core, code-review-method] }
   security-review:      { tier: strong,   skills: [security-review-method] }
   final-validator:      { tier: strong,   skills: [dev-core, verification-method, code-review-method] }  # phase 6B
-  spec_sync:            { tier: cheap,    skills: [] }
+  spec_sync:            { tier: cheap,    skills: [spec-delta-method] }
 ```
 
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.

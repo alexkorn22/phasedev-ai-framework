@@ -21,4 +21,4 @@ roles:
   code-review:          { tier: standard, skills: [dev-core, code-review-method] }
   security-review:      { tier: strong,   skills: [security-review-method] }
   final-validator:      { tier: strong,   skills: [dev-core, verification-method, code-review-method] }  # phase 6B
-  spec_sync:            { tier: cheap,    skills: [] }
+  spec_sync:            { tier: cheap,    skills: [spec-delta-method] }
