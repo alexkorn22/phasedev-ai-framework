@@ -133,7 +133,7 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the orchestrator skills (Claude Code example)
 
-The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
 mkdir -p ~/.claude/skills
@@ -230,16 +230,16 @@ requireIterationCommit: true
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
   evidence-scout:       { tier: cheap,    skills: [codebase-recon, design-fidelity-method] }  # clarify, before phase 1
-  approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
+  approval-reviewer:    { tier: strong,   skills: [acceptance-criteria-method, design-fidelity-method] }  # autoApprove gate
   intake-analyst:       { tier: strong,   skills: [codebase-recon, acceptance-criteria-method, design-fidelity-method] }  # phase 1
   research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
   architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
   planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
   implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
   implementation-check: { tier: standard, skills: [verification-method, test-quality-method] }
-  code-review:          { tier: standard, skills: [dev-core] }
-  security-review:      { tier: strong,   skills: [] }
-  final-validator:      { tier: strong,   skills: [dev-core, verification-method] }  # phase 6B
+  code-review:          { tier: standard, skills: [dev-core, code-review-method] }
+  security-review:      { tier: strong,   skills: [security-review-method] }
+  final-validator:      { tier: strong,   skills: [dev-core, verification-method, code-review-method] }  # phase 6B
   spec_sync:            { tier: cheap,    skills: [] }
 ```
 
