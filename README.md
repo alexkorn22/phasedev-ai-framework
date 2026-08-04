@@ -133,7 +133,7 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the orchestrator skills (Claude Code example)
 
-The repo ships three agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), and `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships its agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (currently `codebase-recon` for recon/research roles), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
 mkdir -p ~/.claude/skills
@@ -232,7 +232,7 @@ roles:
   evidence-scout:       { tier: cheap,    skills: [] }           # clarify, before phase 1
   approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
   intake-analyst:       { tier: strong,   skills: [] }           # phase 1
-  research:             { tier: cheap,    skills: [] }           # phase 2
+  research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
   architect:            { tier: strong,   skills: [dev-core] }   # phase 3
   planner:              { tier: strong,   skills: [dev-core] }
   implementer:          { tier: standard, skills: [dev-core] }

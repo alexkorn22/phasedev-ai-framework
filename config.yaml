@@ -13,7 +13,7 @@ roles:
   evidence-scout:       { tier: cheap,    skills: [] }           # clarify, before phase 1
   approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
   intake-analyst:       { tier: strong,   skills: [] }           # phase 1
-  research:             { tier: cheap,    skills: [] }           # phase 2
+  research:             { tier: cheap,    skills: [codebase-recon] }  # phase 2
   architect:            { tier: strong,   skills: [dev-core] }   # phase 3
   planner:              { tier: strong,   skills: [dev-core] }
   implementer:          { tier: standard, skills: [dev-core] }
