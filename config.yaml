@@ -17,8 +17,8 @@ roles:
   architect:            { tier: strong,   skills: [dev-core, design-fidelity-method] }  # phase 3
   planner:              { tier: strong,   skills: [dev-core, acceptance-criteria-method] }
   implementer:          { tier: standard, skills: [dev-core, tdd-method, debugging-method] }
-  implementation-check: { tier: standard, skills: [] }
+  implementation-check: { tier: standard, skills: [verification-method, test-quality-method] }
   code-review:          { tier: standard, skills: [dev-core] }
   security-review:      { tier: strong,   skills: [] }
-  final-validator:      { tier: strong,   skills: [dev-core] }   # phase 6B
+  final-validator:      { tier: strong,   skills: [dev-core, verification-method] }  # phase 6B
   spec_sync:            { tier: cheap,    skills: [] }
