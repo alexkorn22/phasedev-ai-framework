@@ -2,8 +2,9 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import { parseConfig } from "../src/entities/config/config";
+import { Config, DEFAULT_CONFIG } from "../src/entities/config/config";
 import { ModelTiers } from "../src/entities/model-tiers/model-tiers";
-import { renderMissingHarnessUsage, renderSpawnPlan } from "../src/features/spawn-plan/render-spawn-plan";
+import { renderMissingHarnessUsage, renderSpawnPlan, sanitizeComment } from "../src/features/spawn-plan/render-spawn-plan";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 const CONFIG = parseConfig(`
@@ -61,6 +62,37 @@ roles:
     const rows = lines.filter(line => line.includes(" | "));
     const firstSeparator = rows.map(row => row.indexOf("|"));
     expect(new Set(firstSeparator).size).toBe(1);
+  });
+
+  test("sanitizeComment collapses newlines and strips pipes", () => {
+    // Unit-level: the parser (Task 12) rejects multi-line comments at config load,
+    // but render sanitization is a defense-in-depth layer tested here in isolation.
+    expect(sanitizeComment("Line one\nLine two")).toBe("Line one Line two");
+    expect(sanitizeComment("a | b | c")).toBe("a  b  c");
+    expect(sanitizeComment("clean")).toBe("clean");
+  });
+
+  test("renders a pipe-containing comment without forging extra columns", () => {
+    const config = parseConfig(`
+roles:
+  research: { tier: cheap, skills: [codebase-recon], comment: "a | b | c" }
+`);
+    const result = renderSpawnPlan(config, TIERS, "claude-code");
+    const row = result.message.split("\n").find(line => line.includes("research"))!;
+    const separators = (row.match(/\|/g) || []).length;
+    expect(separators).toBe(3);
+    expect(row).toContain("a  b  c");
+  });
+
+  test("renders a multi-line comment as a single row when given a hand-built Config", () => {
+    const config: Config = {
+      ...DEFAULT_CONFIG,
+      roles: [{ name: "research", tier: "cheap", skills: ["codebase-recon"], comment: "Line one\nLine two" }]
+    };
+    const result = renderSpawnPlan(config, TIERS, "claude-code");
+    const rows = result.message.split("\n").filter(line => line.includes("research"));
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toContain("codebase-recon | Line one Line two");
   });
 
   test("prints tiers and a note when the models file is missing", () => {
