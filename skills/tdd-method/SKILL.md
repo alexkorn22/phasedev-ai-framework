@@ -1,6 +1,6 @@
 ---
 name: tdd-method
-description: Use when implementing a behavior you have decided to cover with a test — to run the red-green-refactor cycle correctly — and when executing an approved batch of implementation items without artificial pauses.
+description: Use when implementing a behavior you have decided to cover with a test — to run the red-green-refactor cycle correctly. Batch size is owned by the host flow; this skill governs the cycle mechanics only.
 version: 1.0.0
 compatibility: universal
 metadata:
@@ -52,19 +52,14 @@ Then repeat: RED for the next behavior, GREEN to implement it, REFACTOR to clean
 | "I'll write the tests after" | Deferred testing disguised as pragmatism | For a behavior chosen for coverage, the test comes first. |
 | Refactor makes a test fail | REFACTOR violated its constraint | Undo. Either a behavior-preserving version, or a new RED first. |
 
-## Batch Continuity — No Pseudo-Pauses
+## Iteration Boundary — Yield to the Host Flow
 
-When executing an approved batch of N items, process ALL of them in one run unless a hard blocker fires. After completing item N, immediately start item N+1. The scope was approved once at the entry; that approval covers all items — asking again mid-batch is approval fatigue and burns the user's time.
+The red-green-refactor cycle governs HOW you implement one behavior. HOW MANY items you run is owned by the host flow, not this skill. Inside an approved batch, continue item-to-item without artificial pauses — but stop the moment the host flow's boundary stops you.
 
-Never do mid-batch:
+In PhaseDev's implementation phase the boundary is one iteration: the phase contract authorizes exactly the current iteration, then requires a transition through `phasedev advance` before the next. Do not continue into the next iteration in the same run, even though the full plan map is visible — implement the current iteration, then stop and report it ready for validation. Future iterations are boundary context, not authorization.
 
-- Ask "done 3 of 12 — should I continue with the rest?"
-- Present "(A) continue, (B) stop, (C) different scope" menus.
-- Estimate remaining time and offer to split into sessions.
-- Pause "to be safe", or stop after the first item "to validate the approach", unless explicitly told to.
-
-Stop only when: every item reached a terminal state (completed, skipped, or blocked); the user explicitly interrupts; or a genuine blocker requires a decision only the user can make. "I think this is enough for one session" is not a valid reason — keep going. The correct rhythm is: "Item 1/21 done. Starting 2/21." Continuation is not negotiable — it is the contract with the user.
+Stop when: the host flow's boundary is reached (one iteration, in PhaseDev); every item in the authorized scope reached a terminal state; the user explicitly interrupts; or a genuine blocker requires a decision only the user can make.
 
 ## Completion Condition
 
-The cycle for a behavior is complete when its test was seen red for the right reason, then green with all existing tests passing, and any refactoring left the suite green. A batch is complete when every item reached a terminal state.
+The cycle for a behavior is complete when its test was seen red for the right reason, then green with all existing tests passing, and any refactoring left the suite green. A batch is complete when every item in the host-flow-authorized scope reached a terminal state.
