@@ -15,7 +15,7 @@ Mine what the code actually enforces into behavioral specs, and keep those specs
 
 ## The Model — Requirements With Scenarios
 
-A spec is a flat list of behavioral assertions called Requirements. Every Requirement carries at least one Scenario (WHEN → THEN). There is one block type only — no type chapters ("API Contracts", "Business Rules", ...), and no trigger-free always-true assertions. A consumer greps by capability name and requirement name, not by chapter; classification chapters add noise, not signal.
+A spec is a flat list of behavioral assertions called Requirements. Every Requirement carries at least one Scenario (WHEN → THEN). There is one block type only — no Invariant type, no type chapters ("API Contracts", "Business Rules", ...). An always-true assertion (an invariant the code enforces) is written as a Requirement whose scenario states the invariant condition. A consumer greps by capability name and requirement name, not by chapter; classification chapters add noise, not signal.
 
 The on-disk format is fixed by the archive linter (`phasedev check-archive`) and the phase 7 contract — both below. Match it exactly; do not invent metadata blocks, id fields, or a separate block type.
 
@@ -48,7 +48,7 @@ Capability, enforcement, and test references still matter as EVIDENCE for the mi
 
 ## Guardrails
 
-- **Never invent behavior.** If the code does not clearly express a contract, record an explicit uncertainty note in the requirement's prose — never create a Requirement from guesswork. Phrase uncertainty without the words the archive linter rejects (including `TBD`, `TODO`, `clarify later`, `to be decided`): prefer "needs human verification" with the reason.
+- **Never invent behavior.** If the code does not clearly express a contract, record an explicit uncertainty note in the requirement's prose — never create a Requirement from guesswork. Phrase uncertainty without the words the archive linter rejects (`TBD`, `TODO`, `unknown`, `clarify later`, `to be decided`): prefer "needs human verification" with the reason.
 - **Cross-validate against callers.** A docstring says "returns User | null" but every caller null-checks: the Requirement is what callers rely on, not what the docs claim.
 - **Flag, don't fix.** A miner is not a refactorer: code inconsistencies discovered while mining are recorded as uncertainty notes, not patched.
 
