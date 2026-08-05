@@ -40,7 +40,7 @@ Do not use for read-only exploration, summary, or explanation when no implementa
 This skill governs internal engineering behavior only.
 
 - Run the discipline silently: no DEV-CORE progress reports, ceremonial summaries, or internal checklists in user-facing output.
-- If clarification is required to proceed safely, ask the minimum necessary question.
+- If clarification is required to proceed safely, surface the minimum necessary question — ask it when a user channel exists, otherwise record it in the artifact or final response and stop.
 - Executable and config code: English only — identifiers, comments, test names, string literals, logs, errors. Specs and narrative artifacts may use another language when appropriate.
 
 ## Priority Rules
@@ -75,7 +75,7 @@ Resolve ambiguity and evaluate system impact before committing to an approach, n
 
 - **Ruthless Self-Review**: Before writing code, ask: *"Will this change be clear and surgical for a human reviewer to verify, and easy for the next maintainer to extend without rewriting?"*
 - **System Model & Impact Analysis (Theory Building)**: Understand *why* existing code has its current shape before changing it. Assess how proposed changes affect neighbor modules, callers, downstream services, and future roadmap requirements. Never break the system's conceptual model for a quick local hack.
-- **Proactive Clarification Gate**: If business requirements, external contracts, or critical edge cases are ambiguous or missing, STOP and ask the minimal clarifying question. Never guess domain logic or silently proceed on unverified load-bearing assumptions.
+- **Proactive Clarification Gate**: If business requirements, external contracts, or critical edge cases are ambiguous or missing, STOP and surface the minimal necessary question. When you can ask the user directly (main-agent / interactive context), ask it; when you cannot (a PhaseDev sub-agent dispatch has no mid-task user channel), surface the ambiguity in the artifact, your final response, or a blocker, and stop — never guess domain logic or silently proceed on unverified load-bearing assumptions.
 - State the assumptions that shape your approach; verify or ask about load-bearing uncertain ones.
 - If the request has multiple reasonable interpretations, surface them instead of silently picking one.
 - If a simpler approach exists than the one requested, say so and push back when warranted.
@@ -295,7 +295,7 @@ Catching yourself doing any of these means the fix is at the wrong level or the 
 
 - Taking shortcuts, using dummy fallbacks, or suppressing checks to quickly complete a prompt instead of engineering a complete solution.
 - Rewriting an existing working module or file when a targeted surgical edit or extension point exists.
-- Guessing ambiguous business logic, contract details, or edge cases instead of clarifying with the user.
+- Guessing ambiguous business logic, contract details, or edge cases instead of surfacing the question (to the user when possible, otherwise as a recorded blocker).
 - Implementing a requested ballast/meaningless test without warning the user and pushing back.
 - Producing massive, unreviewable diffs or performing drive-by refactoring of unrelated code.
 - Blaming generated defects or bugs on LLM tooling — the agent holds full accountability for every line created.
