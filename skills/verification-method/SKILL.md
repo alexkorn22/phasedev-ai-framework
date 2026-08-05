@@ -13,7 +13,11 @@ metadata:
 
 Iron law: no completion claims without fresh evidence from the actual system. Never state that something works, passes, is fixed, or is complete unless you have run a verification command in this session and read its output. Prior knowledge, memory of previous runs, and logical deduction are not substitutes for fresh evidence.
 
-This applies to every claim: "tests pass", "build succeeds", "the bug is fixed", "the feature works", "no errors". It does not apply to analysis-only outputs (audit reports, design documents) where the claim is about findings, not system state.
+This applies to every claim: "tests pass", "build succeeds", "the bug is fixed", "the feature works", "no errors". It does not apply to analysis-only outputs (audit reports, design documents) where the claim is about findings, not system state. It also yields, without conflict, to an execution-restricted context — a phase or role whose contract forbids reruns and owns the allowed execution surface.
+
+## Execution-Restricted Context — Review-Only Evidence
+
+In a PhaseDev validation phase (iteration validation 6A, final validation 6B) the phase contract — not this skill — owns the execution surface: 6A forbids reruns entirely and validates through review methods; 6B runs exactly one `full` gate and forbids every other execution. Honoring that boundary IS applying this method: never demand a rerun the phase forbids, and never report `mandatory_steps: skipped` as a defect — the fresh evidence you cite is the evidence the phase allows (the single `full` gate output in 6B; the review-method conclusions and the existing Check Evidence in 6A). State which phase-allowed evidence backs each claim.
 
 ## The Five Steps
 
@@ -28,7 +32,7 @@ This applies to every claim: "tests pass", "build succeeds", "the bug is fixed",
 | "Feature works" | A test or manual check that exercises the feature |
 | "File is valid" | Read the file, confirm syntax and structure |
 
-**2 — RUN.** Execute the command fresh — do not rely on cached results. If the command was run before a code change, it must be run again after.
+**2 — RUN.** Execute the command fresh — do not rely on cached results. If the command was run before a code change, it must be run again after. If an execution-restricted context forbids this run, do not run it — cite the phase-allowed evidence instead (see "Execution-Restricted Context").
 
 **3 — READ.** Read the complete output and the exit code. Do not skim. Look for: non-zero exit codes; failed test counts (even if some pass); warnings that indicate problems; error output after apparent success lines.
 
