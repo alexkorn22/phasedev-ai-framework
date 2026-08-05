@@ -50,10 +50,6 @@ roles:
     tier: strong
     skills: [security-review-method]
     comment: Traces attacker-controlled input through the diff's security-sensitive surfaces
-  final-validator:
-    tier: strong
-    skills: [dev-core, verification-method, code-review-method]
-    comment: Phase 6B — whole-change validation, re-runs proofs and reviews the full diff
   spec_sync:
     tier: cheap
     skills: [spec-delta-method]
