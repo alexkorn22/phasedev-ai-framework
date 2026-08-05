@@ -13,18 +13,11 @@ metadata:
 
 Mine what the code actually enforces into behavioral specs, and keep those specs alive: anchored to the code, verifiable for freshness, and cheap to update with deltas when behavior changes. The output becomes the baseline truth that future change-deltas reference.
 
-## The Model — Two Block Types, No Chapters
+## The Model — Requirements With Scenarios
 
-A spec is not a document organized by type — it is a flat list of behavioral assertions. Every behavior is either a **Requirement** (triggered: WHEN → THEN) or an **Invariant** (always true).
+A spec is a flat list of behavioral assertions called Requirements. Every Requirement carries at least one Scenario (WHEN → THEN). There is one block type only — no type chapters ("API Contracts", "Business Rules", ...), and no trigger-free always-true assertions. A consumer greps by capability name and requirement name, not by chapter; classification chapters add noise, not signal.
 
-| Requirement | Invariant |
-|---|---|
-| "When user submits order, system creates order record" | "Account balance must always equal sum of transactions" |
-| "When stock is insufficient, return error INSUFFICIENT_STOCK" | "Inventory quantity must never be negative" |
-| Has at least one scenario | Has no scenarios; may carry a verifying-test reference |
-| Triggered by an action or event | True at all times, regardless of triggers |
-
-No type chapters — no "API Contracts", "Business Rules", "State Machines" sections. A consumer greps by entities and enforcement points, not by chapter titles; classification chapters add noise, not signal. Every Requirement has at least one scenario; Invariants have none.
+The on-disk format is fixed by the archive linter (`phasedev check-archive`) and the phase 7 contract — both below. Match it exactly; do not invent metadata blocks, id fields, or a separate block type.
 
 ## Mining Sources
 
@@ -32,19 +25,20 @@ Capture every behavioral assertion, in any order, from: public function signatur
 
 Do not skip a behavior because it doesn't fit a category: if the code enforces something, it goes in the spec.
 
-## Metadata — What Makes a Spec Alive
+## Spec Format — Match the Archive Linter
 
-For each behavior record what is known; if a field cannot be determined, leave it out — never guess:
+The archive linter accepts exactly these section headings and no others:
 
-- **entities** — the domain objects involved, named as they appear in code.
-- **enforced** — where in code the behavior is checked, precise enough to jump to (file + method).
-- **test** — the existing test covering it, if any.
-- **id** — a stable anchor derived from the most upstream enforcement point. It MUST NOT change when the human-readable name changes: it is what future modified-deltas match by — name matching breaks on every rename.
-- **depends_on / triggers** — only relationships directly traceable in code as synchronous call chains, within the same capability. Never guess cross-module or event-driven async dependencies — they are not statically traceable.
+- `## ADDED Requirements`
+- `## MODIFIED Requirements`
+- `## REMOVED Requirements`
+- `## RENAMED Requirements`
 
-A Requirement without an enforcement point is a promise with no accountability. Metadata must stay machine-parseable (one key–value per line) — an unsearchable spec is a dead spec.
+Inside them, every requirement starts with `### Requirement: <name>` and a normative `The system SHALL ...` (or `MUST`). Every scenario starts exactly with `#### Scenario: <name>` and lists `WHEN` / `THEN` steps. `MODIFIED` carries the full updated requirement, not a patch. `REMOVED` gives a `Reason:`. `RENAMED` gives `Renamed to:`. Use only the sections a change needs.
 
-Every spec records when and against which commit it was last verified against the code — the anchor that makes freshness checks possible. Consumers check that freshness before trusting the spec.
+There are no metadata blocks (no `entities`, `enforced`, `test`, `id` key–value lines) and no stable-id field — a modified requirement is matched by its requirement name within the capability. A capability is one directory `specs/<capability>/spec.md`; the directory name is the join key across delta and live spec.
+
+Capability, enforcement, and test references still matter as EVIDENCE for the miner — record them in the requirement's prose or scenario steps (e.g. "enforced in `orders.service.create`"), never as a separate metadata block the linter will reject.
 
 ## Scope and Organization
 
@@ -54,15 +48,15 @@ Every spec records when and against which commit it was last verified against th
 
 ## Guardrails
 
-- **Never invent behavior.** If the code does not clearly express a contract, record an explicit uncertainty note with the reason — never create a Requirement from guesswork, and never guess because the code is hard to read.
-- **Cross-validate against callers.** A docstring says "returns User | null" but every caller null-checks: the Requirement is what callers rely on, not what the docs claim. Copying docstrings without checking callers produces fiction.
-- **Flag, don't fix.** A miner is not a refactorer: code inconsistencies discovered while mining are recorded as uncertainties, not patched.
+- **Never invent behavior.** If the code does not clearly express a contract, record an explicit uncertainty note in the requirement's prose — never create a Requirement from guesswork. Phrase uncertainty without the words the archive linter rejects (including `TBD`, `TODO`, `clarify later`, `to be decided`): prefer "needs human verification" with the reason.
+- **Cross-validate against callers.** A docstring says "returns User | null" but every caller null-checks: the Requirement is what callers rely on, not what the docs claim.
+- **Flag, don't fix.** A miner is not a refactorer: code inconsistencies discovered while mining are recorded as uncertainty notes, not patched.
 
 ## Deltas — Syncing Specs with Landed Changes
 
 Every spec is a baseline for future deltas. When a change lands:
 
-- Record the behavioral difference as additions, modifications, and removals against the existing spec — matching modified behaviors by their stable id, never by display name.
+- Record the behavioral difference under `## ADDED Requirements` / `## MODIFIED Requirements` / `## REMOVED Requirements` / `## RENAMED Requirements` — matching modified behaviors by their requirement name within the capability directory, never by an invented id.
 - Keep the structure flat so delta operations stay cheap.
 - Search related specs for ripple effects: a changed behavior that other specs' dependencies or triggers reference must be reconciled, not left contradicting.
 - An ambiguous divergence — where code and spec disagree and the intended behavior is not decidable from the code — is escalated as an explicit uncertainty for a decision, never silently resolved in either direction.
@@ -79,4 +73,4 @@ Every spec is a baseline for future deltas. When a change lands:
 
 ## Completion Condition
 
-Mining or syncing is complete when every enforced behavior in scope is captured as a Requirement or Invariant with its known anchors, every unknown is an explicit uncertainty rather than a guess, deltas are matched by stable ids, ripple effects across related specs are reconciled or escalated, and the freshness anchors reflect exactly what was re-verified.
+Mining or syncing is complete when every enforced behavior in scope is captured as a Requirement (with at least one Scenario) in the archive-linter format, everything that could not be determined from the code is recorded as an explicit uncertainty note rather than a guess (worded without the linter's banned tokens), deltas are matched by requirement name within the capability, ripple effects across related specs are reconciled or escalated, and every produced spec would pass `phasedev check-archive`.
