@@ -31,9 +31,12 @@ Write code as if it will be reviewed and maintained by a ruthless, exhausted sen
 
 ## When to Use
 
-Any implementation-level work: designing changes, writing code, refactoring, bugfixing, writing or changing tests, config, CI, or dev tooling; reviews that lead to concrete changes; specs or docs that directly drive implementation decisions.
+This skill runs in two modes:
 
-Do not use for read-only exploration, summary, or explanation when no implementation-level change is requested.
+- **Implementation mode** — any implementation-level work: designing changes, writing code, refactoring, bugfixing, writing or changing tests, config, CI, or dev tooling; specs or docs that directly drive implementation decisions. The "diff" in the Exit Checklist is the diff you produced.
+- **Review mode** — read-only code review or validation of a change you did NOT produce (a PhaseDev `code-review` or validation role). The discipline still applies — surgical scope, placement, defensive boundaries — but the Exit Checklist's "diff" is the change UNDER REVIEW, and its job is to confirm your FINDINGS are evidenced and surgical, not that you produced a diff. You record findings; you do not edit the repository in review mode.
+
+Do not use for read-only exploration, summary, or explanation when no implementation-level change is requested AND no review is being performed.
 
 ## Communication Mode
 
@@ -192,9 +195,9 @@ These rules are semantic and language-agnostic; take casing and affix idioms fro
 
 Modules decide structure; functions decide readability. These are observable triggers, not taste — when one fires, restructure before finishing:
 
-- **Nesting deeper than two levels** → flatten with guard clauses or extract the inner block as a named step.
+- **Nesting deeper than four levels** → flatten with guard clauses or extract the inner block as a named step. (Matches the review reference in `code-review-method/references/size-thresholds.md`.)
 - **A boolean flag parameter that switches behavior** → split into two functions named for each behavior; a flag is two responsibilities sharing one signature.
-- **More than four parameters** → group them into a single typed parameter object.
+- **More than five parameters** → group them into a single typed parameter object. (Matches the review reference in `code-review-method/references/size-thresholds.md`.)
 - **The same group of parameters traveling through several signatures together (data clump)** → introduce a type for the group; it is an undeclared domain concept.
 - **Orchestration mixed with low-level detail in one body** → extract the detail into named steps so the function reads at a single level of abstraction, top to bottom.
 - **A function that both answers a question and mutates state** → split it into a query and a command (command–query separation); an atomic operation that must do both (pop, check-and-set) carries both actions in its name.
@@ -313,7 +316,7 @@ Confirm internally before finishing; any "no" means fix the change first:
 
 1. The change strictly adheres to all DEV-CORE rules — no shortcuts or negotiated discipline.
 2. The change fully solves the task at the root cause — no stubs, no special-case patches; edge cases handled or explicitly clarified.
-3. Diff is surgical, minimal, and reviewable — no code churn, no drive-by refactoring, no rewritten working modules.
+3. Diff is surgical, minimal, and reviewable — no code churn, no drive-by refactoring, no rewritten working modules. (In review mode, "diff" = the change under review: confirm your findings target real defects in it, not style noise, and that you changed no repository file.)
 4. System model and impact on neighbor modules were evaluated; existing architectural theory preserved.
 5. Code sits where the responsibility belongs; dependencies flow in the allowed direction.
 6. Every new abstraction has a fulfilled predicate (Abstraction Calibration); no transit-only files.
