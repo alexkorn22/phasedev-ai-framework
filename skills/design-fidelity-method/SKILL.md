@@ -60,13 +60,13 @@ Only when the artifact is purely prose or image do you design the implementation
 
 - Silently substituting your own design for the artifact's is forbidden.
 - Silently "fixing" or improving the artifact with your own opinion is equally forbidden.
-- When the artifact is wrong, incomplete, ambiguous, impossible, or conflicts with reality, do not blindly copy the mistake and do not quietly override it: surface it with your proposed correction and get the user's call. The artifact being authoritative means it is the default and the baseline — not beyond question.
-- A surfaced, user-approved deviation recorded in the resulting design or plan is legitimate. The defect is a silent divergence in either direction.
+- When the artifact is wrong, incomplete, ambiguous, impossible, or conflicts with reality, do not blindly copy the mistake and do not quietly override it: surface the divergence in the resulting design or plan (or in your final response / a blocker) with your proposed correction, and let the host flow decide. The artifact being authoritative means it is the default and the baseline — not beyond question.
+- A surfaced deviation, once the host flow decides it, recorded in the resulting design or plan is legitimate. The defect is a silent divergence in either direction. (In a PhaseDev sub-agent dispatch you cannot ask the user mid-task — surface the divergence and stop; the orchestrator or user resolves it.)
 
 ## Questions and Decisions
 
 - Clarifying questions cover deviations from the provided design first — the places where the plan cannot or should not match it — before any generic gap.
-- The load-bearing question is "your design shows X, the repo has Y — which wins here?", asked early — not "how should I build the thing your prototype already specifies?", asked at the end.
+- The load-bearing question is "your design shows X, the repo has Y — which wins here?", surfaced early (as a recorded divergence or blocker, not a mid-task user prompt) — not "how should I build the thing your prototype already specifies?", surfaced at the end.
 - If the artifact already answers a question unambiguously, do not ask it — follow it.
 
 ## Carrying Constraints Forward
@@ -84,4 +84,4 @@ Only when the artifact is purely prose or image do you design the implementation
 
 ## Completion Condition
 
-Fidelity work is complete when every hard constraint of the artifact is either honored in the result or surfaced as an explicit deviation the user decided on — none silently diverged from, in either direction.
+Fidelity work is complete when every hard constraint of the artifact is either honored in the result or surfaced as an explicit deviation for the host flow to decide — none silently diverged from, in either direction.

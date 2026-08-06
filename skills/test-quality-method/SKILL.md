@@ -45,7 +45,7 @@ Exception — pass-through delegation: when the method's contract IS "return exa
 
 Rate detection power: (1) existence — catches almost nothing; (2) structural/shape; (3) exact value; (4) interaction with exact args; (5) semantic — verifies computed output. **Gate: at least 60% of a file's assertions at level 3+.** Strength and provenance are orthogonal: an exact-value assertion whose expected value is echoed from setup still fails the oracle check.
 
-Classify and act: STRONG behavioral — keep; WEAK (`toBeDefined`, `toBeTruthy`, typeof) — add a value assertion; TAUTOLOGICAL (expected mirrors implementation) — replace with a spec-derived literal; DEAD (always-true, silent skip, unreachable) — delete and replace. A file where more than 60% is weak+tautological+dead is rewritten, not patched.
+Classify and report: STRONG behavioral — keep; WEAK (`toBeDefined`, `toBeTruthy`, typeof) — required-fix: add a value assertion; TAUTOLOGICAL (expected mirrors implementation) — required-fix: replace with a spec-derived literal; DEAD (always-true, silent skip, unreachable) — required-fix: delete and replace. The auditor records each remediation as a finding (class `test`); it does not edit the test file itself — in a PhaseDev validation phase the auditor is read-only, and the implementer performs the remediation under finding repair. A file where more than 60% is weak+tautological+dead is flagged "rewrite, not patch" in its finding, not rewritten in place.
 
 ## Critical Checks — any failure sinks the file
 

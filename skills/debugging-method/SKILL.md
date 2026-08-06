@@ -50,6 +50,8 @@ Surface-specific narrowing sequences (API, frontend, database, async): see `refe
 
 ## Regression Bisect Track
 
+**Clean-tree guardrail.** Bisect moves through commits (`git bisect`, checkout-history, reverting). In a PhaseDev flow with an active clean-tree gate or a pending commitLog/findings baseline, that movement is forbidden — it violates the gate and corrupts the baseline. When such a gate is active, skip this track and use the standard REPRODUCE → MINIMAL REPRO → DIAGNOSE path against the current tree only; reserve bisect for contexts with no clean-tree constraint.
+
 For deterministic regressions with a known-good past state:
 
 - Write a minimal reproducer test that FAILS on current HEAD; pick a good commit (user-provided, or probe progressively older commits) and verify the test passes there. If it also fails on the "good" commit, this is not a regression — fall back to the standard flow.

@@ -24,6 +24,10 @@ function pad(value: string, width: number): string {
   return value.padEnd(width, " ");
 }
 
+export function sanitizeComment(comment: string): string {
+  return comment.replace(/\r?\n/g, " ").replace(/\|/g, "").trim();
+}
+
 function degradationNote(
   tiers: ModelTiers,
   harness: string,
@@ -79,7 +83,7 @@ export function renderSpawnPlan(config: Config, tiers: ModelTiers, harness: stri
   const modelWidth = Math.max(...roles.map(role => role.model.length));
   const rows = roles.map(role => {
     const skills = role.skills.length > 0 ? role.skills.join(", ") : "none";
-    const comment = role.comment === undefined ? "" : ` | ${role.comment}`;
+    const comment = role.comment === undefined ? "" : ` | ${sanitizeComment(role.comment)}`;
     return `${pad(role.name, nameWidth)} | ${pad(role.model, modelWidth)} | ${skills}${comment}`;
   });
 

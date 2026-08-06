@@ -22,7 +22,7 @@ A change touches: auth, guards, tokens, sessions, payment/billing, migrations or
 - **Assume-exploit.** Treat a traced flow as exploitable unless the defense is proven sufficient on the live path. A safe-pattern match is evidence, not auto-exclusion — the trace must show the defense covers this flow.
 - **No hedging.** "Might be vulnerable" is not a finding: prove it or move it out of final findings. Every final finding needs a source trace or runtime evidence.
 - **Strict sequence per candidate: sink → trace → defense → judgment.** Confirm the sink; trace whether attacker-controlled input reaches it (provenance, not trust, decides — "input is trusted" is not an argument); check framework mitigations and explicit validation on the traced path; then judge.
-- **Confidence by trace quality.** A locally visible direct flow (untrusted input meets the sink in the same function) is high-confidence on its own. A cross-function flow you could NOT connect is capped at medium — report it as needs-verification, never as a headline finding. Low-confidence theory is excluded.
+- **Confidence by trace quality.** A locally visible direct flow (untrusted input meets the sink in the same function) is high-confidence on its own. A cross-function flow you could NOT connect is capped at medium-confidence — report it as needs-verification, never as a headline finding. Low-confidence theory is excluded. Confidence shapes whether and how a finding is reported; severity is fixed — every security finding is recorded as MUST-FIX.
 - **Fix completeness:** for data-flow findings, the fix covers BOTH the source side (validation) and the sink side (escaping/parameterization).
 - **Coverage is reported**: state which files were checked against the scope inventory — a partial pass is not a clean pass.
 
@@ -57,7 +57,7 @@ Verification pairing: every control has a required test that attacks it — the 
 
 ## On a Critical Find
 
-Document with the trace and a secure example; alert immediately; verify the remediation actually closes the path; if credentials were exposed — rotate them and sweep the codebase for the same pattern.
+Document with the trace and a secure example; alert immediately; verify the remediation actually closes the path; if credentials were exposed, the finding's required-fix states "rotate the exposed credentials and sweep the codebase for the same pattern" — the reviewer records the finding, the implementer performs the rotation under finding repair.
 
 ## Completion Condition
 

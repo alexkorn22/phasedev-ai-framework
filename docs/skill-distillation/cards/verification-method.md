@@ -4,7 +4,7 @@
 
 - **Скилл**: `verification-method`
 - **Этап**: 4 (порядок «по флоу»)
-- **Роли-потребители** (§5.3): `implementation-check`, `final-validator`
+- **Роли-потребители** (§5.3): `implementation-check` и его 6B-диспатч по всему изменению (`final-validator` REMOVED — задача 10)
 - **Статус**: assembled → приёмка L1
 
 ## Шаг 1. Источники
@@ -38,4 +38,4 @@
 
 ## Интеграция
 
-`config.yaml`: `implementation-check: [verification-method, test-quality-method]` (полный целевой список — с этим этапом), `final-validator: [dev-core, verification-method]` (третий скилл `code-review-method` приедет этапом 5). Risk-7: у implementation-check дискавери-аналог (verification-before-completion) замещается строго более сильным методом — решение волны 0 в силе.
+`config.yaml`: `implementation-check: [verification-method, test-quality-method]` (полный целевой список — с этим этапом); потребители — `implementation-check` и его 6B-диспатч по всему изменению (`final-validator` REMOVED — задача 10). Risk-7: у implementation-check дискавери-аналог (verification-before-completion) замещается строго более сильным методом — решение волны 0 в силе.

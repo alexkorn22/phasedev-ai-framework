@@ -13,7 +13,7 @@ roles:
   evidence-scout:
     tier: cheap
     skills: [codebase-recon, design-fidelity-method]
-    comment: Pre-phase-1 scout — gathers codebase facts and design-artifact constraints to ground clarify questions
+    comment: Scout — gathers codebase facts (intake-restricted mode applies) and design-artifact constraints to ground clarify questions
   approval-reviewer:
     tier: strong
     skills: [acceptance-criteria-method, design-fidelity-method]
@@ -41,7 +41,7 @@ roles:
   implementation-check:
     tier: standard
     skills: [verification-method, test-quality-method]
-    comment: Verifies iteration completion with fresh command evidence and audits test quality
+    comment: Verifies iteration completion with phase-allowed evidence (review methods in 6A; the single full gate in 6B) and audits test quality
   code-review:
     tier: standard
     skills: [dev-core, code-review-method]
@@ -50,10 +50,6 @@ roles:
     tier: strong
     skills: [security-review-method]
     comment: Traces attacker-controlled input through the diff's security-sensitive surfaces
-  final-validator:
-    tier: strong
-    skills: [dev-core, verification-method, code-review-method]
-    comment: Phase 6B — whole-change validation, re-runs proofs and reviews the full diff
   spec_sync:
     tier: cheap
     skills: [spec-delta-method]

@@ -19,9 +19,15 @@ A systematic method for reconnoitering a codebase: what to look at, in what orde
 - Scoping research before design, planning, or estimation.
 - Gathering evidence for an analysis where the code is the primary source.
 
+## Intake-Restricted Mode
+
+Before intake is complete, a PhaseDev change-intake phase forbids inspecting the repository at all — no file reads, searches, logs, config, tests, or template inspection. If your dispatch is an intake role and intake is not yet complete, do NOT run Step 1's signal sweep: gather only the task description and the task-specific constraints from the user, then stop.
+
+After intake completes, the phase allows a narrow budget: at most one broad file listing, plus focused searches for concrete evidence (and one focused package/workspace listing when needed for nested or monorepo package discovery). Apply Step 1 within that budget — run the signal-sweep categories selectively, not as a full parallel sweep, and prefer focused grep over broad listing when you already know what you are looking for.
+
 ## Step 1 — Signal sweep (no deep reading)
 
-Gather raw signals about the project without reading every file. Run these checks in parallel:
+Gather raw signals about the project without reading every file. Outside an intake-restricted context (see above), run these checks in parallel; inside one, apply only the budget the phase allows.
 
 - Package manifests: package.json, go.mod, Cargo.toml, pyproject.toml, pom.xml, build.gradle, Gemfile, composer.json, mix.exs, pubspec.yaml.
 - Framework fingerprints: next.config.*, nuxt.config.*, angular.json, vite.config.*, django settings, flask app factory, fastapi main, rails config.

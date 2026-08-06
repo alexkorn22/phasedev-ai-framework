@@ -10,4 +10,10 @@ describe("parseConfig on malformed YAML", () => {
     const cfg = parseConfig("");
     expect(cfg.roles).toEqual([]);
   });
+
+  test("rejects a multi-line role comment", () => {
+    expect(() =>
+      parseConfig("roles:\n  research: { tier: cheap, comment: \"line one\\nline two\" }\n")
+    ).toThrow(/comment/);
+  });
 });
