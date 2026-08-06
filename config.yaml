@@ -41,7 +41,7 @@ roles:
   implementation-check:
     tier: standard
     skills: [verification-method, test-quality-method]
-    comment: Verifies iteration completion with fresh command evidence and audits test quality
+    comment: Verifies iteration completion with phase-allowed evidence (review methods in 6A; the single full gate in 6B) and audits test quality
   code-review:
     tier: standard
     skills: [dev-core, code-review-method]
