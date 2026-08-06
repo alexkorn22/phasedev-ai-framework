@@ -4,7 +4,7 @@
 
 ## 1. Каталог ролей
 
-`config.yaml` уже приведён к 12 именам §5.3 (коммит f908397), включая переименование `validator` → `final-validator`. `dev-core` проставлен ролям `architect`, `planner`, `implementer`, `code-review`, `final-validator` — совпадает с целевым составом §5.3. Пункт волны 0 закрыт до старта дистилляции.
+`config.yaml` уже приведён к 12 именам §5.3 (коммит f908397), включая переименование `validator` → `final-validator` (REMOVED — задача 10: 6B теперь гоняет ролевой набор 6A по всему изменению; см. config.yaml). `dev-core` проставлен ролям `architect`, `planner`, `implementer`, `code-review`, `final-validator` — на момент аудита совпадало с целевым составом §5.3. Пункт волны 0 закрыт до старта дистилляции.
 
 ## 2. Сверка адресов: инвентарь и конфликт-лог ↔ скиллы и волны
 
@@ -29,7 +29,7 @@
 
 Вывод: наполнение `[verification-method]` не ухудшает роль относительно текущего состояния.
 
-### `final-validator` (сейчас `skills: [dev-core]`, дискавери уже выключено)
+### `final-validator` (REMOVED — 6B now runs the 6A role set over the whole change; see config.yaml)
 
 Дискавери выключено коммитом f908397 — потерь от добавления нет по определению. `verification-method` строго расширяет метод роли. Третий скилл целевого состава (`code-review-method`) добавится вторым шагом волны 1.
 

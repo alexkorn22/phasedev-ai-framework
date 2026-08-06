@@ -4,7 +4,7 @@
 
 - **Скилл**: `code-review-method`
 - **Этап**: 5 (порядок «по флоу»)
-- **Роли-потребители**: `code-review`, `final-validator`. **Отклонение от §5.3 (решение пользователя 2026-08-04):** `approval-reviewer` НЕ получает code-review-method — он проверяет артефакты гейтов (PRD/дизайн/план), не код; его список — `[acceptance-criteria-method, design-fidelity-method]` (ревью-стороны обоих методов).
+- **Роли-потребители**: `code-review` (`final-validator` REMOVED — задача 10: 6B покрывается `code-review` по всему изменению). **Отклонение от §5.3 (решение пользователя 2026-08-04):** `approval-reviewer` НЕ получает code-review-method — он проверяет артефакты гейтов (PRD/дизайн/план), не код; его список — `[acceptance-criteria-method, design-fidelity-method]` (ревью-стороны обоих методов).
 - **Статус**: assembled → приёмка L1
 
 ## Шаг 1. Источники
@@ -57,4 +57,4 @@
 
 ## Интеграция
 
-`config.yaml`: `code-review: [dev-core, code-review-method]`, `final-validator: [dev-core, verification-method, code-review-method]`; `approval-reviewer: [acceptance-criteria-method, design-fidelity-method]` (отклонение от §5.3, см. паспорт).
+`config.yaml`: `code-review: [dev-core, code-review-method]` (`final-validator` REMOVED — задача 10: 6B покрывается `code-review` по всему изменению); `approval-reviewer: [acceptance-criteria-method, design-fidelity-method]` (отклонение от §5.3, см. паспорт).
