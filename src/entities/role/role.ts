@@ -55,7 +55,7 @@ function readComment(value: unknown, key: string): string | undefined {
     throw new Error(`Config key ${key} must be a string.`);
   }
   if (/\r?\n/.test(value)) {
-    throw new Error(`Config key ${key} must be a single line. Multi-line comments break spawn-plan output.`);
+    throw new Error(`Config key ${key} must be a single line.`);
   }
   const comment = value.trim();
   return comment === "" ? undefined : comment;

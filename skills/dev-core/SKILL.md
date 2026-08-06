@@ -195,9 +195,9 @@ These rules are semantic and language-agnostic; take casing and affix idioms fro
 
 Modules decide structure; functions decide readability. These are observable triggers, not taste — when one fires, restructure before finishing:
 
-- **Nesting deeper than four levels** → flatten with guard clauses or extract the inner block as a named step. (Matches the review reference in `code-review-method/references/size-thresholds.md`.)
+- **Nesting deeper than four levels** → flatten with guard clauses or extract the inner block as a named step. (Matches the review reference in `../code-review-method/references/size-thresholds.md`.)
 - **A boolean flag parameter that switches behavior** → split into two functions named for each behavior; a flag is two responsibilities sharing one signature.
-- **More than five parameters** → group them into a single typed parameter object. (Matches the review reference in `code-review-method/references/size-thresholds.md`.)
+- **More than five parameters** → group them into a single typed parameter object. (Matches the review reference in `../code-review-method/references/size-thresholds.md`.)
 - **The same group of parameters traveling through several signatures together (data clump)** → introduce a type for the group; it is an undeclared domain concept.
 - **Orchestration mixed with low-level detail in one body** → extract the detail into named steps so the function reads at a single level of abstraction, top to bottom.
 - **A function that both answers a question and mutates state** → split it into a query and a command (command–query separation); an atomic operation that must do both (pop, check-and-set) carries both actions in its name.
@@ -322,7 +322,7 @@ Confirm internally before finishing; any "no" means fix the change first:
 6. Every new abstraction has a fulfilled predicate (Abstraction Calibration); no transit-only files.
 7. The most probable next change lands in one obvious place without rewriting this one.
 8. Types are strict, boundaries validated, errors explicit — nothing suppressed to make checks pass.
-9. Tests assert real behavior; no ballast tests; affected tests updated.
+9. Tests assert real behavior; no ballast tests; affected tests updated. (In review mode, "affected tests updated" = the change under review's tests: confirm your findings are backed by real behavioral tests; you update no test file.)
 10. No I/O in loops, no unbounded reads; independent async runs concurrently.
 11. Only task-required lines changed, and the most relevant check actually ran.
 12. Every Function-Level Readability trigger respected; no generic names; domain concepts typed.

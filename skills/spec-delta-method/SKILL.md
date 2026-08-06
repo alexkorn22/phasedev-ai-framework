@@ -38,7 +38,7 @@ Inside them, every requirement starts with `### Requirement: <name>` and a norma
 
 There are no metadata blocks (no `entities`, `enforced`, `test`, `id` key–value lines) and no stable-id field — a modified requirement is matched by its requirement name within the capability. A capability is one directory `specs/<capability>/spec.md`; the directory name is the join key across delta and live spec.
 
-Capability, enforcement, and test references still matter as EVIDENCE for the miner — record them in the requirement's prose or scenario steps (e.g. "enforced in `orders.service.create`"), never as a separate metadata block the linter will reject.
+Capability, enforcement, and test references still matter as EVIDENCE for the miner — record them in the requirement's prose or scenario steps (e.g. "enforced in `orders.service.create`"), never as a separate metadata block — neither the linter nor the phase 7 contract accepts metadata blocks.
 
 ## Scope and Organization
 

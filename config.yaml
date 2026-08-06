@@ -13,7 +13,7 @@ roles:
   evidence-scout:
     tier: cheap
     skills: [codebase-recon, design-fidelity-method]
-    comment: Pre-phase-1 scout — gathers codebase facts and design-artifact constraints to ground clarify questions
+    comment: Scout — gathers codebase facts (intake-restricted mode applies) and design-artifact constraints to ground clarify questions
   approval-reviewer:
     tier: strong
     skills: [acceptance-criteria-method, design-fidelity-method]
