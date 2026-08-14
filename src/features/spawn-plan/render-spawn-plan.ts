@@ -6,6 +6,7 @@ export interface SpawnPlanRole {
   name: string;
   model: string;
   skills: string[];
+  comment?: string;
 }
 
 export interface SpawnPlanResult {
@@ -21,6 +22,10 @@ const HEADER_TAIL = [
 
 function pad(value: string, width: number): string {
   return value.padEnd(width, " ");
+}
+
+export function sanitizeComment(comment: string): string {
+  return comment.replace(/\r?\n/g, " ").replace(/\|/g, "").trim();
 }
 
 function degradationNote(
@@ -55,7 +60,12 @@ export function renderSpawnPlan(config: Config, tiers: ModelTiers, harness: stri
       missingTiers.add(role.tier);
       affectedRoleNames.push(role.name);
     }
-    return { name: role.name, model: model ?? role.tier, skills: role.skills };
+    return {
+      name: role.name,
+      model: model ?? role.tier,
+      skills: role.skills,
+      ...(role.comment === undefined ? {} : { comment: role.comment })
+    };
   });
 
   const header = [`Roles for sub-agent dispatch (${harness}).`, ...HEADER_TAIL].join("\n");
@@ -71,9 +81,11 @@ export function renderSpawnPlan(config: Config, tiers: ModelTiers, harness: stri
 
   const nameWidth = Math.max(...roles.map(role => role.name.length));
   const modelWidth = Math.max(...roles.map(role => role.model.length));
-  const rows = roles.map(role =>
-    `${pad(role.name, nameWidth)} | ${pad(role.model, modelWidth)} | ${role.skills.length > 0 ? role.skills.join(", ") : "none"}`
-  );
+  const rows = roles.map(role => {
+    const skills = role.skills.length > 0 ? role.skills.join(", ") : "none";
+    const comment = role.comment === undefined ? "" : ` | ${sanitizeComment(role.comment)}`;
+    return `${pad(role.name, nameWidth)} | ${pad(role.model, modelWidth)} | ${skills}${comment}`;
+  });
 
   return {
     ok: true,

@@ -103,6 +103,24 @@ roles:
     );
   });
 
+  test("parses a role comment and trims it", () => {
+    const config = parseConfig('roles:\n  research: { tier: cheap, skills: [codebase-recon], comment: "  Read-only recon  " }\n');
+    expect(config.roles).toEqual([
+      { name: "research", tier: "cheap", skills: ["codebase-recon"], comment: "Read-only recon" }
+    ]);
+  });
+
+  test("omits comment when absent or blank", () => {
+    expect(parseConfig("roles:\n  a: { tier: cheap }\n").roles[0].comment).toBeUndefined();
+    expect(parseConfig('roles:\n  a: { tier: cheap, comment: "   " }\n').roles[0].comment).toBeUndefined();
+  });
+
+  test("rejects a non-string role comment", () => {
+    expect(() => parseConfig("roles:\n  a: { tier: cheap, comment: 7 }\n")).toThrow(
+      "Config key roles.a.comment must be a string."
+    );
+  });
+
   test("reads a role by dot-notation config key", () => {
     const config = parseConfig("roles:\n  implementer: { tier: standard, skills: [tdd-method] }\n");
     expect(getConfigValue(config, "roles")).toEqual([

@@ -131,15 +131,17 @@ phasedev version
 
 The link points at the clone, so `git pull` updates the global command in place (`bun unlink` removes it).
 
-### 2. Add the orchestrator skills (Claude Code example)
+### 2. Add the agent skills (Claude Code example)
 
-The repo ships three agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), and `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships all 13 agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
 
 ```bash
-mkdir -p ~/.claude/skills
-ln -s /absolute/path/to/phasedev-ai-framework/skills/phasedev-orchestrator ~/.claude/skills/phasedev-orchestrator
-ln -s /absolute/path/to/phasedev-ai-framework/skills/express-orchestrator  ~/.claude/skills/express-orchestrator
-ln -s /absolute/path/to/phasedev-ai-framework/skills/dev-core              ~/.claude/skills/dev-core
+# One-liner: symlink every shipped skill (orchestrators + dev-core + the 10 method skills)
+mkdir -p ~/.claude/skills && for s in phasedev-orchestrator express-orchestrator dev-core \
+  codebase-recon design-fidelity-method acceptance-criteria-method tdd-method \
+  debugging-method verification-method test-quality-method code-review-method \
+  security-review-method spec-delta-method; do \
+  ln -sf "/absolute/path/to/phasedev-ai-framework/skills/$s" "$HOME/.claude/skills/$s"; done
 ```
 
 Symlinks (not copies) keep the skills in sync with the CLI on `git pull`. To tailor the orchestrator per project (mandate TDD, pin reviewer sub-agents, …), add a dedicated section to the project's `CLAUDE.md` / `AGENTS.md` — project instructions take precedence over the skill.
@@ -229,24 +231,21 @@ requireIterationCommit: true
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
-  evidence-scout:       { tier: cheap,    skills: [] }           # clarify, before phase 1
-  approval-reviewer:    { tier: strong,   skills: [] }           # autoApprove gate
-  intake-analyst:       { tier: strong,   skills: [] }           # phase 1
-  research:             { tier: cheap,    skills: [] }           # phase 2
-  architect:            { tier: strong,   skills: [dev-core] }   # phase 3
-  planner:              { tier: strong,   skills: [dev-core] }
-  implementer:          { tier: standard, skills: [dev-core] }
-  implementation-check: { tier: standard, skills: [] }
-  code-review:          { tier: standard, skills: [dev-core] }
-  security-review:      { tier: strong,   skills: [] }
-  final-validator:      { tier: strong,   skills: [dev-core] }   # phase 6B
-  spec_sync:            { tier: cheap,    skills: [] }
+  research:
+    tier: cheap
+    skills: [codebase-recon]
+    comment: Phase 2 — read-only codebase reconnaissance
+  implementer:
+    tier: standard
+    skills: [dev-core, tdd-method, debugging-method]
+    comment: Implements one iteration test-first and debugs failures to root cause
+  # ... one entry per role; the full shipped catalog lives in config.yaml
 ```
 
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
 - `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
 - `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
-- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`) and a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list). It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model and mandatory skills — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier` and `skills` are validated. An empty `skills` list (the shipped default above, until a distilled skill library populates it) does not mean the sub-agent may use no skills at all — it means the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary rules that govern named skills. Once a role's `skills` list is non-empty, that list is mandatory again and discovery is not substituted for it.
+- `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`), a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list), and an optional free-text `comment` describing what the role does. It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model, mandatory skills, and the comment when present — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier`, `skills`, and `comment` are validated. An empty `skills` list does not mean the sub-agent may use no skills at all — it means the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary rules that govern named skills. Once a role's `skills` list is non-empty (the shipped default since the distilled skill library landed), that list is mandatory again and discovery is not substituted for it.
 
 Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
 

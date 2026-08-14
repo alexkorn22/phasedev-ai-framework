@@ -31,16 +31,19 @@ Write code as if it will be reviewed and maintained by a ruthless, exhausted sen
 
 ## When to Use
 
-Any implementation-level work: designing changes, writing code, refactoring, bugfixing, writing or changing tests, config, CI, or dev tooling; reviews that lead to concrete changes; specs or docs that directly drive implementation decisions.
+This skill runs in two modes:
 
-Do not use for read-only exploration, summary, or explanation when no implementation-level change is requested.
+- **Implementation mode** — any implementation-level work: designing changes, writing code, refactoring, bugfixing, writing or changing tests, config, CI, or dev tooling; specs or docs that directly drive implementation decisions. The "diff" in the Exit Checklist is the diff you produced.
+- **Review mode** — read-only code review or validation of a change you did NOT produce (a PhaseDev `code-review` or validation role). The discipline still applies — surgical scope, placement, defensive boundaries — but the Exit Checklist's "diff" is the change UNDER REVIEW, and its job is to confirm your FINDINGS are evidenced and surgical, not that you produced a diff. You record findings; you do not edit the repository in review mode.
+
+Do not use for read-only exploration, summary, or explanation when no implementation-level change is requested AND no review is being performed.
 
 ## Communication Mode
 
 This skill governs internal engineering behavior only.
 
 - Run the discipline silently: no DEV-CORE progress reports, ceremonial summaries, or internal checklists in user-facing output.
-- If clarification is required to proceed safely, ask the minimum necessary question.
+- If clarification is required to proceed safely, surface the minimum necessary question — ask it when a user channel exists, otherwise record it in the artifact or final response and stop.
 - Executable and config code: English only — identifiers, comments, test names, string literals, logs, errors. Specs and narrative artifacts may use another language when appropriate.
 
 ## Priority Rules
@@ -75,7 +78,7 @@ Resolve ambiguity and evaluate system impact before committing to an approach, n
 
 - **Ruthless Self-Review**: Before writing code, ask: *"Will this change be clear and surgical for a human reviewer to verify, and easy for the next maintainer to extend without rewriting?"*
 - **System Model & Impact Analysis (Theory Building)**: Understand *why* existing code has its current shape before changing it. Assess how proposed changes affect neighbor modules, callers, downstream services, and future roadmap requirements. Never break the system's conceptual model for a quick local hack.
-- **Proactive Clarification Gate**: If business requirements, external contracts, or critical edge cases are ambiguous or missing, STOP and ask the minimal clarifying question. Never guess domain logic or silently proceed on unverified load-bearing assumptions.
+- **Proactive Clarification Gate**: If business requirements, external contracts, or critical edge cases are ambiguous or missing, STOP and surface the minimal necessary question. When you can ask the user directly (main-agent / interactive context), ask it; when you cannot (a PhaseDev sub-agent dispatch has no mid-task user channel), surface the ambiguity in the artifact, your final response, or a blocker, and stop — never guess domain logic or silently proceed on unverified load-bearing assumptions.
 - State the assumptions that shape your approach; verify or ask about load-bearing uncertain ones.
 - If the request has multiple reasonable interpretations, surface them instead of silently picking one.
 - If a simpler approach exists than the one requested, say so and push back when warranted.
@@ -192,9 +195,9 @@ These rules are semantic and language-agnostic; take casing and affix idioms fro
 
 Modules decide structure; functions decide readability. These are observable triggers, not taste — when one fires, restructure before finishing:
 
-- **Nesting deeper than two levels** → flatten with guard clauses or extract the inner block as a named step.
+- **Nesting deeper than four levels** → flatten with guard clauses or extract the inner block as a named step. (Matches the review reference in `../code-review-method/references/size-thresholds.md`.)
 - **A boolean flag parameter that switches behavior** → split into two functions named for each behavior; a flag is two responsibilities sharing one signature.
-- **More than four parameters** → group them into a single typed parameter object.
+- **More than five parameters** → group them into a single typed parameter object. (Matches the review reference in `../code-review-method/references/size-thresholds.md`.)
 - **The same group of parameters traveling through several signatures together (data clump)** → introduce a type for the group; it is an undeclared domain concept.
 - **Orchestration mixed with low-level detail in one body** → extract the detail into named steps so the function reads at a single level of abstraction, top to bottom.
 - **A function that both answers a question and mutates state** → split it into a query and a command (command–query separation); an atomic operation that must do both (pop, check-and-set) carries both actions in its name.
@@ -295,7 +298,7 @@ Catching yourself doing any of these means the fix is at the wrong level or the 
 
 - Taking shortcuts, using dummy fallbacks, or suppressing checks to quickly complete a prompt instead of engineering a complete solution.
 - Rewriting an existing working module or file when a targeted surgical edit or extension point exists.
-- Guessing ambiguous business logic, contract details, or edge cases instead of clarifying with the user.
+- Guessing ambiguous business logic, contract details, or edge cases instead of surfacing the question (to the user when possible, otherwise as a recorded blocker).
 - Implementing a requested ballast/meaningless test without warning the user and pushing back.
 - Producing massive, unreviewable diffs or performing drive-by refactoring of unrelated code.
 - Blaming generated defects or bugs on LLM tooling — the agent holds full accountability for every line created.
@@ -313,13 +316,13 @@ Confirm internally before finishing; any "no" means fix the change first:
 
 1. The change strictly adheres to all DEV-CORE rules — no shortcuts or negotiated discipline.
 2. The change fully solves the task at the root cause — no stubs, no special-case patches; edge cases handled or explicitly clarified.
-3. Diff is surgical, minimal, and reviewable — no code churn, no drive-by refactoring, no rewritten working modules.
+3. Diff is surgical, minimal, and reviewable — no code churn, no drive-by refactoring, no rewritten working modules. (In review mode, "diff" = the change under review: confirm your findings target real defects in it, not style noise, and that you changed no repository file.)
 4. System model and impact on neighbor modules were evaluated; existing architectural theory preserved.
 5. Code sits where the responsibility belongs; dependencies flow in the allowed direction.
 6. Every new abstraction has a fulfilled predicate (Abstraction Calibration); no transit-only files.
 7. The most probable next change lands in one obvious place without rewriting this one.
 8. Types are strict, boundaries validated, errors explicit — nothing suppressed to make checks pass.
-9. Tests assert real behavior; no ballast tests; affected tests updated.
+9. Tests assert real behavior; no ballast tests; affected tests updated. (In review mode, "affected tests updated" = the change under review's tests: confirm your findings are backed by real behavioral tests; you update no test file.)
 10. No I/O in loops, no unbounded reads; independent async runs concurrently.
 11. Only task-required lines changed, and the most relevant check actually ran.
 12. Every Function-Level Readability trigger respected; no generic names; domain concepts typed.
