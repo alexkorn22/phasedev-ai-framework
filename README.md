@@ -4,7 +4,7 @@
 
 # ⚙️ PhaseDev AI Framework
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.4.1-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -133,7 +133,23 @@ The link points at the clone, so `git pull` updates the global command in place 
 
 ### 2. Add the agent skills (Claude Code example)
 
-The repo ships all 13 agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`), which the catalog names per role. Symlink them into a project's `.claude/skills/` — or into `~/.claude/skills/` to have them everywhere:
+The repo ships all 13 agent skills under [`skills/`](skills/): `phasedev-orchestrator` (Standard + Quick), `express-orchestrator` (stateless track), `dev-core` — the coding discipline the `roles` catalog names for design, implementation and review roles — and the distilled role-skill library (`codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`), which the catalog names per role.
+
+Symlink them into your working project's `.claude/skills/` for local scope, or into `~/.claude/skills/` to have them globally across all projects:
+
+#### Option A: Local (Current project only)
+
+```bash
+# Run from your target project directory:
+cd /path/to/your-project
+mkdir -p .claude/skills && for s in phasedev-orchestrator express-orchestrator dev-core \
+  codebase-recon design-fidelity-method acceptance-criteria-method tdd-method \
+  debugging-method verification-method test-quality-method code-review-method \
+  security-review-method spec-delta-method; do \
+  ln -sf "/absolute/path/to/phasedev-ai-framework/skills/$s" ".claude/skills/$s"; done
+```
+
+#### Option B: Global (All projects)
 
 ```bash
 # One-liner: symlink every shipped skill (orchestrators + dev-core + the 10 method skills)
