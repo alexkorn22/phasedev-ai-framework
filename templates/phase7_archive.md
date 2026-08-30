@@ -1,6 +1,6 @@
 Phase 7. Archive.
 
-Your task is to complete the already archived change: delegate specification work to a `spec_sync` sub-agent, resolve its escalations with the user, run the archive self-check, and complete the machine state.
+Your task is to complete the already archived change: perform specification work directly, resolve any escalations with the user, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
