@@ -67,7 +67,7 @@ Phase completion:
 Research ready: {{research_path}}
 Self-check: {{self_check_command}} -> <result>
 Route: design
-Next: phasedev phase
+Next: phasedev advance
 {{skill_compliance_line}}
 ```
 

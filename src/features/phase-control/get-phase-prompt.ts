@@ -30,7 +30,7 @@ import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckComm
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
   const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
   return {
-    command: "next",
+    command: "phase",
     phase,
     prompt: [
       `[PHASEDEV] BLOCKED: state.json is missing activeIteration for phase "${phase}".`,
@@ -149,7 +149,7 @@ export function renderImplementation(projectPath: string, config: Config, paths:
 
   if (!currentPhase) {
     return {
-      command: "next",
+      command: "phase",
       phase: "implementation",
       prompt: `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan. Check state.json and iteration_plan.md.`,
       blocked: true,
@@ -185,7 +185,7 @@ export function renderIterationValidation(projectPath: string, config: Config, p
 
   if (!currentPhase) {
     return {
-      command: "next",
+      command: "phase",
       phase: "iteration_validation",
       prompt: `[PHASEDEV] Iteration ${activeIterationId} not found in iteration plan. Check state.json and iteration_plan.md.`,
       blocked: true,
@@ -261,7 +261,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return {
-      command: "next",
+      command: "phase",
       phase: "change_intake",
       prompt: "[PHASEDEV] No active change. Run: phasedev create-change <name>.",
       blocked: true,
@@ -282,7 +282,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
   if (!changeDir) {
     return {
-      command: "next",
+      command: "phase",
       phase: activePhase as any,
       prompt: `[PHASEDEV] Cannot resolve change directory for phase ${activePhase}.`,
       blocked: true,
@@ -294,7 +294,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   const conflict = detectStateRouteConflict(state, route);
   if (conflict) {
     return {
-      command: "next",
+      command: "phase",
       phase: activePhase,
       prompt: conflict,
       blocked: true,
@@ -309,7 +309,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     !validatePhaseExit(projectPath, state.activePhase, paths, activeIteration, config.blockingSeverity).ok
   ) {
     return {
-      command: "next",
+      command: "phase",
       phase: activePhase,
       prompt: [
         `[PHASEDEV] BLOCKED: state.json is locked at "${state.activePhase}" but that phase cannot pass its exit gate; the artifacts resolve to "${route.phase}".`,
@@ -323,7 +323,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   switch (activePhase) {
     case "change_intake":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderChangeIntake(projectPath, config, changeDir, changeName),
         blocked: false
@@ -331,7 +331,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "code_research":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderCodeResearch(projectPath, config, paths, changeName),
         blocked: false
@@ -339,7 +339,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "technical_design":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderTechnicalDesign(projectPath, config, paths, changeName),
         blocked: false
@@ -347,7 +347,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "iteration_planning":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderIterationPlanning(projectPath, config, paths, changeName),
         blocked: false
@@ -362,7 +362,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
         return rendered;
       }
       return {
-        command: "next",
+        command: "phase",
         phase: "implementation",
         prompt: rendered,
         blocked: false
@@ -378,7 +378,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
         return rendered;
       }
       return {
-        command: "next",
+        command: "phase",
         phase: "iteration_validation",
         prompt: rendered,
         blocked: false
@@ -387,7 +387,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "final_validation":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderFinalValidation(projectPath, config, paths, changeName),
         blocked: false
@@ -395,7 +395,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "finding_repair":
       return {
-        command: "next",
+        command: "phase",
         phase: activePhase,
         prompt: renderFindingRepair(projectPath, config, paths, changeName),
         blocked: false
@@ -403,7 +403,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     case "archive":
       return {
-        command: "next",
+        command: "phase",
         phase: "archive",
         prompt: renderArchiveContract(projectPath, changeDir),
         blocked: false

@@ -33,7 +33,7 @@ export function archiveTemplateVariables(projectPath: string, changeName: string
 }
 
 export function archivePrompt(projectPath: string, state: ArchiveState): Prompt {
-  return prompt("next", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath)));
+  return prompt("phase", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath)));
 }
 
 export function getPendingArchivePrompt(projectPath: string, changeName?: string): Prompt | null {

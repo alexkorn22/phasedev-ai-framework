@@ -97,8 +97,8 @@ export const PATH_RESOLUTION_RULE = [
 ].join("\n");
 
 export const SELF_CHECK_FALLBACK = [
-  "If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check --project-path ...` subcommand (for example a repository-confirmed `npm exec -- phasedev check --project-path ...`, `bunx phasedev check --project-path ...`, or `bun run src/cli.ts check --project-path ...` when package/source entrypoint evidence supports it); use it only when repository evidence or controller output identifies it, and record the exact command used.",
-  "If no equivalent is available, or the same non-actionable validator failure repeats after one concrete artifact fix and rerun, stop and report a blocker with the exact command and output. Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed."
+  "phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>` (never use `npm exec`, `bunx`, or `bun run src/cli.ts`).",
+  "If the `phasedev` executable is unavailable or fails non-actionably, stop and report a blocker with the exact command and failure output. Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed."
 ].join("\n");
 
 export function renderPhaseTemplate(

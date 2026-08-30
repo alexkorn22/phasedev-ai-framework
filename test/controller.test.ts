@@ -383,7 +383,7 @@ Test fixture only.
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
     expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
-    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
     expect(result.prompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
@@ -494,7 +494,7 @@ Test fixture only.
     expect(result.prompt).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
     expect(result.prompt).not.toContain("Context budget: use a small bounded number of broad file listings/searches");
     expect(result.prompt).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
-    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).not.toContain("--expect-route");
   });
 
@@ -550,7 +550,7 @@ Test fixture only.
     expect(result.prompt).toContain("repaired: use only in Repair Loop");
   });
 
-  test("iteration_validation contract instructs the agent to commit after a passing verdict", () => {
+  test("iteration_validation contract instructs to commit after a passing verdict", () => {
     setupChange(`
 # Plan
 

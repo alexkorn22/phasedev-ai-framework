@@ -628,7 +628,7 @@ describe("flow-cli state machine", () => {
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--project-path");
-    expect(output).toContain("look once for a controller-provided or local equivalent that runs the same `check");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
@@ -662,9 +662,9 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--project-path");
-    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(output).not.toContain("--expect-route");
-    expect(output).toContain("If no equivalent is available, or the same non-actionable validator failure repeats after one concrete artifact fix and rerun, stop and report a blocker with the exact command and output.");
+    expect(output).toContain("If the `phasedev` executable is unavailable or fails non-actionably, stop and report a blocker with the exact command and failure output.");
     expect(output).toContain("Report `Research ready` only after this self-check passes.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("The only exception is unavailable self-check after the documented command lookup.");
@@ -672,7 +672,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");
-    expect(output).toContain("Next: phasedev phase");
+    expect(output).toContain("Next: phasedev advance");
     expectSubstringsInOrder(output, [
       "Phase 2. Code Research.",
       "## Skill Boundary",
@@ -736,8 +736,8 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
     expect(output).toContain("Do not use emoji in `iteration_plan.md`");
-    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
-    expect(output).toContain("`bun run src/cli.ts check --project-path ...` when package/source entrypoint evidence supports it");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
+    expect(output).not.toContain("`bun run src/cli.ts check --project-path ...`");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
@@ -2239,11 +2239,11 @@ describe("flow templates", () => {
     expect(archiveTemplate).not.toContain("{{archive_command}}");
   });
 
-  test("archive prompt delegates spec work to a spec_sync sub-agent with escalation gate (B28)", () => {
+  test("archive prompt guides spec work with escalation gate (B28)", () => {
     const archiveTemplate = readTemplate("phase7_archive.md");
 
-    expect(archiveTemplate).toContain("spec_sync");
-    expect(archiveTemplate).toContain("Do not classify requirements, create delta specs, or edit any spec yourself");
+    expect(archiveTemplate).toContain("Spec-level classification");
+    expect(archiveTemplate).toContain("Classify requirements, create delta specs, and update live specs directly");
     expect(archiveTemplate).toContain("## Ripple search");
     expect(archiveTemplate).toContain("## Gap control");
     expect(archiveTemplate).toContain("## UI literals");

@@ -21,7 +21,7 @@ Decision flow:
    - Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions.
 3. Resolve material ambiguity and conflicts before writing files. User task text and clarifications define requested product intent; project and repo-local instructions constrain how work may be done; repository evidence clarifies existing behavior but must not silently override user intent. If a conflict or unknown can change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands, name the affected artifact fields, ask 1-3 short questions, and stop.
 4. Run the interpretation checkpoint. Summarize the final interpretation, material user answers, accepted non-material assumptions, and any "no additional constraints" answer in your working context. Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data to write both artifacts without material assumptions.
-5. Choose a short kebab-case change folder slug from the final task text after the checkpoint is satisfied. The slug is agent-derived, not user intake, unless the user already specified an exact folder name.
+5. If an active change directory already exists (or is specified by the controller), write artifacts into that active change directory. Otherwise, choose a short kebab-case change folder slug from the final task text after the checkpoint is satisfied. The slug is agent-derived, not user intake, unless the user already specified an exact folder name.
 6. Before creating the change folder, prevent slug collisions in `{{project_path}}/.phasedev/changes/`. If the chosen slug exists, do not overwrite or reuse it; derive the next non-conflicting slug by appending `-2`, then `-3`, while it still clearly represents the task. If an exact user-specified folder name collides, or no safe representative slug can be derived, stop with a blocker instead of asking for a slug.
 7. Create `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen non-conflicting slug. If `.phasedev/` or `.phasedev/changes/` does not exist yet, create those parent directories as part of this step.
 8. Use the Artifact Build Contracts below as the only source of structure. Create `prd.md` first, then `execution_contract.md`, and run the combined artifact self-check only after both files exist.
@@ -79,7 +79,7 @@ Formatting rules:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this phase:
-- full change folder path `.phasedev/changes/<derive-slug-from-final-task>/`, created recursively only after intake is complete
+- active change folder (or `.phasedev/changes/<derive-slug-from-final-task>/`, created recursively only after intake is complete)
 - active change folder `prd.md` at the Artifact Build Contract Output path
 - active change folder `execution_contract.md` at the Artifact Build Contract Output path
 
@@ -91,4 +91,4 @@ Phase completion:
   - `Interpretation: <one-sentence final task interpretation>`
   - {{skill_compliance_line}}
   - `Self-check: <exact command> -> <result>`
-  - `Next: review the files, set approved: true, then run phasedev advance`
+  - `Next: review the files, set approved: true and approved_by: "<reviewer>", then run phasedev advance`

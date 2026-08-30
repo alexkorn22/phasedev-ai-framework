@@ -15,7 +15,7 @@ export type Phase =
   | "archive";
 
 export interface Prompt {
-  command: "init" | "next";
+  command: "init" | "phase";
   phase: Phase;
   prompt: string;
   blocked: boolean;

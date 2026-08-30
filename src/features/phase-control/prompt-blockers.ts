@@ -3,7 +3,7 @@ import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { toFileUrl } from "./prompt-formatters";
 import { shellQuote } from "../../shared/shell/shell-quote";
 
-export function prompt(command: "init" | "next", phase: Phase, content: string, blocked = false, reason?: string): Prompt {
+export function prompt(command: "init" | "phase", phase: Phase, content: string, blocked = false, reason?: string): Prompt {
   return { command, phase, prompt: content, blocked, reason };
 }
 
@@ -21,7 +21,7 @@ function approveCommand(changeName?: string): string {
 }
 
 export function approvalBlocker(phase: Phase, title: string, filePath: string, label: string, changeName?: string): Prompt {
-  return prompt("next", phase, [
+  return prompt("phase", phase, [
     "================================================================================",
     `[FLOW CONTROLLER] BLOCKED: ${title}`,
     `Please review and approve ${label} in:`,
@@ -33,7 +33,7 @@ export function approvalBlocker(phase: Phase, title: string, filePath: string, l
 }
 
 export function autoApprovalBlocker(phase: Phase, title: string, artifactPaths: string[], changeName?: string): Prompt {
-  return prompt("next", phase, [
+  return prompt("phase", phase, [
     "================================================================================",
     `[FLOW CONTROLLER] BLOCKED: ${title} — auto-approval requires content review`,
     "Artifacts:",
@@ -50,7 +50,7 @@ export function autoApprovalBlocker(phase: Phase, title: string, artifactPaths: 
 }
 
 export function testCommandBlocker(phase: Phase, rulesPath: string, missing: Array<keyof TestCommands>): Prompt {
-  return prompt("next", phase, [
+  return prompt("phase", phase, [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Missing test command",
     "Please add the required command(s) to execution_contract.md:",
@@ -68,7 +68,7 @@ export function testCommandBlocker(phase: Phase, rulesPath: string, missing: Arr
 }
 
 export function invalidPlanBlocker(planPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "iteration_planning", [
+  return prompt("phase", "iteration_planning", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid iteration plan",
     ...issues.map(issue => `- ${issue}`),
@@ -79,7 +79,7 @@ export function invalidPlanBlocker(planPath: string, issues: string[], changeNam
 }
 
 export function invalidPrdBlocker(prdPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "change_intake", [
+  return prompt("phase", "change_intake", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid prd.md",
     "prd.md must follow the PRD artifact contract before this change can continue.",
@@ -91,7 +91,7 @@ export function invalidPrdBlocker(prdPath: string, issues: string[], changeName?
 }
 
 export function invalidRulesBlocker(rulesPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "change_intake", [
+  return prompt("phase", "change_intake", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md",
     "execution_contract.md must follow the Execution Contract artifact contract before this change can continue.",
@@ -102,7 +102,7 @@ export function invalidRulesBlocker(rulesPath: string, issues: string[], changeN
   ].join("\n"), true, "Invalid execution_contract.md");
 }
 export function invalidResearchBlocker(researchPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "code_research", [
+  return prompt("phase", "code_research", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid research_facts.md",
     "research_facts.md must follow the Research Facts artifact contract before this change can continue.",
@@ -114,7 +114,7 @@ export function invalidResearchBlocker(researchPath: string, issues: string[], c
 }
 
 export function invalidDesignBlocker(designPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "technical_design", [
+  return prompt("phase", "technical_design", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid design.md",
     "design.md must follow the Design artifact contract before this change can continue.",
@@ -125,7 +125,7 @@ export function invalidDesignBlocker(designPath: string, issues: string[], chang
   ].join("\n"), true, "Invalid design.md");
 }
 export function archiveReadinessBlocker(title: string, filePath: string, details: string, changeName?: string): Prompt {
-  return prompt("next", "archive", [
+  return prompt("phase", "archive", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Archive readiness failed",
     title,
@@ -137,7 +137,7 @@ export function archiveReadinessBlocker(title: string, filePath: string, details
 }
 
 export function validationFindingsBlocker(findingsPath: string, issues: string[], changeName?: string): Prompt {
-  return prompt("next", "finding_repair", [
+  return prompt("phase", "finding_repair", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Invalid validation_findings.md",
     "validation_findings.md must contain YAML frontmatter followed by exactly one strict findings table.",
@@ -154,7 +154,7 @@ export function iterationCommitBlocker(
   changeSlug: string,
   changeName?: string
 ): Prompt {
-  return prompt("next", "iteration_validation", [
+  return prompt("phase", "iteration_validation", [
     "================================================================================",
     `[FLOW CONTROLLER] BLOCKED: Iteration ${iterationId} validated. Commit the iteration before advancing.`,
     "The controller found uncommitted changes outside `.phasedev/**`.",
@@ -167,13 +167,14 @@ export function iterationCommitBlocker(
 }
 
 export function finalCommitBlocker(changeSlug: string, changeName?: string): Prompt {
-  return prompt("next", "final_validation", [
+  const targetCommand = changeName !== undefined ? archiveCommand(changeName) : `phasedev archive ${shellQuote(changeSlug)}`;
+  return prompt("phase", "final_validation", [
     "================================================================================",
     "[FLOW CONTROLLER] BLOCKED: Final validation passed. Commit before archive.",
     "The controller found uncommitted changes outside `.phasedev/**`.",
     "Commit the remaining code changes together with the updated `.phasedev` artifacts.",
     `- Suggested commit message: phasedev(${changeSlug}): final validation`,
-    `After committing, run '${advanceCommand(changeName)}' again.`,
+    `After committing, run '${targetCommand}' again.`,
     "To opt out of this gate, set 'requireIterationCommit: false' in config.yaml.",
     "================================================================================"
   ].join("\n"), true, "Commit required before archive");

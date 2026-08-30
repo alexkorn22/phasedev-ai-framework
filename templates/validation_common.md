@@ -74,6 +74,7 @@ Validation coverage:
 - Files inspected: <N files or short list>
 - Code review pass: completed / incomplete
 - Security review pass: completed / incomplete
+- Test quality audit: completed / incomplete
 - Check Evidence review: sufficient / insufficient
 - {{validation_full_gate_line}}
 - Evidence gaps: none / <short reason>

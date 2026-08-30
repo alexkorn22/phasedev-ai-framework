@@ -151,4 +151,4 @@ Phase completion:
   - linked architecture docs created, or `none`;
   - self-check command and result;
   - {{skill_compliance_line}}
-  - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev advance`.
+  - exact next step: review `architecture/design.md`, set `approved: true` and `approved_by: "<reviewer>"` only if accepted, then run `phasedev advance`.

@@ -21,7 +21,7 @@ The decision is made from the final diff. Verdict 3 materialises as a delta spec
 
 ## Completion
 
-Stop after the verdict is decided. Then run `phasedev advance` to enter the archive phase.
+Stop after the verdict is decided. Then run `phasedev archive <change-name>` to enter the archive phase.
 
 Final report skill-compliance:
 {{skill_compliance_line}}

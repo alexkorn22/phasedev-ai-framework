@@ -356,6 +356,8 @@ describe("advance commit gate", () => {
     expect(blockedArchive.ok).toBe(false);
     expect(blockedArchive.message).toContain("Final validation passed. Commit before archive.");
     expect(blockedArchive.message).toContain("phasedev(sample-change): final validation");
+    expect(blockedArchive.message).toContain('phasedev archive "sample-change"');
+    expect(blockedArchive.message).not.toContain("phasedev advance");
     // No archive mutation happened: the baseline survives, no archive marker
     // was created, the change dir was not moved, and state.json still locks
     // final_validation.

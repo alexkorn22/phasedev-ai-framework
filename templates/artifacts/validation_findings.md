@@ -28,7 +28,7 @@ Verdict contract:
 Table value contract:
 - ID: stable finding ID such as F1, F2, F3; allocated automatically by `phasedev add-finding`.
 - Status: exactly one of open, reopened, resolved.
-- Severity: exactly one of MUST-FIX, RECOMMENDED, NIT.
+- Severity: exactly one of MUST-FIX, RECOMMENDED, NIT (mapped to blockingSeverity in config.yaml: must_fix, recommended, nit).
 - Class: exactly one of implementation, test, plan, design, requirements, validation, security, code_review.
 - Security rows must always use Severity: MUST-FIX, including resolved rows.
 - Iteration: current iteration label, Final, or another concrete validation scope.

@@ -33,11 +33,11 @@ The reviewer's discipline for findings that are real, evidenced, and honest. Man
 
 Rate each finding 0–100. Factors, as guidelines not arithmetic: matches a critical-class check +25; concrete reproduction scenario +20; user-visible or money/auth/data impact +15; theoretical only with no reproduction path −20; covered by existing tests −15; intentional author choice evidenced by comment or commit −15.
 
-- **51–100** — report, with the contributing factors stated.
-- **26–50** — do not report; record for later with a low-confidence mark.
+- **51–100** — report, with the contributing factors stated. In PhaseDev validation phases, register findings that require tracking into `validation_findings.md` via `phasedev add-finding` with appropriate severity (`MUST-FIX`, `RECOMMENDED`, `NIT`).
+- **26–50** — do not report in the findings table; record for later in the review text with a low-confidence mark.
 - **0–25** — discard: likely hallucination or insufficient evidence.
 
-Above 25, nothing is dropped silently — every finding lands in the report or the record. Two findings duplicating the same file:line and issue merge into the one with more evidence; on a severity disagreement, the higher severity wins.
+Above 25, nothing is dropped silently — every finding lands in the report or the record. Two findings duplicating the same file:line and issue merge into the one with more evidence; on a severity disagreement, the higher severity wins. In PhaseDev, do not register sub-50 confidence observations into `validation_findings.md`.
 
 Exceptions that bypass the filter:
 - A finding sourced from a critical-class check failure or a deterministic tool is reported regardless of the score — otherwise the filter buries exactly what must block.
