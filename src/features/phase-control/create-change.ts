@@ -98,6 +98,13 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   if (taskText) {
     const taskPath = path.join(changeDir, "intake_task.md");
     writeFileAtomic(taskPath, taskText + "\n");
+    const traceTaskPath = path.join(changeDir, "trace", "00_intake_task.md");
+    try {
+      fs.mkdirSync(path.join(changeDir, "trace"), { recursive: true });
+      writeFileAtomic(traceTaskPath, taskText + "\n");
+    } catch {
+      // Best-effort trace initialization
+    }
   }
 
   return {

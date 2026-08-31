@@ -165,6 +165,11 @@ You work ONLY on the change "<change>". Never pass a different --change value.
 
 That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented. When `spawn-plan` names skills for the chosen role, they are mandatory and never left to the sub-agent's own environment discovery; when it names none for that role, the sub-agent's own environment discovery is the intended fallback under the phase contract's Skill Boundary, not a gap.
 
+**Sub-agent trace recording.** For subsequent analysis, the orchestrator preserves the interaction trail in the change directory:
+1. Before or when dispatching the sub-agent, write the rendered dispatch prompt to `.phasedev/changes/<change>/trace/phases/<phase>/agent_<role>_prompt.md`.
+2. When the sub-agent completes, write its response to `.phasedev/changes/<change>/trace/phases/<phase>/agent_<role>_response.md`.
+This provides a full audit trail ("task -> prompts -> artifacts -> code") for AI agents inspecting the change.
+
 ## User Feedback Handling
 
 At any STOP point (approval gate, blocker, or after user interrupt), the user may give feedback — a correction, new requirement, bug report, or rejection.
@@ -275,6 +280,6 @@ Archive starts once `phasedev advance` reports "Final validation passed. Flow co
 6. **NEVER validate or fix phase artifacts yourself** — the owning sub-agent creates, self-checks, and self-heals each artifact; on `invalid_*` after "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
 7. **NEVER pass context between phases** — sub-agents read artifact files directly; the filesystem is the durable state.
 8. **NEVER re-describe phase contracts** — sub-agents get them from `phasedev phase`.
-9. **NEVER write log files under `.phasedev/`** — the orchestrator is ephemeral; state is visible in chat.
+9. **NEVER write random log files under `.phasedev/`** — the orchestrator is ephemeral; state is visible in chat. Structured change traces live exclusively in `.phasedev/changes/<change>/trace/`.
 10. **Report clearly** — after each iteration: phase completed, the model each phase sub-agent ran on, the sub-agent's self-check result, and the next phase `phasedev check` reports.
 11. **Commit iteration changes** — when Phase 6A (iteration validation) passes, the validation sub-agent is read-only and does NOT commit code. The orchestrator commits the iteration code and updated `.phasedev` artifacts before running `phasedev advance`.

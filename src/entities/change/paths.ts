@@ -12,6 +12,7 @@ export interface ChangePaths {
   findingsPath: string;
   statePath: string;
   worklogPath: string;
+  traceDirPath: string;
 }
 
 export function buildChangePaths(changeDir: string): ChangePaths {
@@ -24,8 +25,21 @@ export function buildChangePaths(changeDir: string): ChangePaths {
     iterationPlanPath: path.join(changeDir, "iteration_plan.md"),
     findingsPath: path.join(changeDir, "validation_findings.md"),
     statePath: path.join(changeDir, "state.json"),
-    worklogPath: path.join(changeDir, "worklog.md")
+    worklogPath: path.join(changeDir, "worklog.md"),
+    traceDirPath: path.join(changeDir, "trace")
   };
+}
+
+export function traceDirPath(changeDir: string): string {
+  return path.join(changeDir, "trace");
+}
+
+export function tracePhasesDirPath(changeDir: string): string {
+  return path.join(changeDir, "trace", "phases");
+}
+
+export function traceDiffsDirPath(changeDir: string): string {
+  return path.join(changeDir, "trace", "diffs");
 }
 
 export function archiveRootPath(projectPath: string): string {

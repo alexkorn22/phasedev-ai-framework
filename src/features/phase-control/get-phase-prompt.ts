@@ -20,6 +20,7 @@ import { detectStateRouteConflict } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { quickPhasePrompt } from "./quick-phase-prompt";
 import { readCommitLog, iterationDiffBase } from "../../entities/change/flow-state";
+import { recordPhaseContract } from "../trace-capture/record-trace";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
@@ -320,38 +321,43 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
     };
   }
 
+  let promptResult: Prompt;
   switch (activePhase) {
     case "change_intake":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderChangeIntake(projectPath, config, changeDir, changeName),
         blocked: false
       };
+      break;
 
     case "code_research":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderCodeResearch(projectPath, config, paths, changeName),
         blocked: false
       };
+      break;
 
     case "technical_design":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderTechnicalDesign(projectPath, config, paths, changeName),
         blocked: false
       };
+      break;
 
     case "iteration_planning":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderIterationPlanning(projectPath, config, paths, changeName),
         blocked: false
       };
+      break;
 
     case "implementation": {
       if (activeIteration === null) {
@@ -361,12 +367,13 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (typeof rendered !== "string") {
         return rendered;
       }
-      return {
+      promptResult = {
         command: "phase",
         phase: "implementation",
         prompt: rendered,
         blocked: false
       };
+      break;
     }
 
     case "iteration_validation": {
@@ -377,41 +384,52 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (typeof rendered !== "string") {
         return rendered;
       }
-      return {
+      promptResult = {
         command: "phase",
         phase: "iteration_validation",
         prompt: rendered,
         blocked: false
       };
+      break;
     }
 
     case "final_validation":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderFinalValidation(projectPath, config, paths, changeName),
         blocked: false
       };
+      break;
 
     case "finding_repair":
-      return {
+      promptResult = {
         command: "phase",
         phase: activePhase,
         prompt: renderFindingRepair(projectPath, config, paths, changeName),
         blocked: false
       };
+      break;
 
     case "archive":
-      return {
+      promptResult = {
         command: "phase",
         phase: "archive",
         prompt: renderArchiveContract(projectPath, changeDir),
         blocked: false
       };
+      break;
 
     default:
       throw new Error(`getPhasePrompt reached unreachable phase "${activePhase}" (quick phases are rendered by quickPhasePrompt).`);
   }
+
+  if (!promptResult.blocked && changeDir) {
+    const phaseLabel = activeIteration !== null ? `${activePhase}_iter_${activeIteration}` : activePhase;
+    recordPhaseContract(changeDir, phaseLabel, promptResult.prompt);
+  }
+
+  return promptResult;
 }
 
 // ── Repair Queue formatting ─────────────────────────────────
