@@ -131,18 +131,42 @@ For every executable phase, spawn a dedicated sub-agent via the `Agent` tool. Ne
 
 **Spawn-plan line format.** Each role in the grid has the format `<name> | <model> | <skills> [| <comment>]`. Copy into the dispatch role slot only the `<name>` (as the role) and the `<skills>` column. The optional trailing `| <comment>` is the role's purpose for your orientation — it is NOT a skill, never list it in the role line's mandatory-skills slot.
 
-**Agent type:** the orchestrator never selects a custom agent type. Every dispatch is a generic sub-agent (`Agent` tool with no `subagent_type`) carrying the role, mandatory skills, and model from the cached `spawn-plan` grid — a static on-disk agent definition would be exactly the second authority for "role → skills + model" this design exists to eliminate.
+**Agent type & harness dispatching:**
+- In dynamic-model harnesses (e.g. `claude-code`, `codex`, `antigravity`), every dispatch is a generic sub-agent (`Agent` tool with no `subagent_type`) carrying the role, mandatory skills, and explicit `model` from the cached `spawn-plan` grid.
+- In static/tier-subagent harnesses (e.g. `opencode`), the runtime `task` tool configures models via pre-defined subagents in `opencode.json` rather than a dynamic `model` argument. Map the chosen role's tier (`cheap` | `standard` | `strong` — resolved from `spawn-plan`) to `subagent_type: "phasedev-<tier>"` (e.g. `phasedev-cheap`, `phasedev-standard`, `phasedev-strong`).
 
-**Model selection:** every dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive).
+**Model selection:** in dynamic harnesses, every dispatch MUST pass an explicit `model` — an omitted model silently inherits the main agent's (typically the most expensive). In OpenCode, selecting `subagent_type: "phasedev-<tier>"` activates the corresponding tier model configured in `opencode.json`.
 
-The model comes from the chosen role's entry in the cached `spawn-plan` grid, not from your own guess: pick the role, pass its model. Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` output has a tier instead of a concrete model name for a role, that role's tier has no mapped model on this machine — whether because the mapping is unset entirely or only partially covers this harness (other roles can still resolve to real model names in the same run): run that role on the session model and report that explicitly in your notes/report. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
+The model comes from the chosen role's entry in the cached `spawn-plan` grid, not from your own guess: pick the role, pass its model (or select `phasedev-<tier>` in OpenCode). Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` output has a tier instead of a concrete model name for a role, that role's tier has no mapped model on this machine — whether because the mapping is unset entirely or only partially covers this harness (other roles can still resolve to real model names in the same run): run that role on the session model and report that explicitly in your notes/report. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
 **Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots). Copy the fixed body VERBATIM — the orchestrator's entire authorship is filling the four optional slots. Adding ANY other instruction about the phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict):
 
+*Dynamic harness (`Agent` tool):*
 ```javascript
 Agent(
   description: "<phase-name>: execute phase contract",
   model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
+  prompt: `Execute the current PhaseDev phase for change "<change>".
+
+<intake context: the goal description on the first \`change_intake\` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
+Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
+<Stage: fork analysis only — OPTIONAL STAGE LINE for stage 1 at technical_design and iteration_planning; omit otherwise>
+<Decisions already taken: <list> — OPTIONAL DECISIONS LINE for stage 2 fallback; omit otherwise>
+
+You work ONLY on the change "<change>".
+
+1. Run: phasedev phase --change <change> — to get the phase contract.
+2. Follow your role's mandatory skills and execute the phase contract.
+3. Self-validate via the contract's check command before reporting.
+4. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
+)
+```
+
+*OpenCode harness (`task` tool with tier-based subagents):*
+```javascript
+task(
+  subagent_type: "phasedev-<tier>", // phasedev-cheap | phasedev-standard | phasedev-strong (matching role's tier)
+  description: "<phase-name>: execute phase contract",
   prompt: `Execute the current PhaseDev phase for change "<change>".
 
 <intake context: the goal description on the first \`change_intake\` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
@@ -178,7 +202,7 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 
 (Command semantics are in the `add-finding` entry under [Command Invocation](#command-invocation-mandatory).) Then continue the loop — `phasedev advance` routes to finding_repair where the fix is implemented. Never hand-edit the findings registry and never edit repository code to handle feedback.
 
-**Delegated path (feedback needs analysis).** When it is unclear whether the feedback is an implementation defect or a scope/design/plan change, or it is mixed, pick an appropriate role's skills and model from the cached spawn-plan grid (e.g. intake-analyst or architect), then spawn a dedicated sub-agent:
+**Delegated path (feedback needs analysis).** When it is unclear whether the feedback is an implementation defect or a scope/design/plan change, or it is mixed, pick an appropriate role's skills and model from the cached spawn-plan grid (e.g. intake-analyst or architect), then spawn a dedicated sub-agent (using `Agent` or in OpenCode `task(subagent_type: "phasedev-<tier>", ...)`):
 
 ```javascript
 Agent(
@@ -215,7 +239,7 @@ An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid
 
 When `phasedev config autoApprove` (from Initialization) is `true`, `phasedev advance` never auto-stamps an artifact at an approval gate. Instead, when it refuses with an `*_approval` refusal, it prints an auto-approval blocker naming the phase and listing the exact artifact path(s) for that gate (`prd.md` + `execution_contract.md` for `change_intake_approval`, `design.md` for `technical_design_approval`, `iteration_plan.md` for `iteration_planning_approval`). The orchestrator MUST NOT approve manually under `autoApprove` — approval requires content review.
 
-On that blocker, pick a role (e.g. `approval-reviewer`) from the cached spawn-plan grid with its skills and model, then spawn exactly ONE dedicated validation sub-agent — never approve directly yourself:
+On that blocker, pick a role (e.g. `approval-reviewer`) from the cached spawn-plan grid with its skills and model, then spawn exactly ONE dedicated validation sub-agent (using `Agent` or in OpenCode `task(subagent_type: "phasedev-cheap", ...)`):
 
 ```javascript
 Agent(
@@ -264,7 +288,7 @@ Archive starts once `phasedev advance` reports "Final validation passed. Flow co
 
 ## Important Rules
 
-1. **NEVER execute phase work directly** — always spawn a sub-agent via `Agent`.
+1. **NEVER execute phase work directly** — always spawn a dedicated sub-agent (via `Agent` or `task`).
 2. **ALWAYS invoke `phasedev` directly as a global command** — per [Command Invocation](#command-invocation-mandatory); restate the ban in every sub-agent prompt.
 3. **Sub-agents NEVER run `phasedev advance`** — only the orchestrator calls it, after sub-agents report passing self-checks.
 4. **ALWAYS use `phasedev check` to validate the active phase** — never read `.phasedev/` files directly.

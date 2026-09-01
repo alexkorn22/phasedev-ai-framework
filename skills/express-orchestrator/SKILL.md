@@ -110,22 +110,26 @@ Finding IDs are global across the whole flow (F1, F2, …) — never renumbered 
 
 ## Sub-Agent Dispatch
 
-**Tool.** Spawn sub-agents with the `Task` tool (`subagent_type` parameter). On every dispatch, check which agent types the current session offers: a custom type whose description matches the stage takes priority (e.g. a project's implementer/reviewer/security agents); fall back to the general-purpose type only when nothing custom fits. Make this judgment fresh per dispatch — never keep a static stage→type table.
+**Tool.** Spawn sub-agents with the `Task` tool (`subagent_type` parameter) or `Agent` tool. On every dispatch, check which agent types the current session offers:
+- A custom type whose description matches the stage takes priority (e.g. a project's implementer/reviewer/security agents).
+- In static/tier-subagent environments (like OpenCode with `opencode.json`), dispatch using the corresponding tier subagent (`phasedev-cheap`, `phasedev-standard`, `phasedev-strong`) matching the graded tier.
+- Fall back to the general-purpose type only when nothing custom or tier-specific fits. Make this judgment fresh per dispatch — never keep a static stage→type table.
 
 **Model — grade every dispatch.** Grade THIS stage's actual work (not the whole task's) and pick the cheapest tier that genuinely handles it:
 
-| Stage work looks like | Tier | Model |
-|---|---|---|
-| Mechanical, fully specified: rename, doc sync, config value, transcribing a complete spec into code, single-file fix | cheapest | haiku |
-| Routine judgment in one module: typical research, scout-planning a Micro change, implementation from a clear confirmed plan, review of a small low-risk change | mid | sonnet |
-| Real reasoning: planning a tricky change, root-cause debugging, security review, review of a large or risky change | strongest | opus |
+| Stage work looks like | Tier | Model | OpenCode Subagent |
+|---|---|---|---|
+| Mechanical, fully specified: rename, doc sync, config value, transcribing a complete spec into code, single-file fix | cheapest | haiku | `phasedev-cheap` |
+| Routine judgment in one module: typical research, scout-planning a Micro change, implementation from a clear confirmed plan, review of a small low-risk change | mid | sonnet | `phasedev-standard` |
+| Real reasoning: planning a tricky change, root-cause debugging, security review, review of a large or risky change | strongest | opus | `phasedev-strong` |
 
 Use the current model aliases of your environment; the tiers are what matter.
 
-- Generic agent types: always pass an explicit `model` equal to the graded tier — omitting it silently inherits the orchestrator's (usually most expensive) model.
+- In OpenCode: select the tier subagent `subagent_type: "phasedev-<tier>"` (e.g. `phasedev-cheap`, `phasedev-standard`, `phasedev-strong`), which activates the corresponding model defined in `opencode.json`.
+- In dynamic-model harnesses (e.g. `claude-code`, `codex`, `antigravity`): generic agent types must always pass an explicit `model` equal to the graded tier — omitting it silently inherits the orchestrator's (usually most expensive) model.
 - Custom types with a pinned model: never override it. Custom types without one: pass the graded tier explicitly.
-- For reviewers and for implementers working from prose (not complete code), the mid tier is the floor — an under-powered model takes 2–3× the turns and costs more overall.
-- Escalate on evidence: if a report shows the stage was harder than graded, re-dispatch the remainder one tier up. Never retry the same dispatch unchanged.
+- For reviewers and for implementers working from prose (not complete code), the mid tier (`phasedev-standard`) is the floor — an under-powered model takes 2–3× the turns and costs more overall.
+- Escalate on evidence: if a report shows the stage was harder than graded, re-dispatch the remainder one tier up (`phasedev-standard` → `phasedev-strong`). Never retry the same dispatch unchanged.
 
 **Failure handling.** If a sub-agent fails, times out, or returns an incoherent/off-mission report: re-dispatch once with a clarified prompt at the same tier → if it fails again, once more one tier up → then STOP and follow the Abort Protocol. Never loop blind retries.
 
@@ -144,6 +148,6 @@ Use the current model aliases of your environment; the tiers are what matter.
 3. The plan comes from a planning sub-agent and runs only after explicit user confirmation — including the no-rollback warning. The single mandatory stop.
 4. Reviewers are fresh contexts, never the implementer. Review against fingerprints + the applicable Proof Ladder rung together = verification; either alone does not count.
 5. Triage by severity; fix loop max 7 cycles with delta reports and narrowed re-review; a finding stuck 3 cycles means re-plan or ask the user — never grind on.
-6. Grade the model on every dispatch; pass an explicit `model` for every non-pinned agent type; escalate one tier on evidence, never retry unchanged.
+6. Grade the model on every dispatch; pass an explicit `model` for every non-pinned agent type (or select the corresponding `phasedev-<tier>` subagent in OpenCode); escalate one tier on evidence, never retry unchanged.
 7. Escalate scope by asking, not by doing — when the scope guard trips, stop, explain, and let the user decide.
 8. Never end silently — every abnormal stop goes through the Abort Protocol so the user always knows the exact state of their files.
