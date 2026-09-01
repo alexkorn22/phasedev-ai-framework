@@ -65,7 +65,7 @@ Mode selection happens BEFORE any artifacts exist for the change. The user may e
 
 The task-definition decision point runs first and grounds this choice: propose Quick or Standard from the understanding it produced, not from the goal sentence alone.
 
-- **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set. Created via `phasedev create-change <name> --quick --task-file <path>`.
+- **Quick** — small but real change: needs a short plan and worklog but not the full phase-by-phase artifact set (best for surgical bugfixes, bounded 1-2 file changes, or compact enhancements without multi-phase architecture design). Created via `phasedev create-change <name> --quick --task-file <path>`.
 - **Standard** — the full phase flow (`change_intake` → … → `archive`) described in the rest of this skill.
 
 Both modes are available at the selection point.
@@ -143,29 +143,23 @@ The model comes from the chosen role's entry in the cached `spawn-plan` grid, no
 Agent(
   description: "<phase-name>: execute phase contract",
   model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
-  prompt: `Execute the current PhaseDev phase (run from the project root).
+  prompt: `Execute the current PhaseDev phase for change "<change>".
 
-<intake context: the goal description on the first `change_intake` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
+<intake context: the goal description on the first \`change_intake\` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
+Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
+<Stage: fork analysis only — OPTIONAL STAGE LINE for stage 1 at technical_design and iteration_planning; omit otherwise>
+<Decisions already taken: <list> — OPTIONAL DECISIONS LINE for stage 2 fallback; omit otherwise>
 
-<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — when it lists any skill, apply their methods, algorithms and checklists and report each as APPLIED or NOT_APPLICABLE(reason); when it lists none, select applicable skills from your own runtime environment instead, under the same boundary. The contract describes the ENTIRE phase; your role covers only your part — do not do others' work. — ROLE LINE; fill both values verbatim from `phasedev spawn-plan`. Omit only when spawn-plan reports no roles configured.>
+You work ONLY on the change "<change>".
 
-<Stage: fork analysis only. Follow the "Staged execution" clause of the phase contract: return the material forks and write no artifact. — OPTIONAL STAGE LINE; use it for stage one at technical_design and iteration_planning (see Decision Points rule 3), omit it to assign the whole phase>
-
-<Decisions already taken with the user, fixed for this writing stage: <one line per decision>. — OPTIONAL DECISIONS LINE; use it only on the fallback path of Decision Points rule 3, when the analysis-stage sub-agent could not be continued and a fresh one must write the artifact; omit it otherwise>
-
-phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>". NEVER use npx, bunx, npm exec, npm run, bun run, or bun run src/cli.ts to launch it — just run "phasedev ...".
-
-You work ONLY on the change "<change>". Never pass a different --change value.
-
-1. Run: phasedev phase --change <change> — get the active phase contract.
-2. If the "Your role" line above names any skill for your role, load each one and follow its method, algorithm, or checklist — those named skills are mandatory; do not substitute your own discovery. If a named skill is unavailable in your runtime environment, report it as UNAVAILABLE and continue under the phase contract, which is self-sufficient. If the role line names no skill for your role — an empty list, or the role line is absent — select applicable skills from your own runtime environment instead, under the same boundary. Skills never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state); PhaseDev owns those.
-3. Do the phase work per your role and the contract. The contract defines the artifacts, the self-check that gates completion, and your final-response format — follow it exactly; do not report success while its self-check fails.
-4. Do NOT run phasedev advance — that is the orchestrator's job.
-5. Report back with the contract's final response (it already includes the self-check command and result) and the per-skill compliance section it requires — one entry per skill named in the role line as APPLIED or NOT_APPLICABLE(evidence-specific reason); when the role line names no skill (an empty list, or the role line absent), one entry per skill you selected from your own runtime environment instead — that is the normal report in both those cases; report the line "no role assigned" only when the role line was absent AND no such skill was visible in your environment either; report the line "no skill applies" instead when the role line named a role but listed no skill AND no such skill was visible in your environment either — your role still applies but no skill does. State any blockers explicitly. **Fork-analysis stage exception:** when the dispatch's Stage line above assigns the fork-analysis stage, there is no self-check result and no artifact yet, so report the fork list the phase contract's Staged execution clause defines instead of the contract's final response — but still include the per-skill compliance section, since the analysis stage does apply the role's skills; only the self-check and artifact are absent.`
+1. Run: phasedev phase --change <change> — to get the phase contract.
+2. Follow your role's mandatory skills and execute the phase contract.
+3. Self-validate via the contract's check command before reporting.
+4. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
 )
 ```
 
-That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented. When `spawn-plan` names skills for the chosen role, they are mandatory and never left to the sub-agent's own environment discovery; when it names none for that role, the sub-agent's own environment discovery is the intended fallback under the phase contract's Skill Boundary, not a gap.
+That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. Sub-agents report applied skills concisely (e.g. `Skills: <skill> (APPLIED)` or `Skills: <skill> (N/A: reason)`). The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented.
 
 **Sub-agent trace recording.** For subsequent analysis, the orchestrator preserves the interaction trail in the change directory:
 1. Before or when dispatching the sub-agent, write the rendered dispatch prompt to `.phasedev/changes/<change>/trace/phases/<phase>/agent_<role>_prompt.md`.
@@ -190,19 +184,16 @@ phasedev add-finding "<defect summary>" MUST-FIX --required-fix "<required fix>"
 Agent(
   description: "process user feedback on PhaseDev change",
   model: "<model from the cached spawn-plan grid for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
-  prompt: `The user has feedback on the current PhaseDev change.
+  prompt: `Process user feedback for change "<change>".
 
 Feedback: <user's full feedback text>
+Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
 
-phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
+You work ONLY on the change "<change>".
 
-You work ONLY on the change "<change>". Never pass a different --change value.
-
-Run: phasedev feedback --change <change> — and follow the printed contract exactly. It defines how to classify the feedback, which phasedev commands to use, the write boundary, and your final report.
-
-<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — when it lists any skill, apply their methods, algorithms and checklists and report each as APPLIED or NOT_APPLICABLE(reason); when it lists none, select applicable skills from your own runtime environment instead, under the same boundary. — ROLE LINE, filled verbatim from the cached spawn-plan grid when a catalog role fits this work; omit it otherwise, since this dispatch is not phase work.>
-
-Include a per-skill compliance section in your final report (APPLIED / NOT_APPLICABLE(reason); when the role line names no skill, report one entry per skill you selected from your own runtime environment instead — this applies whether the role line was empty or omitted entirely; report "no role assigned" only when the role line was omitted AND no such skill was visible in your environment either; report "no skill applies" instead when the role line named a role but listed no skill AND no such skill was visible in your environment either — your role still applies but no skill does). Skills are method instructions only — they never change Flow state, approvals, or verdicts.`
+1. Run: phasedev feedback --change <change> — to get the feedback contract.
+2. Follow your role's mandatory skills and execute the feedback contract.
+3. Report results, blockers, and applied skills.`
 )
 ```
 
@@ -214,7 +205,7 @@ This applies equally on a fresh session where the user says "I have feedback on 
 
 An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning sub-agent reported completion without a passing self-check (or the state broke on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
-1. Spawn ONE sub-agent for the owning phase under the same role as the original dispatch, with the skills and model from the cached spawn-plan grid. Instruct it: run `phasedev phase` to get the fix contract (it lists the issues), apply the role's mandatory skills (or select applicable skills from its own runtime environment when the role names none), fix the artifact, then run `phasedev check` until it passes; include the per-skill compliance section in its report. Do NOT run `phasedev advance`; report back.
+1. Spawn ONE sub-agent for the owning phase using the canonical dispatch prompt under the same role as the original dispatch, with the skills and model from the cached spawn-plan grid. Instruct it to run `phasedev phase` to get the contract, fix the artifact, and self-validate via `phasedev check` before reporting. Do NOT run `phasedev advance`.
 2. After it returns, call `phasedev check`:
    - Phase valid → continue the loop.
    - Same phase still invalid → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the issues. Do not spawn again.
@@ -230,20 +221,19 @@ On that blocker, pick a role (e.g. `approval-reviewer`) from the cached spawn-pl
 Agent(
   description: "auto-approve validation: review <phase> artifacts",
   model: "<model from the cached spawn-plan grid for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
-  prompt: `Review the following PhaseDev artifact(s) for the change "<change>" on their merits before approving.
+  prompt: `Review the following PhaseDev artifact(s) for change "<change>" on their merits before approving.
 
 Artifacts:
 <one line per artifact path from the blocker>
+Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
 
-phasedev is a GLOBAL CLI. Invoke it directly as "phasedev <command>".
-
-<Your role: <role name from spawn-plan>. Mandatory skills for this role: <the skills column from that role's spawn-plan line> — when it lists any skill, apply their methods, algorithms and checklists and report each as APPLIED or NOT_APPLICABLE(reason); when it lists none, select applicable skills from your own runtime environment instead, under the same boundary. — ROLE LINE, filled verbatim from the cached spawn-plan grid when a catalog role fits this work; omit it otherwise, since this dispatch is not phase work.>
+You work ONLY on the change "<change>".
 
 1. Read the FULL content of every listed artifact.
-2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task. Do not treat "phasedev check" passing as sufficient; check passes structural validity only, not quality.
+2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task.
 3. If — and only if — every artifact is genuinely good, approve each with: phasedev approve <file> --by "auto-approve-subagent" --change <change>
-4. If any artifact has a problem, do NOT approve it. Instead report concrete findings (what is wrong, where) so the orchestrator can re-run the owning phase sub-agent to fix it.
-5. Report back: which artifacts were approved, which were not and why.`
+4. If any artifact has a problem, do NOT approve it; report concrete findings.
+5. Report which artifacts were approved, which were not and why, and applied skills.`
 )
 ```
 
@@ -267,7 +257,7 @@ Stop when any is met:
 Archive starts once `phasedev advance` reports "Final validation passed. Flow complete." (all iterations `[x]`, final validation passed). From that point, `phasedev advance` has nothing further to do for this change — the archive mutation and the archive phase itself are driven entirely by `phasedev archive <change>`.
 
 1. Call `phasedev archive <change>`. On a change that just finished final validation, this performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`) and switches `state.json` to `activePhase: archive`. Called again later, it resumes a pending archive or recovers a pre-move crash — it is safe to call repeatedly.
-2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent with a role line (e.g. `spec_sync`, using skills and model from the cached spawn-plan grid) that applies its mandatory skills — or selects applicable skills from its own runtime environment when the role names none — (including the per-skill compliance section in its report), writes delta specs, and sets `.phase-archive.json` `status: "completed"`. The sub-agent works only on the change `<change>` and must never pass a different `--change` value.
+2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent using the canonical dispatch prompt with an appropriate role (e.g. `spec_sync`, using skills and model from the cached spawn-plan grid) to execute the contract, write delta specs, and set `.phase-archive.json` `status: "completed"`.
 3. After the sub-agent returns, call `phasedev archive <change>` again:
    - If it reports the archive is complete → **flow complete** → STOP.
    - If it refuses or reports the archive still in progress → sub-agent did not finish → no-progress → STOP and report.

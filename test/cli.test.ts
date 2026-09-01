@@ -566,12 +566,12 @@ describe("flow-cli state machine", () => {
 
     expect(output).toContain("## Skill Boundary");
     expect(output).toContain(
-      "Your role, and any mandatory skills for it, are named in your dispatch prompt"
+      "Your role and mandatory skills are specified in your dispatch prompt; apply their methods, algorithms, and checklists."
     );
     expect(output).toContain(
-      "Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files). PhaseDev owns those."
+      "- Skills provide methodology only; they never alter PhaseDev flow state, schemas, approvals, verdicts, or allowed files."
     );
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
 
     // The removed mechanism must leave no trace.
     expect(output).not.toContain("Configured Skill Policy");
@@ -632,7 +632,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -742,7 +742,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -797,8 +797,8 @@ describe("flow-cli state machine", () => {
     expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(planPrompt).toContain("Phase 4. Iteration Planning.");
-    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
-    expect(implementationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(phaseValidationPrompt).toContain("Skill compliance: list applied skills in your response");
+    expect(implementationPrompt).toContain("Skill compliance: list applied skills in your response");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");

@@ -95,7 +95,7 @@ Run the suite once at the start and record which tests are already red. A failur
 A regression fence converts "I did not change X" from a claim into a check: a set of paths declared BEFORE the work starts that must come out byte-identical to the base commit, verified mechanically at every verification step — not only at the end. A fence derived afterwards from "whatever happens to be unchanged" proves nothing; the fence is a prediction, and verifying it is the test of that prediction. Typical fences: files declared moved-verbatim, a flag-off path, everything outside a review's scope.
 
 - A deleted or newly-appeared fenced file is a violation — both are invisible to a naive "diff is empty" check.
-- A finding against an unchanged fenced file is pre-existing debt, not a defect of this diff. But a finding the diff caused in a fenced file — a caller broken by a changed signature — is in scope: that is what makes it a regression.
+- A finding against an unchanged fenced file is pre-existing debt, not a defect of this diff. But a finding the diff caused in a fenced file — a caller broken by a changed signature — is in scope: that is what makes it a regression. Incidental typing/compiler/import adjustments directly required to satisfy build gates without changing behavior are acceptable.
 - Honest limit: the fence proves byte identity, not behavioral identity. It cannot see a changed dependency, migration, or config the file reads. Say so rather than implying the stronger guarantee.
 
 Command forms (blob-hash comparison and its trap): `references/fence-and-trap-commands.md`.

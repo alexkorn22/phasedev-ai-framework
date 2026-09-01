@@ -21,7 +21,8 @@ import { runArchive } from "../src/features/phase-control/archive-command";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pd-quick-git-"));
-  const run = (args: string[]) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf-8" });
+  const env = { ...process.env, GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@example.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@example.com" };
+  const run = (args: string[]) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf-8", env });
   run(["init"]);
   run(["config", "user.email", "test@example.com"]);
   run(["config", "user.name", "Test"]);
@@ -30,9 +31,10 @@ function makeGitRepo(): string {
 }
 
 function gitCommitAll(dir: string, message: string): string {
-  spawnSync("git", ["-C", dir, "add", "-A"], { encoding: "utf-8" });
-  spawnSync("git", ["-C", dir, "commit", "-m", message, "--no-gpg-sign"], { encoding: "utf-8" });
-  return spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf-8" }).stdout.trim();
+  const env = { ...process.env, GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@example.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@example.com" };
+  spawnSync("git", ["-C", dir, "add", "-A"], { encoding: "utf-8", env });
+  spawnSync("git", ["-C", dir, "commit", "-m", message, "--no-gpg-sign"], { encoding: "utf-8", env });
+  return spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf-8", env }).stdout.trim();
 }
 
 function quickChangeDir(): { projectPath: string; changeDir: string } {
@@ -104,7 +106,7 @@ describe("quickPhasePrompt", () => {
     expect(prompt.blocked).toBe(false);
     expect(prompt.prompt).toContain("Quick Phase: Plan");
     expect(prompt.prompt).toContain("## Skill Boundary");
-    expect(prompt.prompt).toContain("Your role, and any mandatory skills for it, are named in your dispatch prompt");
+    expect(prompt.prompt).toContain("Your role and mandatory skills are specified in your dispatch prompt");
   });
 
   it("renders the quick archive contract with the bare change name, not the dated archive basename", () => {

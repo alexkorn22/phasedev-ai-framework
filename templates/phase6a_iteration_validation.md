@@ -23,6 +23,7 @@ Retrieval order:
 Required phase-contract checks:
 - scope = current iteration;
 - use the current iteration `Expected Change Surface` as a review aid for changed-file inventory and scope comparison, but not as a substitute for actual repository evidence;
+- incidental technical changes: changes to auxiliary files (such as type definitions, re-exports, test runner configurations, or caller wiring) that are directly necessary to satisfy the compiler, linter, or test runner as a consequence of the planned work MUST NOT be treated as plan-surface defects (`class: plan`), provided they do not add unapproved features or violate risk boundaries;
 - inspect every changed production/source/config/test file tied to the current iteration, not only the flow artifacts or `Check Evidence`;
 - plan-first check: the current iteration implementation matches `Goal`, `Tasks`, `Checks`, `Check Evidence`, and iteration scope from [iteration_plan.md]({{plan_path}});
 - PRD/design are used as approved constraints and traceability context, not as full PRD completeness validation;
