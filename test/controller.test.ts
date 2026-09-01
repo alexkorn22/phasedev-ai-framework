@@ -86,8 +86,6 @@ function withImplementationPlanContract(planContent: string): string {
 
 | Area | Decision |
 |---|---|
-| Approval scope | Exercise the flow controller fixture path. |
-| Out of scope | Unrelated product behavior. |
 | Sequencing risk | none |
 | Validation | Use fixture unit, phase, and full commands. |
 
@@ -144,12 +142,12 @@ function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
-| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
@@ -433,8 +431,7 @@ Test fixture only.
     expect(result.prompt).toContain("Use this bounded retrieval order before designing");
     expect(result.prompt).toContain("If a phase input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands)");
     expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
-    expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
-    expect(result.prompt).toContain("do not add headings beyond the required `# Design` title and those six required `##` sections");
+    expect(result.prompt).toContain("Do not add headings beyond the required `# Design` title and allowed required/optional `##` sections");
     expect(result.prompt).not.toContain("Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.");
     expect(result.prompt).toContain("`not_applicable: <short reason>`");
     expect(result.prompt).toContain("not_applicable: <reason>` only when there is no material contract surface");

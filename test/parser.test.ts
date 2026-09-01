@@ -368,8 +368,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update prompt templates. |
-| Out of scope | Runtime product changes. |
 | Sequencing risk | none |
 | Validation | Run parser tests. |
 
@@ -463,8 +461,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update API. |
-| Out of scope | none |
 | Sequencing risk | none |
 | Validation | unit |
 
@@ -513,9 +509,7 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope |  |
-| Out of scope | Runtime product changes. |
-| Sequencing risk | none |
+| Sequencing risk |  |
 | Validation | Run parser tests. |
 
 ## Generation Bundle
@@ -564,7 +558,7 @@ Update prompts.
 `, "utf-8");
 
     const issues = validatePlanArtifact(invalidPlanFile);
-    expect(issues).toContain("Approval Summary row 4 (Approval scope) has empty cell(s): Decision.");
+    expect(issues).toContain("Approval Summary row 4 (Sequencing risk) has empty cell(s): Decision.");
     expect(issues).toContain("Generation Bundle row 4 (Production code) has empty cell(s): Plan.");
     expect(issues).toContain("Iteration Overview row 4 (Iteration 1) has empty cell(s): Goal.");
     expect(issues).toContain("Iteration 1: Prompt Updates Expected Change Surface row 1 (`templates/step3_plan.md`) has empty cell(s): Ownership.");
@@ -614,8 +608,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
-| Out of scope | Runtime product behavior. |
 | Sequencing risk | none |
 | Validation | Run parser tests. |
 
@@ -712,8 +704,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
-| Out of scope | Runtime product behavior. |
 | Sequencing risk | none |
 | Validation | Run parser tests. |
 
@@ -786,8 +776,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
-| Out of scope | Runtime product behavior. |
 | Sequencing risk | none |
 | Validation | Run parser tests. |
 
@@ -859,8 +847,6 @@ date: 2026-06-02
 
 | Area | Decision |
 |---|---|
-| Approval scope | Update the plan artifact contract for R1, SC1, and D1. |
-| Out of scope | Runtime product behavior. |
 | Sequencing risk | none |
 | Validation | Run parser tests. |
 
@@ -1337,12 +1323,12 @@ date: 2026-06-02
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |
-| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1, S1 | Code is primary; spec is context. |
+| Risk boundaries | confirmed | F2 | Existing tests cover routing. |
 
 ## Requirements & Success Criteria Trace
 
@@ -1437,12 +1423,12 @@ TODO: find blockers.
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Requested target from PRD. | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
-| Risk boundaries | Requested risk boundary from PRD. | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | limited | F1 | Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target. |
+| Risk boundaries | limited | F2 | Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion. |
 
 ## Requirements & Success Criteria Trace
 
@@ -1465,8 +1451,6 @@ No non-blocking gaps.
 `);
 
     const issues = validateResearchFacts(researchFile);
-    expect(issues).toContain("research_facts.md must replace embedded template sample value `Requested target from PRD.`.");
-    expect(issues).toContain("research_facts.md must replace embedded template sample value `Requested risk boundary from PRD.`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`.");
     expect(issues).toContain("research_facts.md must replace embedded template sample value `src/file.ts:42`.");
@@ -1504,7 +1488,7 @@ No non-blocking gaps.
     const researchFile = path.join(testTmpDir, "missing_intent_row_research.md");
     cleanupTestDir();
     setupTestDir();
-    writeResearchFixture(researchFile, validResearchFactsBody().replace("| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |\n", ""));
+    writeResearchFixture(researchFile, validResearchFactsBody().replace("| Why | not_applicable | prd-only | User intent, not repository evidence. |\n", ""));
 
     expect(validateResearchFacts(researchFile)).toContain("PRD Intent Trace must include field `Why`.");
   });
@@ -1514,8 +1498,8 @@ No non-blocking gaps.
     cleanupTestDir();
     setupTestDir();
     writeResearchFixture(researchFile, validResearchFactsBody()
-      .replace("| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |", "| Change type | fix | not_applicable | prd-only |  |")
-      .replace("| Why | Keep routing decisions grounded. | not_applicable | prd-only | User intent, not repository evidence. |", "| Why | Keep routing decisions grounded. | not_applicable | prd-only |  |"));
+      .replace("| Change type | not_applicable | prd-only | Classification comes from PRD. |", "| Change type | not_applicable | prd-only |  |")
+      .replace("| Why | not_applicable | prd-only | User intent, not repository evidence. |", "| Why | not_applicable | prd-only |  |"));
 
     const issues = validateResearchFacts(researchFile);
     expect(issues).toContain("PRD Intent Trace row 3 (Change type) has empty cell(s): Notes.");
@@ -1524,18 +1508,18 @@ No non-blocking gaps.
     expect(issues).not.toContain("PRD Intent Trace row 4 must not contain empty cells.");
   });
 
-  test("validateResearchFacts requires PRD Intent Trace values to match prd.md", () => {
+  test("validateResearchFacts rejects unexpected PRD Intent Trace fields", () => {
     const prdFile = path.join(testTmpDir, "research_intent_prd.md");
     const researchFile = path.join(testTmpDir, "mismatched_intent_research.md");
     cleanupTestDir();
     setupTestDir();
     writeResearchPrdFixture(prdFile);
     writeResearchFixture(researchFile, validResearchFactsBody().replace(
-      "| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |",
-      "| Target state | Research invents a different target state. | confirmed | F1, S1 | Code is primary; spec is context. |"
+      "| Target state | confirmed | F1, S1 | Code is primary; spec is context. |",
+      "| Unknown field | confirmed | F1, S1 | Code is primary; spec is context. |"
     ));
 
-    expect(validateResearchFacts(researchFile, prdFile)).toContain("PRD Intent Trace row 5 PRD Value for `Target state` must match prd.md value `Research traces concrete flow behavior.`.");
+    expect(validateResearchFacts(researchFile, prdFile)).toContain("PRD Intent Trace contains unexpected field `Unknown field`.");
   });
 
   test("validateResearchFacts rejects invalid statuses", () => {
@@ -1569,8 +1553,8 @@ No non-blocking gaps.
     cleanupTestDir();
     setupTestDir();
 
-    writeResearchFixture(targetPrdOnlyFile, validResearchFactsBody().replace("| Target state | Research traces concrete flow behavior. | confirmed | F1, S1 | Code is primary; spec is context. |", "| Target state | Research traces concrete flow behavior. | confirmed | prd-only | Code evidence missing. |"));
-    writeResearchFixture(riskPrdOnlyFile, validResearchFactsBody().replace("| Risk boundaries | No unrelated flow changes. | confirmed | F2 | Existing tests cover routing. |", "| Risk boundaries | No unrelated flow changes. | confirmed | prd-only | Code evidence missing. |"));
+    writeResearchFixture(targetPrdOnlyFile, validResearchFactsBody().replace("| Target state | confirmed | F1, S1 | Code is primary; spec is context. |", "| Target state | confirmed | prd-only | Code evidence missing. |"));
+    writeResearchFixture(riskPrdOnlyFile, validResearchFactsBody().replace("| Risk boundaries | confirmed | F2 | Existing tests cover routing. |", "| Risk boundaries | confirmed | prd-only | Code evidence missing. |"));
 
     expect(validateResearchFacts(targetPrdOnlyFile)).toContain("PRD Intent Trace row 5 Evidence may use `prd-only` only for `Change type` and `Why`.");
     expect(validateResearchFacts(riskPrdOnlyFile)).toContain("PRD Intent Trace row 6 Evidence may use `prd-only` only for `Change type` and `Why`.");

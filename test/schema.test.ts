@@ -65,7 +65,7 @@ describe("loadSchema", () => {
     // Required sections
     expect(s.sections["Executive Summary"].required).toBe(true);
     expect(s.sections["Traceability Mapping"].required).toBe(true);
-    expect(s.sections["Architecture Package Map"].required).toBe(true);
+    expect(s.sections["Architecture Package Map"].required).toBe(false);
     expect(s.sections["Key Design Decisions"].required).toBe(true);
     expect(s.sections["Risks & Open Questions"].required).toBe(true);
 

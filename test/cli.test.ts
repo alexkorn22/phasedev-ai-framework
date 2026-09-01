@@ -119,8 +119,6 @@ function withImplementationPlanContract(planContent: string): string {
 
 | Area | Decision |
 |---|---|
-| Approval scope | Exercise the flow CLI fixture path. |
-| Out of scope | Unrelated product behavior. |
 | Sequencing risk | none |
 | Validation | Use fixture unit, phase, and full commands. |
 
@@ -177,12 +175,12 @@ function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
-| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
@@ -657,7 +655,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Every table cell must be non-empty, including Notes.");
     expect(output).toContain("Source Facts Supports must use R#/SC#; do not use none/not_applicable.");
     expect(output).toContain("Replace every embedded template example row and example value with real phase-specific content.");
-    expect(output).toContain("The final artifact must not contain these embedded template sample values: `Requested target from PRD.`, `Requested risk boundary from PRD.`, `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
+    expect(output).toContain("The final artifact must not contain these embedded template sample values: `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);

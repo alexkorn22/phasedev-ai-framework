@@ -61,12 +61,12 @@ function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Exercise the commit gate. | confirmed | F1 | Code fixture confirms routing. |
-| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
@@ -137,8 +137,6 @@ function iterationPlanBody(headingStatus: "~" | "x"): string {
 
 | Area | Decision |
 |---|---|
-| Approval scope | Exercise the commit gate fixture path. |
-| Out of scope | Unrelated product behavior. |
 | Sequencing risk | none |
 | Validation | Use fixture unit, phase, and full commands. |
 

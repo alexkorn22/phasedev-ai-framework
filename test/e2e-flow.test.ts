@@ -150,12 +150,12 @@ function makeResearchFactsBody(params: { why: string; targetState: string }): st
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | feature | not_applicable | prd-only | n/a |
-| Why | ${params.why} | not_applicable | prd-only | n/a |
-| Target state | ${params.targetState} | confirmed | F1 | n/a |
-| Risk boundaries | None beyond normal project risk | confirmed | F1 | n/a |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | n/a |
+| Why | not_applicable | prd-only | n/a |
+| Target state | confirmed | F1 | n/a |
+| Risk boundaries | confirmed | F1 | n/a |
 
 ## Requirements & Success Criteria Trace
 
@@ -239,8 +239,6 @@ date: 2026-07-06
 
 | Area | Decision |
 |---|---|
-| Approval scope | Full E2E flow |
-| Out of scope | Nothing |
 | Sequencing risk | none |
 | Validation | full |
 

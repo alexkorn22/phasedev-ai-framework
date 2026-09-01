@@ -57,12 +57,12 @@ export function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | Value |
-|---|---|
-| Change type | fix |
-| Why | Test fixture |
-| Target state | Verified |
-| Risk boundaries | None |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Test fixture |
+| Why | not_applicable | prd-only | Test fixture |
+| Target state | confirmed | F1 | Verified |
+| Risk boundaries | confirmed | F1 | None |
 
 ## Requirements & Success Criteria Trace
 

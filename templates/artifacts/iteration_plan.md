@@ -18,8 +18,6 @@ Check Evidence contract:
 
 | Area | Decision |
 |---|---|
-| Approval scope |  |
-| Out of scope |  |
 | Sequencing risk |  |
 | Validation |  |
 

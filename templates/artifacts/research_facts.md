@@ -7,12 +7,12 @@ Authoring instructions:
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type |  |  |  |  |
-| Why |  |  |  |  |
-| Target state |  |  |  |  |
-| Risk boundaries |  |  |  |  |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type |  |  |  |
+| Why |  |  |  |
+| Target state |  |  |  |
+| Risk boundaries |  |  |  |
 
 ## Requirements & Success Criteria Trace
 
