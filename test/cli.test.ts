@@ -70,15 +70,6 @@ function validRulesBody(): string {
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `;
@@ -613,8 +604,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
     expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
-    expect(output).toContain("manual: <named method supported by user/repo evidence>");
-    expect(output).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
+    expect(output).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
     expect(output).toContain("embedded template is the only artifact structure");
     expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths");
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
@@ -812,11 +802,10 @@ describe("flow-cli state machine", () => {
     expect(phaseValidationPrompt).toContain("Retrieval order:");
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
     expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
-    expect(phaseValidationPrompt).toContain("git diff --name-status -- .");
-    expect(phaseValidationPrompt).toContain("Determine the single project root from this prompt context");
-    expect(phaseValidationPrompt).toContain("Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root");
+    expect(phaseValidationPrompt).toContain("Verify the changed-file inventory using the controller-observed inventory");
+    expect(phaseValidationPrompt).toContain("The controller computes the exact changed-file scope for this validation phase");
+    expect(phaseValidationPrompt).toContain("Use the controller-provided inventory directly as the list of target files to review");
     expect(phaseValidationPrompt).toContain("including, where applicable to changed files, user/input handling");
-    expect(phaseValidationPrompt).toContain("proceed with filesystem reads as fallback");
     expect(phaseValidationPrompt).toContain("Preserve every existing row, including `resolved` rows");
     expect(phaseValidationPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
@@ -1804,7 +1793,7 @@ No markdown finding table here.
     expect(output).not.toContain("Phase 7. Archive.");
   });
 
-  test("invalid execution contract with missing Constraints section blocks before rendering implementation prompts", () => {
+  test("invalid execution contract with missing Test Commands section blocks before rendering implementation prompts", () => {
     setupChange(`
 # Plan
 
@@ -1812,19 +1801,6 @@ No markdown finding table here.
 - [ ] 1.1 Implement endpoint
 `, {
       rules: `# Rules
-
-## Test Commands
-| Gate | Command |
-|---|---|
-| unit | \`bun test unit\` |
-| phase | \`bun test phase\` |
-| full | \`bun test full\` |
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -1834,11 +1810,11 @@ Test fixture only.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Constraints`");
+    expect(output).toContain("must contain section `## Test Commands`");
     expect(output).not.toContain("run unit tests");
   });
 
-  test("invalid execution contract with missing Verification Gates section blocks before phase validation prompt", () => {
+  test("invalid execution contract with missing Environment Notes section blocks before phase validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1856,26 +1832,17 @@ Test fixture only.
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Manual Checks
-None.
-
-## Environment Notes
-Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Verification Gates`");
+    expect(output).toContain("must contain section `## Environment Notes`");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
-  test("invalid execution contract with missing Environment Notes section blocks before final validation prompt", () => {
+  test("invalid execution contract with missing gate in Test Commands table blocks before final validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1889,23 +1856,16 @@ Test fixture only.
 |---|---|
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
-| full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
+## Environment Notes
+Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Environment Notes`");
+    expect(output).toContain("must contain exactly these gates in order: `unit`, `phase`, `full`");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 

@@ -253,15 +253,6 @@ function rulesBody(): string {
 | phase | \`bun test\` |
 | full | \`bun test\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `;

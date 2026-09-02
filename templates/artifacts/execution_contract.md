@@ -12,10 +12,4 @@
 | phase | `echo TODO: add phase-level test command` |
 | full | `echo TODO: add full-gate test command` |
 
-## Constraints
-
-## Verification Gates
-
-## Manual Checks
-
 ## Environment Notes

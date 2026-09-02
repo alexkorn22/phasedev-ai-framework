@@ -39,6 +39,9 @@ Scope rules:
 - execute only the current iteration shown above;
 - the current iteration change set implements only the `R#` and `SC#` tied to the current iteration in the approved plan;
 - `Expected Change Surface` in the current iteration constrains the allowed implementation areas for the current iteration;
+- implementer scope: write production code, write automated tests (unit, integration, headless E2E), and execute automated test runners (e.g. `npm test`, `typecheck`, `lint`, `build`);
+- never run manual UI tests, interactive browser sessions, or start background dev-servers for ad-hoc browser testing during iteration implementation;
+- hermetic development: never attempt to connect to live external databases, remote cloud services, or staging APIs — verify all migrations and external adapters with mocked sources and in-memory fixtures;
 - do not expand scope beyond the current iteration `Expected Change Surface`, related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
 - if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary, stop and report a blocker instead of expanding scope yourself;

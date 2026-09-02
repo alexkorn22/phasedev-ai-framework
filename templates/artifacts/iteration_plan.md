@@ -10,6 +10,9 @@ Iteration status contract:
 
 Check Evidence contract:
 - Keep Check Evidence as a markdown table with Result: pending, passed, failed, blocked, not_applicable.
+- Checks and Check Evidence rows must be 100% automated and offline test/build commands.
+- Never place manual checks (`manual:*`), live external database commands, or interactive browser tests in an iteration's Checks or Check Evidence.
+- Criteria requiring manual, visual, or staging verification belong to Final Validation / release acceptance.
 -->
 
 # Implementation Plan

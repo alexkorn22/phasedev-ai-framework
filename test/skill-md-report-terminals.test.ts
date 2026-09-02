@@ -11,8 +11,8 @@ describe("phasedev-orchestrator SKILL.md ultra-lean prompt & reporting", () => {
     expect(skillMd).toContain('Execute the current PhaseDev phase for change "<change>".');
     expect(skillMd).toContain("1. Run: phasedev phase --change <change> — to get the phase contract.");
     expect(skillMd).toContain("2. Follow your role's mandatory skills and execute the phase contract.");
-    expect(skillMd).toContain("3. Self-validate via the contract's check command before reporting.");
-    expect(skillMd).toContain("4. Do NOT run phasedev advance. Report results, blockers, and applied skills.");
+    expect(skillMd).toContain("5. Self-validate via the contract's check command before reporting.");
+    expect(skillMd).toContain("6. Do NOT run phasedev advance. Report results, blockers, and applied skills.");
   });
 
   test("references concise skill reporting format in surrounding prose", () => {

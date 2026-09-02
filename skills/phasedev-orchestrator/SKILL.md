@@ -157,8 +157,10 @@ You work ONLY on the change "<change>".
 
 1. Run: phasedev phase --change <change> — to get the phase contract.
 2. Follow your role's mandatory skills and execute the phase contract.
-3. Self-validate via the contract's check command before reporting.
-4. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
+3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
+4. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
+5. Self-validate via the contract's check command before reporting.
+6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
 )
 ```
 
@@ -178,8 +180,10 @@ You work ONLY on the change "<change>".
 
 1. Run: phasedev phase --change <change> — to get the phase contract.
 2. Follow your role's mandatory skills and execute the phase contract.
-3. Self-validate via the contract's check command before reporting.
-4. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
+3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
+4. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
+5. Self-validate via the contract's check command before reporting.
+6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
 )
 ```
 

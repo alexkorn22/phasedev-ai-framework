@@ -126,18 +126,6 @@ function makeExecutionContractBody(): string {
 | phase | \`echo phase\` |
 | full | \`echo full\` |
 
-## Constraints
-
-No special constraints.
-
-## Verification Gates
-
-Standard verification gates.
-
-## Manual Checks
-
-None required.
-
 ## Environment Notes
 
 None.
@@ -1178,18 +1166,6 @@ describe("multi-change e2e", () => {
 | unit | \`echo unit\` |
 | phase | \`echo phase\` |
 | full | \`echo full\` |
-
-## Constraints
-
-No special constraints.
-
-## Verification Gates
-
-Standard verification gates.
-
-## Manual Checks
-
-None required.
 
 ## Environment Notes
 

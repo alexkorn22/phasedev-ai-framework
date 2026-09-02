@@ -225,15 +225,6 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `);
@@ -283,15 +274,6 @@ describe("flow controller typed stages", () => {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -379,8 +361,7 @@ Test fixture only.
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
-    expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
-    expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
+    expect(result.prompt).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
     expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
@@ -405,15 +386,6 @@ Test fixture only.
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -469,15 +441,6 @@ Test fixture only.
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -1538,15 +1501,6 @@ Complete API work.
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.

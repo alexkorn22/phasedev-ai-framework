@@ -13,11 +13,10 @@ Positive decision flow:
 
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
 2. Build the validation scope from {{validation_scope_sources}}.
-3. Verify the changed-file inventory with read-only evidence before deciding the verdict:
-   a. Determine the single project root from this prompt context — the linked active project root IS the snapshot root (there is no second root).
-   b. Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root.
-   c. Compare git output with the controller-observed inventory provided in the phase prompt.
-   d. If git or controller evidence is unavailable → proceed with filesystem reads as fallback. If git and controller evidence contradict each other on which files changed → add a `MUST-FIX` finding with `Class = validation`. If unavailable but no contradiction → proceed with filesystem reads as fallback evidence. Exclude `.phasedev/**` from all inventories.
+3. Verify the changed-file inventory using the controller-observed inventory provided in the phase prompt (`## Controller Observed Changed Files`):
+   a. The controller computes the exact changed-file scope for this validation phase against the appropriate diffBase and Expected Change Surface.
+   b. Use the controller-provided inventory directly as the list of target files to review.
+   c. If controller evidence is unavailable, inspect files directly from the phase's Expected Change Surface in `iteration_plan.md`. Exclude `.phasedev/**` from all reviews.
 4. Inspect every changed production/source/config/test file {{validation_changed_file_scope}}; for large scopes, chunk review by requirement, phase, or path pattern, inspect the most requirement-critical and security-sensitive files first, and keep a short in-memory checklist of files reviewed.
 5. Perform requirements conformance, code review, and security review passes against the approved requirements, design, implementation plan, actual changed files, and Check Evidence.
 6. Decide the verdict from the open finding set and coverage completeness, then write only the allowed artifact updates.

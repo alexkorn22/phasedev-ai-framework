@@ -6,7 +6,7 @@ requireIterationCommit: true
 # Sub-agent roles. `phasedev spawn-plan --harness <name>` resolves each role to
 # its mandatory skills and a model, and the orchestrator puts that line into the
 # sub-agent's dispatch prompt. Tier is an abstraction: cheap | standard | strong.
-# Model names live outside the project, in ~/.config/phasedev/models.yaml.
+# Model names are resolved per harness by spawn-plan.
 # Which roles a phase needs, and how many sub-agents to spawn, stays the
 # orchestrator's per-phase decision — this catalog does not bind it.
 roles:
@@ -37,7 +37,7 @@ roles:
   implementer:
     tier: standard
     skills: [dev-core, tdd-method, debugging-method]
-    comment: Implements one iteration test-first and debugs failures to root cause
+    comment: Implements one iteration test-first with headless automated tests and debugs failures to root cause
   implementation-check:
     tier: standard
     skills: [verification-method, test-quality-method]

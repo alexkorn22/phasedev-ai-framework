@@ -89,11 +89,14 @@ export function flowFinalValidationCheckCommand(projectPath: string, changeName?
 }
 
 export const PATH_RESOLUTION_RULE = [
-  "Path resolution rule:",
+  "Path resolution & workspace confinement rules:",
   "- Flow artifact names in this prompt (e.g. `prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) are paths inside the active change folder, not paths from the project repository root.",
   "- Write or update each flow artifact only at the absolute path given for it in this prompt; treat template comments, embedded rows, and allowlist entries as active-change-folder paths, never project-root paths.",
   "- Do not create or update project-root copies of these flow artifacts.",
-  "- Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere."
+  "- Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere.",
+  "- Strict Workspace Boundary: All operations (reading, writing, executing, creating temporary files, databases, logs, or scratchpads) must stay strictly inside the active project root directory (process.cwd()). Never read, write, create, or modify files in /tmp, home directory (~), or parent directories (../). If temporary files or test databases are needed, place them strictly inside a project-local gitignored folder (e.g. `temp/` or `.tmp/`).",
+  "- Hermetic Development & Offline Testing: All code and tests must execute in a strictly hermetic, offline environment. Never attempt to connect to live external databases, remote cloud services, production APIs, or require external connection strings (*_DB_URL, live API keys). Verify migrations and external integrations exclusively by writing automated tests with mocks, fakes, or local in-memory fixtures.",
+  "- Subagent Git Restriction: When implementing or researching a PhaseDev change, do NOT run git commands (`git log`, `git diff`, `git blame`, `git bisect`) to explore code or search symbols. Search code via filesystem tools (`grep`, `glob`, AST, file reading). Git history may only be inspected if the user's original task explicitly requests historical git analysis. Git commits and diff tracking are managed exclusively by the PhaseDev controller / orchestrator."
 ].join("\n");
 
 export const SELF_CHECK_FALLBACK = [

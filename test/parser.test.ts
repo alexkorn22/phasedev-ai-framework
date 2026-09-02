@@ -2536,15 +2536,6 @@ date: 2026-06-02
 | phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `, "utf-8");
@@ -2564,15 +2555,6 @@ Test fixture only.
 | full | TODO |
 | phase |  |
 | extra | nope |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -2606,15 +2588,6 @@ Use the local Bun commands below.
 | phase | \`bun test test/controller.test.ts\` |
 | full | \`bun test\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `, "utf-8");
@@ -2622,7 +2595,7 @@ Test fixture only.
     expect(validateRulesArtifact(extraTextRulesFile)).toEqual([]);
   });
 
-  test("validateExecutionContract ignores a ## Constraints heading inside a fenced code block", () => {
+  test("validateExecutionContract ignores a ## Environment Notes heading inside a fenced code block", () => {
     setupTestDir();
     const contractFile = path.join(testTmpDir, "fenced_only_execution_contract.md");
     fs.writeFileSync(contractFile, `# Rules
@@ -2630,23 +2603,22 @@ Test fixture only.
 Example of a section you should NOT include verbatim:
 
 \`\`\`markdown
-## Constraints
+## Environment Notes
 Fenced example only, not a real section.
 \`\`\`
 
-## Verification Gates
-Standard test gates apply.
+## Test Commands
 
-## Manual Checks
-None.
-
-## Environment Notes
-Test fixture only.
+| Gate | Command |
+|---|---|
+| unit | \`bun test unit\` |
+| phase | \`bun test phase\` |
+| full | \`bun test full\` |
 `, "utf-8");
 
     const result = validateExecutionContract(contractFile);
     expect(result.valid).toBe(false);
-    expect(result.issues).toContain("execution_contract.md must contain section `## Constraints`.");
+    expect(result.issues).toContain("execution_contract.md must contain section `## Environment Notes`.");
   });
 
   test("extractRequirementsAndCriteriaFromPrd ignores requirement IDs inside fenced code blocks", () => {

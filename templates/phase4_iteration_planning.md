@@ -41,7 +41,9 @@ Planning instructions:
    - boundary self-check: before finalizing the plan, answer for every iteration "Can this iteration be fully validated as complete if none of the later iterations have been executed?"; if the answer is no, rework the iteration boundaries before writing `iteration_plan.md`; do not record this check in the artifact or the final response.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - iteration sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
-   - checks must cover each `SC#` according to its PRD `Evidence` type;
+   - checks in `### Checks` and `### Check Evidence` must contain ONLY automated, deterministic, and offline commands (unit tests, integration tests, typecheck, lint, build, headless test scripts). Never place manual checks (`manual:*`), interactive browser driving, or live external database commands in iteration checks;
+   - `SC#` criteria requiring manual/visual verification or live external environments must be mapped to `[Deferred to Final Validation / Manual Acceptance]` rather than placed as iteration check commands;
+   - external data sources, migrations, and APIs must be verified in iteration checks through automated tests with mocks/fakes/in-memory fixtures;
    - risk boundaries must be represented in the generated plan.
 6. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
 7. Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction, missing approval authority, a public contract or risk-boundary decision the approved inputs do not authorize, or an impossible-to-name required check. Do not stop for low-level implementation details that do not change approval scope; make the smallest conservative scoped planning assumption and record it with concrete trace IDs.
