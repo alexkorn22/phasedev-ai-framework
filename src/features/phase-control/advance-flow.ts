@@ -10,8 +10,6 @@ import { detectStateRouteConflict } from "./state-route-consistency";
 import { setFindingsType } from "../artifact-ops/manage-findings";
 import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
-import { recordGitDiff } from "../trace-capture/record-trace";
-import { readCommitLog, iterationDiffBase } from "../../entities/change/flow-state";
 import { normalizeValidationState } from "./normalize-validation-state";
 import { quickAdvance } from "./quick-advance";
 import { clarifyReminderFor } from "./get-clarify-prompt";
@@ -369,11 +367,6 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   // (D) archive_ready → flow is finished; the archive mutation is owned by
   // `phasedev archive`, not by advance.
   if (route.kind === "archive_ready") {
-    const log = readCommitLog(paths.statePath);
-    const head = gitHeadSha(projectPath);
-    if (log && log.start && head) {
-      recordGitDiff(projectPath, changeDir, "full_change", log.start, head);
-    }
     return done("Final validation passed. Flow complete.");
   }
 
@@ -494,13 +487,6 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     const head = gitHeadSha(projectPath);
     if (head) {
       recordIterationBoundary(paths.statePath, state.activeIteration as number, head);
-      const log = readCommitLog(paths.statePath);
-      if (log) {
-        const base = iterationDiffBase(log, state.activeIteration as number);
-        if (base) {
-          recordGitDiff(projectPath, changeDir, `iteration_${state.activeIteration}`, base, head);
-        }
-      }
     }
   }
 

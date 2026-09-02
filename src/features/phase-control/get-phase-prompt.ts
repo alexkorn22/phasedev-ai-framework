@@ -20,7 +20,6 @@ import { detectStateRouteConflict } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { quickPhasePrompt } from "./quick-phase-prompt";
 import { readCommitLog, iterationDiffBase } from "../../entities/change/flow-state";
-import { recordPhaseContract } from "../trace-capture/record-trace";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
@@ -422,11 +421,6 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     default:
       throw new Error(`getPhasePrompt reached unreachable phase "${activePhase}" (quick phases are rendered by quickPhasePrompt).`);
-  }
-
-  if (!promptResult.blocked && changeDir) {
-    const phaseLabel = activeIteration !== null ? `${activePhase}_iter_${activeIteration}` : activePhase;
-    recordPhaseContract(changeDir, phaseLabel, promptResult.prompt);
   }
 
   return promptResult;
