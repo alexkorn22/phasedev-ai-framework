@@ -4,7 +4,7 @@
 
 # ⚙️ PhaseDev AI Framework
 
-[![Version](https://img.shields.io/badge/version-1.6.7-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.6.9-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -259,11 +259,11 @@ roles:
 ```
 
 - `autoApprove` — `true`: `advance` blocks approval gates for a validation sub-agent to review and approve, instead of auto-stamping.
-- `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow. Security-class findings always block regardless of this setting.
+- `blockingSeverity` — `must_fix | recommended | nit` — minimal severity that blocks the flow.
 - `requireIterationCommit` — clean-git-tree gate on passing validation exits (agent commits, controller never touches git).
 - `roles` — a flat catalog of sub-agent roles, each with a `tier` (`cheap | standard | strong`), a `skills` list that is mandatory for the sub-agent taking that role (not a required YAML key — a role with no `skills` entry defaults to an empty list), and an optional free-text `comment` describing what the role does. It replaces the old `phases.<phase>.skills` policy: roles are not tied to a phase, and a phase's contract no longer prints skill routing — only a static Skill Boundary section. The orchestrator decides which roles a phase needs and how many sub-agents to spawn; `phasedev spawn-plan --harness <name>` resolves the catalog against `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`) and prints one line per role — resolved model, mandatory skills, and the comment when present — for the orchestrator to copy verbatim into each sub-agent's dispatch prompt. A harness or tier missing from the models file is a degradation, not an error: `spawn-plan` prints the tier name in place of the model and a note explaining the mapping is incomplete. Add project-specific roles freely — role names are free-form; only `tier`, `skills`, and `comment` are validated. An empty `skills` list does not mean the sub-agent may use no skills at all — it means the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary rules that govern named skills. Once a role's `skills` list is non-empty (the shipped default since the distilled skill library landed), that list is mandatory again and discovery is not substituted for it.
 
-Iteration and repair-cycle limits (10 iterations, 3 repair cycles) are fixed CLI constants, not config keys. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
+Iteration limit (10 iterations) is a fixed CLI constant, not a config key. `phasedev archive <change-name>` performs the archive mutation once final validation passes — there is no config gate on it. Unknown or removed config keys (including the old `phases`) print a stderr warning and are ignored — never a hard error.
 
 ---
 

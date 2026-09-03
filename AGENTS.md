@@ -105,7 +105,6 @@ PhaseDev is designed to be operated by a main **Orchestrator Agent** (shipped as
    - Validates verdict: `ready` or `ready_with_risks` allows advance; `repair_required` routes to `finding_repair`.
 8. **`finding_repair`**:
    - Fixes defects recorded in `validation_findings.md`.
-   - Max 3 repair cycles permitted before requiring escalation.
    - Repairs are resolved via `phasedev resolve-finding` with concrete evidence.
 9. **`archive`**:
    - Triggered exclusively by standalone `phasedev archive <change-name>` once `advance` reports flow completion.

@@ -30,7 +30,6 @@ import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { updateIterationStatus } from "../../entities/iteration-plan/update-iteration-status";
 
 const MAX_ITERATIONS = 10;
-const MAX_REPAIR_CYCLES = 3;
 
 function refuse(message: string): AdvanceResult {
   return { ok: false, advanced: false, finished: false, newState: null, message };
@@ -368,14 +367,6 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
   // `phasedev archive`, not by advance.
   if (route.kind === "archive_ready") {
     return done("Final validation passed. Flow complete.");
-  }
-
-  // Repair cycle guard: refuse after N consecutive repair attempts
-  if (route.kind === "finding_repair" && state.repairCycleCount >= MAX_REPAIR_CYCLES) {
-    return refuse(
-      `Repair cycle limit reached (${MAX_REPAIR_CYCLES}). ` +
-      "Review the findings and resolve them manually, then run advance again."
-    );
   }
 
   // (E) Normal phase transition

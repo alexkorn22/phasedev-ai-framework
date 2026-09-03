@@ -2237,7 +2237,7 @@ date: 2026-05-30
     expect(artifact.openBlockingRows.map(row => row.className)).toEqual(["security", "code_review"]);
   });
 
-  test("parseValidationFindingsArtifact requires every security finding to be MUST-FIX", () => {
+  test("parseValidationFindingsArtifact accepts security findings with RECOMMENDED and NIT severities", () => {
     const findingsFile = path.join(testTmpDir, "security_not_must_fix.md");
     fs.writeFileSync(findingsFile, `---
 verdict: ready_with_risks
@@ -2248,13 +2248,20 @@ date: 2026-05-30
 | ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 | F1 | open | RECOMMENDED | security | Final | State-changing endpoint has a defense-in-depth auth concern. | Harden authorization. |
-| F2 | resolved | NIT | security | Final | Resolved secret handling note was classified as a nit. | Keep resolved security rows classified as MUST-FIX. |
+| F2 | resolved | NIT | security | Final | Resolved secret handling note was classified as a nit. | Keep resolved security rows classified. |
 `, "utf-8");
 
-    const issues = parseValidationFindingsArtifact(findingsFile).issues.map(i => i.message);
+    const defaultArtifact = parseValidationFindingsArtifact(findingsFile, "must_fix");
+    expect(defaultArtifact.issues).toEqual([]);
+    expect(defaultArtifact.rows.length).toBe(2);
+    expect(defaultArtifact.openBlockingRows.length).toBe(0);
+    expect(defaultArtifact.openNonBlockingRows.length).toBe(1);
 
-    expect(issues).toContain("Finding F1 has Class `security`; security findings must use Severity `MUST-FIX`.");
-    expect(issues).toContain("Finding F2 has Class `security`; security findings must use Severity `MUST-FIX`.");
+    const recommendedArtifact = parseValidationFindingsArtifact(findingsFile, "recommended");
+    expect(recommendedArtifact.openBlockingRows.length).toBe(1);
+    expect(recommendedArtifact.issues.map(i => i.message)).toContain(
+      "`verdict: ready_with_risks` is not allowed while open or reopened MUST-FIX or RECOMMENDED findings exist."
+    );
   });
 
   test("parseValidationFindingsArtifact validates verdict consistency from severity", () => {

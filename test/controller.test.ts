@@ -1800,10 +1800,10 @@ Test fixture only.
     expect(result.newState?.repairCycleCount).toBe(2);
   });
 
-  test("repair cycle accumulates through repair↔validation loop and blocks after 3 attempts", () => {
+  test("repair cycle accumulates through repair↔validation loop without limits", () => {
     // This test verifies the full cycle works end-to-end: the counter
     // increments through repair, stays preserved when returning to validation,
-    // and blocks the 4th repair attempt (3rd re-entry).
+    // and continues cleanly beyond 3 attempts without arbitrary limit blocking.
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1865,14 +1865,14 @@ Test fixture only.
     expect(r.newState?.activePhase).toBe("finding_repair");
     expect(r.newState?.repairCycleCount).toBe(3);
 
-    // 4th repair attempt blocked: count is 3 which is >= MAX_REPAIR_CYCLES
-    r = advanceFrom("iteration_validation", 1, 3, "repair_required", "F3");
-    expect(r.ok).toBe(false);
-    expect(r.message).toContain("Repair cycle limit reached");
-    expect(r.message).toContain("3");
+    // 4th repair attempt allowed: count advances to 4 without blocking
+    r = advanceFrom("iteration_validation", 1, 3, "repair_required", "F4");
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("finding_repair");
+    expect(r.newState?.repairCycleCount).toBe(4);
   });
 
-  test("repair cycle limit reached — advance refuses after 3 repair attempts", () => {
+  test("no repair cycle limit — advance allows entering finding_repair when repairCycleCount >= 3", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1882,35 +1882,15 @@ Test fixture only.
     const statePath = path.join(changeDir, "state.json");
     fs.writeFileSync(
       statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 5 }, null, 2) + "\n",
       "utf-8"
     );
 
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached");
-    expect(result.message).toContain("3");
-  });
-
-  test("repair cycle limit honors the hard-coded max repair cycles", () => {
-    const changeDir = setupChange(`
-## Iteration 1: API [~]
-- [x] 1.1 Implement endpoint
-`, {
-      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
-    });
-    const statePath = path.join(changeDir, "state.json");
-    fs.writeFileSync(
-      statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
-      "utf-8"
-    );
-
-    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached (3)");
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("finding_repair");
+    expect(result.newState?.repairCycleCount).toBe(6);
   });
 
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {

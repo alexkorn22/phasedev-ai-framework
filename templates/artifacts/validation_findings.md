@@ -10,7 +10,6 @@ Frontmatter contract:
 - verdict must be exactly one of: {{allowed_verdicts}}. It is recorded only with `phasedev set-verdict`.
 - type must be exactly one of: iteration, final.
 - repair_required: use when at least one open/reopened finding is at or above the blocking threshold.
-- Security rows must always use Severity: MUST-FIX, including resolved rows.
 {{repaired_verdict_note}}
 {{blocking_severity_policy}}
 -->

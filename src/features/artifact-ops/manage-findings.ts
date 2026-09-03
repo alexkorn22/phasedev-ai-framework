@@ -204,17 +204,17 @@ export function addFinding(
   }
 
   const normalizedSeverity = severity.toUpperCase();
+  if (!ALLOWED_SEVERITIES.has(normalizedSeverity)) {
+    return { ok: false, message: `Invalid severity \`${severity}\`. Must be one of: MUST-FIX, RECOMMENDED, NIT.` };
+  }
 
   if (!fs.existsSync(filePath)) {
     if (!createContext) {
       return { ok: false, message: `File not found: ${filePath}` };
     }
-    const skeletonVerdict = normalizedSeverity === "MUST-FIX" ? "repair_required" : "ready_with_risks";
+    const isBlocking = severityBlocks(normalizedSeverity as ValidationFindingSeverity, blockingSeverity);
+    const skeletonVerdict = isBlocking ? "repair_required" : "ready_with_risks";
     writeFileAtomic(filePath, findingsFileSkeleton(createContext, skeletonVerdict));
-  }
-
-  if (!ALLOWED_SEVERITIES.has(normalizedSeverity)) {
-    return { ok: false, message: `Invalid severity \`${severity}\`. Must be one of: MUST-FIX, RECOMMENDED, NIT.` };
   }
 
   const normalizedClass = (className ?? "validation").toLowerCase();

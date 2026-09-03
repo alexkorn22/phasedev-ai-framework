@@ -36,7 +36,7 @@ Context budget and stop condition:
 - If weak or missing Check Evidence can be independently verified and does not contradict repository evidence, do not force `repair_required`; record any residual uncertainty as a non-blocking finding only when it matters downstream.
 - If relevant Check Evidence remains `pending`, contains `failed`, does not explain `blocked`, contradicts repository evidence, or prevents completing a required review pass after independent verification, add a finding with `Class = validation` or a more precise class if there is a concrete implementation/design/plan cause.
 - Findings from the code review pass must be recorded in `validation_findings.md` with `Class = code_review` unless a more precise existing class is required by the finding.
-- Findings from the security review pass must be recorded in `validation_findings.md` with `Class = security` and `Severity = MUST-FIX`; open security findings are always blocking.
+- Findings from the security review pass must be recorded in `validation_findings.md` with `Class = security` and appropriate severity (`MUST-FIX`, `RECOMMENDED`, `NIT`).
 - If a finding relates to a PRD requirement or success criterion, `Finding` or `Required Fix` must include the concrete `R#` or `SC#`.
 - completely ignore `.phasedev/**` when looking for implementation findings: do not diff, review, or report any files under `.phasedev/**` as change set, product code, PR scope, or finding source.
 - Use `.phasedev/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history.

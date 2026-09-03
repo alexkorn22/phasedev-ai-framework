@@ -271,7 +271,7 @@ Stop when any is met:
 - **Flow complete (archived)** — `phasedev archive <change>` reports the change is archived (`.phase-archive.json` `status: completed`). Stop and report success.
 - **Blocked** — approval gate, blocker (verify with `phasedev check`), or invalid state. At an approval gate: follow [Auto-Approval](#auto-approval) when `autoApprove` is true, otherwise tell the user to approve and wait.
 - **No progress** — after sub-agents, `phasedev advance` (or `phasedev archive`) still refuses with the same reason; for a repeated `invalid_*` this is the stop step of the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
-- **CLI limit reached** — `advance` refuses with "Max iterations (N) reached" or "Repair cycle limit reached"; both limits are fixed CLI constants (10 iterations, 3 repair cycles), not configurable — stop and report the refusal.
+- **CLI limit reached** — `advance` refuses with "Max iterations (N) reached" (fixed CLI constant: 10 iterations, not configurable) — stop and report the refusal.
 - **Unrecoverable error** — sub-agent error after one retry.
 - **User interrupt**.
 

@@ -618,3 +618,29 @@ describe("setFindingsVerdict coerceType", () => {
     expect(content).toContain("verdict: ready");
   });
 });
+
+describe("addFinding skeleton verdict under blockingSeverity thresholds", () => {
+  test("creates skeleton with repair_required when added severity is RECOMMENDED under recommended threshold", () => {
+    const file = findingsPath();
+    const result = addFinding(file, null, "Auth check note", "RECOMMENDED", "Add check", "security", "Iteration 1", CTX, "recommended");
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).toContain("verdict: repair_required");
+  });
+
+  test("creates skeleton with ready_with_risks when added severity is RECOMMENDED under must_fix threshold", () => {
+    const file = findingsPath();
+    const result = addFinding(file, null, "Formatting suggestion", "RECOMMENDED", "Reformat", "code_review", "Iteration 1", CTX, "must_fix");
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).toContain("verdict: ready_with_risks");
+  });
+
+  test("creates skeleton with repair_required when added severity is NIT under nit threshold", () => {
+    const file = findingsPath();
+    const result = addFinding(file, null, "Typo in comment", "NIT", "Fix typo", "implementation", "Iteration 1", CTX, "nit");
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(file, "utf-8");
+    expect(content).toContain("verdict: repair_required");
+  });
+});

@@ -6,7 +6,7 @@ import { buildChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
-import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
+import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } from "../../entities/validation-findings/blocking-severity";
 
 export interface FlowStatus {
   activeChange: string | null;
@@ -15,6 +15,7 @@ export interface FlowStatus {
   artifacts: Array<{ name: string; exists: boolean; approved: boolean }>;
   iterations: Array<{ id: number; name: string; status: string }>;
   validationFindings: { exists: boolean; verdict: string; type: string; openCount: number; blockingCount: number };
+  blockingSeverity?: BlockingSeverity;
 }
 
 function artifactStatus(changeDir: string, relPath: string): { name: string; exists: boolean; approved: boolean } {
@@ -78,7 +79,8 @@ export function getFlowStatus(
     routeKind: state.routeKind,
     artifacts,
     iterations,
-    validationFindings
+    validationFindings,
+    blockingSeverity
   };
 }
 
@@ -112,11 +114,12 @@ export function renderFlowStatus(status: FlowStatus): string {
   }
 
   if (status.validationFindings.exists) {
+    const blockingLabel = status.blockingSeverity ? blockingSeverityLabel(status.blockingSeverity) : "MUST-FIX";
     lines.push("--- Validation Findings ---");
     lines.push(`  Verdict: ${status.validationFindings.verdict}`);
     lines.push(`  Type: ${status.validationFindings.type}`);
     lines.push(`  Open findings: ${status.validationFindings.openCount}`);
-    lines.push(`  Blocking (MUST-FIX): ${status.validationFindings.blockingCount}`);
+    lines.push(`  Blocking (${blockingLabel}): ${status.validationFindings.blockingCount}`);
   }
 
   return lines.join("\n");

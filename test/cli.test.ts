@@ -2161,7 +2161,6 @@ describe("flow templates", () => {
     expect(findingsTemplate).toContain("verdict: <set_after_review>");
     expect(findingsTemplate).toContain("This file is created and mutated ONLY by phasedev commands");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened finding is at or above the blocking threshold.");
-    expect(findingsTemplate).toContain("Security rows must always use Severity: MUST-FIX, including resolved rows.");
     expect(findingsTemplate).toContain("type: {{artifact_type}}");
     expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |");
   });
@@ -2177,7 +2176,7 @@ describe("flow templates", () => {
     expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("Structure, column set, allowed values, and verdict/type — only from the embedded Artifact Build Contract");
-      expect(template).toContain("Class = security` and `Severity = MUST-FIX");
+      expect(template).toContain("Class = security` and appropriate severity");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
     }
