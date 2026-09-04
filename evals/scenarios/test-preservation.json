@@ -1,0 +1,22 @@
+{
+  "name": "test-preservation-in-repair",
+  "skill": "debugging-method",
+  "description": "Ensures debugging-method and finding-repair template forbid weakening reproduction tests",
+  "checks": [
+    {
+      "type": "contains-text",
+      "target": "skills/debugging-method/SKILL.md",
+      "expected": "Test Harness Protection Rule"
+    },
+    {
+      "type": "contains-text",
+      "target": "templates/phase6r_finding_repair.md",
+      "expected": "Test Harness Protection Protocol"
+    },
+    {
+      "type": "contains-text",
+      "target": "templates/phase6r_finding_repair.md",
+      "expected": "Never \"fix\" a finding by weakening, deleting, or altering the assertions in the reproduction test"
+    }
+  ]
+}
