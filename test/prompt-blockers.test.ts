@@ -24,12 +24,20 @@ describe("commit blockers", () => {
     expect(p.prompt).not.toContain("--change");
   });
 
-  it("finalCommitBlocker blocks before archive with a suggested final message", () => {
+  it("finalCommitBlocker blocks before archive with a suggested final message and points at archive", () => {
     const p = finalCommitBlocker("my-change", "my-change");
     expect(p.blocked).toBe(true);
     expect(p.reason).toBe("Commit required before archive");
     expect(p.phase).toBe("final_validation");
     expect(p.prompt).toContain("phasedev(my-change): final validation");
+    expect(p.prompt).toContain('phasedev archive "my-change"');
+    expect(p.prompt).not.toContain("phasedev advance");
+  });
+
+  it("finalCommitBlocker uses slug when changeName is undefined", () => {
+    const p = finalCommitBlocker("my-slug", undefined);
+    expect(p.prompt).toContain('phasedev archive "my-slug"');
+    expect(p.prompt).not.toContain("phasedev advance");
   });
 });
 

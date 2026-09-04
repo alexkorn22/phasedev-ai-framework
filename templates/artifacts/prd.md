@@ -2,34 +2,6 @@
 {{approval_frontmatter}}
 ---
 
-<!--
-Authoring instructions for the setup agent:
-- Keep exactly one visible top-level title: # PRD.
-- The final prd.md may contain only the # PRD title and the three ## sections shown below, in this exact order.
-- Do not add any other ## sections.
-- Do not add ### or deeper headings. Put additional material inside the allowed tables.
-
-Intent field contract:
-- Change type: use exactly one of these values: feature, fix, refactor, infra, experiment.
-- Why: answer why the task is needed and what user/system/business need it supports.
-- Target state: answer what must be true after the change is complete.
-- Risk boundaries: state unacceptable regressions, data/security/behavior boundaries, or "None beyond normal project risk" when there is no special risk boundary.
-
-Requirements contract:
-- Requirements are user/system behavior or required project outcome, not implementation design.
-- IDs must be R1, R2, R3, etc.
-
-Success Criteria contract:
-- IDs must be SC1, SC2, SC3, etc.
-- Verifies must reference one or more existing R# IDs, separated by commas when needed.
-- Criterion states the observable proof target.
-- Evidence is the evidence type only, not the command. Use exactly one of: unit, phase, full, review, manual, smoke.
-- Concrete commands live only in execution_contract.md.
-
-Positive contract rule:
-- If needed work does not follow from Target state, R#, SC#, or Risk boundaries, do not include it in the PRD.
-- If needed verification does not follow from SC# and Evidence, do not invent it.
--->
 
 # PRD
 

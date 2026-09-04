@@ -50,7 +50,7 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
     case "pending_archive":
       return archivePrompt(projectPath, route.archiveState);
     case "change_intake":
-      return prompt("next", "change_intake", renderChangeIntake(projectPath, config, route.activeChangePath));
+      return prompt("phase", "change_intake", renderChangeIntake(projectPath, config, route.activeChangePath));
     case "invalid_prd":
       return invalidPrdBlocker(route.paths.prdPath, route.issues);
     case "invalid_execution_contract":
@@ -58,17 +58,17 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
     case "change_intake_approval":
       return approvalBlocker("change_intake", "Setup incomplete", route.paths.prdPath, "prd.md & execution_contract.md");
     case "code_research":
-      return prompt("next", "code_research", renderCodeResearch(projectPath, config, route.paths));
+      return prompt("phase", "code_research", renderCodeResearch(projectPath, config, route.paths));
     case "invalid_code_research":
       return invalidResearchBlocker(route.paths.researchPath, route.issues);
     case "technical_design":
-      return prompt("next", "technical_design", renderTechnicalDesign(projectPath, config, route.paths));
+      return prompt("phase", "technical_design", renderTechnicalDesign(projectPath, config, route.paths));
     case "invalid_technical_design":
       return invalidDesignBlocker(route.paths.designPath, route.issues);
     case "technical_design_approval":
       return approvalBlocker("technical_design", "Design requires review", route.paths.designPath, "architecture/design.md");
     case "iteration_planning":
-      return prompt("next", "iteration_planning", renderIterationPlanning(projectPath, config, route.paths));
+      return prompt("phase", "iteration_planning", renderIterationPlanning(projectPath, config, route.paths));
     case "iteration_planning_approval":
       return approvalBlocker("iteration_planning", "Plan requires review", route.paths.iterationPlanPath, "iteration_plan.md");
     case "invalid_iteration_planning":
@@ -76,7 +76,7 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
     case "invalid_findings":
       return validationFindingsBlocker(route.paths.findingsPath, route.issues);
     case "finding_repair":
-      return prompt("next", "finding_repair", renderFindingRepair(projectPath, config, route.paths));
+      return prompt("phase", "finding_repair", renderFindingRepair(projectPath, config, route.paths));
     case "archive_readiness_blocked":
       return archiveReadinessBlocker(
         "All implementation iterations must be marked [x] before archive.",
@@ -97,16 +97,16 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
         if (typeof rendered !== "string") {
           return rendered;
         }
-        return prompt("next", "iteration_validation", rendered);
+        return prompt("phase", "iteration_validation", rendered);
       }
       const rendered = renderImplementation(projectPath, config, route.paths, route.activeIteration.id);
       if (typeof rendered !== "string") {
         return rendered; // missing-test-command blocker
       }
-      return prompt("next", "implementation", rendered);
+      return prompt("phase", "implementation", rendered);
     }
     case "final_validation":
-      return prompt("next", "final_validation", renderFinalValidation(projectPath, config, route.paths));
+      return prompt("phase", "final_validation", renderFinalValidation(projectPath, config, route.paths));
     default:
       return unreachable(route, "getRoutePrompt route.kind");
   }

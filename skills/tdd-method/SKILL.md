@@ -52,6 +52,13 @@ Then repeat: RED for the next behavior, GREEN to implement it, REFACTOR to clean
 | "I'll write the tests after" | Deferred testing disguised as pragmatism | For a behavior chosen for coverage, the test comes first. |
 | Refactor makes a test fail | REFACTOR violated its constraint | Undo. Either a behavior-preserving version, or a new RED first. |
 
+## Hermetic Testing & External Resources
+
+- All tests must execute in a strictly hermetic, offline environment.
+- NEVER write tests that require live external network connections, live database instances, production/staging cloud services, or real credentials (`*_DB_URL`, live API tokens).
+- External integrations (databases, HTTP APIs, migrations, cloud SDKs) must be tested using test doubles: in-memory databases (e.g. SQLite `:memory:`), mock clients, synthetic fixtures, or local stub servers.
+- Logic for data migrations or API transformations must be decoupled from connection management so the transformation and transaction behavior is 100% testable with mock data.
+
 ## Iteration Boundary — Yield to the Host Flow
 
 The red-green-refactor cycle governs HOW you implement one behavior. HOW MANY items you run is owned by the host flow, not this skill. Inside an approved batch, continue item-to-item without artificial pauses — but stop the moment the host flow's boundary stops you.

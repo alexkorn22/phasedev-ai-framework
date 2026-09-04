@@ -1,6 +1,6 @@
 Phase 7. Archive.
 
-Your task is to complete the already archived change: delegate specification work to a `spec_sync` sub-agent, resolve its escalations with the user, run the archive self-check, and complete the machine state.
+Your task is to complete the already archived change: perform specification work directly, resolve any escalations with the user, run the archive self-check, and complete the machine state.
 
 {{skill_policy}}
 
@@ -47,15 +47,16 @@ Constraints:
 Work only with requirement-level changes derived from the archived change artifacts for `{{change_name}}`.
 
 1. Read inputs.
-2. Spawn exactly one `spec_sync` sub-agent. Its delegation prompt is the full content of the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `Ripple search`, `Gap control`, `UI literals`, and `Truth direction and escalations` below, plus the artifact links above. Do not classify requirements, create delta specs, or edit any spec yourself.
-3. Read the sub-agent report. If it contains escalations: stop, present every escalation to the user as a question, and do not set `.phase-archive.json` to completed until all are resolved. After the user answers, re-dispatch `spec_sync` with the decisions to apply and repeat this step.
-4. When the report has no unresolved escalations, set `.phase-archive.json` to completed.
-5. Run the archive self-check.
-6. Report, then stop: include the sub-agent's classification table, changed specs or skipped sync, ripple/gap findings, and escalation outcomes.
+2. Follow the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `Ripple search`, `Gap control`, `UI literals`, and `Truth direction and escalations` below. Classify requirements, create delta specs, and update live specs directly.
+3. Review resolved findings in `validation_findings.md`. Follow `spec-delta-method` to filter out local noise (typos, nits) and extract systemic coding/architecture mistakes (MUST-FIX findings, design/security flaws, recurring traps). Append structured entries to `.phasedev/knowledge/antipatterns.md` or `.phasedev/knowledge/phases/<phase_name>.md`.
+4. If escalations arise: stop, present every escalation as a question/blocker, and do not set `.phase-archive.json` to completed until all are resolved.
+5. When there are no unresolved escalations, update `.phase-archive.json` (`status: "completed"`).
+6. Run the archive self-check.
+7. Report, then stop: include the classification table, changed specs or skipped sync, ripple/gap findings, knowledge updates, and escalation outcomes.
 
 ## Spec-level classification
 
-Before creating or updating specs, the `spec_sync` sub-agent classifies every `R#` requirement in its report using this exact table:
+Before creating or updating specs, classify every `R#` requirement using this exact table:
 
 ```text
 R# | Spec-level? | Capability | Operation | Target spec | Reason

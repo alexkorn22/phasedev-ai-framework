@@ -12,7 +12,7 @@ import { extractRequirementsAndCriteriaFromPrd } from "../prd/traceability";
 
 const REQUIRED_TOP_LEVEL_SECTIONS = ["Approval Summary", "Generation Bundle", "Iteration Overview"];
 const APPROVAL_SUMMARY_HEADERS = ["Area", "Decision"];
-const APPROVAL_SUMMARY_AREAS = ["Approval scope", "Out of scope", "Sequencing risk", "Validation"];
+const APPROVAL_SUMMARY_AREAS = ["Sequencing risk", "Validation"];
 const GENERATION_BUNDLE_HEADERS = ["Area", "Required", "Plan"];
 const ITERATION_OVERVIEW_HEADERS = ["Iteration", "Goal", "Main work items", "Required checks"];
 

@@ -12,9 +12,10 @@ Inputs:
 
 ## Procedure
 
-1. Implement exactly the plan in `worklog.md`.
-2. Prove it: run the relevant tests / the real command; record what was run and the result.
-3. Commit the work (a new commit is required to advance).
+1. Review project memory: observe project taboos in `PROJECT KNOWLEDGE & ANTI-PATTERNS` below; avoid repeating known mistakes.
+2. Implement exactly the plan in `worklog.md`. Respect `protectedPaths` if configured (requires `[allows-protected-paths]` in `worklog.md` if intentional).
+3. Prove it: run the relevant tests / the real command; record the command (`exit code 0`) and result in `worklog.md` under `## Verification`.
+4. Commit the work (a new commit is required to advance).
 
 ## Self-check
 

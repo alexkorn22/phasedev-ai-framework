@@ -1,0 +1,32 @@
+{
+  "name": "code-review-nits-and-passes",
+  "skill": "code-review-method",
+  "description": "Ensures code-review-method enforces 3-pass review and caps open nit findings",
+  "checks": [
+    {
+      "type": "contains-text",
+      "target": "skills/code-review-method/SKILL.md",
+      "expected": "Three Review Passes & Noise Control (\"Cap the Nits\")"
+    },
+    {
+      "type": "contains-text",
+      "target": "skills/code-review-method/SKILL.md",
+      "expected": "Pass 1: Logic & Bugs"
+    },
+    {
+      "type": "contains-text",
+      "target": "skills/code-review-method/SKILL.md",
+      "expected": "Pass 2: Security & Data"
+    },
+    {
+      "type": "contains-text",
+      "target": "skills/code-review-method/SKILL.md",
+      "expected": "Pass 3: Plan & Spec Compliance"
+    },
+    {
+      "type": "contains-text",
+      "target": "skills/code-review-method/SKILL.md",
+      "expected": "Never register more than 3–5 `NIT` findings"
+    }
+  ]
+}

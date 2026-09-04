@@ -6,7 +6,7 @@ date: {{date}}
 
 ## Task
 
-<!-- Filled by the quick_plan subagent: what the task is, in the user's words. -->
+{{task_content}}
 
 ## Short Specification
 

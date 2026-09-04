@@ -377,7 +377,7 @@ function handleAddFinding(ctx: CommandContext): void {
 
   const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   runWithOptionalStateLock(ctx.projectPath, () => {
-    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(ctx.projectPath, ctx.changeName), config.blockingSeverity);
+    const result = addFinding(targetFile, id, title, severity, requiredFix, className, iteration, findingsCreateContext(ctx.projectPath, ctx.changeName), config.blockingSeverity, config.maxOpenNits);
     const prefix = result.ok ? "[PHASEDEV ADD-FINDING] OK" : "[PHASEDEV ADD-FINDING] FAILED";
     reportCliResult(ctx.jsonMode, {
       ok: result.ok,

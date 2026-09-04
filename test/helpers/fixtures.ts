@@ -38,15 +38,6 @@ export function validRulesBody(): string {
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `;
@@ -57,12 +48,12 @@ export function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | Value |
-|---|---|
-| Change type | fix |
-| Why | Test fixture |
-| Target state | Verified |
-| Risk boundaries | None |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Test fixture |
+| Why | not_applicable | prd-only | Test fixture |
+| Target state | confirmed | F1 | Verified |
+| Risk boundaries | confirmed | F1 | None |
 
 ## Requirements & Success Criteria Trace
 

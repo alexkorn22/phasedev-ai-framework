@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+  "agent": {
+    "phasedev-cheap": {
+      "mode": "subagent",
+      "model": "google/gemini-2.5-flash",
+      "description": "PhaseDev cheap-tier subagent for validation, lightweight reviews, formatting, and quick checks"
+    },
+    "phasedev-standard": {
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-5",
+      "description": "PhaseDev standard-tier subagent for feature implementation, technical design, and code research"
+    },
+    "phasedev-strong": {
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-5",
+      "description": "PhaseDev strong-tier subagent for complex architectural design, deep debugging, and finding repairs"
+    }
+  }
+}

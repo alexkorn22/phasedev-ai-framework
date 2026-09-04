@@ -60,8 +60,10 @@ A task is not done because code is committed, unit tests passed, or a reviewer s
 - **No proof — no completion.** Every acceptance criterion carries a declared proof; run it. A criterion that cannot be verified as stated is escalated, not replaced with an improvised weaker check.
 - **A failed proof blocks; it is not a warning.** Never relabel a WARN as PASS; never silently accept.
 - **Deterministic preferred.** Use an LLM judge only when no deterministic check expresses the criterion — and then demand a binary VERIFIED-or-BROKEN answer with a one-sentence justification.
-- **Proof surfaces:** pure logic → run with spec inputs, assert outputs; API → real call against a running service; DB/migration → run on a test DB, assert schema and data invariants; data jobs → before/after invariants on a sample; UI → drive the real interface, assert state plus artifact; integration → trigger upstream, observe downstream; config → load it, assert dependent code reads expected values. Favor the most concrete surface reachable.
-- **Whole-feature smoke is mandatory** when there is a main user flow: per-part proofs cannot detect cross-part structural defects. Allocate the smoke twice — once at the end of all work AND once inside a part's test suite, so a breaking change fails the moment it lands, not after everything is "done".
+- **Proof surfaces:**
+  - *Iteration Implementation*: pure logic → run with spec inputs, assert outputs; API / Backend → headless automated tests against mocked or local in-memory fixtures; DB/migration → automated tests using local in-memory SQLite / test fixtures with mocked external clients; Config → load and assert parsed values. All iteration verification MUST be automated and headless.
+  - *Final Validation / Release Acceptance*: UI → drive user flow through headless end-to-end tests or manual acceptance checklist; Whole-feature smoke → verify end-to-end system against PRD success criteria.
+- **Whole-feature smoke:** Run whole-feature verification at the final validation phase against the complete change set. Iteration checks stay scoped to their iteration's headless automated test suite.
 
 ## Independence and Honest Gates
 
@@ -95,7 +97,7 @@ Run the suite once at the start and record which tests are already red. A failur
 A regression fence converts "I did not change X" from a claim into a check: a set of paths declared BEFORE the work starts that must come out byte-identical to the base commit, verified mechanically at every verification step — not only at the end. A fence derived afterwards from "whatever happens to be unchanged" proves nothing; the fence is a prediction, and verifying it is the test of that prediction. Typical fences: files declared moved-verbatim, a flag-off path, everything outside a review's scope.
 
 - A deleted or newly-appeared fenced file is a violation — both are invisible to a naive "diff is empty" check.
-- A finding against an unchanged fenced file is pre-existing debt, not a defect of this diff. But a finding the diff caused in a fenced file — a caller broken by a changed signature — is in scope: that is what makes it a regression.
+- A finding against an unchanged fenced file is pre-existing debt, not a defect of this diff. But a finding the diff caused in a fenced file — a caller broken by a changed signature — is in scope: that is what makes it a regression. Incidental typing/compiler/import adjustments directly required to satisfy build gates without changing behavior are acceptable.
 - Honest limit: the fence proves byte identity, not behavioral identity. It cannot see a changed dependency, migration, or config the file reads. Say so rather than implying the stronger guarantee.
 
 Command forms (blob-hash comparison and its trap): `references/fence-and-trap-commands.md`.

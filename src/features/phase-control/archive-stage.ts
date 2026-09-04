@@ -9,13 +9,14 @@ import { renderTemplate } from "../../shared/templates/render-template";
 import { archiveReadinessBlocker, prompt } from "./prompt-blockers";
 import { toFileUrl } from "./prompt-formatters";
 import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
-import { urlsFor } from "./prompt-render-helpers";
+import { urlsFor, renderPhaseOpeningSummary } from "./prompt-render-helpers";
 
 export function archiveTemplateVariables(projectPath: string, changeName: string, archivePath: string): Record<string, string> {
   const archivedPaths = buildChangePaths(archivePath);
   const urls = urlsFor(archivedPaths);
 
   return {
+    phase_opening_summary: renderPhaseOpeningSummary("archive"),
     change_name: changeName,
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
@@ -23,6 +24,7 @@ export function archiveTemplateVariables(projectPath: string, changeName: string
     design_path: urls.design_path,
     plan_path: urls.plan_path,
     findings_path: urls.findings_path,
+    worklog_path: toFileUrl(archivedPaths.worklogPath),
     main_specs_path: toFileUrl(path.join(projectPath, SYSTEM_DIR, "specs")),
     change_specs_path: toFileUrl(path.join(archivePath, "specs")),
     archive_state_path: toFileUrl(path.join(archivePath, ".phase-archive.json")),
@@ -33,7 +35,18 @@ export function archiveTemplateVariables(projectPath: string, changeName: string
 }
 
 export function archivePrompt(projectPath: string, state: ArchiveState): Prompt {
-  return prompt("next", "archive", renderTemplate("phase7_archive", archiveTemplateVariables(projectPath, state.changeName, state.archivePath)));
+  const stateJsonPath = path.join(state.archivePath, FLOW_STATE_FILE);
+  let isQuick = false;
+  if (fs.existsSync(stateJsonPath)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(stateJsonPath, "utf-8"));
+      isQuick = raw?.flowMode === "quick";
+    } catch {
+      // ignore
+    }
+  }
+  const templateName = isQuick ? "quick_archive" : "phase7_archive";
+  return prompt("phase", "archive", renderTemplate(templateName, archiveTemplateVariables(projectPath, state.changeName, state.archivePath)));
 }
 
 export function getPendingArchivePrompt(projectPath: string, changeName?: string): Prompt | null {

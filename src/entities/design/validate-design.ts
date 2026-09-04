@@ -186,9 +186,20 @@ function validateArchitectureFileCoverage(filePath: string, listedFiles: Set<str
 
 function validateArchitecturePackageMap(lines: string[], rawLines: string[], filePath: string, issues: string[]): void {
   const packageMapLines = sectionLines(lines, "Architecture Package Map");
+  const archFiles = architectureFilesFor(filePath);
+  const isMultiFile = archFiles.length > 1;
+
+  if (packageMapLines.length === 0) {
+    if (isMultiFile) {
+      issues.push("Section `## Architecture Package Map` is required for multi-file architecture packages and must contain a markdown table.");
+    }
+    return;
+  }
+
   const tableBlocks = parseMarkdownTableBlocks(packageMapLines);
   if (tableBlocks.length === 0) {
     issues.push("Section `## Architecture Package Map` must contain a markdown table.");
+    return;
   } else if (tableBlocks.length !== 1) {
     issues.push(`Section \`## Architecture Package Map\` must contain exactly one markdown table, found ${tableBlocks.length}.`);
   }

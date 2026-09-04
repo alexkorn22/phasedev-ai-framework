@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { shellQuote } from "../../shared/shell/shell-quote";
-import { buildChangePaths } from "../../entities/change/paths";
+import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
@@ -67,6 +67,54 @@ function changeFlag(changeName?: string): string {
   return changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
 }
 
+function hasMeaningfulKnowledge(raw: string): boolean {
+  const stripped = raw
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith("#") && !line.startsWith(">"));
+  return stripped.length > 0;
+}
+
+export function renderKnowledgeContext(projectPath: string, activePhase: string): string {
+  const knowledgeDir = path.join(projectPath, SYSTEM_DIR, "knowledge");
+  if (!fs.existsSync(knowledgeDir)) {
+    return "";
+  }
+
+  const sections: string[] = [];
+
+  const antipatternsPath = path.join(knowledgeDir, "antipatterns.md");
+  if (fs.existsSync(antipatternsPath)) {
+    const content = fs.readFileSync(antipatternsPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### Project Anti-Patterns & Taboos\n${content.trim()}`);
+    }
+  }
+
+  const generalMemoryPath = path.join(knowledgeDir, "general-memory.md");
+  if (fs.existsSync(generalMemoryPath)) {
+    const content = fs.readFileSync(generalMemoryPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### General Engineering Memory\n${content.trim()}`);
+    }
+  }
+
+  const phaseMemoryPath = path.join(knowledgeDir, "phases", `${activePhase}.md`);
+  if (fs.existsSync(phaseMemoryPath)) {
+    const content = fs.readFileSync(phaseMemoryPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### Phase Memory (${activePhase})\n${content.trim()}`);
+    }
+  }
+
+  if (sections.length === 0) {
+    return "";
+  }
+
+  return `\n\n=== PROJECT KNOWLEDGE & ANTI-PATTERNS ===\n${sections.join("\n\n")}\n========================================`;
+}
+
 /**
  * Render the agreed task description recorded in `intake_task.md` (written by
  * `create-change --task-file`) as a block to append to a phase prompt.
@@ -89,16 +137,19 @@ export function flowFinalValidationCheckCommand(projectPath: string, changeName?
 }
 
 export const PATH_RESOLUTION_RULE = [
-  "Path resolution rule:",
+  "Path resolution & workspace confinement rules:",
   "- Flow artifact names in this prompt (e.g. `prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) are paths inside the active change folder, not paths from the project repository root.",
   "- Write or update each flow artifact only at the absolute path given for it in this prompt; treat template comments, embedded rows, and allowlist entries as active-change-folder paths, never project-root paths.",
   "- Do not create or update project-root copies of these flow artifacts.",
-  "- Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere."
+  "- Run repository code, config, test, and runtime evidence searches under the active project root unless an explicit input path in this prompt points elsewhere.",
+  "- Strict Workspace Boundary: All operations (reading, writing, executing, creating temporary files, databases, logs, or scratchpads) must stay strictly inside the active project root directory (process.cwd()). Never read, write, create, or modify files in /tmp, home directory (~), or parent directories (../). If temporary files or test databases are needed, place them strictly inside a project-local gitignored folder (e.g. `temp/` or `.tmp/`).",
+  "- Hermetic Development & Offline Testing: All code and tests must execute in a strictly hermetic, offline environment. Never attempt to connect to live external databases, remote cloud services, production APIs, or require external connection strings (*_DB_URL, live API keys). Verify migrations and external integrations exclusively by writing automated tests with mocks, fakes, or local in-memory fixtures.",
+  "- Subagent Git Restriction: When implementing or researching a PhaseDev change, do NOT run git commands (`git log`, `git diff`, `git blame`, `git bisect`) to explore code or search symbols. Search code via filesystem tools (`grep`, `glob`, AST, file reading). Git history may only be inspected if the user's original task explicitly requests historical git analysis. Git commits and diff tracking are managed exclusively by the PhaseDev controller / orchestrator."
 ].join("\n");
 
 export const SELF_CHECK_FALLBACK = [
-  "If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check --project-path ...` subcommand (for example a repository-confirmed `npm exec -- phasedev check --project-path ...`, `bunx phasedev check --project-path ...`, or `bun run src/cli.ts check --project-path ...` when package/source entrypoint evidence supports it); use it only when repository evidence or controller output identifies it, and record the exact command used.",
-  "If no equivalent is available, or the same non-actionable validator failure repeats after one concrete artifact fix and rerun, stop and report a blocker with the exact command and output. Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed."
+  "phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>` (never use `npm exec`, `bunx`, or `bun run src/cli.ts`).",
+  "If the `phasedev` executable is unavailable or fails non-actionably, stop and report a blocker with the exact command and failure output. Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed."
 ].join("\n");
 
 export function renderPhaseTemplate(
@@ -210,7 +261,7 @@ const IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES = [
   "- `iteration_plan.md` is a human approval artifact and a downstream machine contract; keep prose concise and put review decisions inside existing template fields only.",
   "- Keep `approved: false`; only the user can approve the plan.",
   "- Keep exactly the non-iteration `##` sections from the template, then sequential `## Iteration N: Name [ ]` headings. Planning initializes every iteration status as `[ ]`.",
-  "- Fill `Approval Summary` as the compact review surface: scope, out-of-scope work, sequencing risk, and validation.",
+  "- Fill `Approval Summary` as the compact review surface: sequencing risk and validation.",
   "- Fill `Generation Bundle`, `Overview`, each iteration `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, and `Check Evidence` from approved PRD/design/execution_contract only.",
   "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete iteration, task, check, evidence, or change-surface trace content.",
   "- Do not use vague trace labels such as `all requirements`; reference concrete `R#`, `SC#`, and relevant `D#` IDs.",

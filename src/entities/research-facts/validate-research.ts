@@ -13,7 +13,7 @@ const REQUIRED_SECTIONS = [
 
 const INTENT_FIELDS = ["Change type", "Why", "Target state", "Risk boundaries"];
 const ALLOWED_STATUSES = ["confirmed", "limited", "blocked", "not_applicable"];
-const INTENT_TABLE_HEADERS = ["Field", "PRD Value", "Status", "Evidence", "Notes"];
+const INTENT_TABLE_HEADERS = ["Field", "Status", "Evidence", "Notes"];
 const TRACE_TABLE_HEADERS = ["ID", "Status", "Code Evidence", "Spec Context", "Gaps/Blockers"];
 const SOURCE_FACTS_HEADERS = ["Fact ID", "Type", "Source", "Fact", "Supports"];
 const PRD_ONLY_INTENT_FIELDS = ["Change type", "Why"];
@@ -57,7 +57,7 @@ function splitReferences(value: string): string[] {
     .filter(reference => reference.length > 0);
 }
 
-function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdIntent: Map<string, string>, issues: string[]): void {
+function validateIntentTable(lines: string[], sourceFactIds: Set<string>, issues: string[]): void {
   const validRows = validateTableShape(lines, INTENT_TABLE, issues);
   const fields = validRows.map(row => row.cells[0]);
 
@@ -78,13 +78,8 @@ function validateIntentTable(lines: string[], sourceFactIds: Set<string>, prdInt
   }
 
   for (const row of validRows) {
-    const [field, prdValue, status, evidence] = row.cells;
+    const [field, status, evidence] = row.cells;
     validateStatus("PRD Intent Trace", row.rowNumber, status, issues);
-
-    const expectedPrdValue = prdIntent.get(field);
-    if (expectedPrdValue !== undefined && prdValue !== expectedPrdValue) {
-      issues.push(`PRD Intent Trace row ${row.rowNumber} PRD Value for \`${field}\` must match prd.md value \`${expectedPrdValue}\`.`);
-    }
 
     for (const reference of splitReferences(evidence)) {
       if (reference === "prd-only") {
@@ -241,9 +236,8 @@ export function validateResearchFacts(filePath: string, prdPath?: string): strin
     }
   }
 
-  const prdTraceability = prdPath ? extractPrdTraceability(prdPath) : { intent: new Map<string, string>(), requirements: [], criteria: [] };
   const sourceFacts = validateSourceFacts(lines, issues);
-  validateIntentTable(lines, new Set(sourceFacts.map(fact => fact.id)), prdTraceability.intent, issues);
+  validateIntentTable(lines, new Set(sourceFacts.map(fact => fact.id)), issues);
   const traceIds = validateTraceTable(lines, sourceFacts, prdPath, issues);
   validateSourceFactSupports(sourceFacts, traceIds, issues);
 

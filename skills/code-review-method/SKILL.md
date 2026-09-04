@@ -33,11 +33,11 @@ The reviewer's discipline for findings that are real, evidenced, and honest. Man
 
 Rate each finding 0–100. Factors, as guidelines not arithmetic: matches a critical-class check +25; concrete reproduction scenario +20; user-visible or money/auth/data impact +15; theoretical only with no reproduction path −20; covered by existing tests −15; intentional author choice evidenced by comment or commit −15.
 
-- **51–100** — report, with the contributing factors stated.
-- **26–50** — do not report; record for later with a low-confidence mark.
+- **51–100** — report, with the contributing factors stated. In PhaseDev validation phases, register findings that require tracking into `validation_findings.md` via `phasedev add-finding` with appropriate severity (`MUST-FIX`, `RECOMMENDED`, `NIT`).
+- **26–50** — do not report in the findings table; record for later in the review text with a low-confidence mark.
 - **0–25** — discard: likely hallucination or insufficient evidence.
 
-Above 25, nothing is dropped silently — every finding lands in the report or the record. Two findings duplicating the same file:line and issue merge into the one with more evidence; on a severity disagreement, the higher severity wins.
+Above 25, nothing is dropped silently — every finding lands in the report or the record. Two findings duplicating the same file:line and issue merge into the one with more evidence; on a severity disagreement, the higher severity wins. In PhaseDev, do not register sub-50 confidence observations into `validation_findings.md`.
 
 Exceptions that bypass the filter:
 - A finding sourced from a critical-class check failure or a deterministic tool is reported regardless of the score — otherwise the filter buries exactly what must block.
@@ -62,9 +62,20 @@ Before writing any finding, four questions; any "no" downgrades or drops it: Can
 
 ## False Positives — Verify, Then Dismiss
 
-An unverified "probably FP" is a skipped finding; each dismissal names its class and evidence. Recurring classes: claims a declared type already disproves; re-raises of settled facts (fixed at HEAD, present lockfile); tool artifacts (mangled tokens, escaping miscounts); "missing validation" where callers validate; "magic number" for well-known constants; "possible null" where the type is narrowed; "N+1" on fixed small cardinality; "missing await" on intentional fire-and-forget; hardcoded values in test fixtures; noncryptographic `random` in noncryptographic context. Full checklist plus the "would a senior engineer actually change this?" test: `references/quality-checklist.md`.
+An unverified "probably FP" is a skipped finding; each dismissal names its class and evidence. Recurring classes: claims a declared type already disproves; re-raises of settled facts (fixed at HEAD, present lockfile); tool artifacts (mangled tokens, escaping miscounts); "missing validation" where callers validate; "magic number" for well-known constants; "possible null" where the type is narrowed; "N+1" on fixed small cardinality; "missing await" on intentional fire-and-forget; hardcoded values in test fixtures; noncryptographic `random` in noncryptographic context; incidental typing/compiler/import adjustments that are necessary consequences of the change and introduce no new feature behavior or risk. Full checklist plus the "would a senior engineer actually change this?" test: `references/quality-checklist.md`.
 
 After a fix, a re-raised finding with the same location and root cause that the regression test disproves is a false re-raise — noise, not non-convergence. A stated, evidence-backed context block (schema facts, global middleware, absent-by-design concepts) may only be reopened by citing contradicting code — and every line in it must itself carry evidence, or the block suppresses real findings on author confidence alone.
+
+## Three Review Passes & Noise Control ("Cap the Nits")
+
+Structure code review into three explicit passes to ensure depth without diluting focus with noise:
+1. **Pass 1: Logic & Bugs** — logic errors, broken edge cases, regressions, off-by-one errors, unhandled errors, data loss.
+2. **Pass 2: Security & Data** — injection risks, authorization gaps, unvalidated input at trust boundaries, PII in logs, secret leakage.
+3. **Pass 3: Plan & Spec Compliance** — verifies that the diff matches `iteration_plan.md` and approved design contracts. Anything extra or missing is flagged; silent scope creep is rejected.
+
+### Noise Control & Capping Nits:
+- **Do not report what automated tooling checks**: Never create findings for formatting, indentation, import sorting, or style rules that linters, formatters, or compilers already enforce.
+- **Cap the Nits**: Never register more than 3–5 `NIT` findings per review into `validation_findings.md`. Consolidate any additional minor cosmetic feedback into a single informational note.
 
 ## What to Check
 

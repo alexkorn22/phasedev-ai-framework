@@ -21,7 +21,7 @@ Decision flow:
    - Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions.
 3. Resolve material ambiguity and conflicts before writing files. User task text and clarifications define requested product intent; project and repo-local instructions constrain how work may be done; repository evidence clarifies existing behavior but must not silently override user intent. If a conflict or unknown can change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands, name the affected artifact fields, ask 1-3 short questions, and stop.
 4. Run the interpretation checkpoint. Summarize the final interpretation, material user answers, accepted non-material assumptions, and any "no additional constraints" answer in your working context. Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data to write both artifacts without material assumptions.
-5. Choose a short kebab-case change folder slug from the final task text after the checkpoint is satisfied. The slug is agent-derived, not user intake, unless the user already specified an exact folder name.
+5. If an active change directory already exists (or is specified by the controller), write artifacts into that active change directory. Otherwise, choose a short kebab-case change folder slug from the final task text after the checkpoint is satisfied. The slug is agent-derived, not user intake, unless the user already specified an exact folder name.
 6. Before creating the change folder, prevent slug collisions in `{{project_path}}/.phasedev/changes/`. If the chosen slug exists, do not overwrite or reuse it; derive the next non-conflicting slug by appending `-2`, then `-3`, while it still clearly represents the task. If an exact user-specified folder name collides, or no safe representative slug can be derived, stop with a blocker instead of asking for a slug.
 7. Create `.phasedev/changes/<derive-slug-from-final-task>/` recursively, replacing `<derive-slug-from-final-task>` with your chosen non-conflicting slug. If `.phasedev/` or `.phasedev/changes/` does not exist yet, create those parent directories as part of this step.
 8. Use the Artifact Build Contracts below as the only source of structure. Create `prd.md` first, then `execution_contract.md`, and run the combined artifact self-check only after both files exist.
@@ -40,11 +40,9 @@ Artifact requirements:
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
-- `execution_contract.md` requires at minimum concrete gate commands for `unit`, `phase`, and `full`; the validator requires all five sections: Test Commands, Constraints, Verification Gates, Manual Checks, and Environment Notes.
-- For each `execution_contract.md` gate, use a real project command only when repository evidence shows it exists. If no safe command exists for a gate, use a named manual method when repository evidence or an explicit user answer supports it.
-- Use the controller-supported fallback `manual: inspect Phase 1 artifacts against accepted task constraints` for missing gates only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method. Otherwise ask the user for that gate method and stop. Do not invent commands.
-- Named manual methods in `execution_contract.md` must use machine-readable wording: `manual: <named method supported by user/repo evidence>`, for example `manual: compare generated prompt against Phase 1 acceptance notes`. Do not use vague manual labels such as `manual review`, `check manually`, or `n/a`.
-- `execution_contract.md` must not duplicate requirements, scope, risks, or success criteria.
+- `execution_contract.md` requires concrete gate commands for `unit`, `phase`, and `full` in section `## Test Commands`, plus an optional `## Environment Notes` section.
+- For each `execution_contract.md` gate (`unit`, `phase`, `full`), use real project test/build commands based on repository evidence (`package.json`, `Makefile`, etc.). Do not invent commands.
+- All product requirements, behavioral constraints, risk boundaries, success criteria, and manual acceptance checks belong strictly in `prd.md`. `execution_contract.md` serves purely as the technical test runner manifest.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 When applying the output paths in the Artifact Build Contracts below, replace `<derive-slug-from-final-task>` with your chosen slug. Never ask the user for this slug as a prerequisite to creating artifacts.
@@ -79,7 +77,7 @@ Formatting rules:
 ## Artifact allowlist
 
 Allowed persistent artifacts for this phase:
-- full change folder path `.phasedev/changes/<derive-slug-from-final-task>/`, created recursively only after intake is complete
+- active change folder (or `.phasedev/changes/<derive-slug-from-final-task>/`, created recursively only after intake is complete)
 - active change folder `prd.md` at the Artifact Build Contract Output path
 - active change folder `execution_contract.md` at the Artifact Build Contract Output path
 
@@ -91,4 +89,4 @@ Phase completion:
   - `Interpretation: <one-sentence final task interpretation>`
   - {{skill_compliance_line}}
   - `Self-check: <exact command> -> <result>`
-  - `Next: review the files, set approved: true, then run phasedev advance`
+  - `Next: review the files, set approved: true and approved_by: "<reviewer>", then run phasedev advance`

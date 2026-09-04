@@ -32,7 +32,7 @@ Decision flow:
 Research artifact requirements:
 - Include exactly the four sections from the embedded template.
 - Every table cell must be non-empty, including Notes.
-- In `## PRD Intent Trace`, include exactly `Change type`, `Why`, `Target state`, and `Risk boundaries`.
+- In `## PRD Intent Trace`, include exactly `Change type`, `Why`, `Target state`, and `Risk boundaries` with their evaluation `Status`, `Evidence`, and `Notes` (do not copy-paste raw multiline PRD text).
 - In `## Requirements & Success Criteria Trace`, include one row for each `R#` and each `SC#`; use code evidence for implementation status and spec context only in the `Spec Context` column.
 - In `## Source Facts`, include file paths and line numbers for every `F#` and `S#`. Put affected modules, public interfaces, dependencies, existing contracts, constraints, and similar existing solutions in the `Fact` text only when they directly support a PRD target.
 - Source Facts Supports must use R#/SC#; do not use none/not_applicable. Every `F#` and `S#` fact must support at least one existing `R#` or `SC#`.
@@ -67,7 +67,7 @@ Phase completion:
 Research ready: {{research_path}}
 Self-check: {{self_check_command}} -> <result>
 Route: design
-Next: phasedev phase
+Next: phasedev advance
 {{skill_compliance_line}}
 ```
 

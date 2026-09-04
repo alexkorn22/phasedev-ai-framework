@@ -42,10 +42,10 @@ If the artifact is long, read all of it; do not stop at the first section that l
 
 ## Working Code Gets Ported, Not Re-Derived
 
-If the artifact contains a working implementation (component or source files, a runnable demo, a code export — not just prose or an image), the default is to port that code 1:1 into the target stack, not to read its behavior in prose and hand-roll your own version.
+If the artifact contains a working implementation (component or source files, a runnable demo, a code export — not just prose or an image), the default during implementation (Phase 5) is to port that code 1:1 into the target stack, not to read its behavior in prose and hand-roll your own version. During the technical design phase (Phase 3), specify the architecture, component boundaries, and contracts in `architecture/design.md` without prematurely implementing production code.
 
 - First action: inventory the artifact's code files and read them. They are the ground truth for layout, structure, interactions, and styling — far more precise than any prose handoff. A large working prototype is ground truth, not a sketch to reinterpret.
-- Port component-by-component, preserving structure, class names/tokens, and interaction wiring. Adapt only what the stack genuinely requires.
+- Port component-by-component during implementation, preserving structure, class names/tokens, and interaction wiring. Adapt only what the stack genuinely requires.
 - "Reinventing it because the stack differs" is the failure. The stack difference is a porting task, not a reason to design fresh.
 
 Only when the artifact is purely prose or image do you design the implementation yourself — and even then its constraints bind you.

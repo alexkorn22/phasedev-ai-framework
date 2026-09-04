@@ -13,11 +13,10 @@ Positive decision flow:
 
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
 2. Build the validation scope from {{validation_scope_sources}}.
-3. Verify the changed-file inventory with read-only evidence before deciding the verdict:
-   a. Determine the single project root from this prompt context — the linked active project root IS the snapshot root (there is no second root).
-   b. Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root.
-   c. Compare git output with the controller-observed inventory provided in the phase prompt.
-   d. If git or controller evidence is unavailable → proceed with filesystem reads as fallback. If git and controller evidence contradict each other on which files changed → add a `MUST-FIX` finding with `Class = validation`. If unavailable but no contradiction → proceed with filesystem reads as fallback evidence. Exclude `.phasedev/**` from all inventories.
+3. Verify the changed-file inventory using the controller-observed inventory provided in the phase prompt (`## Controller Observed Changed Files`):
+   a. The controller computes the exact changed-file scope for this validation phase against the appropriate diffBase and Expected Change Surface.
+   b. Use the controller-provided inventory directly as the list of target files to review.
+   c. If controller evidence is unavailable, inspect files directly from the phase's Expected Change Surface in `iteration_plan.md`. Exclude `.phasedev/**` from all reviews.
 4. Inspect every changed production/source/config/test file {{validation_changed_file_scope}}; for large scopes, chunk review by requirement, phase, or path pattern, inspect the most requirement-critical and security-sensitive files first, and keep a short in-memory checklist of files reviewed.
 5. Perform requirements conformance, code review, and security review passes against the approved requirements, design, implementation plan, actual changed files, and Check Evidence.
 6. Decide the verdict from the open finding set and coverage completeness, then write only the allowed artifact updates.
@@ -29,7 +28,7 @@ Context budget and stop condition:
 
 - Add a `MUST-FIX` finding with `Class = validation` only when the changed-file inventory cannot be verified from concrete read-only evidence, or when controller/git evidence contradicts the {{validation_inventory_blocker_scope}} and the contradiction cannot be resolved.
 - Requirements conformance pass: {{validation_requirements_pass}}.
-- Code review pass: review every changed production/source/config/test file outside `.phasedev/**`, including, where applicable to changed files, correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior.
+- Code review pass: review every changed production/source/config/test file outside `.phasedev/**`, including, where applicable to changed files, correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior. Incidental technical edits (types, compiler/lint fixes, imports) directly caused by planned changes are acceptable and are not findings unless they introduce bugs or exceed scope.
 - Security review pass: review every changed file outside `.phasedev/**`, including, where applicable to changed files, user/input handling, output encoding/XSS, injection risks, authorization/data isolation, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
 - If the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`.
 - Check Evidence is sufficient only when it records a concrete command or method, a result, concise evidence, and a clear connection to the validation scope.
@@ -37,7 +36,7 @@ Context budget and stop condition:
 - If weak or missing Check Evidence can be independently verified and does not contradict repository evidence, do not force `repair_required`; record any residual uncertainty as a non-blocking finding only when it matters downstream.
 - If relevant Check Evidence remains `pending`, contains `failed`, does not explain `blocked`, contradicts repository evidence, or prevents completing a required review pass after independent verification, add a finding with `Class = validation` or a more precise class if there is a concrete implementation/design/plan cause.
 - Findings from the code review pass must be recorded in `validation_findings.md` with `Class = code_review` unless a more precise existing class is required by the finding.
-- Findings from the security review pass must be recorded in `validation_findings.md` with `Class = security` and `Severity = MUST-FIX`; open security findings are always blocking.
+- Findings from the security review pass must be recorded in `validation_findings.md` with `Class = security` and appropriate severity (`MUST-FIX`, `RECOMMENDED`, `NIT`).
 - If a finding relates to a PRD requirement or success criterion, `Finding` or `Required Fix` must include the concrete `R#` or `SC#`.
 - completely ignore `.phasedev/**` when looking for implementation findings: do not diff, review, or report any files under `.phasedev/**` as change set, product code, PR scope, or finding source.
 - Use `.phasedev/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history.
@@ -74,6 +73,7 @@ Validation coverage:
 - Files inspected: <N files or short list>
 - Code review pass: completed / incomplete
 - Security review pass: completed / incomplete
+- Test quality audit: completed / incomplete
 - Check Evidence review: sufficient / insufficient
 - {{validation_full_gate_line}}
 - Evidence gaps: none / <short reason>

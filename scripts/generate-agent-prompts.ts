@@ -253,15 +253,6 @@ function rulesBody(): string {
 | phase | \`bun test\` |
 | full | \`bun test\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `;
@@ -272,12 +263,12 @@ function researchBody(factSource: string): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Generate every PhaseDev stage prompt through the real flow controller. | not_applicable | prd-only | User intent is encoded in PRD. |
-| Target state | Each stage prompt is rendered from a valid controller state. | confirmed | F1 | The controller entrypoint is available in the copied project. |
-| Risk boundaries | Prompt generation uses an isolated copied project and does not modify the source project. | confirmed | F2 | The scaffold writes only inside the generated project copy. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent is encoded in PRD. |
+| Target state | confirmed | F1 | The controller entrypoint is available in the copied project. |
+| Risk boundaries | confirmed | F2 | The scaffold writes only inside the generated project copy. |
 
 ## Requirements & Success Criteria Trace
 
@@ -352,8 +343,6 @@ function planBody(status: "implementation" | "iteration_validation" | "final_val
 
 | Area | Decision |
 |---|---|
-| Approval scope | Generate all PhaseDev stage prompts from controller states. |
-| Out of scope | Mutating the source project. |
 | Sequencing risk | Low; scaffold state is isolated under the output directory. |
 | Validation | Use the configured full check command from execution_contract.md. |
 

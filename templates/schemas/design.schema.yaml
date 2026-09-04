@@ -6,7 +6,7 @@ sections:
   Traceability Mapping:
     required: true
   Architecture Package Map:
-    required: true
+    required: false
   Key Design Decisions:
     required: true
   API Specification:

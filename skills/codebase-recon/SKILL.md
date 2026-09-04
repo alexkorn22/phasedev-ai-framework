@@ -50,7 +50,7 @@ From the signals, identify: languages and version constraints; frameworks and ma
 - Identify the patterns and abstractions already in use; note naming conventions and code organization principles.
 - Detect code patterns: error handling style (try/catch, Result types, error codes); dependency injection or direct imports; state management approach; async patterns.
 - Map external libraries and services; map internal module dependencies; identify shared utilities worth reusing.
-- Detect git conventions from recent history (branch naming, commit message style). If the repo has no commits or only a shallow history, note "Git history unavailable or too shallow to detect conventions" instead of guessing.
+- Detect code conventions from existing files (naming conventions, file structuring, formatting, linting/tsconfig rules). Use static code exploration instead of git history.
 
 ## Sampling strategy for large scopes
 

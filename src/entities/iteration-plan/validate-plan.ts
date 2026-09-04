@@ -21,6 +21,7 @@ const ALLOWED_EVIDENCE_RESULTS = new Set(["pending", "passed", "failed", "blocke
 const REQUIRED_PHASE_SECTIONS = ["Goal", "Expected Change Surface", "Tasks", "Checks", "Check Evidence"];
 const EXPECTED_CHANGE_SURFACE_HEADERS = ["Area / Path Pattern", "Change Type", "Ownership", "Trace"];
 const EXPECTED_CHANGE_SURFACE_MAX_ROWS = 10;
+const MAX_CHECK_EVIDENCE_CELL_LENGTH = 300;
 
 function flattenTasks(tasks: Task[]): Task[] {
   return tasks.flatMap(task => [task, ...flattenTasks(task.children)]);
@@ -183,6 +184,12 @@ function validateCheckEvidenceRows(phase: Iteration, rows: CheckEvidenceRow[], i
     }
     if (["passed", "failed", "blocked"].includes(row.result) && row.evidence.trim().length === 0) {
       issues.push(`${rowLabel} with Result \`${row.result}\` must have non-empty Evidence.`);
+    }
+    if (row.evidence.length > MAX_CHECK_EVIDENCE_CELL_LENGTH) {
+      issues.push(`${rowLabel} Evidence exceeds maximum length (${row.evidence.length} chars; max ${MAX_CHECK_EVIDENCE_CELL_LENGTH}). Keep summaries concise; store verbose test output in scratch files.`);
+    }
+    if (row.notes.length > MAX_CHECK_EVIDENCE_CELL_LENGTH) {
+      issues.push(`${rowLabel} Notes exceeds maximum length (${row.notes.length} chars; max ${MAX_CHECK_EVIDENCE_CELL_LENGTH}). Keep summaries concise.`);
     }
   }
 }

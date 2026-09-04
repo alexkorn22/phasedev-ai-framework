@@ -45,7 +45,7 @@ function degradationNote(
 
   if (missingTiers.size > 0) {
     const sortedTiers = [...missingTiers].sort();
-    return `Harness "${harness}" has no model mapped for tier(s): ${sortedTiers.join(", ")} — those roles fall back to printing the tier name, which is not a real model. Run ${affectedRoleNames.join(", ")} on the session model for now, and add the missing tier(s) to the harness in ~/.config/phasedev/models.yaml (or PHASEDEV_MODELS_FILE).`;
+    return `Harness "${harness}" has no model mapped for tier(s): ${sortedTiers.join(", ")}. Run ${affectedRoleNames.join(", ")} on the session model.`;
   }
 
   return undefined;

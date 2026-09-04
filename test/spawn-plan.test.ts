@@ -126,7 +126,7 @@ roles:
 
     expect(result.message).toContain('Harness "claude-code"');
     expect(result.message).toContain("standard, strong");
-    expect(result.message).toContain("Run implementer, security-review on the session model for now");
+    expect(result.message).toContain("Run implementer, security-review on the session model.");
     expect(result.message).not.toContain("Tier-to-model mapping is not configured");
     expect(result.message).not.toContain("is not in the model tiers file");
   });

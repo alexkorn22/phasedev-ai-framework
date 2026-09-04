@@ -15,17 +15,17 @@ A disciplined process for turning a bug report, error message, or unexpected beh
 
 ## The Phases
 
-REPRODUCE → MINIMAL REPRO → BASELINE → DIAGNOSE → FIX + VERIFY. For confirmed regressions ("this used to work") the REGRESSION BISECT track replaces the first four phases.
+REPRODUCE → MINIMAL REPRO → BASELINE → DIAGNOSE → FIX + VERIFY.
 
-**1 — Reproduce.** Establish a clear, reproducible failure. Gather: expected behavior; actual behavior; exact reproduction steps; scope (always, intermittently, all users, or specific conditions?); timeline (when did it start — recent deploy, config change, dependency update?). If reproduction is inconsistent, flag a potential race condition, environment dependency, or test-order dependency.
+**1 — Reproduce.** Establish a clear, reproducible failure. Gather: expected behavior; actual behavior; exact reproduction steps; scope (always, intermittently, all users, or specific conditions?); timeline (when did it start — config change, dependency update?). If reproduction is inconsistent, flag a potential race condition, environment dependency, or test-order dependency.
 
-**1.5 — Minimal repro.** A stack trace proves an error occurred at some point — it does not prove the error is reproducible right now. Run the failing test or hit the failing endpoint. Reproduces → continue. Doesn't → the trace may be from a different state (stale data, previous deploy); go back and re-gather. Intermittent → run 3 times to confirm flakiness, proceed with a flaky flag. Skip this phase only when the failure is self-evident (a type error visible in code, a compilation failure).
+**1.5 — Minimal repro.** A stack trace proves an error occurred at some point — it does not prove the error is reproducible right now. Run the failing test or hit the failing endpoint. Reproduces → continue. Doesn't → the trace may be from a different state (stale data, previous build); go back and re-gather. Intermittent → run 3 times to confirm flakiness, proceed with a flaky flag. Skip this phase only when the failure is self-evident (a type error visible in code, a compilation failure).
 
-**2 — Baseline.** Before changing anything, determine whether this is a new regression or a pre-existing problem: run the existing tests for the affected area (any already failing?); check recent commits to the affected files. Record the baseline: N passing, M failing; regression YES (commit) / NO (pre-existing) / UNKNOWN.
+**2 — Baseline.** Before changing anything, determine whether this is a new regression or a pre-existing problem: run the existing tests for the affected area (any already failing?). Record the baseline: N passing, M failing; regression YES / NO (pre-existing) / UNKNOWN.
 
-Then narrow, in order, stopping when the failure point is found: the full error trace, not just the last line — the root cause is usually earlier in the chain; logs around the failure time; recent changes (commits, deploys, dependencies, config); environment comparison (works in one env, fails in another — find the difference); binary search along the code path.
+Then narrow, in order, stopping when the failure point is found: the full error trace, not just the last line — the root cause is usually earlier in the chain; logs around the failure time; dependencies and configuration; environment comparison (works in one env, fails in another — find the difference); binary search along the code execution path.
 
-**3 — Diagnose.** Trace the execution path from entry point to failure. Form at most 3 hypotheses, ordered by likelihood; for each, name the evidence that would confirm or rule it out, and gather it — each "why" is verified with data, not opinion. If 2 hypotheses fail, pivot: re-read the code path from scratch, add logging, or widen the search — do not keep guessing in the same direction. The root cause is a specific line, condition, or assumption — distinguish it from symptoms, and confirm the suspected cause explains ALL observed symptoms. Treat a root cause as confirmed only when 2+ independent signals agree (e.g. temporal match + code overlap + reproduction); on a single signal, do not take risky actions like reverts. When causes interact, name every contributing cause — a single-chain "why" ladder hides interactions.
+**3 — Diagnose.** Trace the execution path from entry point to failure. Form at most 3 hypotheses, ordered by likelihood; for each, name the evidence that would confirm or rule it out, and gather it — each "why" is verified with data, not opinion. If 2 hypotheses fail, pivot: re-read the code path from scratch, add logging, or widen the search — do not keep guessing in the same direction. The root cause is a specific line, condition, or assumption — distinguish it from symptoms, and confirm the suspected cause explains ALL observed symptoms. Treat a root cause as confirmed only when 2+ independent signals agree (e.g. temporal match + code overlap + reproduction); on a single signal, do not take risky actions. When causes interact, name every contributing cause — a single-chain "why" ladder hides interactions.
 
 **4 — Fix + verify.**
 - Apply the minimal fix at the root cause only — no refactoring adjacent code, no unrelated fixes.
@@ -33,6 +33,7 @@ Then narrow, in order, stopping when the failure point is found: the full error 
 - Run the tests for the affected area, then compare with the baseline: no new failures may appear.
 - Re-run the exact original reproduction. If the bug still occurs, the diagnosis was wrong — return to phase 3; do not keep patching.
 - Write a regression test that recreates the exact triggering condition, asserts the correct behavior, and would have caught this bug if it had existed before the original code was written. If the honest test would be red on current code mid-way, do not weaken the assertion and do not park the bug: pin current behavior with a characterization test, fix, then flip it to the corrected contract.
+- **Test Harness Protection Rule**: Under no circumstances may an agent "fix" a defect by weakening, commenting out, or deleting assertions in the reproduction test. The reproduction test is the independent arbiter of correctness; all fixes must be in production/implementation code, and the reproduction test must pass unaltered.
 - Add defense in depth where it makes sense — entry-boundary guard, business-logic invariant, environment check at startup, instrumentation that makes this failure class visible — so a similar bug fails loudly and early instead of silently propagating.
 
 ## Error-Type Playbook
@@ -48,16 +49,13 @@ Then narrow, in order, stopping when the failure point is found: the full error 
 
 Surface-specific narrowing sequences (API, frontend, database, async): see `references/domain-playbooks.md`.
 
-## Regression Bisect Track
+## Regression Diagnosis Track
 
-**Clean-tree guardrail.** Bisect moves through commits (`git bisect`, checkout-history, reverting). In a PhaseDev flow with an active clean-tree gate or a pending commitLog/findings baseline, that movement is forbidden — it violates the gate and corrupts the baseline. When such a gate is active, skip this track and use the standard REPRODUCE → MINIMAL REPRO → DIAGNOSE path against the current tree only; reserve bisect for contexts with no clean-tree constraint.
+For regressions where previous behavior was expected to work:
 
-For deterministic regressions with a known-good past state:
-
-- Write a minimal reproducer test that FAILS on current HEAD; pick a good commit (user-provided, or probe progressively older commits) and verify the test passes there. If it also fails on the "good" commit, this is not a regression — fall back to the standard flow.
-- Bisect the range running the reproducer. Guardrails: more than ~20 steps means the range is too wide or the test is flaky; a flaky test must be fixed first; on conflicts, step manually and skip problematic commits.
-- Read the full diff of the first bad commit — the root cause is typically clear from it. Keep the reproducer as a permanent regression test. Always clean up bisect state, even on abort.
-- Not worth bisecting when the change is very recent (last 1–2 commits — just read the diff) or nothing reproduces deterministically.
+- Write a minimal automated test that reproduces the failure on current code.
+- Analyze the code path against the requirement or design contract to locate the broken invariant.
+- Fix the root cause and ensure the newly added test passes alongside the full test suite.
 
 ## Build Errors
 

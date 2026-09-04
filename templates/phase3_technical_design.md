@@ -40,7 +40,7 @@ Additional architecture files inside `architecture/` are allowed and expected fo
 Small/single-file design:
 - If the change is small, touches 1-3 tightly related areas, and the whole design reads compactly, it may stay entirely in `architecture/design.md`.
 - Even a small/single-file design must have a compact visual review surface near the top.
-- For small/single-file design, list only `architecture/design.md` in `Architecture Package Map`.
+- For small/single-file design, `Architecture Package Map` is optional and may be omitted entirely.
 
 Decomposition rules:
 - `architecture/design.md` target size: up to 120 lines; hard guidance: do not bloat it beyond 180 lines.
@@ -53,13 +53,13 @@ Decomposition rules:
 - Each linked subdocument must have a minimal review contract: purpose, one diagram/table/tree review surface, the decisions/contracts/details it expands, and a backlink or clear reference from `architecture/design.md`.
 
 Artifact-specific content rules:
-- Preserve the six-section structure from the embedded artifact template exactly; do not add headings beyond the required `# Design` title and those six required `##` sections.
+- Do not add headings beyond the required `# Design` title and allowed required/optional `##` sections.
 - In `## Executive Summary`, provide a compact approval snapshot table that states the solution direction, approval scope, out-of-scope boundaries, key reviewer attention, and validation plan.
 - Explicitly connect the design direction to PRD `Intent`, `Target state`, `R#`, `SC#`, and `Risk boundaries`; do not introduce design work outside those approved inputs.
 - In `## Traceability Mapping`, include one row for every `R#` and `SC#`; each row must reference at least one valid `D#` and either valid `F#`/`S#` evidence or `not_applicable: <short reason>` when the validated research record justifies no applicable evidence for that row.
 - Define each `D#` exactly once in `## Key Design Decisions`, and make every `D#` traceable from at least one row.
 - Use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable: <reason>` only when there is no material contract surface.
-- Use `## Architecture Package Map` only as the index of approvable design files. Its `File` column uses active-change-folder design package paths, not project-root paths. Link every additional `architecture/*.md` file that is part of approval.
+- Use `## Architecture Package Map` as the index of approvable design files when multiple `architecture/*.md` documents exist. Its `File` column uses active-change-folder design package paths, not project-root paths. Link every additional `architecture/*.md` file that is part of approval.
 - The controller checks approval only on `architecture/design.md`; explicitly listed subdocuments are approved through that entrypoint.
 
 ## Visual-first policy
@@ -151,4 +151,4 @@ Phase completion:
   - linked architecture docs created, or `none`;
   - self-check command and result;
   - {{skill_compliance_line}}
-  - exact next step: review `architecture/design.md`, set `approved: true` only if accepted, then run `phasedev advance`.
+  - exact next step: review `architecture/design.md`, set `approved: true` and `approved_by: "<reviewer>"` only if accepted, then run `phasedev advance`.

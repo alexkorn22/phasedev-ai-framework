@@ -3,7 +3,7 @@ import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endin
 import { sectionLines } from "../../shared/markdown/headings";
 import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
 
-const REQUIRED_SECTIONS = ["Test Commands", "Constraints", "Verification Gates", "Manual Checks", "Environment Notes"];
+const REQUIRED_SECTIONS = ["Test Commands", "Environment Notes"];
 const REQUIRED_COMMAND_KEYS = ["unit", "phase", "full"];
 const TABLE_HEADERS = ["Gate", "Command"];
 

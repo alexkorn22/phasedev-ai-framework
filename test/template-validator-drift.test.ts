@@ -112,7 +112,7 @@ describe("template ↔ validator drift", () => {
     const requiredSections = parseStringArray(validatorRulesContent, "REQUIRED_SECTIONS");
     expect(requiredSections.length).toBeGreaterThan(0);
 
-    const sectionsLine = findLine(intakeTemplateContent, "five sections");
+    const sectionsLine = findLine(intakeTemplateContent, "section `## Test Commands`");
     for (const section of requiredSections) {
       expect(sectionsLine).toContain(section);
     }

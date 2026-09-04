@@ -124,7 +124,7 @@ function globToRegExp(pattern: string): RegExp {
   return new RegExp(expression);
 }
 
-function pathMatchesSurface(filePath: string, patterns: string[]): boolean {
+export function pathMatchesSurface(filePath: string, patterns: string[]): boolean {
   return patterns.some(pattern => {
     if (/[*?[\]{}]/.test(pattern)) {
       return globToRegExp(pattern).test(filePath);

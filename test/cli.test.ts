@@ -70,15 +70,6 @@ function validRulesBody(): string {
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `;
@@ -119,8 +110,6 @@ function withImplementationPlanContract(planContent: string): string {
 
 | Area | Decision |
 |---|---|
-| Approval scope | Exercise the flow CLI fixture path. |
-| Out of scope | Unrelated product behavior. |
 | Sequencing risk | none |
 | Validation | Use fixture unit, phase, and full commands. |
 
@@ -177,12 +166,12 @@ function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
-| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
@@ -566,12 +555,12 @@ describe("flow-cli state machine", () => {
 
     expect(output).toContain("## Skill Boundary");
     expect(output).toContain(
-      "Your role, and any mandatory skills for it, are named in your dispatch prompt"
+      "Your role and mandatory skills are specified in your dispatch prompt; apply their methods, algorithms, and checklists."
     );
     expect(output).toContain(
-      "Skills are method instructions only; they never control Flow state (artifact formats, phase transitions, approvals, verdicts, archive state, allowed files). PhaseDev owns those."
+      "- Skills provide methodology only; they never alter PhaseDev flow state, schemas, approvals, verdicts, or allowed files."
     );
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
 
     // The removed mechanism must leave no trace.
     expect(output).not.toContain("Configured Skill Policy");
@@ -615,8 +604,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
     expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
-    expect(output).toContain("manual: <named method supported by user/repo evidence>");
-    expect(output).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
+    expect(output).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
     expect(output).toContain("embedded template is the only artifact structure");
     expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths");
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
@@ -628,11 +616,11 @@ describe("flow-cli state machine", () => {
     expect(output.match(/Stage 0 is not complete until this command passes/g) ?? []).toHaveLength(0);
     expect(output).toContain("phasedev check --project-path");
     expect(output).toContain("--project-path");
-    expect(output).toContain("look once for a controller-provided or local equivalent that runs the same `check");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(output).toContain("Final response must use this compact template and include no extra sections");
     expect(output).toContain("Change slug: <slug>");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
 
     cleanupTestDir();
     let changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
@@ -657,14 +645,14 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Every table cell must be non-empty, including Notes.");
     expect(output).toContain("Source Facts Supports must use R#/SC#; do not use none/not_applicable.");
     expect(output).toContain("Replace every embedded template example row and example value with real phase-specific content.");
-    expect(output).toContain("The final artifact must not contain these embedded template sample values: `Requested target from PRD.`, `Requested risk boundary from PRD.`, `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
+    expect(output).toContain("The final artifact must not contain these embedded template sample values: `Current implementation partially supports the requested target; F1 records what exists and what does not yet fully support the target.`, `Current tests or configuration partially cover this boundary; F2 records current enforcement gaps without claiming target completion.`, `src/file.ts:42`, `test/file.test.ts:12`, `.phasedev/specs/foo/spec.md:12`, `Current implementation does X.`, `Tests verify behavior X.`, `Existing spec describes capability Y.`.");
     expect(output).not.toContain("Preserve YAML frontmatter keys exactly; change only allowed values.");
     expect(output).toContain("Artifact self-check");
     expect(output.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(output).toContain("--project-path");
-    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(output).not.toContain("--expect-route");
-    expect(output).toContain("If no equivalent is available, or the same non-actionable validator failure repeats after one concrete artifact fix and rerun, stop and report a blocker with the exact command and output.");
+    expect(output).toContain("If the `phasedev` executable is unavailable or fails non-actionably, stop and report a blocker with the exact command and failure output.");
     expect(output).toContain("Report `Research ready` only after this self-check passes.");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("The only exception is unavailable self-check after the documented command lookup.");
@@ -672,7 +660,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");
-    expect(output).toContain("Next: phasedev phase");
+    expect(output).toContain("Next: phasedev advance");
     expectSubstringsInOrder(output, [
       "Phase 2. Code Research.",
       "## Skill Boundary",
@@ -736,13 +724,13 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
     expect(output).toContain("Do not use emoji in `iteration_plan.md`");
-    expect(output).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
-    expect(output).toContain("`bun run src/cli.ts check --project-path ...` when package/source entrypoint evidence supports it");
+    expect(output).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
+    expect(output).not.toContain("`bun run src/cli.ts check --project-path ...`");
     expect(output).toContain("Success final response is allowed only after the self-check passes. It must use this compact template and include no extra sections");
     expect(output).toContain("Plan ready: iteration_plan.md");
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
-    expect(output).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(output).toContain("Skill compliance: list applied skills in your response");
     expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
@@ -797,8 +785,8 @@ describe("flow-cli state machine", () => {
     expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(planPrompt).toContain("Phase 4. Iteration Planning.");
-    expect(phaseValidationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
-    expect(implementationPrompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(phaseValidationPrompt).toContain("Skill compliance: list applied skills in your response");
+    expect(implementationPrompt).toContain("Skill compliance: list applied skills in your response");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");
@@ -814,11 +802,10 @@ describe("flow-cli state machine", () => {
     expect(phaseValidationPrompt).toContain("Retrieval order:");
     expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
     expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
-    expect(phaseValidationPrompt).toContain("git diff --name-status -- .");
-    expect(phaseValidationPrompt).toContain("Determine the single project root from this prompt context");
-    expect(phaseValidationPrompt).toContain("Run `git status --short --untracked-files=all -- .` and `git diff --name-status -- .` from that root");
+    expect(phaseValidationPrompt).toContain("Verify the changed-file inventory using the controller-observed inventory");
+    expect(phaseValidationPrompt).toContain("The controller computes the exact changed-file scope for this validation phase");
+    expect(phaseValidationPrompt).toContain("Use the controller-provided inventory directly as the list of target files to review");
     expect(phaseValidationPrompt).toContain("including, where applicable to changed files, user/input handling");
-    expect(phaseValidationPrompt).toContain("proceed with filesystem reads as fallback");
     expect(phaseValidationPrompt).toContain("Preserve every existing row, including `resolved` rows");
     expect(phaseValidationPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
     expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
@@ -1806,7 +1793,7 @@ No markdown finding table here.
     expect(output).not.toContain("Phase 7. Archive.");
   });
 
-  test("invalid execution contract with missing Constraints section blocks before rendering implementation prompts", () => {
+  test("invalid execution contract with missing Test Commands section blocks before rendering implementation prompts", () => {
     setupChange(`
 # Plan
 
@@ -1814,19 +1801,6 @@ No markdown finding table here.
 - [ ] 1.1 Implement endpoint
 `, {
       rules: `# Rules
-
-## Test Commands
-| Gate | Command |
-|---|---|
-| unit | \`bun test unit\` |
-| phase | \`bun test phase\` |
-| full | \`bun test full\` |
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -1836,11 +1810,11 @@ Test fixture only.
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Constraints`");
+    expect(output).toContain("must contain section `## Test Commands`");
     expect(output).not.toContain("run unit tests");
   });
 
-  test("invalid execution contract with missing Verification Gates section blocks before phase validation prompt", () => {
+  test("invalid execution contract with missing Environment Notes section blocks before phase validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1858,26 +1832,17 @@ Test fixture only.
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Manual Checks
-None.
-
-## Environment Notes
-Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Verification Gates`");
+    expect(output).toContain("must contain section `## Environment Notes`");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
   });
 
-  test("invalid execution contract with missing Environment Notes section blocks before final validation prompt", () => {
+  test("invalid execution contract with missing gate in Test Commands table blocks before final validation prompt", () => {
     setupChange(`
 # Plan
 
@@ -1891,23 +1856,16 @@ Test fixture only.
 |---|---|
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
-| full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
+## Environment Notes
+Test fixture only.
 `
     });
 
     const output = runNext();
 
     expect(output).toContain("[FLOW CONTROLLER] BLOCKED: Invalid execution_contract.md");
-    expect(output).toContain("must contain section `## Environment Notes`");
+    expect(output).toContain("must contain exactly these gates in order: `unit`, `phase`, `full`");
     expect(output).not.toContain("Phase 6B. Final Validation.");
   });
 
@@ -2203,7 +2161,6 @@ describe("flow templates", () => {
     expect(findingsTemplate).toContain("verdict: <set_after_review>");
     expect(findingsTemplate).toContain("This file is created and mutated ONLY by phasedev commands");
     expect(findingsTemplate).toContain("repair_required: use when at least one open/reopened finding is at or above the blocking threshold.");
-    expect(findingsTemplate).toContain("Security rows must always use Severity: MUST-FIX, including resolved rows.");
     expect(findingsTemplate).toContain("type: {{artifact_type}}");
     expect(findingsTemplate).toContain("| ID | Status | Severity | Class | Iteration | Finding | Required Fix | Resolution |");
   });
@@ -2219,7 +2176,7 @@ describe("flow templates", () => {
     expect(finalTemplate).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
     for (const template of [phaseTemplate, finalTemplate]) {
       expect(template).toContain("Structure, column set, allowed values, and verdict/type — only from the embedded Artifact Build Contract");
-      expect(template).toContain("Class = security` and `Severity = MUST-FIX");
+      expect(template).toContain("Class = security` and appropriate severity");
       expect(template).not.toContain("| ID | Status | Class | Blocks PR? | Phase | Description |");
       expect(template).not.toContain("Blocks PR?");
     }
@@ -2239,11 +2196,11 @@ describe("flow templates", () => {
     expect(archiveTemplate).not.toContain("{{archive_command}}");
   });
 
-  test("archive prompt delegates spec work to a spec_sync sub-agent with escalation gate (B28)", () => {
+  test("archive prompt guides spec work with escalation gate (B28)", () => {
     const archiveTemplate = readTemplate("phase7_archive.md");
 
-    expect(archiveTemplate).toContain("spec_sync");
-    expect(archiveTemplate).toContain("Do not classify requirements, create delta specs, or edit any spec yourself");
+    expect(archiveTemplate).toContain("Spec-level classification");
+    expect(archiveTemplate).toContain("Classify requirements, create delta specs, and update live specs directly");
     expect(archiveTemplate).toContain("## Ripple search");
     expect(archiveTemplate).toContain("## Gap control");
     expect(archiveTemplate).toContain("## UI literals");

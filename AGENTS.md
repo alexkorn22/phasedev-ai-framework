@@ -1,6 +1,22 @@
-# PhaseDev AI Framework — Agent Operating Contract
+# PhaseDev AI Framework — Agent Operating Contract & System Specification
 
-This file is the BINDING operating contract for every agent session in this repository — not background reading. Every rule here overrides your defaults, your habits, and any generic guidance you were trained on. Only an explicit instruction from the user in the current conversation may override a rule here. Re-read this contract's Hard Gates whenever you start a new task within a session.
+> [!CRITICAL]
+> **CRITICAL REPOSITORY IDENTITY — READ BEFORE ANY ACTION:**
+>
+> 1. **THIS REPOSITORY IS THE DEVELOPMENT OF THE PHASEDEV AI FRAMEWORK ITSELF.**
+>    This is **NOT** a working or client project being developed *with* or *under* PhaseDev.
+> 2. **DO NOT ATTEMPT TO RUN OR INITIALIZE PHASEDEV ON THIS REPOSITORY:**
+>    - **NEVER** run `phasedev init-project`, `phasedev create-change`, or create a `.phasedev/` directory in this workspace.
+>    - **NEVER** attempt to drive this repository's own feature or bugfix tasks through PhaseDev phases (`change_intake`, `phase`, `advance`, etc.).
+> 3. **OPERATING DISCIPLINE FOR THIS REPOSITORY:**
+>    - You are contributing to the framework source code directly: TypeScript source files in `src/`, templates in `templates/`, agent skills in `skills/`, and unit/integration tests in `test/`.
+>    - Development workflow here is standard TypeScript/Bun: edit files directly, run checks with `bun test` and `npm run typecheck`.
+> 4. **LANGUAGE & COMMUNICATION RULES (NON-NEGOTIABLE):**
+>    - **User Communication**: Always communicate with the user in **Russian** (`общение с пользователем всегда на русском языке`).
+>    - **System Contract**: This instruction (`AGENTS.md`) is written in English for cross-harness model compliance.
+>    - **Code & Repository Artifacts**: All code, identifiers, types, comments, test names, commit messages, and prompt templates must strictly be in **English**.
+
+---
 
 ## Rule Zero: How To Comply
 
@@ -8,6 +24,8 @@ This file is the BINDING operating contract for every agent session in this repo
 2. Before starting ANY task, scan the Hard Gates table and state (to yourself or in your plan) which gates the task triggers.
 3. Before giving your FINAL answer, run the Exit Checklist at the bottom of this file. If any item fails, fix it before answering — do not answer and apologize later.
 4. If you cannot comply with a rule (skill unavailable, user request conflicts with a preserved contract, ambiguity), STOP and ask the user. Silently deviating is a contract violation; asking is not.
+
+---
 
 ## Hard Gates
 
@@ -21,147 +39,255 @@ This file is the BINDING operating contract for every agent session in this repo
 | Call a built-in generic subagent (`general-purpose`, `Explore`, `Plan`, …) | Pass an explicit `model` matched to task complexity (never `"fable"`, never omitted) |
 | Claim work is done | Verify with real command output; report failures honestly, never as success |
 
-## Mission
+---
 
-`PhaseDev AI Framework` is an Agentic Engineering Flow controller. It does not implement product changes itself; it prints phase contracts for another agent and keeps flow state in project files.
+## 1. Deep Framework Architecture & Operating Model
 
-All work with the framework goes through a main orchestrator agent. The orchestrator (the shipped `skills/phasedev-orchestrator`, or `skills/express-orchestrator` for the stateless track) drives the flow loop — `phase` → `check` → `advance`, plus the standalone `archive <change-name>` command — and spawns a fresh sub-agent for each phase's work; it never executes phase work itself. Direct CLI usage by a human is a debugging/inspection aid, not the operating model. Evaluate every change to phases, prompts, or agent roles from the orchestrator's perspective first.
+### 1.1 Mission & Core Problem Solved
+`PhaseDev AI Framework` is an **autonomous state-driven Agentic Engineering Flow controller**. It does not execute phase tasks directly; it stores workflow state in target projects under `.phasedev/`, prints exact phase contracts for AI agents, validates artifacts against strict schemas, and coordinates transitions.
 
-Public entrypoints:
+**Why PhaseDev exists:**
+- **Context Degradation & Drift**: Marathon AI chat sessions degrade as tokens fill up; early requirements blur, and the context window becomes an unreliable memory. PhaseDev decomposes a unit of work (a **change**) into small, verifiable phases. Each phase runs in a **fresh sub-agent context** containing only the relevant artifacts.
+- **Resilience**: State is stored entirely in repo files (`.phasedev/`). If an agent session crashes or restarts, running `phasedev phase` instantly resumes execution from the exact state without data loss.
+- **Auditability & Quality Gates**: Explicit approval gates require human confirmation on specifications and iteration plans. Machine-checked validation findings prevent advancing with unfixed defects.
 
-- `src/cli.ts`: manual CLI. Run `phasedev help` (or `phasedev --help`) for the full, current command list.
-- `next` is **deprecated** — use `phase` + `advance` instead.
+### 1.2 The Orchestrator-Subagent Operating Model
+PhaseDev is designed to be operated by a main **Orchestrator Agent** (shipped as `skills/phasedev-orchestrator` or `skills/express-orchestrator`). Direct human CLI usage is an inspection/debugging aid, not the primary operating model.
 
-You MUST NOT reintroduce separate root archive, parser, checker, template, controller, runner, or config scripts.
+- **The Orchestrator's Role**:
+  - The orchestrator is a thin loop controller: `phase` → `check` → `advance`, plus `archive <change>`.
+  - **The orchestrator NEVER writes code, edits project artifacts, or executes phase contracts in its own context.**
+  - For every phase, it spawns dedicated sub-agents and provides them with execution instructions.
+- **Subagents**:
+  - Every sub-agent runs with a fresh context.
+  - Sub-agents read the phase contract directly via `phasedev phase` and self-validate via `phasedev check`.
+  - The number of sub-agents per phase is dynamic (1 or more), sequential or parallel, as decided by the orchestrator.
+- **Concurrency & State Lock**:
+  - Mutating operations serialize on `.phasedev/state.lock`.
+  - Parallel sub-agents (e.g., multiple reviewers running `phasedev add-finding`) are completely safe; the exclusive file lock prevents races. Commands wait up to ~15 seconds with backoff.
 
-## Architecture
+### 1.3 The Three Execution Tracks
 
-Root `src/` MUST stay thin. Logic belongs in:
+| Track | State & Artifacts | Workflow Chain | Best For |
+|---|---|---|---|
+| **Standard** | Full persistent set under `.phasedev/changes/<name>/` (`prd.md`, `design.md`, `iteration_plan.md`, `validation_findings.md`, etc.) | `change_intake` → `code_research` → `technical_design` → `iteration_planning` → (`implementation` ↔ `iteration_validation` ↔ `finding_repair`) → `final_validation` → `archive` | Complex features, architectural changes, multi-step engineering requiring audit trail |
+| **Quick** | Single persistent `worklog.md` (`## Task`, `## Short Specification`, `## Plan`) | Linear state chain: `quick_plan` → `quick_implementation` → `quick_validation` → `quick_spec_revision` → `archive` | Small, well-bounded changes that still warrant an audit record and spec review |
+| **Express** | Stateless (in-memory only, no `.phasedev/` writes) | In-conversation research → plan → user confirm → implement → review → git commit | Tiny surgical fixes where filesystem artifacts are overhead |
 
-- `src/features/phase-control`: phase routing, prompt construction, blockers, archive phase orchestration.
-- `src/entities/*`: `phase` (phase types), `change` (paths/state/approval/archive state), `config` (config parsing), `iteration-plan` (plan parsing/validation), `validation-findings`, `prd`, `design`, `research-facts`, `execution-contract`, `test-commands`, `schema`, `role`, `model-tiers`.
-- `src/features/spawn-plan`: resolves a role catalog entry to its mandatory skills and a model, for the `phasedev spawn-plan --harness <name>` command.
-- `src/shared`: generic CLI, filesystem, markdown, shell, and template utilities.
+---
 
-Dependency direction MUST be:
+## 2. Phase Lifecycle & State Machine
 
-- entrypoints -> features
-- features -> entities and shared
-- entities -> shared only when needed
-- shared -> no project-specific feature/entity imports
+### 2.1 Standard Track Phases
+1. **`change_intake`**:
+   - Creates `prd.md` and `execution_contract.md`.
+   - **Approval Gate**: Requires `approved: true` with non-empty `approved_by` before advance.
+2. **`code_research`**:
+   - Read-only reconnaissance of existing code, patterns, and constraints.
+   - Produces `research_facts.md`.
+3. **`technical_design`**:
+   - Produces `architecture/design.md`.
+   - Clarification point: orchestrator runs `phasedev clarify` to resolve forks with the user before finalizing.
+   - **Approval Gate**: Requires approval before advance.
+4. **`iteration_planning`**:
+   - Slices the design into atomic iterations in `iteration_plan.md` (max 10 iterations).
+   - Clarification point: resolves iteration boundaries before writing.
+   - **Approval Gate**: Requires approval before advance.
+5. **`implementation`**:
+   - Active iteration implementation (code + tests).
+   - Tracks iteration status in `iteration_plan.md` (`[ ]` → `[~]` → `[/]` → `[x]`).
+6. **`iteration_validation`**:
+   - Validates the current iteration's implementation against requirements.
+   - Subagents record defects using `phasedev add-finding`.
+   - If clean, iteration is committed to git, status flipped to `[x]`, and advances to next iteration or final validation.
+7. **`final_validation`**:
+   - Cross-cutting validation of the entire changeset against `prd.md`.
+   - Validates verdict: `ready` or `ready_with_risks` allows advance; `repair_required` routes to `finding_repair`.
+8. **`finding_repair`**:
+   - Fixes defects recorded in `validation_findings.md`.
+   - Repairs are resolved via `phasedev resolve-finding` with concrete evidence.
+9. **`archive`**:
+   - Triggered exclusively by standalone `phasedev archive <change-name>` once `advance` reports flow completion.
+   - Moves directory to `.phasedev/changes/archive/YYYY-MM-DD-<change-name>/`.
+   - Creates `.phase-archive.json` (`in_progress`), synchronizes delta specs into `.phasedev/specs/`, and marks `completed`.
 
-Acyclic `feature -> feature` imports are permitted (e.g. `phase-control -> artifact-ops`, `flow-status -> phase-control`). Cycles between features remain forbidden.
+### 2.2 Quick Track Phases
+- `quick_plan`: Short research and plan written to `worklog.md`. Orchestrator stops for user confirmation.
+- `quick_implementation`: Implements code and tests, commits progress.
+- `quick_validation`: In-session verification; fixes occur in-place without a formal findings registry.
+- `quick_spec_revision`: Fresh-context subagent evaluates whether live specs need updates.
+- `archive`: Same archive mechanics as standard.
 
-## Behavior To Preserve
+### 2.3 Approval Gates & Auto-Approval
+- Artifacts requiring approval (`prd.md`, `design.md`, `iteration_plan.md`) must contain frontmatter `approved: true` and a valid `approved_by: "<name>"`.
+- Only `phasedev approve <file> --by "<name>"` stamps them.
+- Under `autoApprove: true` in `config.yaml`, `advance` does NOT self-approve; it emits a blocker instructing the orchestrator to spawn an `approval-reviewer` subagent to audit the artifact on its merits and run `phasedev approve <file> --by "auto-approve-subagent"`.
 
-These contracts are frozen. You MUST NOT change them unless the user explicitly asks in the current conversation:
+### 2.4 Validation Findings Registry
+- Append-only registry in `validation_findings.md`.
+- Statuses: `open`, `resolved`, `reopened`.
+- Severity levels: `must_fix`, `recommended`, `nit`.
+- Verdicts: `ready`, `ready_with_risks` (no open `must_fix`), `repair_required` (open `must_fix`), `repaired`.
+- Hand-editing `validation_findings.md` is **strictly prohibited** — only CLI commands may mutate it.
 
-- Phase routing before Archive (previously Stage routing before Archive).
-- `state.json = { activePhase, activeIteration, repairCycleCount, flowMode?, commitLog?, findingsBaseline? }` — lock of the current phase. `flowMode` is optional (`"quick" | "standard"`); absent = standard. `activePhase` additionally admits the quick phases `quick_plan`, `quick_implementation`, `quick_validation`, `quick_spec_revision`. `commitLog`/`findingsBaseline` are optional sections present only when data exists; legacy standalone `.commit-log.json`/`.findings-baseline.json` files are ignored with a warning. `.phase-archive.json` remains a separate file.
-- Iteration heading format: `## Iteration N: Name [x|~| |/]`.
-- YAML keys: `approved`, `verdict`, `type`. `verdict: pending` and CLI-owned `type` normalization are internal self-heal mechanics (advance/sync-state and set-verdict re-run), not agent-settable values.
-- `config.yaml` has exactly `autoApprove` (default `false`), `blockingSeverity` (default `must_fix`), `requireIterationCommit` (default `true`), and `roles`. Unknown or removed keys — including the legacy `phases` section — produce a stderr warning, are ignored, and never block the flow.
-- `roles` is a flat catalog: each entry has `tier` (`cheap | standard | strong`), `skills` (array of skill names), and an optional `comment` (free-text role purpose; blank = absent). Role names are free-form and are never validated against a fixed list. The catalog is read only by `phasedev spawn-plan --harness <name>`, which resolves each role to its mandatory skills and a model and prints one line per role — with the comment as a trailing column when present. Tier→model names live outside the project in `~/.config/phasedev/models.yaml` (override with `PHASEDEV_MODELS_FILE`); a missing file or unknown harness degrades to printing tiers, never an error.
-- The orchestrator delivers a sub-agent's role and mandatory skills through the dispatch prompt's role slot, filled verbatim from `spawn-plan` output. The phase contract prints only the static Skill Boundary section — it never enumerates skills. Which roles a phase needs and how many sub-agents to spawn remains the orchestrator's per-phase decision.
-- An empty `skills` list for a role means discovery permitted, not nothing allowed: the sub-agent selects applicable skills from its own runtime environment instead, under the same Skill Boundary that governs named skills. A role whose `skills` list is non-empty is unchanged — those skills stay mandatory and are never substituted with the sub-agent's own discovery. The same discovery permission applies when a dispatch legitimately carries no role line at all.
-- `ready_with_risks` final validation semantics.
-- Prompt templates by meaning, except for intentional wording updates.
-- Quick routing is a separate state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`) that branches before `resolveRoute`; `resolveRoute` and Standard routing are unchanged.
-- The archive mutation (move + `.phase-archive.json`) is owned exclusively by the standalone `phasedev archive <change-name>` command — never by `advance`. `advance` is archive-silent: at the point that used to be `archive_ready` it now returns "Final validation passed. Flow complete." without moving anything; it never recovers a pre-move crash or resumes a pending archive.
-- Under `autoApprove: true`, `advance` never auto-stamps an artifact's `approved`/`approved_by` fields itself. At each approval gate it emits the auto-approval blocker instructing the orchestrator to spawn one content-reading validation sub-agent that approves each gated artifact on the merits via `phasedev approve <file> --by "auto-approve-subagent"`. An approval-integrity gate then requires every `approved: true` artifact to carry a non-empty `approved_by` before `advance` proceeds — a bare `approved: true` with empty `approved_by` re-blocks.
+---
 
-## Archive Phase
+## 3. Complete CLI Command Reference
 
-Archive is a regular phase in the flow. The archive mutation (move + `.phase-archive.json`) is done by the standalone `phasedev archive <change-name>` command, not by `advance` and not by `next`.
+All commands support the global `--json` flag to print `{ ok, kind, phase?, message?, issues?, data? }` and exit 0 (success) or 1 (failure/blocker).
 
-When a change reaches `archive_ready` (final validation passed, all iterations `[x]`, working tree clean), running `phasedev archive <change-name>`:
+### Project & Change Management
+- `phasedev init-project [--project-path <path>]`: Idempotently creates `.phasedev/` directory tree and `.phasedev/config.yaml`.
+- `phasedev init [--project-path <path>]`: Prints context-only handshake prompt (read-only, no side-effects).
+- `phasedev create-change <name> [--project-path <path>] [--task <text> | --task-file <path>] [--quick]`: Creates `.phasedev/changes/<name>/` with initial `state.json`. Accepts `--quick` for Quick mode. `--task-file` reads markdown task description safely from a file.
+- `phasedev list [--project-path <path>] [--archived]`: Lists active changes (and archived ones with `--archived`). Alias: `phasedev changes`.
+- `phasedev status [--project-path <path>]`: Prints summary of current flow state, active change, artifacts, and findings.
+- `phasedev reset-change [--project-path <path>] [--yes|--force]`: Moves the active change directory to `.trash`.
+- `phasedev sync-state [--project-path <path>] [--change <name>]`: Non-destructively reconciles `state.json` with artifact reality when out of sync.
 
-1. Moves `.phasedev/changes/<change-name>` to `.phasedev/changes/archive/<YYYY-MM-DD>-<change-name>`.
-2. Creates `.phase-archive.json` in the archived change with `status: "in_progress"`.
-3. Sets `activePhase: "archive"` in `state.json` (which moves with the change directory).
+### Orchestration & Flow Loop
+- `phasedev phase [--project-path <path>] [--config <path>]`: Prints the executable phase contract for the active phase (read-only, idempotent).
+- `phasedev check [--project-path <path>] [--phase <phase>] [--check-orphans]`: Validates artifacts of the active phase against schema and completeness rules.
+- `phasedev advance [--project-path <path>] [--config <path>]`: Validates active phase and transitions `state.json` to the next phase. Refuses if invalid or unapproved. Archive-silent.
+- `phasedev clarify [--project-path <path>] [--change <name>]`: Prints decision-points contract to resolve questions with the user before a phase artifact is drafted.
+- `phasedev feedback [--project-path <path>]`: Prints user-feedback handling contract (classifies bug vs scope change).
+- `phasedev spawn-plan --harness <name> [--project-path <path>] [--config <path>]`: Resolves catalog roles to their required skills and models for the specified agent harness.
+- `phasedev archive <change-name> [--project-path <path>] [--config <path>]`: Drives the archive phase: moves directory, writes `.phase-archive.json`, verifies delta specs, and marks complete.
 
-`advance` no longer performs this mutation: once a change reaches the point that used to be `archive_ready`, `advance` returns "Final validation passed. Flow complete." and stops — it does not move the change directory, write `.phase-archive.json`, or recover a pre-move crash. Driving the change to and through Archive is `phasedev archive`'s job from that point on.
+### Artifacts, Iterations & Findings Operations
+- `phasedev approve <file> [--by <name>]`: Sets `approved: true` and `approved_by` in frontmatter.
+- `phasedev set-iteration-status <id> <status> [--project-path <path>] [--file <path>]`: Updates checkbox in `iteration_plan.md` (`completed`=`[x]`, `in_progress`=`[~]`, `not_started`=`[ ]`).
+- `phasedev validate-artifact <file>`: Validates a single artifact file against schemas without changing flow state.
+- `phasedev add-finding [F<number>] <title> <severity> --required-fix <text> [--class <class>] [--iteration <iter>] [--file <path>]`: Appends an open finding to `validation_findings.md` and updates verdict.
+- `phasedev resolve-finding <id> --resolution <text> [--file <path>]`: Marks finding resolved with verification evidence.
+- `phasedev reopen-finding <id> --evidence <text> [--file <path>]`: Reopens a resolved finding with new evidence.
+- `phasedev set-verdict <verdict> [--file <path>]`: Updates validation verdict (`ready | ready_with_risks | repair_required | repaired`).
+- `phasedev check-validation --project-path <path> --scope iteration|final [--iteration-id <N>]`: Validates completion semantics of findings.
+- `phasedev check-archive --archive-path <path>`: Lints completed archive state and delta specs.
+- `phasedev reopen <design|plan> [--project-path <path>]`: Reopens approved design or plan phase for modifications.
 
-The `phase` command prints the Archive contract after the mutation (run `phasedev phase` after `phasedev archive` to get it); the Archive prompt includes links to the archived change path.
+### Utility & Configuration
+- `phasedev config <key> [--project-path <path>]`: Reads dot-notation key from `config.yaml`.
+- `phasedev log [--project-path <path>] [--tail N]`: Inspects runner logs.
+- `phasedev version`: Prints framework version (aliases: `-V`, `--version`).
+- `phasedev help`: Prints CLI documentation.
 
-Resume: if a later `phasedev archive <change-name>` (or `phase`) finds pending `.phase-archive.json` (i.e., `state.json` with `activePhase: "archive"`), the archive phase continues. `phasedev archive` also owns pre-move crash recovery (an `in_progress` archive state with no `movedAt` found in the still-active change directory).
+---
 
-Treat Archive as completed only after `.phase-archive.json` has `status: "completed"`; `phasedev archive <change-name>` reports that completion once it verifies the archive contract's requirements are met.
+## 4. Role Catalog & Skill System
 
-Agents executing the Archive prompt MUST delegate all spec work (delta specs, merge into `.phasedev/specs`, ripple search, escalation of ambiguous divergences) to a single `spec_sync` sub-agent, stop on unresolved escalations before completing, and then update `.phase-archive.json`; they MUST NOT call an archive script. `phasedev check-archive` additionally lints live specs: violations in specs touched by the current archive block completion; the rest of the corpus produces stderr warnings.
+- Catalog defined in `.phasedev/config.yaml` (falls back to framework `config.yaml`).
+- Each role has:
+  - `tier`: `cheap | standard | strong`.
+  - `skills`: List of mandatory skills (or empty `[]` allowing agent discovery).
+  - `comment`: Free-text description of role purpose.
+- Model resolution: `~/.config/phasedev/models.yaml` maps `(harness, tier) → model_name`.
+- Shipped skills located in `skills/`:
+  - Orchestrators: `phasedev-orchestrator`, `express-orchestrator`.
+  - Core discipline: `dev-core`.
+  - Method skills: `codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`.
 
-## Commands
+---
 
-Use these checks from the `PhaseDev` directory:
+## 5. Framework Codebase Architecture (This Repository)
 
-```bash
-bun test
-npm run typecheck
+Root `src/` must remain thin. The codebase is organized as follows:
+
+```
+src/
+├── cli.ts                           # Global CLI entrypoint & command dispatch
+├── features/                        # Workflow feature implementations
+│   ├── phase-control/               # Phase routing, prompt rendering, validators, blockers, archive
+│   ├── spawn-plan/                  # Role resolution to harness models & skills
+│   ├── artifact-ops/                # Approval, artifact validation, findings registry operations
+│   ├── iteration-ops/               # Iteration status manipulation in iteration_plan.md
+│   ├── flow-state/                  # State file loading, reset, and mutations
+│   ├── flow-status/                 # Status, list, and log viewers
+│   ├── config-ops/                  # Configuration parsing and key retrieval
+│   ├── project-init/                # Idempotent .phasedev directory initialization
+│   └── cli-help/                    # Help text rendering and command catalogs
+├── entities/                        # Pure domain models, schemas, and validators
+│   ├── phase/                       # Phase enum types and prompt interfaces
+│   ├── change/                      # Change directory paths, state.json, approval, archive state
+│   ├── config/                      # config.yaml structure and parser
+│   ├── iteration-plan/              # Iteration plan schema, parsing, and readiness checks
+│   ├── validation-findings/         # Findings schema, severities, verdicts, and parser
+│   ├── prd/                         # PRD frontmatter and section validators
+│   ├── design/                      # Technical design schema and validators
+│   ├── research-facts/              # Research facts schema and validators
+│   ├── execution-contract/          # Execution contract parser and validator
+│   ├── role/                        # Role catalog types and validations
+│   ├── model-tiers/                 # Harness model tiers loader and resolver
+│   ├── schema/                      # Frontmatter and markdown table schemas
+│   └── test-commands/               # Command parsing utilities
+└── shared/                          # Generic, framework-agnostic utilities
+    ├── cli/                         # CLI option parsers and JSON output envelopes
+    ├── fs/                          # Atomic file writes and state locking (.phasedev/state.lock)
+    ├── markdown/                    # YAML frontmatter and table parsers
+    ├── shell/                       # Git helpers and subprocess runners
+    └── time/                        # ISO date formatters
 ```
 
-Focused checks:
+**Dependency Rule (Strictly Enforced):**
+- `entrypoints (src/cli.ts)` → `features`
+- `features` → `entities` and `shared`
+- `entities` → `shared` (only when needed)
+- `shared` → no feature or entity imports
+- Acyclic `feature` → `feature` imports are permitted. Cycles are strictly forbidden.
 
+---
+
+## 6. Behavior To Preserve (Frozen Contracts)
+
+You **MUST NOT** change these contracts unless explicitly instructed by the user in the current conversation:
+
+1. **Phase routing before Archive**: Standard routing logic in `flow-route.ts`.
+2. **`state.json` format**: `{ activePhase, activeIteration, repairCycleCount, flowMode?, commitLog?, findingsBaseline? }`.
+3. **Iteration heading format**: `## Iteration N: Name [x|~| |/]`.
+4. **YAML keys**: `approved`, `verdict`, `type`. Internal self-heal states (`verdict: pending`, type normalization) are managed by CLI, never set manually by agents.
+5. **`config.yaml` schema**: Exactly `autoApprove`, `blockingSeverity`, `requireIterationCommit`, and `roles`. Unknown keys warn on stderr and are ignored.
+6. **`roles` catalog structure**: Flat catalog of `tier`, `skills`, and optional `comment`.
+7. **Skill boundary mechanics**: Phase contracts print static skill boundaries; specific skills are injected exclusively through the subagent dispatch role slot from `spawn-plan`.
+8. **`ready_with_risks` validation semantics**: Allows completion when no blocking findings remain.
+9. **Quick routing sequence**: Dedicated state-driven linear sequence (`quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`).
+10. **Archive ownership**: Archive mutation is owned exclusively by `phasedev archive <change-name>`, never by `advance`.
+11. **Auto-approval integrity**: Under `autoApprove: true`, `advance` emits a blocker requiring a dedicated sub-agent approval with `approved_by`. Bare `approved: true` re-blocks.
+
+---
+
+## 7. Developer Workflow & Coding Rules for This Repository
+
+MANDATORY: Before writing, editing, or designing ANY code in this repository, invoke the `dev-core` skill first and follow its discipline.
+
+### Commands for Framework Development
 ```bash
+# Run full test suite
+bun test
+
+# Run TypeScript type check
+npm run typecheck
+
+# Focused unit test checks
 bun test test/parser.test.ts test/controller.test.ts
 bun test test/cli.test.ts test/config.test.ts
 bun test test/e2e-flow.test.ts test/schema.test.ts
+bun test test/spawn-plan.test.ts test/archive-command.test.ts
 ```
 
-CLI smoke:
+### Subagent Delegation Rules
+- Decompose complex tasks and delegate implementation or research to subagents.
+- Always specify an explicit `model` matched to task complexity (`cheap`/`standard`/`strong` equivalent; never `"fable"`).
+- Every delegation prompt for coding work MUST contain the explicit instruction: *Invoke `dev-core` before coding*.
 
-```bash
-phasedev init --project-path /tmp/some-project
-phasedev create-change --project-path /tmp/some-project my-change
-phasedev phase --project-path /tmp/some-project
-phasedev check --project-path /tmp/some-project
-phasedev advance --project-path /tmp/some-project
-phasedev archive my-change --project-path /tmp/some-project
-```
+---
 
-## Subagent Delegation
+## 8. Exit Checklist — Run Before EVERY Final Answer
 
-Default to delegating: whenever a piece of work can be scoped and handed off, spin up a subagent instead of doing it in the main context. The main agent is an orchestrator — decompose the request, delegate each piece, integrate results.
+Verify each item. If any item fails, fix it before answering:
 
-### Model selection
-
-- Custom agents (e.g. the `sp-*` agents in `.claude/agents/`) already pin their model — do NOT pass `model` when calling them and do not override it.
-- Built-in generic types (`general-purpose`, `Explore`, `Plan`, etc.) have no pinned model, and an omitted `model` silently inherits the main agent's (most expensive) model — so you MUST pass a `model` matched to task complexity: `"haiku"` for mechanical/narrow work, `"sonnet"` for routine single-module work, `"opus"` for complex or high-stakes work. Never pass `model: "fable"`.
-- `subagent_type: "fork"` always runs on the main agent's model and ignores `model` — do not pass it there.
-
-### Choosing subagent_type
-
-Agent types are defined by the Claude Code environment (see the available agent types listed in the session); do not redefine them here. Pick the type whose description matches the task. To continue a previously spawned agent with its context intact, use SendMessage instead of launching a fresh one.
-
-### Delegation rules
-
-- Split independent subtasks and dispatch them to parallel subagents in a single message, not sequentially in the main thread.
-- Match model cost to task difficulty: never pay for a top-tier model on a trivial task, never underpower a task that needs real reasoning.
-- If a subagent's output reveals the task was harder than expected, escalate the remaining work to a stronger model.
-- Subagents cannot ask the user questions mid-task: put all context, constraints, and acceptance criteria into the delegation prompt, and require a concrete report (what changed, what was verified) as the final message.
-- Every delegation prompt for coding work MUST contain the `dev-core` instruction (see Hard Gates).
-
-## Coding Rules
-
-MANDATORY: before writing, editing, or designing any code, invoke the `dev-core` skill first and follow its discipline — even for small or trivial-looking changes. There are no exceptions; "trivial" is not an exemption category.
-
-- Keep changes scoped to the requested behavior.
-- Code must be self-documenting with a minimum of comments.
-- Prefer existing module boundaries over new abstractions.
-- Use explicit return types for exported functions.
-- Keep executable/config code in English.
-- Use `apply_patch` for manual edits.
-- Update tests when production behavior or imports change.
-- Run the most relevant focused tests first, then the full suite for cross-module changes.
-
-## Exit Checklist — run before EVERY final answer
-
-Verify each item; if one fails, fix it before answering:
-
-1. If any code was written or edited: `dev-core` was invoked BEFORE the first edit.
-2. Every coding delegation prompt included the `dev-core` instruction.
-3. No frozen contract ("Behavior To Preserve", skill-policy contracts) changed without explicit user approval in this conversation.
-4. Tests were updated for behavior/import changes and actually run; results reported honestly, including failures.
-5. Changes stayed scoped to the request; no new root scripts; dependency direction respected.
-6. Delegable work was delegated, with model tiers matched to complexity.
-
-If you realize mid-task that you already violated a gate (e.g., edited code before invoking `dev-core`), stop, invoke the required skill/step now, re-validate the work you did, and say so explicitly in your report.
+1. **Identity Preserved**: No attempt was made to treat this repo as a client project or run `phasedev init-project`/`create-change`.
+2. **Language Respected**: User communication is in Russian; code, identifiers, tests, and comments are in English.
+3. **`dev-core` Invoked**: Invoked before any code edit.
+4. **Frozen Contracts Intact**: No "Behavior To Preserve" was modified without explicit user request.
+5. **Architecture Maintained**: Root `src/` remains thin; dependency direction respected.
+6. **Tests Verified**: Relevant tests were executed and passed; command output verified honestly.

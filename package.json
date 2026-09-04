@@ -1,6 +1,6 @@
 {
   "name": "phasedev",
-  "version": "1.4.1",
+  "version": "1.6.10",
   "description": "Autonomous Agentic Engineering Flow controller",
   "private": true,
   "license": "MIT",
@@ -31,6 +31,7 @@
     "postinstall": "bun run scripts/sync-version-badge.ts",
     "version:sync": "bun run scripts/sync-version-badge.ts",
     "test": "bun test",
+    "evals": "bun run evals/runner.ts",
     "prompts:generate": "bun run scripts/generate-agent-prompts.ts",
     "typecheck": "tsc --noEmit"
   },

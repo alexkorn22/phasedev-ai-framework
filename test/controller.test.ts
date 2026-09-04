@@ -86,8 +86,6 @@ function withImplementationPlanContract(planContent: string): string {
 
 | Area | Decision |
 |---|---|
-| Approval scope | Exercise the flow controller fixture path. |
-| Out of scope | Unrelated product behavior. |
 | Sequencing risk | none |
 | Validation | Use fixture unit, phase, and full commands. |
 
@@ -144,12 +142,12 @@ function validResearchBody(): string {
 
 ## PRD Intent Trace
 
-| Field | PRD Value | Status | Evidence | Notes |
-|---|---|---|---|---|
-| Change type | fix | not_applicable | prd-only | Classification comes from PRD. |
-| Why | Keep flow routing grounded in approved requirements. | not_applicable | prd-only | User intent, not repository evidence. |
-| Target state | Exercise the flow controller stage prompt. | confirmed | F1 | Code fixture confirms routing. |
-| Risk boundaries | Test fixture only; no production risk. | confirmed | F2 | Existing fixture tests cover the boundary. |
+| Field | Status | Evidence | Notes |
+|---|---|---|---|
+| Change type | not_applicable | prd-only | Classification comes from PRD. |
+| Why | not_applicable | prd-only | User intent, not repository evidence. |
+| Target state | confirmed | F1 | Code fixture confirms routing. |
+| Risk boundaries | confirmed | F2 | Existing fixture tests cover the boundary. |
 
 ## Requirements & Success Criteria Trace
 
@@ -227,15 +225,6 @@ function setupChange(planContent: string, options: { findings?: string; designAp
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `);
@@ -285,15 +274,6 @@ describe("flow controller typed stages", () => {
 | unit | \`bun test unit\` |
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
-
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
 
 ## Environment Notes
 Test fixture only.
@@ -381,12 +361,11 @@ Test fixture only.
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
-    expect(result.prompt).toContain("manual: <named method supported by user/repo evidence>");
-    expect(result.prompt).toContain("only when the repository is clearly new/minimal: no package/test metadata, no project commands, and no existing file or user answer identifies a better method");
-    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(result.prompt).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
+    expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
-    expect(result.prompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(result.prompt).toContain("Skill compliance: list applied skills in your response");
     expect(result.prompt).toContain("Self-check: <exact command> -> <result>");
     expect(result.prompt.match(/Self-check command:/g) ?? []).toHaveLength(0);
     expect(result.prompt).toContain("## Intent");
@@ -408,15 +387,6 @@ Test fixture only.
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `);
@@ -433,8 +403,7 @@ Test fixture only.
     expect(result.prompt).toContain("Use this bounded retrieval order before designing");
     expect(result.prompt).toContain("If a phase input is too large for useful full reading, first extract its headings, tables, and IDs (`Intent`, `R#`, `SC#`, `F#`, `S#`, risk boundaries, test commands)");
     expect(result.prompt).toContain("Stop retrieval when every `R#` and `SC#` can be mapped to valid research evidence");
-    expect(result.prompt).toContain("Preserve the six-section structure from the embedded artifact template exactly");
-    expect(result.prompt).toContain("do not add headings beyond the required `# Design` title and those six required `##` sections");
+    expect(result.prompt).toContain("Do not add headings beyond the required `# Design` title and allowed required/optional `##` sections");
     expect(result.prompt).not.toContain("Use headings, short paragraphs, bullets, tables, blockquotes, and bold where they help readability.");
     expect(result.prompt).toContain("`not_applicable: <short reason>`");
     expect(result.prompt).toContain("not_applicable: <reason>` only when there is no material contract surface");
@@ -448,7 +417,7 @@ Test fixture only.
     expect(result.prompt).toContain("Do not loop on unavailable commands, and do not report the phase ready while the self-check has not passed.");
     expect(result.prompt).toContain("`## Risks & Open Questions` is for bounded review notes that do not block approval");
     expect(result.prompt).toContain("Final response must be compact and include");
-    expect(result.prompt).toContain("Skill compliance: one entry per skill named in your dispatch prompt.");
+    expect(result.prompt).toContain("Skill compliance: list applied skills in your response");
     expect(result.prompt).not.toContain("configured/router skills used, skipped, or unavailable");
     expect(result.prompt).toContain("Self-check command:");
 
@@ -473,15 +442,6 @@ Test fixture only.
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `);
@@ -494,7 +454,7 @@ Test fixture only.
     expect(result.prompt).toContain("Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area");
     expect(result.prompt).not.toContain("Context budget: use a small bounded number of broad file listings/searches");
     expect(result.prompt).not.toContain("Context budget: use at most one broad file listing/search to map candidate areas");
-    expect(result.prompt).toContain("If the `phasedev` executable is unavailable, look once for a controller-provided or local equivalent that runs the same `check");
+    expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).not.toContain("--expect-route");
   });
 
@@ -550,7 +510,7 @@ Test fixture only.
     expect(result.prompt).toContain("repaired: use only in Repair Loop");
   });
 
-  test("iteration_validation contract instructs the agent to commit after a passing verdict", () => {
+  test("iteration_validation contract instructs to commit after a passing verdict", () => {
     setupChange(`
 # Plan
 
@@ -1542,15 +1502,6 @@ Complete API work.
 | phase | \`bun test phase\` |
 | full | \`bun test full\` |
 
-## Constraints
-None.
-
-## Verification Gates
-Standard test gates apply.
-
-## Manual Checks
-None.
-
 ## Environment Notes
 Test fixture only.
 `, false);
@@ -1849,10 +1800,10 @@ Test fixture only.
     expect(result.newState?.repairCycleCount).toBe(2);
   });
 
-  test("repair cycle accumulates through repair↔validation loop and blocks after 3 attempts", () => {
+  test("repair cycle accumulates through repair↔validation loop without limits", () => {
     // This test verifies the full cycle works end-to-end: the counter
     // increments through repair, stays preserved when returning to validation,
-    // and blocks the 4th repair attempt (3rd re-entry).
+    // and continues cleanly beyond 3 attempts without arbitrary limit blocking.
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1914,14 +1865,14 @@ Test fixture only.
     expect(r.newState?.activePhase).toBe("finding_repair");
     expect(r.newState?.repairCycleCount).toBe(3);
 
-    // 4th repair attempt blocked: count is 3 which is >= MAX_REPAIR_CYCLES
-    r = advanceFrom("iteration_validation", 1, 3, "repair_required", "F3");
-    expect(r.ok).toBe(false);
-    expect(r.message).toContain("Repair cycle limit reached");
-    expect(r.message).toContain("3");
+    // 4th repair attempt allowed: count advances to 4 without blocking
+    r = advanceFrom("iteration_validation", 1, 3, "repair_required", "F4");
+    expect(r.ok).toBe(true);
+    expect(r.newState?.activePhase).toBe("finding_repair");
+    expect(r.newState?.repairCycleCount).toBe(4);
   });
 
-  test("repair cycle limit reached — advance refuses after 3 repair attempts", () => {
+  test("no repair cycle limit — advance allows entering finding_repair when repairCycleCount >= 3", () => {
     const changeDir = setupChange(`
 ## Iteration 1: API [~]
 - [x] 1.1 Implement endpoint
@@ -1931,35 +1882,15 @@ Test fixture only.
     const statePath = path.join(changeDir, "state.json");
     fs.writeFileSync(
       statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
+      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 5 }, null, 2) + "\n",
       "utf-8"
     );
 
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached");
-    expect(result.message).toContain("3");
-  });
-
-  test("repair cycle limit honors the hard-coded max repair cycles", () => {
-    const changeDir = setupChange(`
-## Iteration 1: API [~]
-- [x] 1.1 Implement endpoint
-`, {
-      findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
-    });
-    const statePath = path.join(changeDir, "state.json");
-    fs.writeFileSync(
-      statePath,
-      JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 3 }, null, 2) + "\n",
-      "utf-8"
-    );
-
-    const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("Repair cycle limit reached (3)");
+    expect(result.ok).toBe(true);
+    expect(result.newState?.activePhase).toBe("finding_repair");
+    expect(result.newState?.repairCycleCount).toBe(6);
   });
 
   test("advanceFlow returns 'Archive complete. Flow finished.' with finished:true and ok:true", () => {

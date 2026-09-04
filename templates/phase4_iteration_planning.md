@@ -31,15 +31,19 @@ Planning instructions:
    - every iteration, including the only iteration, goes through `Implementation -> Iteration Validation`;
    - after successful Iteration Validation for all iterations, the flow proceeds to `Final Validation`;
    - each iteration must fit fully into one AI-agent working session without context overflow;
+   - functional vertical slicing: slice work by complete functional capability (e.g. database schema + backend logic + UI wiring for a specific user story), NOT by horizontal architectural layers (do NOT split schema-only, types-only, or UI-only into separate iterations);
    - self-containment: each iteration must bring its part of the functionality to a state that is fully verifiable by its checks and Iteration Validation immediately upon its completion, without relying on changes planned in later iterations;
    - do not split tightly coupled functionality across iterations; failure criterion: if iteration N cannot be fully validated without changes planned in iteration N+1 or later, the boundaries are wrong and the split must be reworked;
    - do not over-fragment: if two pieces of work are meaningful and verifiable only together, they are one iteration; split work only into iterations that do not depend on unfinished parts of each other;
+   - iteration count heuristic for small/medium changes: for compact changes (e.g. up to ~300 lines of code or 1-2 related user capabilities), plan at most 1-2 iterations to avoid unnecessary dispatch and validation cycle overhead; a single-iteration plan is preferred when the whole change forms one cohesive unit;
    - dependencies point forward only: iteration N+1 may build on the completed result of iteration N; backward and cyclic dependencies between iterations are forbidden;
    - the optimal iteration size is a 3-10 file change, but this is a soft heuristic subordinate to self-containment: never split a coupled block only to satisfy it; if a tightly coupled block cannot fit into one working session, treat it as a material realignment blocker per instruction 7 instead of splitting it;
    - boundary self-check: before finalizing the plan, answer for every iteration "Can this iteration be fully validated as complete if none of the later iterations have been executed?"; if the answer is no, rework the iteration boundaries before writing `iteration_plan.md`; do not record this check in the artifact or the final response.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - iteration sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
-   - checks must cover each `SC#` according to its PRD `Evidence` type;
+   - checks in `### Checks` and `### Check Evidence` must contain ONLY automated, deterministic, and offline commands (unit tests, integration tests, typecheck, lint, build, headless test scripts). Never place manual checks (`manual:*`), interactive browser driving, or live external database commands in iteration checks;
+   - `SC#` criteria requiring manual/visual verification or live external environments must be mapped to `[Deferred to Final Validation / Manual Acceptance]` rather than placed as iteration check commands;
+   - external data sources, migrations, and APIs must be verified in iteration checks through automated tests with mocks/fakes/in-memory fixtures;
    - risk boundaries must be represented in the generated plan.
 6. The plan must not introduce work that is not grounded in `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries` from the PRD.
 7. Stop for user realignment only when bounded planning evidence reveals a material PRD/design contradiction, missing approval authority, a public contract or risk-boundary decision the approved inputs do not authorize, or an impossible-to-name required check. Do not stop for low-level implementation details that do not change approval scope; make the smallest conservative scoped planning assumption and record it with concrete trace IDs.

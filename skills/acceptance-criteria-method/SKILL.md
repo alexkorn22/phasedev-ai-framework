@@ -28,8 +28,7 @@ Turn ambiguous or high-impact changes into scoped, verifiable acceptance criteri
 
 ## Interviewing
 
-- Ask only questions whose answers are required and cannot be safely inferred; group short related questions.
-- Ask one at a time. When asking the user to choose, present at least two named alternatives with brief trade-offs and why the answer matters. If only one option is viable, record the decision with rationale instead of asking for a rubber stamp.
+- Ask only questions whose answers are required and cannot be safely inferred. In PhaseDev intake / prompt checkpoints, batch 1-3 concise, related questions in a single stop to respect turn limits; in interactive interview mode, ask one focused topic at a time. When asking the user to choose, present at least two named alternatives with brief trade-offs and why the answer matters. If only one option is viable, record the decision with rationale instead of asking for a rubber stamp.
 - When the user adds scope mid-dialogue, acknowledge it explicitly, re-confirm the updated problem statement, and decide together whether it belongs in this scope or a follow-up.
 - A request spanning multiple independent subsystems is decomposed first — one scope at a time. Covering everything at once produces vague criteria that cannot drive implementation.
 - Do not block implementation by default: require explicit confirmation only when an unresolved decision could create material security exposure, data loss, irreversible migration, contract breakage, meaningful cost, or destructive external action.
