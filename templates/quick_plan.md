@@ -12,9 +12,10 @@ Inputs:
 
 ## Procedure
 
-1. Research just enough of the codebase to plan the change.
-2. Fill the three sections of `worklog.md`: `## Task`, `## Short Specification`, `## Plan`. The orchestrator never writes this file itself — the subagent fills it.
-3. Return the plan to the orchestrator for the single user plan-confirmation stop.
+1. Review project memory: inspect `PROJECT KNOWLEDGE & ANTI-PATTERNS` below before designing or planning; avoid known traps.
+2. Research just enough of the codebase to plan the change.
+3. Fill the three sections of `worklog.md`: `## Task`, `## Short Specification`, `## Plan`. Do not leave placeholder comments or empty sections. If touching protected paths, explicitly declare `[allows-protected-paths]` in `## Plan`. The orchestrator never writes this file itself — the subagent fills it.
+4. Return the plan to the orchestrator for the single user plan-confirmation stop.
 
 ## Self-check
 

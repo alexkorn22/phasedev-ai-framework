@@ -49,11 +49,48 @@ export function initProject(projectPath: string): InitProjectResult {
     flowRoot,
     path.join(flowRoot, "changes"),
     path.join(flowRoot, "changes", "archive"),
-    path.join(flowRoot, "specs")
+    path.join(flowRoot, "specs"),
+    path.join(flowRoot, "knowledge"),
+    path.join(flowRoot, "knowledge", "phases")
   ];
 
   for (const directory of directories) {
     fs.mkdirSync(directory, { recursive: true });
+  }
+
+  const antipatternsPath = path.join(flowRoot, "knowledge", "antipatterns.md");
+  if (!fs.existsSync(antipatternsPath)) {
+    fs.writeFileSync(
+      antipatternsPath,
+      [
+        "# Project Anti-Patterns & Taboos",
+        "",
+        "> Lessons learned from AI engineering mistakes in this project.",
+        "> Rule: When an agent makes an engineering mistake twice, add it here.",
+        "",
+        "## Forbidden Patterns",
+        "<!-- List recurring mistakes, forbidden patterns, and traps specific to this codebase -->",
+        ""
+      ].join("\n"),
+      "utf-8"
+    );
+  }
+
+  const generalMemoryPath = path.join(flowRoot, "knowledge", "general-memory.md");
+  if (!fs.existsSync(generalMemoryPath)) {
+    fs.writeFileSync(
+      generalMemoryPath,
+      [
+        "# Project General Engineering Memory",
+        "",
+        "> Shared operational context, environment quirks, and architectural rules applied to all phases.",
+        "",
+        "## Operational Context",
+        "<!-- Environment, runtimes, package managers, and architecture conventions -->",
+        ""
+      ].join("\n"),
+      "utf-8"
+    );
   }
 
   const configPath = projectConfigPath(resolvedProjectPath);

@@ -265,7 +265,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   // (A) Per-phase exit gate: structural validity plus phase-completion
   // conditions. Entry conditions are resolveRoute's job (step C).
-  const v = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, config.blockingSeverity);
+  const v = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, config.blockingSeverity, config);
   if (!v.ok) {
     return refuse(
       `Cannot leave phase "${state.activePhase}":\n${v.issues.join("\n")}`

@@ -62,6 +62,39 @@ Every spec is a baseline for future deltas. When a change lands:
 - An ambiguous divergence — where code and spec disagree and the intended behavior is not decidable from the code — is escalated as an explicit uncertainty for a decision, never silently resolved in either direction.
 - Update the verification anchor (timestamp + commit) for every spec actually re-checked, and only for those.
 
+## Project Knowledge & Anti-Patterns Mining
+
+During archive or spec sync, in addition to behavioral specs, mine project-specific engineering lessons and traps from resolved findings in `validation_findings.md`.
+
+### How to Distinguish Systemic Errors from Local Noise:
+Do NOT mine trivial mistakes into repository memory. Follow these explicit categorization rules:
+
+1. **Noise / Local Glitches (DISCARD - do NOT record in memory)**:
+   - Formatting and linter nits (`Severity: NIT`).
+   - Simple typos, forgotten single imports, rename oversights, or one-off off-by-one errors.
+   - Minor omissions that required only a single local line fix without altering conceptual design.
+
+2. **Systemic Design & Architecture Errors (Record in `knowledge/antipatterns.md`)**:
+   - **Class**: `Class: design` or `Class: security` with `Severity: MUST-FIX`.
+   - **Root Cause**: The agent made an invalid assumption about architectural boundaries (e.g., leaking DB logic into API handlers, introducing circular dependencies, violating clean architecture, failing to isolate tenancy).
+   - **Trigger**: Any finding where fixing required changing the data flow, contract boundaries, or interface design across multiple files.
+
+3. **Systemic Coding & Framework Errors (Record in `knowledge/antipatterns.md`)**:
+   - **Class**: `Class: implementation` with `Severity: MUST-FIX` or `RECOMMENDED`.
+   - **Recurrence**: Similar defects occurred more than once across iterations or reviews (e.g., 2+ findings related to unhandled promise rejections, unclosed db connections, or mutation of shared state).
+   - **Framework Gotchas**: The mistake arose from a non-obvious API constraint, runtime behavior, or hidden framework invariant (e.g., ORM query batching quirks, subtle transaction rollback rules, event listener leaks).
+
+4. **Phase-Specific Process Traps (Record in `knowledge/phases/<phase>.md`)**:
+   - **Class**: `Class: plan` (e.g. slicing iterations with hidden dependencies), `Class: test` (e.g. testing mocks instead of reality, flaky timeouts, sandbox path restrictions), or `Class: requirements` (missed PRD edge cases).
+
+### Required Memory Entry Format:
+Each entry must follow this concrete, water-tight structure:
+- **[Component / Subsystem]**:
+  - *Context*: Triggering scenario or task.
+  - *False Assumption (Anti-Pattern)*: What the agent incorrectly assumed or implemented.
+  - *Failure Evidence*: Finding ID (`F#`) and the observed defect.
+  - *Preserved Invariant (Correct Pattern)*: The mandatory rule to follow in future phases.
+
 ## Red Flags
 
 - Type-classification chapters instead of a flat assertion list.

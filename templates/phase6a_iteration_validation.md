@@ -31,7 +31,7 @@ Required phase-contract checks:
 - verify that the current iteration does not violate approved PRD `Target state`, `Risk boundaries`, or approved design boundaries;
 - verify that the current iteration does not add behavior outside the positive PRD contract unless explicitly approved in design/plan;
 - completeness of production/test/source/config changes for the current iteration and current iteration task statuses is checked through review methods without running tests;
-- `Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran;
+- `Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran; verify that entries cite exact commands and decisive output (exit code 0, test counts) rather than subjective claims; if an entry contains vague hand-waving ("looks good", "verified manually"), flag it as a finding for unproven verification;
 - do not rerun tests or additional checks at this phase;
 - Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure, record rows and the verdict only through the phasedev findings commands (add-finding / resolve-finding / reopen-finding / set-verdict); `phasedev check-validation` catches every structural violation.
 - if the final verdict is `ready` or `ready_with_risks`, change the current iteration status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;

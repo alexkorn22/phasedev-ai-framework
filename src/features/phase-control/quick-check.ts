@@ -4,6 +4,7 @@ import { PhaseCheckResult } from "./check-flow";
 import { buildChangePaths } from "../../entities/change/paths";
 import { checkArchiveCompletion } from "./check-archive";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
+import { isWorklogEmpty } from "../../entities/worklog/validate-worklog";
 
 function ok(phase: string): PhaseCheckResult {
   return { ok: true, phase, message: `[PHASEDEV CHECK] OK: quick phase ${phase} is valid.` };
@@ -24,7 +25,7 @@ export function quickCheck(
 
   switch (state.activePhase) {
     case "quick_plan": {
-      if (!fs.existsSync(paths.worklogPath) || fs.readFileSync(paths.worklogPath, "utf-8").trim().length === 0) {
+      if (!fs.existsSync(paths.worklogPath) || isWorklogEmpty(fs.readFileSync(paths.worklogPath, "utf-8"))) {
         return fail(state.activePhase, "worklog.md is missing or empty.");
       }
       return ok(state.activePhase);

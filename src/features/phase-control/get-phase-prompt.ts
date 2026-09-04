@@ -25,7 +25,7 @@ import { parseCurrentValidationFindings } from "../../entities/validation-findin
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
-import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES, taskContextBlock } from "./prompt-render-helpers";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES, taskContextBlock, renderKnowledgeContext } from "./prompt-render-helpers";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
   const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
@@ -306,7 +306,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
   if (
     route.phase !== state.activePhase &&
-    !validatePhaseExit(projectPath, state.activePhase, paths, activeIteration, config.blockingSeverity).ok
+    !validatePhaseExit(projectPath, state.activePhase, paths, activeIteration, config.blockingSeverity, config).ok
   ) {
     return {
       command: "phase",
@@ -421,6 +421,13 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
 
     default:
       throw new Error(`getPhasePrompt reached unreachable phase "${activePhase}" (quick phases are rendered by quickPhasePrompt).`);
+  }
+
+  if (!promptResult.blocked) {
+    const knowledgeContext = renderKnowledgeContext(projectPath, activePhase);
+    if (knowledgeContext) {
+      promptResult.prompt += knowledgeContext;
+    }
   }
 
   return promptResult;

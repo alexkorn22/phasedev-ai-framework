@@ -18,9 +18,13 @@ Ordered workflow:
 1. Read the Current Repair Queue, then open the full findings registry only to preserve/update rows and confirm each queued ID still has latest status `open` or `reopened`.
 2. Read the embedded Artifact Build Contract before editing `validation_findings.md`.
 3. Read only the linked source-of-truth artifacts needed by the queued finding classes: `iteration_plan.md` first, then the specific `R#`/`SC#` or risk boundary in `prd.md`, then the specific design/research/rules evidence needed for the repair.
-4. Inspect affected production/test/source/config files only after artifact context identifies the narrow change surface; prefer exact file paths from the finding, plan, check evidence, or changed-file evidence over broad repository searches.
-5. Patch the smallest required source files or active change artifacts for the finding class, run targeted checks that prove the repair when available, then update `Check Evidence` if it changed.
-6. Update only the existing finding rows for repaired queued IDs, preserve all other rows, set the verdict according to the rule below, run the self-check, and stop.
+4. **Test Harness Protection Protocol**:
+   - For code/logic defects (`implementation` or `security` class): write a targeted reproduction test demonstrating the defect first. Verify that it fails on current code.
+   - Patch the production/implementation code to fix the defect.
+   - Never "fix" a finding by weakening, deleting, or altering the assertions in the reproduction test. The reproduction test must pass unaltered.
+5. Inspect affected production/test/source/config files only after artifact context identifies the narrow change surface; prefer exact file paths from the finding, plan, check evidence, or changed-file evidence over broad repository searches.
+6. Patch the smallest required source files or active change artifacts for the finding class, run targeted checks that prove the repair when available, then update `Check Evidence` if it changed.
+7. Update only the existing finding rows for repaired queued IDs, preserve all other rows, set the verdict according to the rule below, run the self-check, and stop.
 
 Context budget and stop condition:
 - Stop retrieval when every queued finding ID has a concrete repair target, source-of-truth requirement/design/plan context, affected file or artifact evidence, and a verification path or documented blocker.

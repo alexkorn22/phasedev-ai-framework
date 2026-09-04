@@ -66,6 +66,17 @@ An unverified "probably FP" is a skipped finding; each dismissal names its class
 
 After a fix, a re-raised finding with the same location and root cause that the regression test disproves is a false re-raise — noise, not non-convergence. A stated, evidence-backed context block (schema facts, global middleware, absent-by-design concepts) may only be reopened by citing contradicting code — and every line in it must itself carry evidence, or the block suppresses real findings on author confidence alone.
 
+## Three Review Passes & Noise Control ("Cap the Nits")
+
+Structure code review into three explicit passes to ensure depth without diluting focus with noise:
+1. **Pass 1: Logic & Bugs** — logic errors, broken edge cases, regressions, off-by-one errors, unhandled errors, data loss.
+2. **Pass 2: Security & Data** — injection risks, authorization gaps, unvalidated input at trust boundaries, PII in logs, secret leakage.
+3. **Pass 3: Plan & Spec Compliance** — verifies that the diff matches `iteration_plan.md` and approved design contracts. Anything extra or missing is flagged; silent scope creep is rejected.
+
+### Noise Control & Capping Nits:
+- **Do not report what automated tooling checks**: Never create findings for formatting, indentation, import sorting, or style rules that linters, formatters, or compilers already enforce.
+- **Cap the Nits**: Never register more than 3–5 `NIT` findings per review into `validation_findings.md`. Consolidate any additional minor cosmetic feedback into a single informational note.
+
 ## What to Check
 
 Seven lenses: correctness (logic, off-by-ones, null handling, edge cases, races); type safety — and type design: do types make illegal states unrepresentable, are invariants enforced or escape-hatched; silent failures — empty catches, errors converted to defaults, `.catch(() => [])`, lost stack traces, log-and-forget; pattern compliance with the project; security-sensitive surfaces (hand to a security-focused pass when auth/payment/crypto/migrations appear); performance (N+1, unbounded reads); completeness (missing tests and error paths). Per-check meanings, N/A validity, and code-type focus areas: `references/quality-checklist.md`. Numeric size thresholds as an auxiliary signal — not authoring rules: `references/size-thresholds.md`. For AI-generated changes, weight behavioral regressions, trust boundaries, and quiet architecture drift first.

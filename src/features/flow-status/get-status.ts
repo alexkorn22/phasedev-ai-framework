@@ -10,6 +10,7 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 
 export interface FlowStatus {
   activeChange: string | null;
+  mode?: "standard" | "quick";
   phase: string;
   routeKind: string;
   artifacts: Array<{ name: string; exists: boolean; approved: boolean }>;
@@ -39,22 +40,26 @@ export function getFlowStatus(
     state = { phase: `INVALID STATE — state.json is corrupted: ${message}`, routeKind: "invalid_state" };
   }
   const changeDir = resolveChangeDir(projectPath, changeName);
+  const isQuick = state.routeKind === "quick";
 
   const artifacts: Array<{ name: string; exists: boolean; approved: boolean }> = [];
   if (changeDir) {
-    const paths = buildChangePaths(changeDir);
-    artifacts.push(artifactStatus(changeDir, "prd.md"));
-    artifacts.push(artifactStatus(changeDir, "execution_contract.md"));
-    artifacts.push(artifactStatus(changeDir, "research_facts.md"));
-    artifacts.push(artifactStatus(changeDir, "architecture/design.md"));
-    artifacts.push(artifactStatus(changeDir, "iteration_plan.md"));
-    artifacts.push(artifactStatus(changeDir, "validation_findings.md"));
+    if (isQuick) {
+      artifacts.push(artifactStatus(changeDir, "worklog.md"));
+    } else {
+      artifacts.push(artifactStatus(changeDir, "prd.md"));
+      artifacts.push(artifactStatus(changeDir, "execution_contract.md"));
+      artifacts.push(artifactStatus(changeDir, "research_facts.md"));
+      artifacts.push(artifactStatus(changeDir, "architecture/design.md"));
+      artifacts.push(artifactStatus(changeDir, "iteration_plan.md"));
+      artifacts.push(artifactStatus(changeDir, "validation_findings.md"));
+    }
   }
 
   let iterations: Array<{ id: number; name: string; status: string }> = [];
   let validationFindings: FlowStatus["validationFindings"] = { exists: false, verdict: "unknown", type: "unknown", openCount: 0, blockingCount: 0 };
 
-  if (changeDir) {
+  if (changeDir && !isQuick) {
     const paths = buildChangePaths(changeDir);
     const plan = parsePlan(paths.iterationPlanPath);
     iterations = plan.map((p: { id: number; name: string; status: string }) => ({
@@ -75,6 +80,7 @@ export function getFlowStatus(
 
   return {
     activeChange: changeDir ? path.basename(changeDir) : null,
+    mode: isQuick ? "quick" : "standard",
     phase: state.phase,
     routeKind: state.routeKind,
     artifacts,
@@ -89,6 +95,9 @@ export function renderFlowStatus(status: FlowStatus): string {
   lines.push("=== PhaseDev Flow Status ===");
   lines.push("");
   lines.push(`Active Change: ${status.activeChange ?? "none"}`);
+  if (status.mode) {
+    lines.push(`Mode: ${status.mode}`);
+  }
   lines.push(`Current Phase: ${status.phase}`);
   lines.push(`Route: ${status.routeKind}`);
   lines.push("");

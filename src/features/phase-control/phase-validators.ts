@@ -13,6 +13,9 @@ import { checkFindingsAgainstBaseline } from "../../entities/validation-findings
 import { checkArchiveCompletion } from "./check-archive";
 import { loadSchema, validateSchemaSections } from "../../entities/schema/load-schema";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } from "../../entities/validation-findings/blocking-severity";
+import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
+import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
+import { runGit } from "../../shared/shell/git";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -249,11 +252,45 @@ export function validatePhaseExit(
   phase: ActivePhase,
   paths: ChangePaths,
   activeIteration: number | null,
-  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY,
+  config?: Config
 ): PhaseValidation {
   const base = validatePhase(projectPath, phase, paths, activeIteration, blockingSeverity);
   if (!base.ok) {
     return base;
+  }
+
+  const resolvedConfig = config ?? loadConfig(projectConfigPath(projectPath));
+
+  if (
+    resolvedConfig.protectedPaths &&
+    resolvedConfig.protectedPaths.length > 0 &&
+    ["implementation", "iteration_validation", "finding_repair"].includes(phase)
+  ) {
+    let allowsProtected = false;
+    if (activeIteration !== null && fs.existsSync(paths.iterationPlanPath)) {
+      const plan = parsePlan(paths.iterationPlanPath);
+      const iter = plan.find(p => p.id === activeIteration);
+      if (iter) {
+        allowsProtected =
+          /\[allows-protected-paths\]/i.test(iter.name) ||
+          /allows-protected-paths/i.test(iter.rawContent ?? "");
+      }
+    }
+
+    if (!allowsProtected) {
+      const scan = scanChangedFilesOutsidePhasedev(projectPath);
+      if (scan.ok) {
+        const violatingFiles = scan.entries
+          .map(e => e.filePath)
+          .filter(filePath => pathMatchesSurface(filePath, resolvedConfig.protectedPaths ?? []));
+        if (violatingFiles.length > 0) {
+          return failMessage(phase, [
+            `Protected paths violated: ${violatingFiles.join(", ")} matched protectedPaths config. Add '[allows-protected-paths]' to iteration header in iteration_plan.md if intentional.`
+          ]);
+        }
+      }
+    }
   }
 
   if (phase === "finding_repair") {
@@ -265,6 +302,21 @@ export function validatePhaseExit(
     }
     if (findings.verdict !== "repaired") {
       issues.push("Repair not finished: set `verdict: repaired` after resolving all blocking findings.");
+    }
+
+    const diffResult = runGit(projectPath, ["diff", "--numstat", "HEAD", "--", "*.test.*", "*.spec.*", "test/**", "tests/**"]);
+    if (diffResult.ok && diffResult.stdout.trim().length > 0) {
+      const lines = diffResult.stdout.trim().split("\n");
+      for (const line of lines) {
+        const parts = line.split("\t");
+        const deletedLines = Number.parseInt(parts[1], 10);
+        const testFile = parts[2];
+        if (!Number.isNaN(deletedLines) && deletedLines > 0) {
+          issues.push(
+            `Test harness protection failed: ${deletedLines} line(s) deleted in test file "${testFile}" during repair. Never weaken or delete test assertions to satisfy a repair.`
+          );
+        }
+      }
     }
 
     if (issues.length > 0) {

@@ -76,7 +76,9 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   }
 
   fs.mkdirSync(changeDir, { recursive: true });
-  fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+  if (!quick) {
+    fs.mkdirSync(path.join(changeDir, "architecture"), { recursive: true });
+  }
 
   // Write initial state.json directly (saveFlowState cannot be used yet
   // because locateFlowStatePath returns null before state.json exists).
@@ -87,7 +89,11 @@ export function createChange(projectPath: string, name: string, taskText?: strin
   writeFileAtomic(statePath, JSON.stringify(initialState, null, 2) + "\n");
 
   if (quick) {
-    writeFileAtomic(path.join(changeDir, "worklog.md"), renderTemplate("artifacts/worklog", { date: todayIsoDate() }));
+    const taskContent = taskText ? taskText.trim() : "<!-- Filled by the quick_plan subagent: what the task is, in the user's words. -->";
+    writeFileAtomic(path.join(changeDir, "worklog.md"), renderTemplate("artifacts/worklog", {
+      date: todayIsoDate(),
+      task_content: taskContent
+    }));
   }
 
   const head = gitHeadSha(projectPath);

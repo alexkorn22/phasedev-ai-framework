@@ -1,11 +1,12 @@
 import { Config } from "../../entities/config/config";
-import { FlowState, saveFlowState } from "../../entities/change/flow-state";
+import { FlowState, locateChangeDir, saveFlowState } from "../../entities/change/flow-state";
 import { buildChangePaths } from "../../entities/change/paths";
-import { resolveChangeDir } from "../../entities/change/active-change";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
 import { nextQuickPhase } from "./quick-flow-sequence";
 import { readCommitLog } from "../../entities/change/flow-state";
-import { gitHeadSha } from "../../shared/shell/git";
+import { gitHeadSha, runGit } from "../../shared/shell/git";
+import { isWorklogEmpty, validateWorklogArtifact } from "../../entities/worklog/validate-worklog";
+import { pathMatchesSurface, scanChangedFilesOutsidePhasedev } from "./changed-file-inventory";
 import * as fs from "fs";
 
 function refuse(message: string): AdvanceResult {
@@ -16,11 +17,6 @@ function done(message: string): AdvanceResult {
 }
 function advanced(newState: FlowState, message: string): AdvanceResult {
   return { ok: true, advanced: true, finished: false, newState, message };
-}
-
-function worklogGateBlocks(worklogPath: string): boolean {
-  if (!fs.existsSync(worklogPath)) return true;
-  return fs.readFileSync(worklogPath, "utf-8").trim().length === 0;
 }
 
 /**
@@ -38,15 +34,48 @@ function implementationCommitBlocks(projectPath: string, config: Config, statePa
 }
 
 export function quickAdvance(projectPath: string, config: Config, state: FlowState, changeName?: string): AdvanceResult {
-  const changeDir = resolveChangeDir(projectPath, changeName);
+  const changeDir = locateChangeDir(projectPath, state, changeName);
   if (!changeDir) return refuse("Cannot locate quick change directory.");
   const paths = buildChangePaths(changeDir);
 
-  if (state.activePhase === "quick_plan" && worklogGateBlocks(paths.worklogPath)) {
-    return refuse("Cannot leave quick_plan: worklog.md is missing or empty. Fill worklog.md, then rerun advance.");
+  if (state.activePhase === "quick_plan") {
+    if (!fs.existsSync(paths.worklogPath) || isWorklogEmpty(fs.readFileSync(paths.worklogPath, "utf-8"))) {
+      return refuse("Cannot leave quick_plan: worklog.md is missing or empty. Fill worklog.md, then rerun advance.");
+    }
   }
-  if (state.activePhase === "quick_implementation" && implementationCommitBlocks(projectPath, config, paths.statePath)) {
-    return refuse("Cannot leave quick_implementation: commit the implementation (a new commit since the change baseline is required, with no uncommitted work outside .phasedev/**).");
+
+  if (state.activePhase === "quick_implementation") {
+    if (implementationCommitBlocks(projectPath, config, paths.statePath)) {
+      return refuse("Cannot leave quick_implementation: commit the implementation (a new commit since the change baseline is required, with no uncommitted work outside .phasedev/**).");
+    }
+
+    if (config.protectedPaths && config.protectedPaths.length > 0) {
+      const worklogText = fs.existsSync(paths.worklogPath) ? fs.readFileSync(paths.worklogPath, "utf-8") : "";
+      const allowsProtected = /\[allows-protected-paths\]/i.test(worklogText);
+      if (!allowsProtected) {
+        const changedFiles = new Set<string>();
+        const scan = scanChangedFilesOutsidePhasedev(projectPath);
+        if (scan.ok) {
+          for (const e of scan.entries) changedFiles.add(e.filePath);
+        }
+        const start = readCommitLog(paths.statePath)?.start;
+        if (start) {
+          const diff = runGit(projectPath, ["diff", "--name-only", `${start}..HEAD`]);
+          if (diff.ok && diff.stdout.trim().length > 0) {
+            for (const line of diff.stdout.split("\n")) {
+              const trimmed = line.trim();
+              if (trimmed && !trimmed.startsWith(".phasedev/") && !trimmed.startsWith(".phasedev\\")) {
+                changedFiles.add(trimmed);
+              }
+            }
+          }
+        }
+        const violatingFiles = Array.from(changedFiles).filter(f => pathMatchesSurface(f, config.protectedPaths ?? []));
+        if (violatingFiles.length > 0) {
+          return refuse(`Protected paths violated: ${violatingFiles.join(", ")} matched protectedPaths config. Add '[allows-protected-paths]' to worklog.md if intentional.`);
+        }
+      }
+    }
   }
 
   if (state.activePhase === "quick_spec_revision") {

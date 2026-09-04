@@ -4,7 +4,7 @@ import { FlowState, locateChangeDir } from "../../entities/change/flow-state";
 import { Prompt } from "../../entities/phase/types";
 import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { findPendingArchiveState } from "../../entities/change/archive-state";
-import { renderPhaseTemplate, flowCheckCommand, taskContextBlock } from "./prompt-render-helpers";
+import { renderPhaseTemplate, flowCheckCommand, taskContextBlock, renderKnowledgeContext } from "./prompt-render-helpers";
 import { toFileUrl } from "./prompt-formatters";
 
 function blocked(phase: FlowState["activePhase"], message: string, reason: string): Prompt {
@@ -25,40 +25,52 @@ export function quickPhasePrompt(projectPath: string, config: Config, state: Flo
 
   const common = { project_path: projectPath, worklog_path: worklogUrl };
 
-  switch (state.activePhase) {
-    case "quick_plan":
-      return {
-        command: "phase", phase: state.activePhase, blocked: false,
-        prompt: renderPhaseTemplate("quick_plan", "quick_plan", { ...common, self_check_command: selfCheck }, config) + taskContextBlock(changeDir)
-      };
-    case "quick_implementation":
-      return {
-        command: "phase", phase: state.activePhase, blocked: false,
-        prompt: renderPhaseTemplate("quick_implementation", "quick_implementation", { ...common, self_check_command: selfCheck }, config)
-      };
-    case "quick_validation":
-      return {
-        command: "phase", phase: state.activePhase, blocked: false,
-        prompt: renderPhaseTemplate("quick_validation", "quick_validation", { ...common }, config)
-      };
-    case "quick_spec_revision":
-      return {
-        command: "phase", phase: state.activePhase, blocked: false,
-        prompt: renderPhaseTemplate("quick_spec_revision", "quick_spec_revision", { ...common, main_specs_path: projectSpecs }, config)
-      };
-    case "archive":
-      return {
-        command: "phase", phase: "archive", blocked: false,
-        prompt: renderPhaseTemplate("archive", "quick_archive", {
-          change_name: pending?.changeName ?? path.basename(changeDir),
-          archive_path: changeDir,
-          archive_state_path: toFileUrl(path.join(changeDir, ".phase-archive.json")),
-          worklog_path: worklogUrl,
-          main_specs_path: projectSpecs,
-          change_specs_path: toFileUrl(path.join(changeDir, "specs"))
-        }, config)
-      };
-    default:
-      return blocked(state.activePhase, `[PHASEDEV] ${state.activePhase} is not a quick phase.`, "Not a quick phase");
+  const getResult = (): Prompt => {
+    switch (state.activePhase) {
+      case "quick_plan":
+        return {
+          command: "phase", phase: state.activePhase, blocked: false,
+          prompt: renderPhaseTemplate("quick_plan", "quick_plan", { ...common, self_check_command: selfCheck }, config) + taskContextBlock(changeDir)
+        };
+      case "quick_implementation":
+        return {
+          command: "phase", phase: state.activePhase, blocked: false,
+          prompt: renderPhaseTemplate("quick_implementation", "quick_implementation", { ...common, self_check_command: selfCheck }, config)
+        };
+      case "quick_validation":
+        return {
+          command: "phase", phase: state.activePhase, blocked: false,
+          prompt: renderPhaseTemplate("quick_validation", "quick_validation", { ...common }, config)
+        };
+      case "quick_spec_revision":
+        return {
+          command: "phase", phase: state.activePhase, blocked: false,
+          prompt: renderPhaseTemplate("quick_spec_revision", "quick_spec_revision", { ...common, main_specs_path: projectSpecs }, config)
+        };
+      case "archive":
+        return {
+          command: "phase", phase: "archive", blocked: false,
+          prompt: renderPhaseTemplate("archive", "quick_archive", {
+            change_name: pending?.changeName ?? path.basename(changeDir),
+            archive_path: changeDir,
+            archive_state_path: toFileUrl(path.join(changeDir, ".phase-archive.json")),
+            worklog_path: worklogUrl,
+            main_specs_path: projectSpecs,
+            change_specs_path: toFileUrl(path.join(changeDir, "specs"))
+          }, config)
+        };
+      default:
+        return blocked(state.activePhase, `[PHASEDEV] ${state.activePhase} is not a quick phase.`, "Not a quick phase");
+    }
+  };
+
+  const result = getResult();
+  if (!result.blocked) {
+    const knowledgeContext = renderKnowledgeContext(projectPath, state.activePhase);
+    if (knowledgeContext) {
+      result.prompt += knowledgeContext;
+    }
   }
+
+  return result;
 }

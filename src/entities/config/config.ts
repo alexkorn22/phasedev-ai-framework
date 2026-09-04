@@ -10,16 +10,27 @@ export interface Config {
   autoApprove: boolean;
   blockingSeverity: BlockingSeverity;
   requireIterationCommit: boolean;
+  protectedPaths?: string[];
+  maxOpenNits?: number;
 }
 
 export const DEFAULT_CONFIG: Config = {
   roles: [],
   autoApprove: false,
   blockingSeverity: "must_fix",
-  requireIterationCommit: true
+  requireIterationCommit: true,
+  protectedPaths: [],
+  maxOpenNits: 5
 };
 
-const KNOWN_ROOT_KEYS = new Set(["roles", "autoApprove", "blockingSeverity", "requireIterationCommit"]);
+const KNOWN_ROOT_KEYS = new Set([
+  "roles",
+  "autoApprove",
+  "blockingSeverity",
+  "requireIterationCommit",
+  "protectedPaths",
+  "maxOpenNits"
+]);
 
 export function defaultConfigPath(): string {
   return path.resolve(__dirname, "..", "..", "..", "config.yaml");
@@ -70,6 +81,22 @@ function readBlockingSeverity(value: unknown, fallback: BlockingSeverity, key: s
   return value as BlockingSeverity;
 }
 
+function readStringArray(value: unknown, fallback: string[], key: string): string[] {
+  if (value === undefined) return fallback;
+  if (!Array.isArray(value) || value.some(item => typeof item !== "string")) {
+    throw new Error(`Config key ${key} must be an array of strings.`);
+  }
+  return value;
+}
+
+function readNumber(value: unknown, fallback: number, key: string): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || isNaN(value)) {
+    throw new Error(`Config key ${key} must be a number.`);
+  }
+  return value;
+}
+
 export function parseConfig(content: string): Config {
   const parsed = parseYaml(content) ?? {};
   const root = asRecord(parsed, "root");
@@ -84,7 +111,9 @@ export function parseConfig(content: string): Config {
     roles: parseRoles(root.roles, "roles"),
     autoApprove: readBoolean(root.autoApprove, DEFAULT_CONFIG.autoApprove, "autoApprove"),
     blockingSeverity: readBlockingSeverity(root.blockingSeverity, DEFAULT_CONFIG.blockingSeverity, "blockingSeverity"),
-    requireIterationCommit: readBoolean(root.requireIterationCommit, DEFAULT_CONFIG.requireIterationCommit, "requireIterationCommit")
+    requireIterationCommit: readBoolean(root.requireIterationCommit, DEFAULT_CONFIG.requireIterationCommit, "requireIterationCommit"),
+    protectedPaths: readStringArray(root.protectedPaths, DEFAULT_CONFIG.protectedPaths ?? [], "protectedPaths"),
+    maxOpenNits: readNumber(root.maxOpenNits, DEFAULT_CONFIG.maxOpenNits ?? 5, "maxOpenNits")
   };
 }
 

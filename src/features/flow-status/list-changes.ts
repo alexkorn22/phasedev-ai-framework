@@ -9,13 +9,14 @@ export interface ChangeEntry {
   type: "active" | "archived";
   phase?: string;
   activeIteration?: number | null;
+  flowMode?: string;
   taskSummary?: string;
   error?: string;
   archiveDate?: string;
   archiveStatus?: string;
 }
 
-function readChangeState(changeDir: string): { phase?: string; activeIteration?: number | null; error?: string } {
+function readChangeState(changeDir: string): { phase?: string; activeIteration?: number | null; flowMode?: string; error?: string } {
   const statePath = path.join(changeDir, "state.json");
   if (!fs.existsSync(statePath)) return { error: "state.json is missing" };
   try {
@@ -23,7 +24,11 @@ function readChangeState(changeDir: string): { phase?: string; activeIteration?:
     if (typeof raw !== "object" || raw === null || typeof raw.activePhase !== "string") {
       return { error: "state.json has no activePhase" };
     }
-    return { phase: raw.activePhase, activeIteration: raw.activeIteration ?? null };
+    return {
+      phase: raw.activePhase,
+      activeIteration: raw.activeIteration ?? null,
+      flowMode: typeof raw.flowMode === "string" ? raw.flowMode : undefined
+    };
   } catch {
     return { error: "state.json is not valid JSON" };
   }
@@ -39,6 +44,22 @@ function readTaskSummary(changeDir: string): string {
       .find(line => line.length > 0 && line !== "---");
     if (firstLine) return firstLine.replace(/^#+\s*/, "");
   }
+
+  const worklogPath = path.join(changeDir, "worklog.md");
+  if (fs.existsSync(worklogPath)) {
+    const lines = fs.readFileSync(worklogPath, "utf-8").split("\n");
+    const taskIdx = lines.findIndex(l => /^##\s+Task\b/i.test(l.trim()));
+    if (taskIdx !== -1) {
+      for (let i = taskIdx + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (/^##\s+/.test(line)) break;
+        if (line.length > 0 && !line.startsWith("<!--") && !line.endsWith("-->")) {
+          return line.replace(/^#+\s*/, "");
+        }
+      }
+    }
+  }
+
   return "";
 }
 
@@ -94,7 +115,8 @@ export function renderChanges(entries: ChangeEntry[]): string {
   if (active.length > 0) {
     lines.push("--- Changes ---");
     for (const entry of active) {
-      lines.push(`  ${entry.name}`);
+      const modeStr = entry.flowMode === "quick" ? " [quick]" : "";
+      lines.push(`  ${entry.name}${modeStr}`);
       if (entry.error) {
         lines.push(`    ERROR: ${entry.error}`);
         continue;

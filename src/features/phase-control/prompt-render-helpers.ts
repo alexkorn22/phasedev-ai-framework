@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { shellQuote } from "../../shared/shell/shell-quote";
-import { buildChangePaths } from "../../entities/change/paths";
+import { buildChangePaths, SYSTEM_DIR } from "../../entities/change/paths";
 import { Config } from "../../entities/config/config";
 import { Phase } from "../../entities/phase/types";
 import { renderTemplate } from "../../shared/templates/render-template";
@@ -65,6 +65,54 @@ export function urlsFor(paths: ReturnType<typeof buildChangePaths>) {
 
 function changeFlag(changeName?: string): string {
   return changeName === undefined ? "" : ` --change ${shellQuote(changeName)}`;
+}
+
+function hasMeaningfulKnowledge(raw: string): boolean {
+  const stripped = raw
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith("#") && !line.startsWith(">"));
+  return stripped.length > 0;
+}
+
+export function renderKnowledgeContext(projectPath: string, activePhase: string): string {
+  const knowledgeDir = path.join(projectPath, SYSTEM_DIR, "knowledge");
+  if (!fs.existsSync(knowledgeDir)) {
+    return "";
+  }
+
+  const sections: string[] = [];
+
+  const antipatternsPath = path.join(knowledgeDir, "antipatterns.md");
+  if (fs.existsSync(antipatternsPath)) {
+    const content = fs.readFileSync(antipatternsPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### Project Anti-Patterns & Taboos\n${content.trim()}`);
+    }
+  }
+
+  const generalMemoryPath = path.join(knowledgeDir, "general-memory.md");
+  if (fs.existsSync(generalMemoryPath)) {
+    const content = fs.readFileSync(generalMemoryPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### General Engineering Memory\n${content.trim()}`);
+    }
+  }
+
+  const phaseMemoryPath = path.join(knowledgeDir, "phases", `${activePhase}.md`);
+  if (fs.existsSync(phaseMemoryPath)) {
+    const content = fs.readFileSync(phaseMemoryPath, "utf-8");
+    if (hasMeaningfulKnowledge(content)) {
+      sections.push(`### Phase Memory (${activePhase})\n${content.trim()}`);
+    }
+  }
+
+  if (sections.length === 0) {
+    return "";
+  }
+
+  return `\n\n=== PROJECT KNOWLEDGE & ANTI-PATTERNS ===\n${sections.join("\n\n")}\n========================================`;
 }
 
 /**

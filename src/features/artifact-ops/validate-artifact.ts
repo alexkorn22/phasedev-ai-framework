@@ -7,6 +7,7 @@ import { validateDesign } from "../../entities/design/validate-design";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
+import { validateWorklogArtifact } from "../../entities/worklog/validate-worklog";
 
 export interface ValidateArtifactResult {
   ok: boolean;
@@ -37,6 +38,7 @@ const ARTIFACT_DISPATCH: Array<{
     const result = parseValidationFindingsArtifact(f, blockingSeverity);
     return result.issues.map(issue => issue.message);
   }},
+  { pattern: /worklog\.md$/, validator: (f: string) => validateWorklogArtifact(f) },
 ];
 
 export function validateArtifact(
@@ -53,7 +55,7 @@ export function validateArtifact(
   if (!dispatch) {
     return {
       ok: false,
-      message: `Unknown artifact type: ${fileName}. Supported types: prd.md, execution_contract.md, research_facts.md, design.md, iteration_plan.md, validation_findings.md.`
+      message: `Unknown artifact type: ${fileName}. Supported types: prd.md, execution_contract.md, research_facts.md, design.md, iteration_plan.md, validation_findings.md, worklog.md.`
     };
   }
 

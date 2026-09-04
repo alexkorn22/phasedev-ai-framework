@@ -20,7 +20,8 @@ Archive state file: {{archive_state_path}}
    - run the ripple search: read `commitLog` from `state.json` inside `{{archive_path}}` and diff `commitLog.start..HEAD` (fall back to the change branch's diff when `commitLog` is absent, stating the source used); extract added/removed/renamed names (files, exported symbols, routes, CSS variables, database fields, environment variables, user-facing string literals); grep each across the project specs and flag statements the change made false; flag added persistent entities mentioned in no spec (`requirement not written`); check quoted user-facing literals against the code constants;
    - never edit a spec when a divergence is ambiguous (the code may be defective, or the intent is unclear) — report it as an escalation: spec file, quoted statement, what the code actually does, why the truth direction is unclear. An empty escalation list must be stated explicitly.
 2. If the sub-agent report contains escalations: stop, present them to the user as questions, and do not set the archive completed until all are resolved (re-dispatch `spec_sync` with the decisions to apply).
-3. Set `.phase-archive.json` status to `completed` at {{archive_state_path}}.
+3. Update project memory: If this change revealed new project-specific anti-patterns, traps, or architectural conventions, record them in `.phasedev/knowledge/antipatterns.md` or `.phasedev/knowledge/general-memory.md` (distinguish systemic errors from local noise per `spec-delta-method`).
+4. Set `.phase-archive.json` status to `completed` at {{archive_state_path}}.
 
 ## Self-check
 

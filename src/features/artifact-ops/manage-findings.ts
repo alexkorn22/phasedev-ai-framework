@@ -194,7 +194,8 @@ export function addFinding(
   className?: string,
   iteration?: string,
   createContext?: FindingsCreateContext,
-  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY,
+  maxOpenNits: number = 5
 ): ManageFindingsResult {
   if (isPlaceholderRequiredFix(requiredFix)) {
     return { ok: false, message: "Required fix must be a concrete action; placeholder values such as TBD are not allowed." };
@@ -225,6 +226,16 @@ export function addFinding(
   const content = fs.readFileSync(filePath, "utf-8");
   const parsed = parseTable(content);
   const { rows } = parsed;
+
+  if (normalizedSeverity === "NIT") {
+    const openNitsCount = rows.filter(r => r.severity.toUpperCase() === "NIT" && ["open", "reopened"].includes(r.status.toLowerCase())).length;
+    if (openNitsCount >= maxOpenNits) {
+      return {
+        ok: false,
+        message: `Maximum open NIT findings limit (${maxOpenNits}) reached (currently ${openNitsCount} open). Consolidate stylistic feedback or address existing nits before adding more.`
+      };
+    }
+  }
 
   const duplicate = rows.find(r => canonicalFindingKey(r.finding) === canonicalFindingKey(title));
   if (duplicate) {

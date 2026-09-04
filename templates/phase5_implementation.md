@@ -59,6 +59,8 @@ Completion checklist:
 {{test_command}}
 - execute additional checks from the current iteration, if any, or record why they cannot be executed;
 - update `### Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}});
+- make verification measurable and deterministic: every `Check Evidence` row must record the exact executed command, exit code 0, and decisive output summary (e.g., `exit code 0; 12 passed, 0 failed; clean typecheck`);
+- strictly forbid subjective non-evidence: vague statements like "verified, looks good", "checked manually", "works as expected", or "looks fine" are rejected as invalid and block advance;
 - keep `Check Evidence` concise but concrete: command or method, result, what was verified, and blocker reason when blocked;
 - use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - advance toward validation only after current-iteration `Check Evidence` has every required check recorded as `passed` and has no `pending`, `failed`, or `blocked` rows;

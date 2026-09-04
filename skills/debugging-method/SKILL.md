@@ -33,6 +33,7 @@ Then narrow, in order, stopping when the failure point is found: the full error 
 - Run the tests for the affected area, then compare with the baseline: no new failures may appear.
 - Re-run the exact original reproduction. If the bug still occurs, the diagnosis was wrong — return to phase 3; do not keep patching.
 - Write a regression test that recreates the exact triggering condition, asserts the correct behavior, and would have caught this bug if it had existed before the original code was written. If the honest test would be red on current code mid-way, do not weaken the assertion and do not park the bug: pin current behavior with a characterization test, fix, then flip it to the corrected contract.
+- **Test Harness Protection Rule**: Under no circumstances may an agent "fix" a defect by weakening, commenting out, or deleting assertions in the reproduction test. The reproduction test is the independent arbiter of correctness; all fixes must be in production/implementation code, and the reproduction test must pass unaltered.
 - Add defense in depth where it makes sense — entry-boundary guard, business-logic invariant, environment check at startup, instrumentation that makes this failure class visible — so a similar bug fails loudly and early instead of silently propagating.
 
 ## Error-Type Playbook

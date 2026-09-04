@@ -48,10 +48,11 @@ Work only with requirement-level changes derived from the archived change artifa
 
 1. Read inputs.
 2. Follow the sections `Spec-level classification`, `Delta-first specs`, `Sync specs`, `Ripple search`, `Gap control`, `UI literals`, and `Truth direction and escalations` below. Classify requirements, create delta specs, and update live specs directly.
-3. If escalations arise: stop, present every escalation as a question/blocker, and do not set `.phase-archive.json` to completed until all are resolved.
-4. When there are no unresolved escalations, update `.phase-archive.json` (`status: "completed"`).
-5. Run the archive self-check.
-6. Report, then stop: include the classification table, changed specs or skipped sync, ripple/gap findings, and escalation outcomes.
+3. Review resolved findings in `validation_findings.md`. Follow `spec-delta-method` to filter out local noise (typos, nits) and extract systemic coding/architecture mistakes (MUST-FIX findings, design/security flaws, recurring traps). Append structured entries to `.phasedev/knowledge/antipatterns.md` or `.phasedev/knowledge/phases/<phase_name>.md`.
+4. If escalations arise: stop, present every escalation as a question/blocker, and do not set `.phase-archive.json` to completed until all are resolved.
+5. When there are no unresolved escalations, update `.phase-archive.json` (`status: "completed"`).
+6. Run the archive self-check.
+7. Report, then stop: include the classification table, changed specs or skipped sync, ripple/gap findings, knowledge updates, and escalation outcomes.
 
 ## Spec-level classification
 
