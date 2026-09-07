@@ -2252,6 +2252,7 @@ Test fixture only.
       expect(refused.advanced).toBe(false);
 
       expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-09-07" }).ok).toBe(true);
+      seedFinalValidationReceipts(testTmpDir);
       const completed = advanceFlow(testTmpDir, config);
       expect(completed.ok).toBe(true);
       expect(completed.finished).toBe(true);
