@@ -8,6 +8,7 @@ import { runGit } from "../../shared/shell/git";
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export interface DiffDigestEntry {
+  layer: "committed" | "staged" | "unstaged" | "untracked";
   status: string;
   filePath: string;
   contentHash: string;
@@ -65,70 +66,45 @@ function parseStatusLine(line: string): { status: string; filePath: string } | n
   };
 }
 
-function collectCommittedChanges(projectPath: string, diffBase: string | null): Map<string, string> {
-  const entries = new Map<string, string>();
-  const base = diffBase ?? EMPTY_TREE_SHA;
-  const result = runGit(projectPath, ["diff", "--name-status", `${base}..HEAD`, "--", "."]);
+function collectNameStatusEntries(
+  projectPath: string,
+  args: string[],
+  layer: DiffDigestEntry["layer"]
+): DiffDigestEntry[] {
+  const result = runGit(projectPath, args);
   if (!result.ok) {
-    return entries;
+    return [];
   }
-  for (const line of result.stdout.split(/\r?\n/)) {
-    const parsed = parseNameStatusLine(line);
-    if (!parsed || isPhasedevPath(parsed.filePath)) {
-      continue;
-    }
-    entries.set(parsed.filePath, parsed.status);
-  }
-  return entries;
+
+  return result.stdout
+    .split(/\r?\n/)
+    .map(parseNameStatusLine)
+    .filter((entry): entry is { status: string; filePath: string } => entry !== null)
+    .filter(entry => !isPhasedevPath(entry.filePath))
+    .map(entry => ({
+      layer,
+      status: entry.status,
+      filePath: entry.filePath,
+      contentHash: contentHashForEntry(projectPath, entry.filePath, entry.status)
+    }));
 }
 
-function collectWorkingTreeChanges(projectPath: string): Map<string, string> {
-  const entries = new Map<string, string>();
-
-  const unstaged = runGit(projectPath, ["diff", "--name-status", "--", "."]);
-  if (unstaged.ok) {
-    for (const line of unstaged.stdout.split(/\r?\n/)) {
-      const parsed = parseNameStatusLine(line);
-      if (!parsed || isPhasedevPath(parsed.filePath)) {
-        continue;
-      }
-      entries.set(parsed.filePath, parsed.status);
-    }
+function collectUntrackedEntries(projectPath: string): DiffDigestEntry[] {
+  const result = runGit(projectPath, ["ls-files", "--others", "--exclude-standard", "--", "."]);
+  if (!result.ok) {
+    return [];
   }
 
-  const staged = runGit(projectPath, ["diff", "--name-status", "--cached", "--", "."]);
-  if (staged.ok) {
-    for (const line of staged.stdout.split(/\r?\n/)) {
-      const parsed = parseNameStatusLine(line);
-      if (!parsed || isPhasedevPath(parsed.filePath)) {
-        continue;
-      }
-      entries.set(parsed.filePath, parsed.status);
-    }
-  }
-
-  const status = runGit(projectPath, ["status", "--short", "--untracked-files=all", "--", "."]);
-  if (status.ok) {
-    for (const line of status.stdout.split(/\r?\n/)) {
-      const parsed = parseStatusLine(line);
-      if (!parsed || isPhasedevPath(parsed.filePath)) {
-        continue;
-      }
-      entries.set(parsed.filePath, parsed.status || "??");
-    }
-  }
-
-  return entries;
-}
-
-function mergeStatusMaps(...maps: Map<string, string>[]): Map<string, string> {
-  const merged = new Map<string, string>();
-  for (const map of maps) {
-    for (const [filePath, status] of map) {
-      merged.set(filePath, status);
-    }
-  }
-  return merged;
+  return result.stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !isPhasedevPath(line))
+    .map(filePath => ({
+      layer: "untracked" as const,
+      status: "??",
+      filePath: normalizePath(filePath),
+      contentHash: contentHashForEntry(projectPath, filePath, "??")
+    }));
 }
 
 function contentHashForEntry(
@@ -157,28 +133,28 @@ export function buildDiffDigestEntries(
   projectPath: string,
   diffBase: string | null
 ): DiffDigestEntry[] {
-  const merged = mergeStatusMaps(
-    collectCommittedChanges(projectPath, diffBase),
-    collectWorkingTreeChanges(projectPath)
-  );
+  const base = diffBase ?? EMPTY_TREE_SHA;
+  const entries = [
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", `${base}..HEAD`, "--", "."], "committed"),
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "--cached", "HEAD", "--", "."], "staged"),
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "HEAD", "--", "."], "unstaged"),
+    ...collectUntrackedEntries(projectPath)
+  ];
 
-  const entries: DiffDigestEntry[] = [];
-  for (const [filePath, status] of merged) {
-    entries.push({
-      status,
-      filePath,
-      contentHash: contentHashForEntry(projectPath, filePath, status)
-    });
-  }
+  entries.sort((left, right) => {
+    const pathCompare = left.filePath.localeCompare(right.filePath);
+    if (pathCompare !== 0) {
+      return pathCompare;
+    }
+    return left.layer.localeCompare(right.layer);
+  });
 
-  entries.sort((left, right) => left.filePath.localeCompare(right.filePath));
   return entries;
 }
 
 export function computeDiffDigest(projectPath: string, diffBase: string | null): string {
-  const entries = buildDiffDigestEntries(projectPath, diffBase);
-  const canonical = entries
-    .map(entry => `${entry.status}\t${entry.filePath}\t${entry.contentHash}`)
+  const canonical = buildDiffDigestEntries(projectPath, diffBase)
+    .map(entry => `${entry.layer}\t${entry.status}\t${entry.filePath}\t${entry.contentHash}`)
     .join("\n");
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }

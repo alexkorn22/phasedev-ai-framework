@@ -281,6 +281,7 @@ describe("execution receipts", () => {
     passIterationReceipts(testTmpDir);
     fs.writeFileSync(paths.iterationPlanPath, fs.readFileSync(paths.iterationPlanPath, "utf-8").replace("## Iteration 1: API [~]", "## Iteration 1: API [x]"), "utf-8");
     fs.writeFileSync(paths.findingsPath, fs.readFileSync(paths.findingsPath, "utf-8").replace("verdict: pending", "verdict: ready"), "utf-8");
+    passIterationReceipts(testTmpDir);
 
     expect(validationReceiptBlockers(testTmpDir, "iteration:1")).toEqual([]);
     const exitReady = validatePhaseExit(testTmpDir, "iteration_validation", paths, 1);
