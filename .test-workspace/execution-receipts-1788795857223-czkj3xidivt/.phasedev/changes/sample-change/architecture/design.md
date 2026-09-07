@@ -1,4 +1,0 @@
----
-approved: true
----
-# Design

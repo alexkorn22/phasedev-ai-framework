@@ -11,6 +11,7 @@ import { renderValidationCommonContract } from "../src/features/phase-control/va
 import { renderValidationRoleAllowlist, renderValidationRoleChecks, renderValidationRoleCompletion, renderValidationIterationStatusRule } from "../src/features/phase-control/validation-role-scope";
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { seedFinalValidationReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -1157,6 +1158,7 @@ autoApprove: true
 `, {
       findings: validationFindings("ready", "final")
     });
+    seedFinalValidationReceipts(testTmpDir);
 
     const result = runCheckValidation(["--scope", "final"]);
 
@@ -1271,6 +1273,7 @@ autoApprove: true
 `, {
       findings: validationFindings("ready", "iteration")
     });
+    seedIterationValidationReceipts(testTmpDir, 1);
 
     const result = runCheckValidation(["--scope", "iteration", "--iteration-id", "1"]);
 
@@ -3659,6 +3662,7 @@ ${completedIterations}
       findings: validationFindings("ready", "iteration")
     });
     writeStateJson(changeDir, "iteration_validation", 1);
+    seedIterationValidationReceipts(testTmpDir, 1);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);

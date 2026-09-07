@@ -14,6 +14,7 @@ import { validatePhase, validatePhaseExit } from "../src/features/phase-control/
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { seedFinalValidationReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -1200,6 +1201,7 @@ Complete API work.
       "utf-8"
     );
 
+    seedFinalValidationReceipts(testTmpDir);
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
 
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
@@ -2187,6 +2189,7 @@ Test fixture only.
         "utf-8"
       );
 
+      seedIterationValidationReceipts(testTmpDir, 1);
       const checkFlowModule = require("../src/features/phase-control/check-flow");
       const result = checkFlowModule.checkValidationCompletion(testTmpDir, { scope: "iteration", iterationId: 1 });
 

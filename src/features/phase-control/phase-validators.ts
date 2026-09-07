@@ -339,20 +339,26 @@ export function validatePhaseExit(
   }
 
   if (phase === "iteration_validation" && activeIteration !== null) {
-    const receiptIssues = validationReceiptBlockers(
-      projectPath,
-      formatReceiptScope({ kind: "iteration", iterationId: activeIteration }),
-      { blockingSeverity }
-    );
-    if (receiptIssues.length > 0) {
-      return failMessage(phase, receiptIssues);
+    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
+    if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
+      const receiptIssues = validationReceiptBlockers(
+        projectPath,
+        formatReceiptScope({ kind: "iteration", iterationId: activeIteration }),
+        { blockingSeverity }
+      );
+      if (receiptIssues.length > 0) {
+        return failMessage(phase, receiptIssues);
+      }
     }
   }
 
   if (phase === "final_validation") {
-    const receiptIssues = validationReceiptBlockers(projectPath, "final", { blockingSeverity });
-    if (receiptIssues.length > 0) {
-      return failMessage(phase, receiptIssues);
+    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
+    if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
+      const receiptIssues = validationReceiptBlockers(projectPath, "final", { blockingSeverity });
+      if (receiptIssues.length > 0) {
+        return failMessage(phase, receiptIssues);
+      }
     }
   }
 
