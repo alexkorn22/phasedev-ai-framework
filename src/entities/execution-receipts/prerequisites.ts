@@ -1,11 +1,14 @@
 import { ParsedReceiptScope } from "./scope";
-import { ExecutionReceiptsFile, ReceiptUnit } from "./types";
 import { findCurrentReceipt } from "./receipt-store";
+import { requiresManualAcceptance } from "./manual-acceptance";
+import { ExecutionReceiptsFile, ReceiptUnit } from "./types";
 
-export function requiresManualAcceptance(planContent: string, prdContent: string): boolean {
-  const marker = /\[Deferred to Final Validation \/ Manual Acceptance\]/i;
-  return marker.test(planContent) || marker.test(prdContent);
-}
+const VALIDATION_ROLE_UNITS = new Set<ReceiptUnit>([
+  "code-review",
+  "security-review",
+  "manual-acceptance",
+  "implementation-check"
+]);
 
 function receiptPassed(
   file: ExecutionReceiptsFile,
@@ -39,11 +42,17 @@ export function iterationValidationReceiptBlockers(input: {
 export function finalValidationReceiptBlockers(input: {
   file: ExecutionReceiptsFile;
   diffDigest: string;
-  fullCommandDigest: string;
+  fullCommandDigest: string | null;
   requiresManualAcceptance: boolean;
 }): string[] {
   const scopeKey = "final";
   const blockers: string[] = [];
+
+  if (input.fullCommandDigest === null) {
+    blockers.push("execution_contract.md is missing the full gate command required for final validation receipts.");
+    return blockers;
+  }
+
   const roleUnits: ReceiptUnit[] = ["code-review", "security-review", "implementation-check"];
   if (input.requiresManualAcceptance) {
     roleUnits.splice(2, 0, "manual-acceptance");
@@ -68,19 +77,24 @@ export function claimPrerequisiteBlockers(input: {
   scope: ParsedReceiptScope;
   diffDigest: string;
   commandDigest: string | null;
-  requiresManualAcceptance: boolean;
+  planContent: string;
+  prdContent: string;
   hasOpenBlockingFindings: boolean;
 }): string[] {
   const scopeKey = input.scope.kind === "final" ? "final" : `iteration:${input.scope.iterationId}`;
   const blockers: string[] = [];
+  const manualRequired = requiresManualAcceptance({
+    planContent: input.planContent,
+    prdContent: input.prdContent
+  });
 
-  if (input.hasOpenBlockingFindings) {
-    blockers.push("Open blocking findings must be resolved before claiming validation receipts.");
+  if (input.hasOpenBlockingFindings && VALIDATION_ROLE_UNITS.has(input.unit)) {
+    blockers.push("Open blocking findings must be resolved before claiming validation role receipts.");
   }
 
   if (input.unit === "implementation-check") {
     const reviewUnits: ReceiptUnit[] = ["code-review", "security-review"];
-    if (input.scope.kind === "final" && input.requiresManualAcceptance) {
+    if (input.scope.kind === "final" && manualRequired) {
       reviewUnits.push("manual-acceptance");
     }
     for (const unit of reviewUnits) {
@@ -126,4 +140,23 @@ export function claimPrerequisiteBlockers(input: {
   }
 
   return blockers;
+}
+
+export function implementationCheckCompletionBlockers(input: {
+  file: ExecutionReceiptsFile;
+  scope: string;
+  diffDigest: string;
+  fullCommandDigest: string | null;
+  result: "passed" | "failed" | "blocked";
+}): string[] {
+  if (input.scope !== "final" || input.result !== "passed") {
+    return [];
+  }
+  if (input.fullCommandDigest === null) {
+    return ["execution_contract.md is missing the full gate command required to complete final implementation-check."];
+  }
+  if (!receiptPassed(input.file, "check:full", "final", input.diffDigest, input.fullCommandDigest)) {
+    return ["Completing final implementation-check as passed requires a current passed check:full receipt for the same digest."];
+  }
+  return [];
 }

@@ -18,6 +18,10 @@ import { Config, loadConfig, projectConfigPath } from "../../entities/config/con
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
 import { validationReceiptBlockers } from "../receipt-ops/receipt-status";
+import {
+  implementationFocusedReceiptIssues,
+  repairFocusedReceiptIssues
+} from "../receipt-ops/focused-receipt-validation";
 import { formatReceiptScope } from "../../entities/execution-receipts/scope";
 
 export interface PhaseValidation {
@@ -335,6 +339,18 @@ export function validatePhaseExit(
 
     if (issues.length > 0) {
       return failMessage(phase, issues);
+    }
+
+    const repairReceiptIssues = repairFocusedReceiptIssues(projectPath, paths, blockingSeverity);
+    if (repairReceiptIssues.length > 0) {
+      return failMessage(phase, repairReceiptIssues);
+    }
+  }
+
+  if (phase === "implementation" && activeIteration !== null) {
+    const focusedIssues = implementationFocusedReceiptIssues(projectPath, paths, activeIteration);
+    if (focusedIssues.length > 0) {
+      return failMessage(phase, focusedIssues);
     }
   }
 

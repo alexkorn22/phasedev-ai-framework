@@ -6,22 +6,45 @@ import { digestCommand } from "../../entities/execution-receipts/command-digest"
 import { formatReceiptScope, parseReceiptScope, ParsedReceiptScope } from "../../entities/execution-receipts/scope";
 import {
   emptyExecutionReceiptsFile,
-  parseExecutionReceiptsFile
+  parseExecutionReceiptsFile,
+  ParseExecutionReceiptsIssue
 } from "../../entities/execution-receipts/receipt-store";
 import { ExecutionReceiptsFile, ReceiptUnit } from "../../entities/execution-receipts/types";
+import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { executionReceiptsPath } from "./receipt-paths";
 import { computeDiffDigest, resolveScopeDiffBase } from "./compute-diff-digest";
 
-export function loadExecutionReceiptsFile(receiptsPath: string): ExecutionReceiptsFile {
+export type LoadExecutionReceiptsResult =
+  | { ok: true; file: ExecutionReceiptsFile }
+  | { ok: false; message: string; issues: ParseExecutionReceiptsIssue[] };
+
+function formatReceiptIssues(issues: ParseExecutionReceiptsIssue[]): string {
+  return issues.map(issue => `${issue.path}: ${issue.message}`).join("; ");
+}
+
+export function loadExecutionReceiptsFile(receiptsPath: string): LoadExecutionReceiptsResult {
   if (!fs.existsSync(receiptsPath)) {
-    return emptyExecutionReceiptsFile();
+    return { ok: true, file: emptyExecutionReceiptsFile() };
   }
+
+  const rawBytes = fs.readFileSync(receiptsPath);
   try {
-    const parsed = parseExecutionReceiptsFile(JSON.parse(fs.readFileSync(receiptsPath, "utf-8")));
-    return parsed ?? emptyExecutionReceiptsFile();
+    const parsed = parseExecutionReceiptsFile(JSON.parse(rawBytes.toString("utf-8")));
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        message: `execution_receipts.json is invalid and was not modified: ${formatReceiptIssues(parsed.issues)}`,
+        issues: parsed.issues
+      };
+    }
+    return { ok: true, file: parsed.file };
   } catch {
-    return emptyExecutionReceiptsFile();
+    return {
+      ok: false,
+      message: "execution_receipts.json contains malformed JSON and was not modified.",
+      issues: [{ path: "root", message: "Malformed JSON." }]
+    };
   }
 }
 
@@ -45,7 +68,7 @@ export function resolveReceiptContext(
   projectPath: string,
   scopeRaw: string,
   changeName?: string
-): { ok: true; context: ReceiptContext } | { ok: false; message: string } {
+): { ok: true; context: ReceiptContext } | { ok: false; message: string; issues?: ParseExecutionReceiptsIssue[] } {
   const scope = parseReceiptScope(scopeRaw);
   if (!scope) {
     return { ok: false, message: `Invalid receipt scope "${scopeRaw}". Use final or iteration:<N>.` };
@@ -57,8 +80,12 @@ export function resolveReceiptContext(
   }
 
   const paths = buildChangePaths(changeDir);
-  const receiptsPath = executionReceiptsPath(changeDir);
-  const file = loadExecutionReceiptsFile(receiptsPath);
+  const receiptsPathValue = executionReceiptsPath(changeDir);
+  const loaded = loadExecutionReceiptsFile(receiptsPathValue);
+  if (!loaded.ok) {
+    return { ok: false, message: loaded.message, issues: loaded.issues };
+  }
+
   const diffBase = resolveScopeDiffBase(paths.statePath, scope);
   const diffDigest = computeDiffDigest(projectPath, diffBase);
 
@@ -68,8 +95,8 @@ export function resolveReceiptContext(
       projectPath,
       changeDir,
       paths,
-      receiptsPath,
-      file,
+      receiptsPath: receiptsPathValue,
+      file: loaded.file,
       scope,
       scopeKey: formatReceiptScope(scope),
       diffDigest
@@ -85,4 +112,9 @@ export function commandDigestForUnit(unit: ReceiptUnit, command?: string): strin
     return digestCommand(command);
   }
   return null;
+}
+
+export function resolveFullCommandDigest(executionContractPath: string): string | null {
+  const fullCommand = parseTestCommands(executionContractPath).commands.full;
+  return fullCommand ? digestCommand(fullCommand) : null;
 }

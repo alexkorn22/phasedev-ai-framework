@@ -2,6 +2,7 @@ import { completeReceiptRecord } from "../../entities/execution-receipts/transit
 import { ReceiptResult, ReceiptUnit } from "../../entities/execution-receipts/types";
 import {
   commandDigestForUnit,
+  resolveFullCommandDigest,
   resolveReceiptContext,
   saveExecutionReceiptsFile
 } from "./receipt-context";
@@ -31,6 +32,10 @@ export function completeReceipt(
 
   const context = resolved.context;
   const commandDigest = commandDigestForUnit(unit, options.command);
+  const fullCommandDigest = unit === "implementation-check" && context.scopeKey === "final"
+    ? resolveFullCommandDigest(context.paths.executionContractPath)
+    : null;
+
   const { file, outcome } = completeReceiptRecord({
     file: context.file,
     unit,
@@ -41,7 +46,8 @@ export function completeReceipt(
     result: options.result,
     exitCode: options.exitCode,
     summary: options.summary,
-    completedAt: new Date().toISOString()
+    completedAt: new Date().toISOString(),
+    fullCommandDigest
   });
 
   if (!outcome.ok) {

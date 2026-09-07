@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import {
@@ -6,12 +5,10 @@ import {
   normalizeTestCommand,
   parseRepairFindingScope,
   resolveFocusedGateCommand,
-  resolveIterationFocusedCheckCommands,
   resolveRepairFocusedCheckCommands,
   requiredFocusedGateNames
 } from "../../entities/test-commands/resolve-check-commands";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
-import { ParsedReceiptScope } from "../../entities/execution-receipts/scope";
 import { ReceiptUnit } from "../../entities/execution-receipts/types";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { ReceiptContext } from "./receipt-context";
@@ -100,30 +97,9 @@ export function validateCheckClaimCommand(input: {
 }
 
 export function hasOpenBlockingFindings(findingsPath: string, blockingSeverity: BlockingSeverity): boolean {
-  if (!fs.existsSync(findingsPath)) {
+  if (!findingsPath) {
     return false;
   }
   const findings = parseValidationFindingsArtifact(findingsPath, blockingSeverity);
   return findings.openBlockingRows.length > 0;
-}
-
-export function planRequiresManualAcceptance(context: ReceiptContext): boolean {
-  const planContent = fs.existsSync(context.paths.iterationPlanPath)
-    ? fs.readFileSync(context.paths.iterationPlanPath, "utf-8")
-    : "";
-  const prdContent = fs.existsSync(context.paths.prdPath)
-    ? fs.readFileSync(context.paths.prdPath, "utf-8")
-    : "";
-  const marker = /\[Deferred to Final Validation \/ Manual Acceptance\]/i;
-  return marker.test(planContent) || marker.test(prdContent);
-}
-
-export function iterationFocusedCommands(context: ReceiptContext, iterationId: number): string[] {
-  const plan = parsePlan(context.paths.iterationPlanPath);
-  const iteration = plan.find(entry => entry.id === iterationId);
-  if (!iteration) {
-    return [];
-  }
-  const testCommands = parseTestCommands(context.paths.executionContractPath).commands;
-  return resolveIterationFocusedCheckCommands(iteration, testCommands).map(check => check.command);
 }

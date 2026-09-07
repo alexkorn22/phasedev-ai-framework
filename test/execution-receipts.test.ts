@@ -9,11 +9,12 @@ import {
   cancelReceiptRecord,
   completeReceiptRecord
 } from "../src/entities/execution-receipts/transitions";
-import { emptyExecutionReceiptsFile, findCurrentReceipt } from "../src/entities/execution-receipts/receipt-store";
+import { emptyExecutionReceiptsFile, findCurrentReceipt, parseExecutionReceiptsFile } from "../src/entities/execution-receipts/receipt-store";
 import {
   finalValidationReceiptBlockers,
   iterationValidationReceiptBlockers
 } from "../src/entities/execution-receipts/prerequisites";
+import { requiresManualAcceptance } from "../src/entities/execution-receipts/manual-acceptance";
 import {
   buildDiffDigestEntries,
   computeDiffDigest
@@ -21,6 +22,7 @@ import {
 import { claimReceipt } from "../src/features/receipt-ops/claim-receipt";
 import { completeReceipt } from "../src/features/receipt-ops/complete-receipt";
 import { cancelReceipt } from "../src/features/receipt-ops/cancel-receipt";
+import { loadExecutionReceiptsFile } from "../src/features/receipt-ops/receipt-context";
 import { receiptStatus, validationReceiptBlockers } from "../src/features/receipt-ops/receipt-status";
 import { checkValidationCompletion } from "../src/features/phase-control/check-flow";
 import { validatePhaseExit } from "../src/features/phase-control/phase-validators";
@@ -105,6 +107,37 @@ function passIterationReceipts(projectPath: string, scope = "iteration:1") {
       result: "passed"
     });
   }
+}
+
+function passFocusedUnitReceipt(projectPath: string, scope: string, command = "bun test unit") {
+  const claim = claimReceipt(projectPath, "check:unit", scope, { command });
+  expect(claim.ok).toBe(true);
+  if (claim.action === "claimed") {
+    completeReceipt(projectPath, "check:unit", scope, {
+      claimId: claim.claimId!,
+      result: "passed",
+      command
+    });
+  }
+}
+
+function seedImplementationChange(projectPath: string) {
+  const changeDir = seedChange(projectPath);
+  writeFlowState(path.join(changeDir, "state.json"), {
+    activePhase: "implementation",
+    activeIteration: 1,
+    repairCycleCount: 0
+  });
+  return changeDir;
+}
+
+function addOpenBlockingFinding(changeDir: string) {
+  const findingsPath = path.join(changeDir, "validation_findings.md");
+  const content = fs.readFileSync(findingsPath, "utf-8");
+  fs.writeFileSync(findingsPath, content.replace(
+    "| ID | Status |",
+    "| F1 | open | must_fix | bug | 1 | broken | fix it |\n| ID | Status |"
+  ));
 }
 
 let testTmpDir: string;
@@ -319,6 +352,229 @@ describe("execution receipts", () => {
     fs.mkdirSync(path.dirname(archiveDir), { recursive: true });
     fs.renameSync(changeDir, archiveDir);
     expect(fs.existsSync(path.join(archiveDir, "runtime", "execution_receipts.json"))).toBe(true);
+  });
+
+  test("open blocking findings block validation roles but not focused check claims", () => {
+    const changeDir = seedChange(testTmpDir);
+    addOpenBlockingFinding(changeDir);
+
+    const roleClaim = claimReceipt(testTmpDir, "code-review", "iteration:1");
+    expect(roleClaim.ok).toBe(false);
+    expect(roleClaim.message).toContain("blocking findings");
+
+    const checkClaim = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: "bun test unit" });
+    expect(checkClaim.ok).toBe(true);
+  });
+
+  test("corrupt execution_receipts.json fails closed and preserves file bytes", () => {
+    const changeDir = seedChange(testTmpDir);
+    const receiptsPath = path.join(changeDir, "runtime", "execution_receipts.json");
+    fs.mkdirSync(path.dirname(receiptsPath), { recursive: true });
+    const corruptBytes = "{ not-json";
+    fs.writeFileSync(receiptsPath, corruptBytes, "utf-8");
+
+    const loaded = loadExecutionReceiptsFile(receiptsPath);
+    expect(loaded.ok).toBe(false);
+    expect(fs.readFileSync(receiptsPath, "utf-8")).toBe(corruptBytes);
+
+    const status = receiptStatus(testTmpDir, "iteration:1");
+    expect(status.ok).toBe(false);
+    expect(fs.readFileSync(receiptsPath, "utf-8")).toBe(corruptBytes);
+
+    const claim = runCli([
+      "claim-receipt", "code-review", "--scope", "iteration:1", "--project-path", testTmpDir
+    ], testTmpDir);
+    expect(claim.exitCode).toBe(1);
+    expect(fs.readFileSync(receiptsPath, "utf-8")).toBe(corruptBytes);
+  });
+
+  test("malformed receipt schema is rejected without mutation", () => {
+    const changeDir = seedChange(testTmpDir);
+    const receiptsPath = path.join(changeDir, "runtime", "execution_receipts.json");
+    const hostile = JSON.stringify({
+      version: 1,
+      receipts: [{
+        unit: "code-review",
+        scope: "iteration:1",
+        diffDigest: "abc",
+        commandDigest: "should-be-null",
+        claimId: "x",
+        status: "passed",
+        result: "passed",
+        claimedAt: "2026-01-01T00:00:00.000Z",
+        completedAt: "2026-01-01T00:01:00.000Z"
+      }]
+    }, null, 2);
+    fs.writeFileSync(receiptsPath, hostile, "utf-8");
+
+    const parsed = parseExecutionReceiptsFile(JSON.parse(hostile));
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.some(issue => issue.path.includes("commandDigest"))).toBe(true);
+
+    const claim = claimReceipt(testTmpDir, "code-review", "iteration:1");
+    expect(claim.ok).toBe(false);
+    expect(fs.readFileSync(receiptsPath, "utf-8")).toBe(hostile);
+  });
+
+  test("missing full gate command digest fails final validation blockers clearly", () => {
+    const blockers = finalValidationReceiptBlockers({
+      file: emptyExecutionReceiptsFile(),
+      diffDigest: "abc",
+      fullCommandDigest: null,
+      requiresManualAcceptance: false
+    });
+    expect(blockers[0]).toContain("missing the full gate command");
+  });
+
+  test("manual acceptance detection covers canonical, legacy PRD, legacy wording, and none", () => {
+    expect(requiresManualAcceptance({
+      planContent: "- SC2 [Deferred to Final Validation / Manual Acceptance]",
+      prdContent: ""
+    })).toBe(true);
+
+    expect(requiresManualAcceptance({
+      planContent: "",
+      prdContent: "| SC9 | R1 | ok | manual |"
+    })).toBe(true);
+
+    expect(requiresManualAcceptance({
+      planContent: "Acceptance evidence requires browser verification in staging.",
+      prdContent: ""
+    })).toBe(true);
+
+    expect(requiresManualAcceptance({
+      planContent: "# Plan\n\n## Iteration 1",
+      prdContent: "| SC1 | R1 | ok | review |"
+    })).toBe(false);
+  });
+
+  test("diff digest hashes binary bytes and distinguishes symlink targets", () => {
+    const base = gitCommitAll(testTmpDir, "base");
+    const binaryPath = path.join(testTmpDir, "blob.bin");
+    fs.writeFileSync(binaryPath, Buffer.from([0x00, 0xff, 0x42]));
+    const binaryDigest = computeDiffDigest(testTmpDir, base);
+
+    fs.writeFileSync(binaryPath, Buffer.from([0x00, 0xff, 0x43]));
+    expect(computeDiffDigest(testTmpDir, base)).not.toBe(binaryDigest);
+
+    const targetA = path.join(testTmpDir, "target-a.txt");
+    const targetB = path.join(testTmpDir, "target-b.txt");
+    fs.writeFileSync(targetA, "a");
+    fs.writeFileSync(targetB, "b");
+    const linkPath = path.join(testTmpDir, "link.txt");
+    fs.symlinkSync(targetA, linkPath);
+    const linkDigestA = computeDiffDigest(testTmpDir, base);
+    fs.unlinkSync(linkPath);
+    fs.symlinkSync(targetB, linkPath);
+    expect(computeDiffDigest(testTmpDir, base)).not.toBe(linkDigestA);
+
+    const entries = buildDiffDigestEntries(testTmpDir, base);
+    expect(entries.some(entry => entry.filePath === "link.txt")).toBe(true);
+  });
+
+  test("implementation exit requires current passed focused receipts for Check Evidence", () => {
+    const changeDir = seedImplementationChange(testTmpDir);
+    const paths = buildChangePaths(changeDir);
+
+    const blocked = validatePhaseExit(testTmpDir, "implementation", paths, 1);
+    expect(blocked.ok).toBe(false);
+    expect(blocked.issues.some(issue => issue.includes("check:unit"))).toBe(true);
+
+    passFocusedUnitReceipt(testTmpDir, "iteration:1");
+    const allowed = validatePhaseExit(testTmpDir, "implementation", paths, 1);
+    expect(allowed.ok).toBe(true);
+  });
+
+  test("finding_repair requires focused receipts only when product code changed", () => {
+    const changeDir = seedChange(testTmpDir);
+    const paths = buildChangePaths(changeDir);
+    writeFlowState(paths.statePath, {
+      activePhase: "finding_repair",
+      activeIteration: 1,
+      repairCycleCount: 1
+    });
+    fs.writeFileSync(paths.findingsPath, fs.readFileSync(paths.findingsPath, "utf-8")
+      .replace("verdict: pending", "verdict: repaired")
+      .replace("| ID | Status |", "| F1 | resolved | must_fix | bug | 1 | broken | fix it |\n| ID | Status |"), "utf-8");
+
+    const noCodeExit = validatePhaseExit(testTmpDir, "finding_repair", paths, 1);
+    expect(noCodeExit.ok).toBe(true);
+
+    fs.writeFileSync(path.join(testTmpDir, "src-fix.ts"), "export const x = 1;\n");
+    const blocked = validatePhaseExit(testTmpDir, "finding_repair", paths, 1);
+    expect(blocked.ok).toBe(false);
+    expect(blocked.issues.some(issue => issue.includes("check:unit"))).toBe(true);
+
+    passFocusedUnitReceipt(testTmpDir, "iteration:1");
+    expect(validatePhaseExit(testTmpDir, "finding_repair", paths, 1).ok).toBe(true);
+  });
+
+  test("final implementation-check completion requires passed check:full without prerequisite cycle", () => {
+    seedChange(testTmpDir, { manualAcceptance: false });
+    writeFlowState(path.join(testTmpDir, ".phasedev", "changes", "sample-change", "state.json"), {
+      activePhase: "final_validation",
+      activeIteration: null,
+      repairCycleCount: 0
+    });
+
+    for (const unit of ["code-review", "security-review"] as const) {
+      const claim = claimReceipt(testTmpDir, unit, "final");
+      expect(claim.ok).toBe(true);
+      completeReceipt(testTmpDir, unit, "final", { claimId: claim.claimId!, result: "passed" });
+    }
+
+    const implClaim = claimReceipt(testTmpDir, "implementation-check", "final");
+    expect(implClaim.ok).toBe(true);
+
+    const premature = completeReceipt(testTmpDir, "implementation-check", "final", {
+      claimId: implClaim.claimId!,
+      result: "passed"
+    });
+    expect(premature.ok).toBe(false);
+    expect(premature.message).toContain("check:full");
+
+    const fullClaim = claimReceipt(testTmpDir, "check:full", "final", { command: "bun test full" });
+    expect(fullClaim.ok).toBe(true);
+
+    const statusWhileFullClaimed = receiptStatus(testTmpDir, "final");
+    const implEntry = statusWhileFullClaimed.entries.find(entry => entry.unit === "implementation-check");
+    expect(implEntry?.status).toBe("claimed");
+
+    completeReceipt(testTmpDir, "check:full", "final", {
+      claimId: fullClaim.claimId!,
+      result: "passed",
+      command: "bun test full"
+    });
+
+    const completeImpl = completeReceipt(testTmpDir, "implementation-check", "final", {
+      claimId: implClaim.claimId!,
+      result: "passed"
+    });
+    expect(completeImpl.ok).toBe(true);
+  });
+
+  test("concurrent claim-receipt invocations serialize through state lock", async () => {
+    seedChange(testTmpDir);
+    const args = [
+      cliPath,
+      "claim-receipt",
+      "code-review",
+      "--scope",
+      "iteration:1",
+      "--project-path",
+      testTmpDir
+    ];
+
+    const results = await Promise.all([
+      Bun.spawn(["bun", ...args], { cwd: testTmpDir, stdout: "pipe", stderr: "pipe" }).exited,
+      Bun.spawn(["bun", ...args], { cwd: testTmpDir, stdout: "pipe", stderr: "pipe" }).exited
+    ]);
+
+    const first = runCli(["receipt-status", "--scope", "iteration:1", "--project-path", testTmpDir], testTmpDir);
+    expect(first.exitCode).toBe(0);
+    const claimedCount = (first.stdout.match(/claimed/g) ?? []).length;
+    expect(claimedCount).toBe(1);
+    expect(results.every(code => code === 0 || code === 1)).toBe(true);
   });
 });
 

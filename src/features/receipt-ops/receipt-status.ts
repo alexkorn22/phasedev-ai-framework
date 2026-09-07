@@ -3,12 +3,10 @@ import {
   finalValidationReceiptBlockers,
   iterationValidationReceiptBlockers
 } from "../../entities/execution-receipts/prerequisites";
-import { digestCommand } from "../../entities/execution-receipts/command-digest";
 import { ReceiptUnit } from "../../entities/execution-receipts/types";
-import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
-import { resolveReceiptContext } from "./receipt-context";
-import { planRequiresManualAcceptance } from "./validate-check-claim";
+import { resolveFullCommandDigest, resolveReceiptContext } from "./receipt-context";
+import { manualAcceptanceRequired } from "./focused-receipt-validation";
 
 export interface ReceiptStatusEntry {
   unit: ReceiptUnit;
@@ -53,14 +51,13 @@ export function receiptStatus(
   }
 
   const context = resolved.context;
-  const requiresManual = planRequiresManualAcceptance(context);
+  const requiresManual = manualAcceptanceRequired(context.paths);
   const units = context.scope.kind === "final"
     ? (requiresManual
       ? FINAL_UNITS
       : FINAL_UNITS.filter(unit => unit !== "manual-acceptance"))
     : ITERATION_UNITS;
-  const testCommands = parseTestCommands(context.paths.executionContractPath).commands;
-  const fullCommandDigest = testCommands.full ? digestCommand(testCommands.full) : null;
+  const fullCommandDigest = resolveFullCommandDigest(context.paths.executionContractPath);
 
   const entries: ReceiptStatusEntry[] = units.flatMap(unit => {
     const commandDigest = unit === "check:full" ? fullCommandDigest : null;
@@ -118,12 +115,10 @@ export function validationReceiptBlockers(
     });
   }
 
-  const testCommands = parseTestCommands(context.paths.executionContractPath).commands;
-  const fullCommandDigest = testCommands.full ? digestCommand(testCommands.full) : "";
   return finalValidationReceiptBlockers({
     file: context.file,
     diffDigest: context.diffDigest,
-    fullCommandDigest,
-    requiresManualAcceptance: planRequiresManualAcceptance(context)
+    fullCommandDigest: resolveFullCommandDigest(context.paths.executionContractPath),
+    requiresManualAcceptance: manualAcceptanceRequired(context.paths)
   });
 }

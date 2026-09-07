@@ -9,6 +9,7 @@ import {
   ReceiptUnit
 } from "./types";
 import { findCurrentReceipt } from "./receipt-store";
+import { implementationCheckCompletionBlockers } from "./prerequisites";
 
 function terminalStatusForResult(result: ReceiptResult): "passed" | "failed" | "blocked" {
   return result;
@@ -96,7 +97,25 @@ export function completeReceiptRecord(input: {
   exitCode?: number;
   summary?: string;
   completedAt: string;
+  fullCommandDigest?: string | null;
 }): { file: ExecutionReceiptsFile; outcome: CompleteReceiptOutcome } {
+  const completionBlockers = implementationCheckCompletionBlockers({
+    file: input.file,
+    scope: input.scope,
+    diffDigest: input.diffDigest,
+    fullCommandDigest: input.fullCommandDigest ?? null,
+    result: input.result
+  });
+  if (completionBlockers.length > 0) {
+    return {
+      file: input.file,
+      outcome: {
+        ok: false,
+        message: completionBlockers.join(" ")
+      }
+    };
+  }
+
   const current = findCurrentReceipt(
     input.file,
     input.unit,

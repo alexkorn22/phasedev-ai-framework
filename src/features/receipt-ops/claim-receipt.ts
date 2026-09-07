@@ -1,15 +1,14 @@
+import * as fs from "fs";
 import { claimPrerequisiteBlockers } from "../../entities/execution-receipts/prerequisites";
 import { applyClaimReceipt } from "../../entities/execution-receipts/transitions";
 import { ReceiptUnit } from "../../entities/execution-receipts/types";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
-import { todayIsoDate } from "../../shared/time/today-iso-date";
 import {
   commandDigestForUnit,
-  loadExecutionReceiptsFile,
   resolveReceiptContext,
   saveExecutionReceiptsFile
 } from "./receipt-context";
-import { hasOpenBlockingFindings, planRequiresManualAcceptance, validateCheckClaimCommand } from "./validate-check-claim";
+import { hasOpenBlockingFindings, validateCheckClaimCommand } from "./validate-check-claim";
 
 export interface ClaimReceiptResult {
   ok: boolean;
@@ -47,13 +46,21 @@ export function claimReceipt(
     return { ok: false, message: `${unit} requires --command with the exact instantiated command.` };
   }
 
+  const planContent = fs.existsSync(context.paths.iterationPlanPath)
+    ? fs.readFileSync(context.paths.iterationPlanPath, "utf-8")
+    : "";
+  const prdContent = fs.existsSync(context.paths.prdPath)
+    ? fs.readFileSync(context.paths.prdPath, "utf-8")
+    : "";
+
   const prerequisiteIssues = claimPrerequisiteBlockers({
     file: context.file,
     unit,
     scope: context.scope,
     diffDigest: context.diffDigest,
     commandDigest,
-    requiresManualAcceptance: planRequiresManualAcceptance(context),
+    planContent,
+    prdContent,
     hasOpenBlockingFindings: hasOpenBlockingFindings(context.paths.findingsPath, blockingSeverity)
   });
   if (prerequisiteIssues.length > 0) {

@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { CommitLog, iterationDiffBase, readCommitLog } from "../../entities/change/flow-state";
+import { iterationDiffBase, readCommitLog } from "../../entities/change/flow-state";
 import { ParsedReceiptScope } from "../../entities/execution-receipts/scope";
 import { runGit } from "../../shared/shell/git";
 
@@ -23,24 +23,71 @@ function isPhasedevPath(filePath: string): boolean {
   return filePath === ".phasedev" || filePath.startsWith(".phasedev/");
 }
 
-function hashContent(content: string): string {
+function hashBytes(content: Buffer): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function hashLiteral(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function readWorkingTreeFile(projectPath: string, filePath: string): string | null {
+function readPathMetadata(projectPath: string, filePath: string): { kind: "missing" } | { kind: "deleted" } | { kind: "symlink"; target: string } | { kind: "file"; bytes: Buffer } {
   const absolute = path.join(projectPath, filePath);
-  if (!fs.existsSync(absolute) || fs.statSync(absolute).isDirectory()) {
-    return null;
+  if (!fs.existsSync(absolute)) {
+    return { kind: "missing" };
   }
-  return fs.readFileSync(absolute, "utf-8");
+
+  const stat = fs.lstatSync(absolute);
+  if (stat.isSymbolicLink()) {
+    return { kind: "symlink", target: fs.readlinkSync(absolute) };
+  }
+  if (stat.isDirectory()) {
+    return { kind: "missing" };
+  }
+  return { kind: "file", bytes: fs.readFileSync(absolute) };
 }
 
-function gitShowFile(projectPath: string, objectRef: string, filePath: string): string | null {
+function digestPathContent(metadata: ReturnType<typeof readPathMetadata>): string {
+  switch (metadata.kind) {
+    case "missing":
+      return hashLiteral("MISSING");
+    case "deleted":
+      return hashLiteral("DELETED");
+    case "symlink":
+      return hashLiteral(`SYMLINK:${metadata.target}`);
+    case "file":
+      return hashBytes(metadata.bytes);
+  }
+}
+
+function gitShowBytes(projectPath: string, objectRef: string, filePath: string): Buffer | null {
   const result = runGit(projectPath, ["show", `${objectRef}:${filePath}`]);
   if (!result.ok) {
     return null;
   }
-  return result.stdout;
+  return Buffer.from(result.stdout, "utf8");
+}
+
+function contentHashForEntry(
+  projectPath: string,
+  filePath: string,
+  status: string
+): string {
+  if (status.startsWith("D") || status === "D") {
+    return hashLiteral("DELETED");
+  }
+
+  const working = readPathMetadata(projectPath, filePath);
+  if (working.kind === "file" || working.kind === "symlink") {
+    return digestPathContent(working);
+  }
+
+  const headBytes = gitShowBytes(projectPath, "HEAD", filePath);
+  if (headBytes !== null) {
+    return hashBytes(headBytes);
+  }
+
+  return hashLiteral("MISSING");
 }
 
 function parseNameStatusLine(line: string): { status: string; filePath: string } | null {
@@ -105,28 +152,6 @@ function collectUntrackedEntries(projectPath: string): DiffDigestEntry[] {
       filePath: normalizePath(filePath),
       contentHash: contentHashForEntry(projectPath, filePath, "??")
     }));
-}
-
-function contentHashForEntry(
-  projectPath: string,
-  filePath: string,
-  status: string
-): string {
-  if (status.startsWith("D") || status === "D") {
-    return hashContent("DELETED");
-  }
-
-  const working = readWorkingTreeFile(projectPath, filePath);
-  if (working !== null) {
-    return hashContent(working);
-  }
-
-  const head = gitShowFile(projectPath, "HEAD", filePath);
-  if (head !== null) {
-    return hashContent(head);
-  }
-
-  return hashContent("MISSING");
 }
 
 export function buildDiffDigestEntries(
