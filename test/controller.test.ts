@@ -983,6 +983,7 @@ Complete API work.
       "utf-8"
     );
 
+    seedFinalValidationReceipts(testTmpDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1008,6 +1009,7 @@ Complete API work.
       "utf-8"
     );
 
+    seedIterationValidationReceipts(testTmpDir, 1);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1025,6 +1027,8 @@ Complete API work.
       JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
       "utf-8"
     );
+
+    seedIterationValidationReceipts(testTmpDir, 1);
 
     // Second, untouched copy of the same wedged state for the read-only check/sync-state comparison.
     const testTmpDir2 = createTempWorkspace("flow-controller-wedge-copy");
@@ -2211,6 +2215,7 @@ Test fixture only.
         "utf-8"
       );
 
+      seedIterationValidationReceipts(testTmpDir, 1);
       const readyCheck = checkPhase(testTmpDir);
       expect(readyCheck.ok).toBe(true);
       expect(readyCheck.phase).toBe("iteration_validation");
@@ -2885,6 +2890,7 @@ Test fixture only.
         "utf-8"
       );
 
+      seedIterationValidationReceipts(testTmpDir, 1);
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);

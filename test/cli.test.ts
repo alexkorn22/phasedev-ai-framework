@@ -3644,6 +3644,7 @@ ${completedIterations}
       findings: validationFindings("ready", "iteration")
     });
     writeStateJson(changeDir, "iteration_validation", 10);
+    seedIterationValidationReceipts(testTmpDir, 10);
 
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
