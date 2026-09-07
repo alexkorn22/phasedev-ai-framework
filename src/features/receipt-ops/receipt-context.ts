@@ -13,7 +13,7 @@ import { ExecutionReceiptsFile, ReceiptUnit } from "../../entities/execution-rec
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { writeFileAtomic } from "../../shared/fs/write-file-atomic";
 import { executionReceiptsPath } from "./receipt-paths";
-import { computeDiffDigest, resolveScopeDiffBase } from "./compute-diff-digest";
+import { computeDiffDigest, DiffDigestError, resolveScopeDiffBase } from "./compute-diff-digest";
 
 export type LoadExecutionReceiptsResult =
   | { ok: true; file: ExecutionReceiptsFile }
@@ -87,7 +87,15 @@ export function resolveReceiptContext(
   }
 
   const diffBase = resolveScopeDiffBase(paths.statePath, scope);
-  const diffDigest = computeDiffDigest(projectPath, diffBase);
+  let diffDigest: string;
+  try {
+    diffDigest = computeDiffDigest(projectPath, diffBase);
+  } catch (error) {
+    if (error instanceof DiffDigestError) {
+      return { ok: false, message: error.message };
+    }
+    throw error;
+  }
 
   return {
     ok: true,

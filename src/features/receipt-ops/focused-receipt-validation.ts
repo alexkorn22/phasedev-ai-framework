@@ -7,17 +7,30 @@ import {
   repairReceiptScope
 } from "../../entities/execution-receipts/focused-receipt-gates";
 import { requiresManualAcceptance } from "../../entities/execution-receipts/manual-acceptance";
+import { ParsedReceiptScope } from "../../entities/execution-receipts/scope";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { scanChangedFilesOutsidePhasedev } from "../phase-control/changed-file-inventory";
-import { computeDiffDigest, resolveScopeDiffBase } from "./compute-diff-digest";
+import { computeDiffDigest, DiffDigestError, resolveScopeDiffBase } from "./compute-diff-digest";
 import { loadExecutionReceiptsFile } from "./receipt-context";
 
 export function hasProductCodeChanges(projectPath: string): boolean {
   const scan = scanChangedFilesOutsidePhasedev(projectPath);
   return scan.ok && scan.entries.length > 0;
+}
+
+function diffDigestIssues(projectPath: string, statePath: string, scope: ParsedReceiptScope): string[] {
+  try {
+    computeDiffDigest(projectPath, resolveScopeDiffBase(statePath, scope));
+    return [];
+  } catch (error) {
+    if (error instanceof DiffDigestError) {
+      return [error.message];
+    }
+    throw error;
+  }
 }
 
 export function implementationFocusedReceiptIssues(
@@ -35,8 +48,13 @@ export function implementationFocusedReceiptIssues(
     return [`Iteration ${activeIteration} was not found in iteration_plan.md.`];
   }
 
-  const testCommands = parseTestCommands(paths.executionContractPath).commands;
   const scope = { kind: "iteration" as const, iterationId: activeIteration };
+  const digestIssues = diffDigestIssues(projectPath, paths.statePath, scope);
+  if (digestIssues.length > 0) {
+    return digestIssues;
+  }
+
+  const testCommands = parseTestCommands(paths.executionContractPath).commands;
   const diffDigest = computeDiffDigest(projectPath, resolveScopeDiffBase(paths.statePath, scope));
 
   return focusedReceiptBlockers({
@@ -70,6 +88,10 @@ export function repairFocusedReceiptIssues(
   const plan = parsePlan(paths.iterationPlanPath);
   const testCommands = parseTestCommands(paths.executionContractPath).commands;
   const scope = repairReceiptScope(plan, findingRows, { includeResolvedFindings: true });
+  const digestIssues = diffDigestIssues(projectPath, paths.statePath, scope);
+  if (digestIssues.length > 0) {
+    return digestIssues;
+  }
   const diffDigest = computeDiffDigest(projectPath, resolveScopeDiffBase(paths.statePath, scope));
 
   return focusedReceiptBlockers({

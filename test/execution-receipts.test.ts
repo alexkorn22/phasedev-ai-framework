@@ -59,7 +59,11 @@ function makeGitRepo(dir: string): void {
 function gitCommitAll(dir: string, message: string): string {
   spawnSync("git", ["-C", dir, "add", "-A"], { encoding: "utf-8" });
   spawnSync("git", ["-C", dir, "commit", "-m", message, "--no-gpg-sign"], { encoding: "utf-8" });
-  return spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf-8" }).stdout.trim();
+  const sha = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf-8" }).stdout.trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) {
+    throw new Error(`gitCommitAll did not produce a commit SHA for "${message}"`);
+  }
+  return sha;
 }
 
 function runCli(args: string[], cwd: string): { stdout: string; exitCode: number } {
@@ -117,7 +121,8 @@ function passFocusedUnitReceipt(projectPath: string, scope: string, command = "b
     completeReceipt(projectPath, "check:unit", scope, {
       claimId: claim.claimId!,
       result: "passed",
-      command
+      command,
+      exitCode: 0
     });
   }
 }
@@ -184,6 +189,7 @@ describe("execution receipts", () => {
   });
 
   test("diff digest is deterministic and reacts to staged, unstaged, untracked, delete, rename", () => {
+    fs.writeFileSync(path.join(testTmpDir, "tracked.txt"), "zero");
     const base = gitCommitAll(testTmpDir, "base");
     fs.writeFileSync(path.join(testTmpDir, "tracked.txt"), "one");
     gitCommitAll(testTmpDir, "tracked");
@@ -292,7 +298,8 @@ describe("execution receipts", () => {
     completeReceipt(testTmpDir, "check:unit", "iteration:1", {
       claimId: claim.claimId!,
       result: "passed",
-      command: "bun test unit"
+      command: "bun test unit",
+      exitCode: 0
     });
 
     const retry = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: "bun test unit" });
@@ -300,7 +307,7 @@ describe("execution receipts", () => {
 
     const changed = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: "bun test other" });
     expect(changed.ok).toBe(false);
-    expect(changed.message).toContain("recipe");
+    expect(changed.message).toContain("Check Evidence");
   });
 
   test("iteration and final prerequisite ordering with optional manual acceptance", () => {
@@ -512,6 +519,7 @@ describe("execution receipts", () => {
   });
 
   test("diff digest hashes binary bytes and distinguishes symlink targets", () => {
+    fs.writeFileSync(path.join(testTmpDir, "blob.bin"), Buffer.from([0x00]));
     const base = gitCommitAll(testTmpDir, "base");
     const binaryPath = path.join(testTmpDir, "blob.bin");
     fs.writeFileSync(binaryPath, Buffer.from([0x00, 0xff, 0x42]));
@@ -624,7 +632,8 @@ describe("execution receipts", () => {
     completeReceipt(testTmpDir, "check:full", "final", {
       claimId: fullClaim.claimId!,
       result: "passed",
-      command: "bun test full"
+      command: "bun test full",
+      exitCode: 0
     });
 
     const completeImpl = completeReceipt(testTmpDir, "implementation-check", "final", {
@@ -658,6 +667,91 @@ describe("execution receipts", () => {
     const file = JSON.parse(fs.readFileSync(receiptsPath, "utf-8"));
     const claimed = file.receipts.filter((entry: { status: string }) => entry.status === "claimed");
     expect(claimed.length).toBe(1);
+  });
+
+  test("check receipt completion as passed requires explicit exit code 0", () => {
+    seedChange(testTmpDir);
+    const claim = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: "bun test unit" });
+    expect(claim.ok).toBe(true);
+
+    const missingExit = completeReceipt(testTmpDir, "check:unit", "iteration:1", {
+      claimId: claim.claimId!,
+      result: "passed",
+      command: "bun test unit"
+    });
+    expect(missingExit.ok).toBe(false);
+    expect(missingExit.message).toContain("--exit-code 0");
+
+    const nonzeroExit = completeReceipt(testTmpDir, "check:unit", "iteration:1", {
+      claimId: claim.claimId!,
+      result: "passed",
+      command: "bun test unit",
+      exitCode: 1
+    });
+    expect(nonzeroExit.ok).toBe(false);
+
+    const failedWithoutExit = completeReceipt(testTmpDir, "check:unit", "iteration:1", {
+      claimId: claim.claimId!,
+      result: "failed",
+      command: "bun test unit"
+    });
+    expect(failedWithoutExit.ok).toBe(true);
+  });
+
+  test("validation role receipts complete without exit code", () => {
+    seedChange(testTmpDir);
+    const claim = claimReceipt(testTmpDir, "code-review", "iteration:1");
+    expect(claim.ok).toBe(true);
+    const completed = completeReceipt(testTmpDir, "code-review", "iteration:1", {
+      claimId: claim.claimId!,
+      result: "passed"
+    });
+    expect(completed.ok).toBe(true);
+  });
+
+  test("diff digest fails closed on invalid diff base and git command failure", () => {
+    fs.writeFileSync(path.join(testTmpDir, "seed.txt"), "seed");
+    const base = gitCommitAll(testTmpDir, "base");
+    expect(() => buildDiffDigestEntries(testTmpDir, "not-a-sha")).toThrow(/invalid diff base/i);
+
+    const notRepo = path.join(workspaceTempRoot, `non-git-${Date.now()}`);
+    fs.mkdirSync(notRepo, { recursive: true });
+    expect(() => computeDiffDigest(notRepo, base)).toThrow(/diff digest blocked/i);
+    fs.rmSync(notRepo, { recursive: true, force: true });
+  });
+
+  test("finding_repair matches focused receipts against instantiated check evidence command", () => {
+    const changeDir = seedChange(testTmpDir);
+    writeFlowState(path.join(changeDir, "state.json"), {
+      activePhase: "finding_repair",
+      activeIteration: 1,
+      repairCycleCount: 1
+    });
+    const paths = buildChangePaths(changeDir);
+    const planContent = fs.readFileSync(paths.iterationPlanPath, "utf-8").replace(
+      "| unit | bun test unit | passed | ok |",
+      "| unit | bun test test/repair.test.ts | passed | ok |"
+    );
+    fs.writeFileSync(paths.iterationPlanPath, planContent, "utf-8");
+    writeFindingsRepaired(changeDir);
+    fs.writeFileSync(path.join(testTmpDir, "src-fix.ts"), "export const x = 1;\n");
+
+    const instantiated = "bun test test/repair.test.ts";
+    const blocked = validatePhaseExit(testTmpDir, "finding_repair", paths, 1);
+    expect(blocked.ok).toBe(false);
+
+    const wrongClaim = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: "bun test unit" });
+    expect(wrongClaim.ok).toBe(false);
+
+    const claim = claimReceipt(testTmpDir, "check:unit", "iteration:1", { command: instantiated });
+    expect(claim.ok).toBe(true);
+    completeReceipt(testTmpDir, "check:unit", "iteration:1", {
+      claimId: claim.claimId!,
+      result: "passed",
+      command: instantiated,
+      exitCode: 0
+    });
+    expect(validatePhaseExit(testTmpDir, "finding_repair", paths, 1).ok).toBe(true);
   });
 });
 

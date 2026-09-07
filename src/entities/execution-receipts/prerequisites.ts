@@ -161,3 +161,21 @@ export function implementationCheckCompletionBlockers(input: {
   }
   return [];
 }
+
+const CHECK_RECEIPT_UNITS = new Set<ReceiptUnit>(["check:unit", "check:phase", "check:full"]);
+
+export function checkReceiptCompletionBlockers(input: {
+  unit: ReceiptUnit;
+  result: "passed" | "failed" | "blocked";
+  exitCode?: number;
+}): string[] {
+  if (!CHECK_RECEIPT_UNITS.has(input.unit) || input.result !== "passed") {
+    return [];
+  }
+  if (input.exitCode !== 0) {
+    return [
+      `Completing ${input.unit} as passed requires --exit-code 0 with the observed command result.`
+    ];
+  }
+  return [];
+}

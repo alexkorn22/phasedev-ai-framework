@@ -1,3 +1,5 @@
+import { digestCommand } from "../../entities/execution-receipts/command-digest";
+import { focusedReceiptRequirementsFromIteration, passedFocusedEvidenceCommands } from "../../entities/execution-receipts/focused-receipt-gates";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import {
@@ -60,6 +62,25 @@ export function validateCheckClaimCommand(input: {
     const iteration = parsePlan(input.context.paths.iterationPlanPath).find(entry => entry.id === iterationId);
     if (!iteration) {
       return [`Iteration ${iterationId} was not found in iteration_plan.md.`];
+    }
+    if (input.unit === "check:unit" || input.unit === "check:phase") {
+      const evidenceCommands = passedFocusedEvidenceCommands(iteration, input.unit);
+      if (evidenceCommands.length > 0) {
+        const commandDigest = digestCommand(normalizedCommand);
+        if (!evidenceCommands.some(command => digestCommand(command) === commandDigest)) {
+          return [`${input.unit} command must exactly match a current passed Check Evidence command for iteration ${iterationId}.`];
+        }
+        return [];
+      }
+    }
+    const requirements = focusedReceiptRequirementsFromIteration(iteration, testCommands)
+      .filter(requirement => requirement.unit === input.unit);
+    if (requirements.length > 0) {
+      const commandDigest = digestCommand(normalizedCommand);
+      if (!requirements.some(requirement => requirement.commandDigest === commandDigest)) {
+        return [`${input.unit} command must exactly match a current passed Check Evidence command for iteration ${iterationId}.`];
+      }
+      return [];
     }
     const recipe = resolveFocusedGateCommand(gate, testCommands);
     if (!recipe) {

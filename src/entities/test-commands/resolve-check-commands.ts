@@ -171,9 +171,32 @@ function evidenceMatchesLegacyExactSuperset(recipe: string, executed: string): b
 
   return true;
 }
+function hasUnquotedShellComment(targets: string): boolean {
+  let quote: '"' | "'" | null = null;
+  for (const char of targets) {
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === "#") {
+      return true;
+    }
+  }
+  return quote !== null;
+}
+
 export function isSafeTestTargetSubstitution(targets: string): boolean {
   const trimmed = targets.trim();
   if (trimmed.length === 0) {
+    return false;
+  }
+  if (hasUnquotedShellComment(trimmed)) {
     return false;
   }
   if (UNSAFE_TARGET_PATTERN.test(trimmed)) {

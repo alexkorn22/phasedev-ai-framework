@@ -95,6 +95,17 @@ describe("check recipe placeholder matcher", () => {
     expect(isSafeTestTargetSubstitution("test/a.test.ts <<EOF")).toBe(false);
   });
 
+  test("rejects unquoted shell comments and unmatched quotes in target substitution", () => {
+    expect(isSafeTestTargetSubstitution("test/a.test.ts # comment")).toBe(false);
+    expect(isSafeTestTargetSubstitution('"test/my # file.test.ts"')).toBe(true);
+    expect(isSafeTestTargetSubstitution("test/a.test.ts'")).toBe(false);
+    expect(isSafeTestTargetSubstitution('"test/a.test.ts')).toBe(false);
+    expect(instantiateCheckRecipe(`bun test ${TEST_TARGETS_PLACEHOLDER}`, "test/a.test.ts # comment")).toBeUndefined();
+    expect(instantiateCheckRecipe(`bun test ${TEST_TARGETS_PLACEHOLDER}`, '"test/my # file.test.ts"')).toBe(
+      'bun test "test/my # file.test.ts"'
+    );
+  });
+
   test("dequotes tokens before detecting embedded runner flags", () => {
     expect(isSafeTestTargetSubstitution('"--runInBand"')).toBe(false);
     expect(isSafeTestTargetSubstitution('test/a.test.ts "--verbose"')).toBe(false);

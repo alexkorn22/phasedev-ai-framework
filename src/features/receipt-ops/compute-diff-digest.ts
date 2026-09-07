@@ -4,9 +4,18 @@ import * as fs from "fs";
 import * as path from "path";
 import { iterationDiffBase, readCommitLog } from "../../entities/change/flow-state";
 import { ParsedReceiptScope } from "../../entities/execution-receipts/scope";
-import { runGit } from "../../shared/shell/git";
+import { runGit, isGitRepo } from "../../shared/shell/git";
 
-const EMPTY_TREE_SHA = "4b825dc642cb6eb6a060e54bf8d69288fbee4904";
+const SHA_PATTERN = /^[0-9a-f]{40}$/;
+
+export class DiffDigestError extends Error {
+  readonly kind = "diff_digest_error";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "DiffDigestError";
+  }
+}
 
 export interface DiffDigestEntry {
   layer: "committed" | "staged" | "unstaged" | "untracked";
@@ -121,16 +130,28 @@ function parseNameStatusLine(line: string): { status: string; filePath: string }
   return { status, filePath };
 }
 
+function repoHasHead(projectPath: string): boolean {
+  const result = runGit(projectPath, ["rev-parse", "--verify", "HEAD"]);
+  return result.ok;
+}
+
+function assertGitOk(result: ReturnType<typeof runGit>, commandLabel: string): void {
+  if (!result.ok) {
+    throw new DiffDigestError(
+      `Diff digest blocked: ${commandLabel} failed (${result.failureReason ?? "unknown git error"}).`
+    );
+  }
+}
+
 function collectNameStatusEntries(
   projectPath: string,
   args: string[],
   layer: DiffDigestEntry["layer"],
-  diffBase: string
+  diffBase: string,
+  commandLabel: string
 ): DiffDigestEntry[] {
   const result = runGit(projectPath, args);
-  if (!result.ok) {
-    return [];
-  }
+  assertGitOk(result, commandLabel);
 
   return result.stdout
     .split(/\r?\n/)
@@ -147,9 +168,7 @@ function collectNameStatusEntries(
 
 function collectUntrackedEntries(projectPath: string, diffBase: string): DiffDigestEntry[] {
   const result = runGit(projectPath, ["ls-files", "--others", "--exclude-standard", "--", "."]);
-  if (!result.ok) {
-    return [];
-  }
+  assertGitOk(result, "git ls-files --others");
 
   return result.stdout
     .split(/\r?\n/)
@@ -163,16 +182,55 @@ function collectUntrackedEntries(projectPath: string, diffBase: string): DiffDig
     }));
 }
 
+function assertValidDiffBase(diffBase: string): void {
+  if (!SHA_PATTERN.test(diffBase)) {
+    throw new DiffDigestError(`Diff digest blocked: invalid diff base "${diffBase}".`);
+  }
+}
+
 export function buildDiffDigestEntries(
   projectPath: string,
   diffBase: string | null
 ): DiffDigestEntry[] {
-  const base = diffBase ?? EMPTY_TREE_SHA;
+  if (!isGitRepo(projectPath)) {
+    return [];
+  }
+
+  if (diffBase !== null) {
+    assertValidDiffBase(diffBase);
+  }
+
+  const deletedRefBase = diffBase ?? "HEAD";
+  const hasHead = repoHasHead(projectPath);
   const entries = [
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", `${base}..HEAD`, "--", "."], "committed", base),
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "--cached", "HEAD", "--", "."], "staged", base),
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "HEAD", "--", "."], "unstaged", base),
-    ...collectUntrackedEntries(projectPath, base)
+    ...(diffBase !== null && hasHead
+      ? collectNameStatusEntries(
+        projectPath,
+        ["diff", "--name-status", `${diffBase}..HEAD`, "--", "."],
+        "committed",
+        deletedRefBase,
+        `git diff --name-status ${diffBase}..HEAD`
+      )
+      : []),
+    ...(hasHead
+      ? [
+        ...collectNameStatusEntries(
+          projectPath,
+          ["diff", "--name-status", "--cached", "HEAD", "--", "."],
+          "staged",
+          deletedRefBase,
+          "git diff --name-status --cached HEAD"
+        ),
+        ...collectNameStatusEntries(
+          projectPath,
+          ["diff", "--name-status", "HEAD", "--", "."],
+          "unstaged",
+          deletedRefBase,
+          "git diff --name-status HEAD"
+        )
+      ]
+      : []),
+    ...collectUntrackedEntries(projectPath, deletedRefBase)
   ];
 
   entries.sort((left, right) => {
@@ -187,6 +245,10 @@ export function buildDiffDigestEntries(
 }
 
 export function computeDiffDigest(projectPath: string, diffBase: string | null): string {
+  if (!isGitRepo(projectPath)) {
+    return hashLiteral("NON_GIT_WORKSPACE");
+  }
+
   const canonical = buildDiffDigestEntries(projectPath, diffBase)
     .map(entry => `${entry.layer}\t${entry.status}\t${entry.filePath}\t${entry.contentHash}`)
     .join("\n");

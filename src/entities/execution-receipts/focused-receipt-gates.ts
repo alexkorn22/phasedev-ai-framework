@@ -5,11 +5,12 @@ import { parseFindingRowIteration } from "../validation-findings/parse-validatio
 import { Iteration } from "../iteration-plan/types";
 import { TestCommands } from "../test-commands/parse-test-commands";
 import {
-  evidenceMatchesRequiredCheck,
   normalizeTestCommand,
   parseRepairFindingScope,
   RepairFindingScope,
-  resolveRepairFocusedCheckCommands
+  resolveRepairFocusedCheckCommands,
+  ResolvedFocusedCheck,
+  TEST_TARGETS_PLACEHOLDER
 } from "../test-commands/resolve-check-commands";
 import { formatReceiptScope, ParsedReceiptScope } from "./scope";
 
@@ -26,34 +27,32 @@ function gateUnit(gate: string): FocusedReceiptRequirement["unit"] | null {
   return null;
 }
 
+export function passedFocusedEvidenceCommands(
+  iteration: Iteration,
+  unit: FocusedReceiptRequirement["unit"]
+): string[] {
+  return (iteration.checkEvidence ?? [])
+    .filter(row => row.result.trim().toLowerCase() === "passed" && gateUnit(row.check) === unit)
+    .map(row => normalizeTestCommand(row.commandOrMethod))
+    .filter(command => command.length > 0 && !command.includes(TEST_TARGETS_PLACEHOLDER));
+}
+
 export function focusedReceiptRequirementsFromIteration(
   iteration: Iteration,
-  testCommands: TestCommands
+  _testCommands: TestCommands
 ): FocusedReceiptRequirement[] {
   const seen = new Set<string>();
   const requirements: FocusedReceiptRequirement[] = [];
 
-  for (const row of iteration.checkEvidence ?? []) {
-    if (row.result !== "passed") {
-      continue;
+  for (const unit of ["check:unit", "check:phase"] as const) {
+    for (const command of passedFocusedEvidenceCommands(iteration, unit)) {
+      const commandDigest = digestCommand(command);
+      if (seen.has(commandDigest)) {
+        continue;
+      }
+      seen.add(commandDigest);
+      requirements.push({ unit, command, commandDigest });
     }
-    const unit = gateUnit(row.check);
-    if (!unit) {
-      continue;
-    }
-    const requiredCheck = (iteration.requiredChecks ?? []).find(
-      check => check.check.trim().toLowerCase() === row.check.trim().toLowerCase()
-    ) ?? { check: row.check, command: row.commandOrMethod };
-    if (!evidenceMatchesRequiredCheck(requiredCheck, row.commandOrMethod, testCommands)) {
-      continue;
-    }
-    const command = normalizeTestCommand(row.commandOrMethod);
-    const commandDigest = digestCommand(command);
-    if (seen.has(commandDigest)) {
-      continue;
-    }
-    seen.add(commandDigest);
-    requirements.push({ unit, command, commandDigest });
   }
 
   return requirements;
@@ -121,18 +120,54 @@ export function repairFocusedReceiptRequirements(
     ? repairExitFindingScope(findings)
     : parseRepairFindingScope(findings);
   const checks = resolveRepairFocusedCheckCommands(plan, testCommands, scope);
-  return checks.flatMap(check => {
+  const targetIterations = scope.iterationIds.length > 0
+    ? plan.filter(iteration => scope.iterationIds.includes(iteration.id))
+    : scope.hasFinalScopeFindings
+      ? plan
+      : [];
+
+  const seen = new Set<string>();
+  const requirements: FocusedReceiptRequirement[] = [];
+
+  for (const check of checks) {
     const unit = gateUnit(check.gate);
     if (!unit) {
-      return [];
+      continue;
     }
-    const command = normalizeTestCommand(check.command);
-    return [{
-      unit,
-      command,
-      commandDigest: digestCommand(command)
-    }];
-  });
+
+    const evidenceCommands = targetIterations.flatMap(iteration =>
+      passedFocusedEvidenceCommands(iteration, unit)
+    );
+    const commandsToRequire = evidenceCommands.length > 0
+      ? evidenceCommands
+      : [normalizeTestCommand(check.command)].filter(command =>
+        command.length > 0 && !command.includes(TEST_TARGETS_PLACEHOLDER)
+      );
+
+    for (const command of commandsToRequire) {
+      const commandDigest = digestCommand(command);
+      const key = `${unit}:${commandDigest}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      requirements.push({ unit, command, commandDigest });
+    }
+  }
+
+  return requirements;
+}
+
+export function repairFocusedResolvedChecks(
+  plan: Iteration[],
+  testCommands: TestCommands,
+  findings: RepairFindingRow[],
+  options?: { includeResolvedFindings?: boolean }
+): ResolvedFocusedCheck[] {
+  return repairFocusedReceiptRequirements(plan, testCommands, findings, options).map(requirement => ({
+    gate: requirement.unit === "check:unit" ? "unit" : "phase",
+    command: requirement.command
+  }));
 }
 
 export function repairReceiptScope(

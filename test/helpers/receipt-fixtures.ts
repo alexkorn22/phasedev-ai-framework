@@ -21,6 +21,7 @@ function completeClaimedReceipt(
     claimId: claim.claimId,
     result: "passed",
     command: options?.command,
+    exitCode: unit.startsWith("check:") ? 0 : undefined,
     changeName: options?.changeName
   });
   if (!complete.ok) {
@@ -69,6 +70,7 @@ export function seedFinalValidationReceipts(
       claimId: fullClaim.claimId,
       result: "passed",
       command: fullCommand,
+      exitCode: 0,
       changeName
     });
     completeReceipt(projectPath, "implementation-check", "final", {

@@ -234,15 +234,17 @@ Agent(
   prompt: `Execute the current PhaseDev phase for change "<change>".
 
 Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
+Your receipt claim-id: <claim-id from phasedev claim-receipt>
 
 You work ONLY on the change "<change>".
 
 1. Run: phasedev phase --change <change> --role <role> — to get the phase contract.
-2. Follow your role's mandatory skills and execute the phase contract.
-3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
-4. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
-5. Self-validate via the contract's check command before reporting.
-6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
+2. Follow your role's mandatory skills and execute the phase contract, including the Execution receipt protocol section.
+3. Complete your role receipt with phasedev complete-receipt <role> --scope <scope> --claim-id <claim-id> --result passed|failed|blocked before reporting.
+4. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
+5. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
+6. Self-validate via the contract's check command before reporting.
+7. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
 )
 ```
 
@@ -264,15 +266,17 @@ Agent(
   prompt: `Execute browser/manual validation for change "<change>".
 
 Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
+Your manual-acceptance receipt claim-id: <claim-id from phasedev claim-receipt manual-acceptance --scope final>
 
 You work ONLY on the change "<change>".
 
 1. Read PRD and implementation-plan acceptance evidence for browser/manual requirements; perform only browser or manual verification work required by that evidence.
 2. Record actual product defects with phasedev add-finding; report missing browser evidence as pending browser work, not as a product finding.
-3. Do not run unit, phase, or full project check commands and do not set a validation verdict.
-4. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
-5. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
-6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
+3. Complete manual acceptance with phasedev complete-receipt manual-acceptance --scope final --claim-id <claim-id> --result passed before reporting.
+4. Do not run unit, phase, or full project check commands and do not set a validation verdict.
+5. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
+6. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
+7. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
 )
 ```
 

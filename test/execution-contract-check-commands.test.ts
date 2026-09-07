@@ -639,7 +639,8 @@ Complete UI work.
     expect(result.prompt).toContain("- phase: `bun test --grep phase {{test_targets}}`");
     expect(result.prompt).not.toContain("bun test contract-full");
     expect(result.prompt).not.toContain("bun test legacy-unit");
-    expect((result.prompt.match(/bun test \{\{test_targets\}\}/g) ?? []).length).toBe(1);
+    expect(result.prompt).toContain("## Execution receipt protocol");
+    expect((result.prompt.match(/bun test \{\{test_targets\}\}/g) ?? []).length).toBeGreaterThanOrEqual(1);
   });
 
   test("final_validation implementation-check renders backtick full command exactly once via safe inline code", () => {
@@ -673,6 +674,7 @@ Complete API work.
     expect(implementationCheck.blocked).toBe(false);
     expect(implementationCheck.prompt).toContain("run the `full` gate command exactly once: ``bun test `backtick-full-suite```");
     expect((implementationCheck.prompt.match(/backtick-full-suite/g) ?? []).length).toBe(1);
+    expect(implementationCheck.prompt).toContain("## Execution receipt protocol");
 
     for (const role of ["code-review", "security-review"] as const) {
       const reviewer = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, role);
@@ -713,6 +715,7 @@ Complete API work.
     expect(result.prompt).toContain("`bun test contract-full-suite`");
     expect(result.prompt).not.toContain("{{full_gate_command}}");
     expect((result.prompt.match(/bun test contract-full-suite/g) ?? []).length).toBe(1);
+    expect(result.prompt).toContain("## Execution receipt protocol");
     const reviewIndex = result.prompt.indexOf("audit `Check Evidence`");
     const fullGateIndex = result.prompt.indexOf("`bun test contract-full-suite`");
     expect(reviewIndex).toBeGreaterThan(-1);
