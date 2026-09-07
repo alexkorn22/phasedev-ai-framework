@@ -16,6 +16,7 @@ import { parseTestCommands } from "../src/entities/test-commands/parse-test-comm
 import { parseCurrentValidationFindings, parseValidationFindingsArtifact, parseValidationVerdict, parseValidationVerdictType } from "../src/entities/validation-findings/parse-validation-findings";
 import { isApproved, readFrontmatter } from "../src/shared/markdown/frontmatter";
 import { normalizeLineEndings } from "../src/shared/markdown/normalize-line-endings";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 let testTmpDir: string;
@@ -1110,6 +1111,7 @@ date: 2026-06-02
 | Target state | Update flow prompts and validation gates. |
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1152,6 +1154,8 @@ date: 2026-06-02
     const issues = validatePrdArtifact(prdFile);
     expect(issues).toContain("prd.md must not contain HTML template comments.");
     expect(issues).toContain("prd.md must contain section `## Success Criteria`.");
+    expect(issues).toContain("prd.md must contain section `## Usage Contract`.");
+    expect(issues).toContain("prd.md must contain section `## Non-Goals`.");
     expect(issues).toContain("Intent field `Change type` must be one of: feature, fix, refactor, infra, experiment.");
     expect(issues).toContain("Intent field `Why` must be present and non-empty.");
     expect(issues).toContain("Intent field `Target state` must be present and non-empty.");
@@ -1177,6 +1181,7 @@ date: 2026-06-02
 | Target state | Update flow prompts and validation gates. |
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1196,7 +1201,7 @@ Extra notes are not allowed as a PRD section.
 
     const issues = validatePrdArtifact(prdFile);
     expect(issues).toContain("prd.md contains unexpected section `## Notes`.");
-    expect(issues).toContain("prd.md `##` sections must exactly match this order: `## Intent`, `## Requirements`, `## Success Criteria`.");
+    expect(issues).toContain("prd.md `##` sections must exactly match this order: `## Intent`, `## Usage Contract`, `## Non-Goals`, `## Requirements`, `## Success Criteria`.");
   });
 
   test("validatePrdArtifact rejects hidden deeper PRD sections", () => {
@@ -1217,6 +1222,7 @@ date: 2026-06-02
 | Target state | Update flow prompts and validation gates. |
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1256,6 +1262,7 @@ date: 2026-06-02
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 | Extra | Not allowed. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1292,6 +1299,7 @@ date: 2026-06-02
 | Target state | Update flow prompts and validation gates. |
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1330,6 +1338,7 @@ date: 2026-06-02
 | Target state | Update flow prompts and validation gates. |
 | Risk boundaries | No behavior outside flow prompt routing changes. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1344,6 +1353,93 @@ date: 2026-06-02
 `, "utf-8");
 
     expect(validatePrdArtifact(prdFile)).toContain("prd.md must not contain placeholder text: TODO.");
+  });
+
+  test("validatePrdArtifact rejects a PRD without Usage Contract or Non-Goals", () => {
+    const prdFile = path.join(testTmpDir, "missing_intake_boundaries_prd.md");
+    fs.writeFileSync(prdFile, `---
+approved: true
+approved_by: "tester"
+date: 2026-06-02
+---
+
+# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
+`, "utf-8");
+
+    const issues = validatePrdArtifact(prdFile);
+    expect(issues).toContain("prd.md must contain section `## Usage Contract`.");
+    expect(issues).toContain("prd.md must contain section `## Non-Goals`.");
+  });
+
+  test("validatePrdArtifact rejects empty Usage Contract and Non-Goals rows", () => {
+    const prdFile = path.join(testTmpDir, "empty_intake_boundaries_prd.md");
+    fs.writeFileSync(prdFile, `---
+approved: true
+approved_by: "tester"
+date: 2026-06-02
+---
+
+# PRD
+
+## Intent
+
+| Field | Value |
+|---|---|
+| Change type | fix |
+| Why | Keep routing decisions grounded in approved requirements. |
+| Target state | Update flow prompts and validation gates. |
+| Risk boundaries | No behavior outside flow prompt routing changes. |
+
+## Usage Contract
+
+| Surface | Input | Output | Error |
+|---|---|---|---|
+| CLI |  |  |  |
+
+## Non-Goals
+
+| ID | Must not change |
+|---|---|
+| Boundary |  |
+
+## Requirements
+
+| ID | Requirement |
+|---|---|
+| R1 | PRD must include Intent. |
+
+## Success Criteria
+
+| ID | Verifies | Criterion | Evidence |
+|---|---|---|---|
+| SC1 | R1 | Downstream stages consume PRD intent. | review |
+`, "utf-8");
+
+    const issues = validatePrdArtifact(prdFile);
+    expect(issues).toContain("Usage Contract row 3 (CLI) has empty cell(s): Input, Output, Error.");
+    expect(issues).toContain("Non-Goals row 3 ID must use `NG#` format.");
+    expect(issues).toContain("Non-Goals row 3 (Boundary) has empty cell(s): Must not change.");
   });
 
   function validResearchFactsBody(overrides = ""): string {
@@ -1932,6 +2028,47 @@ Trace details.
 |---|---|---|---|
 | \`architecture/design.md\` | Entry point. | package map and Mermaid diagram | high |
 | \`architecture/runtime-layout.md\` | Runtime details. | diagram | medium |
+
+## Key Design Decisions
+Decisions.
+
+## Contracts, Interfaces & Boundaries
+Schemas.
+
+## Risks & Open Questions
+None.
+`, "utf-8");
+
+    expect(validateDesign(designFile)).toEqual([]);
+  });
+
+  test("validateDesign accepts multi-file design packages with a markdown table and no Mermaid", () => {
+    const designFile = path.join(testTmpDir, "architecture", "design.md");
+    const detailFile = path.join(testTmpDir, "architecture", "runtime-layout.md");
+    cleanupTestDir();
+    setupTestDir();
+    fs.mkdirSync(path.dirname(designFile), { recursive: true });
+    fs.writeFileSync(detailFile, "# Runtime Layout\n", "utf-8");
+    fs.writeFileSync(designFile, `---
+approved: true
+approved_by: tester
+date: 2026-06-02
+---
+# Design
+
+## Executive Summary
+| Area | Decision |
+|---|---|
+| Scope | Runtime layout stays in a linked subdocument. |
+
+## Traceability Mapping
+Trace details.
+
+## Architecture Package Map
+| File | Purpose | Visual content | Review priority |
+|---|---|---|---|
+| \`architecture/design.md\` | Entry point. | package map and summary table | high |
+| \`architecture/runtime-layout.md\` | Runtime details. | table | medium |
 
 ## Key Design Decisions
 Decisions.

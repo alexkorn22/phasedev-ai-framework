@@ -2,6 +2,21 @@
  * Shared fixture helpers for PhaseDev tests.
  */
 
+export function prdUsageContractAndNonGoals(): string {
+  return `## Usage Contract
+
+| Surface | Input | Output | Error |
+|---|---|---|---|
+| CLI | \`phasedev check\` | exit 0 | exit 1 with schema issues |
+
+## Non-Goals
+
+| ID | Must not change |
+|---|---|
+| NG1 | Do not change unrelated production modules. |
+`;
+}
+
 export function validPrdBody(): string {
   return `# PRD
 
@@ -14,6 +29,7 @@ export function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

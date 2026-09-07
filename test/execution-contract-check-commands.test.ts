@@ -23,6 +23,7 @@ import {
   renderResolvedCheckCommandLines
 } from "../src/entities/test-commands/resolve-check-commands";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 let testTmpDir: string;
 
@@ -55,6 +56,7 @@ function validPrdBody(): string {
 | Target state | Contract commands resolve correctly. |
 | Risk boundaries | Test fixture only. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

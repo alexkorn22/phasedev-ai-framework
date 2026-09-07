@@ -6,6 +6,7 @@ import { syncState } from "../src/features/phase-control/sync-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 import { ActivePhase } from "../src/entities/change/flow-state";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

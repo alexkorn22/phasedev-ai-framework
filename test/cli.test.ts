@@ -12,6 +12,7 @@ import { renderValidationRoleAllowlist, renderValidationRoleChecks, renderValida
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -49,6 +50,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -612,7 +614,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
-    expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
+    expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
     expect(output).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
     expect(output).toContain("embedded template is the only artifact structure");
     expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths");
@@ -2228,7 +2230,7 @@ describe("flow templates", () => {
     const findingsTemplate = readTemplate("artifacts/validation_findings.md");
 
     const prdSections = Array.from(prdTemplate.matchAll(/^##\s+(.+)$/gm)).map(match => match[1]);
-    expect(prdSections).toEqual(["Intent", "Requirements", "Success Criteria"]);
+    expect(prdSections).toEqual(["Intent", "Usage Contract", "Non-Goals", "Requirements", "Success Criteria"]);
     expect(planTemplate).toContain("Iteration status contract:");
     expect(planTemplate).toContain("Check Evidence contract:");
     expect(planTemplate).toContain("| Area / Path Pattern | Change Type | Ownership | Trace |");

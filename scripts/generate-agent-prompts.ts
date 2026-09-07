@@ -292,6 +292,18 @@ function prdBody(): string {
 | Target state | Each stage prompt is rendered from a valid controller state. |
 | Risk boundaries | Prompt generation uses an isolated copied project and does not modify the source project. |
 
+## Usage Contract
+
+| Surface | Input | Output | Error |
+|---|---|---|---|
+| CLI | \`bun run generate-agent-prompts\` | one prompt file per PhaseDev stage | non-zero exit when a stage cannot render |
+
+## Non-Goals
+
+| ID | Must not change |
+|---|---|
+| NG1 | Do not modify the source project outside the isolated generated copy. |
+
 ## Requirements
 
 | ID | Requirement |

@@ -15,6 +15,7 @@ import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -53,6 +54,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -362,7 +364,9 @@ Test fixture only.
     expect(result.prompt).toContain("do not overwrite or reuse it");
     expect(result.prompt).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(result.prompt).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
-    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
+    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
+    expect(result.prompt).toContain("`prd.md` `Usage Contract` records at least one concrete I/O example");
+    expect(result.prompt).toContain("`prd.md` `Non-Goals` records modules, APIs, and behaviors that must not change");
     expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
@@ -414,6 +418,9 @@ Test fixture only.
     expect(result.prompt).toContain("`not_applicable: <short reason>`");
     expect(result.prompt).toContain("not_applicable: <reason>` only when there is no material contract surface");
     expect(result.prompt).toContain("Optional Mermaid/callouts/visual markers must never change YAML frontmatter, table headers, required section structure");
+    expect(result.prompt).toContain("Mermaid is optional. Add a diagram only when it clarifies runtime flow");
+    expect(result.prompt).toContain("If you add a Mermaid diagram, use `flowchart`");
+    expect(result.prompt).not.toContain("a non-trivial package has at least one non-decorative Mermaid diagram");
     expect(result.prompt).toContain("Each linked subdocument must have a minimal review contract");
     expect(result.prompt).toContain("Use `## Executive Summary` as the compact visual review surface");
     expect(result.prompt).toContain("If evidence is incomplete but the missing detail does not change approval scope");

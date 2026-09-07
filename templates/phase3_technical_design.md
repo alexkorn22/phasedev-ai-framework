@@ -67,10 +67,10 @@ Artifact-specific content rules:
 Human reviewers must quickly understand what will change and how it is planned. Write the design as a reviewable architecture map, not as a long prose essay.
 
 Visual review aids:
-- For a non-trivial design package, use at least one Mermaid diagram.
+- Mermaid is optional. Add a diagram only when it clarifies runtime flow, dependency direction, persistence, API contracts, UI states, or validation paths. Skip it when a table or tree already makes the change reviewable.
 - Use schemas, diagrams, tables, matrix views, directory trees, callouts, and semantic visual markers only when they speed up review inside the allowed template sections.
 - Optional Mermaid/callouts/visual markers must never change YAML frontmatter, table headers, required section structure, machine-readable labels, or required traceability fields.
-- Use Mermaid `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, or `stateDiagram` when the design affects runtime flow, dependency direction, persistence, API contracts, UI states, or validation paths.
+- If you add a Mermaid diagram, use `flowchart`, `sequenceDiagram`, `classDiagram`, `erDiagram`, or `stateDiagram`. Do not add one merely because the design touches APIs, persistence, or UI.
 - Use tables for contracts, public interfaces, risks, ownership, decisions, alternatives, and validation mapping.
 - A visual must explain real changes or planned architecture; do not add decorative diagrams.
 - Every linked subdocument must start with purpose, then a diagram/table/tree review surface, then decisions/contracts/details.
@@ -132,7 +132,7 @@ This clause changes only WHEN the artifact is written. The uncertainty decision 
 
 ## Completion self-check
 
-Before completing the phase, confirm the rules defined above hold (do not restate them): decomposition/size respected; every linked subdocument listed in `Architecture Package Map` and linked from `architecture/design.md`, each starting with purpose plus a visual review surface without duplicating prose; a non-trivial package has at least one non-decorative Mermaid diagram; every `R#`/`SC#` appears in `Traceability Mapping` with valid `F#`/`S#` evidence or `not_applicable: <short reason>` plus valid `D#`; every `D#` defined once and referenced by a row; no divergence from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
+Before completing the phase, confirm the rules defined above hold (do not restate them): decomposition/size respected; every linked subdocument listed in `Architecture Package Map` and linked from `architecture/design.md`, each starting with purpose plus a visual review surface without duplicating prose; Mermaid is present only when it carries review signal; every `R#`/`SC#` appears in `Traceability Mapping` with valid `F#`/`S#` evidence or `not_applicable: <short reason>` plus valid `D#`; every `D#` defined once and referenced by a row; no divergence from PRD intent, target state, `R#`, `SC#`, evidence types, or risk boundaries.
 
 Then immediately validate the new design artifact before completing the phase:
 

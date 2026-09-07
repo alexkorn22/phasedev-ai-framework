@@ -7,6 +7,7 @@ import { phaseRecoveryCommand } from "../src/features/phase-control/prompt-block
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { VALIDATION_PHASE_ROLES } from "../src/entities/phase/validation-phase-role";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
 
@@ -41,6 +42,7 @@ function validPrdBody(): string {
 | Target state | Role isolation works. |
 | Risk boundaries | Test fixture only. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

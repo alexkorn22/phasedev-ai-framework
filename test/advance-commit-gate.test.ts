@@ -10,6 +10,7 @@ import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-git-"));
@@ -44,6 +45,7 @@ function validPrdBody(): string {
 | Target state | Exercise the commit gate. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

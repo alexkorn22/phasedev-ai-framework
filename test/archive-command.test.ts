@@ -8,6 +8,7 @@ import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { UnknownChangeError } from "../src/entities/change/change-errors";
 import { readFindingsBaseline } from "../src/entities/change/flow-state";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 let testTmpDir: string;
 
@@ -36,6 +37,7 @@ function validPrdBody(): string {
 | Target state | Exercise the archive command fixture path. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

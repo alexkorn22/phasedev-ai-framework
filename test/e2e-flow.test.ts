@@ -17,6 +17,7 @@ import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -101,6 +102,7 @@ function makePrdBody(params: { why: string; targetState: string; requirement: st
 | Target state | ${params.targetState} |
 | Risk boundaries | None beyond normal project risk |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -1186,6 +1188,7 @@ describe("multi-change e2e", () => {
 | Target state | Alpha advances without touching beta |
 | Risk boundaries | None beyond normal project risk |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
