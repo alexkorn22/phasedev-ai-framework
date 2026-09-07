@@ -9,8 +9,6 @@ Input artifacts:
 
 {{controller_changed_files_inventory}}
 
-{{execution_receipt_protocol}}
-
 {{validation_retrieval_order}}
 
 {{validation_role_checks}}

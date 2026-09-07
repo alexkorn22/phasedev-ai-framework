@@ -16,11 +16,7 @@ import { findPendingArchiveState } from "../src/entities/change/archive-state";
 import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 import { syncState } from "../src/features/phase-control/sync-state";
-import {
-  seedFinalValidationReceipts,
-  seedImplementationFocusedReceipts,
-  seedIterationValidationReceipts
-} from "./helpers/receipt-fixtures";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -397,7 +393,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
       const planContent = markIterationOneDone(fs.readFileSync(paths.iterationPlanPath, "utf-8"));
       writeFile(paths.iterationPlanPath, planContent);
       approveArtifact(paths.iterationPlanPath, "test");
-      seedImplementationFocusedReceipts(root, 1, "echo unit", name);
+      initGitWorkspaceWithCommitLog(root, changeDir);
       const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_validation");
@@ -406,7 +402,6 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "iteration"));
       expect(setIterationStatus(root, 1, "completed", undefined, name).ok).toBe(true);
-      seedIterationValidationReceipts(root, 1, name);
       const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("final_validation");
@@ -416,7 +411,6 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     // runArchive moves the change dir into archive/.
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
-      seedFinalValidationReceipts(root, "echo full", name);
       const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.message).toBe("Final validation passed. Flow complete.");
@@ -704,7 +698,7 @@ describe("E2E flow via CLI subprocess", () => {
     const reapprovePlan = run(["approve", planPath]);
     expect(reapprovePlan.code).toBe(0);
 
-    seedImplementationFocusedReceipts(testTmpDir, 1, "echo unit", "test-flow");
+    initGitWorkspaceWithCommitLog(testTmpDir, cdir);
     expectCheckSignalsReadyToAdvance();
 
     const adv5 = run(["advance"]);
@@ -724,8 +718,6 @@ describe("E2E flow via CLI subprocess", () => {
     // Mark iteration 1 as [x] (completed) so resolveRoute can move past it
     const setIterStatus = run(["set-iteration-status", "1", "x"]);
     expect(setIterStatus.code).toBe(0);
-
-    seedIterationValidationReceipts(testTmpDir, 1, "test-flow");
     expectCheckSignalsReadyToAdvance();
 
     const adv6 = run(["advance"]);
@@ -739,8 +731,6 @@ describe("E2E flow via CLI subprocess", () => {
     // -----------------------------------------------------------------------
     const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
-
-    seedFinalValidationReceipts(testTmpDir, "echo full", "test-flow");
     expectCheckSignalsReadyToAdvance();
 
     const adv7 = run(["advance"]);
@@ -842,6 +832,8 @@ describe("repaired finding re-validation e2e", () => {
     // advanceFlow's setFindingsType side effect — no manual type edit.
     expect(createChange(root, "repair-e2e").ok).toBe(true);
     const config = loadConfig();
+    const repairChangeDir = path.join(root, ".phasedev", "changes", "repair-e2e");
+    initGitWorkspaceWithCommitLog(root, repairChangeDir);
 
     const steps = buildLifecycleSteps(root, config, "repair-e2e", {
       why: "Verify a repaired final finding re-validates and reaches archive",
@@ -1076,8 +1068,6 @@ describe("stale final verdict scope-change e2e", () => {
       );
     writeFile(paths.iterationPlanPath, implementedPlan);
     approveArtifact(paths.iterationPlanPath, "test");
-
-    seedImplementationFocusedReceipts(root, newIterationId, "echo unit", "full-arc-e2e");
     const toIterationValidation = advanceFlow(root, config, "full-arc-e2e");
     expect(toIterationValidation.ok).toBe(true);
     expect(toIterationValidation.newState?.activePhase).toBe("iteration_validation");
@@ -1095,7 +1085,6 @@ describe("stale final verdict scope-change e2e", () => {
 
     // (c) advance -> route falls to final_validation (all [x], type iteration);
     // advance sets type: final; run fresh final validation; set-verdict ready.
-    seedIterationValidationReceipts(root, newIterationId, "full-arc-e2e");
     const toFinalValidation = advanceFlow(root, config, "full-arc-e2e");
     expect(toFinalValidation.ok).toBe(true);
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
@@ -1107,7 +1096,6 @@ describe("stale final verdict scope-change e2e", () => {
 
     // (d) advance clean-completes at final_validation (no mutation); runArchive
     // then performs the archive mutation.
-    seedFinalValidationReceipts(root, "echo full", "full-arc-e2e");
     const toFinalComplete = advanceFlow(root, config, "full-arc-e2e");
     expect(toFinalComplete.ok).toBe(true);
     expect(toFinalComplete.message).toBe("Final validation passed. Flow complete.");
@@ -1151,8 +1139,6 @@ describe("stale final verdict scope-change e2e", () => {
     expect(wedged).not.toBeNull();
     wedged = { ...(wedged as NonNullable<typeof wedged>), activePhase: "iteration_validation", activeIteration: 1 };
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(wedged, null, 2) + "\n", "utf-8");
-
-    seedIterationValidationReceipts(root, 1, "self-heal-e2e");
     const result = advanceFlow(root, config, "self-heal-e2e");
     expect(result.ok).toBe(true);
     expect(loadFlowState(root, "self-heal-e2e")?.activePhase).not.toBe("iteration_validation");

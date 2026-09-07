@@ -11,7 +11,7 @@ import { renderValidationCommonContract } from "../src/features/phase-control/va
 import { renderValidationRoleAllowlist, renderValidationRoleChecks, renderValidationRoleCompletion, renderValidationIterationStatusRule } from "../src/features/phase-control/validation-role-scope";
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
-import { seedFinalValidationReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -1150,7 +1150,7 @@ autoApprove: true
   });
 
   test("check-validation final passes when ready findings route to archive_ready", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -1158,8 +1158,7 @@ autoApprove: true
 `, {
       findings: validationFindings("ready", "final")
     });
-    seedFinalValidationReceipts(testTmpDir);
-
+    initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
     const result = runCheckValidation(["--scope", "final"]);
 
     expect(result.exitCode).toBe(0);
@@ -1262,7 +1261,7 @@ autoApprove: true
   });
 
   test("check-validation phase passes when ready findings completed the phase", () => {
-    setupChange(`
+    const changeDir = setupChange(`
 # Plan
 
 ## Iteration 1: API [x]
@@ -1273,8 +1272,7 @@ autoApprove: true
 `, {
       findings: validationFindings("ready", "iteration")
     });
-    seedIterationValidationReceipts(testTmpDir, 1);
-
+    initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
     const result = runCheckValidation(["--scope", "iteration", "--iteration-id", "1"]);
 
     expect(result.exitCode).toBe(0);
@@ -3644,8 +3642,7 @@ ${completedIterations}
       findings: validationFindings("ready", "iteration")
     });
     writeStateJson(changeDir, "iteration_validation", 10);
-    seedIterationValidationReceipts(testTmpDir, 10);
-
+    initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain("Max iterations (10) reached");
@@ -3663,8 +3660,7 @@ ${completedIterations}
       findings: validationFindings("ready", "iteration")
     });
     writeStateJson(changeDir, "iteration_validation", 1);
-    seedIterationValidationReceipts(testTmpDir, 1);
-
+    initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
     const result = runCli(["advance", "--project-path", testTmpDir]);
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain("Advanced");

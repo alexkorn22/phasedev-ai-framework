@@ -30,8 +30,6 @@ Ordered workflow:
 
 {{controller_changed_files_inventory}}
 
-{{execution_receipt_protocol}}
-
 Context budget and stop condition:
 - Treat the embedded full-plan orientation plus current iteration excerpt as the primary retrieval layer; do not load the full implementation plan unless the write-back or ambiguity exception above applies.
 - Keep future iterations as boundary context only. They can stop accidental overreach, but they do not authorize implementation or broad repository inspection.

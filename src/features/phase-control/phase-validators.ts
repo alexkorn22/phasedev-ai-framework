@@ -17,12 +17,6 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
-import { validationReceiptBlockers } from "../receipt-ops/receipt-status";
-import {
-  implementationFocusedReceiptIssues,
-  repairFocusedReceiptIssues
-} from "../receipt-ops/focused-receipt-validation";
-import { formatReceiptScope } from "../../entities/execution-receipts/scope";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -339,42 +333,6 @@ export function validatePhaseExit(
 
     if (issues.length > 0) {
       return failMessage(phase, issues);
-    }
-
-    const repairReceiptIssues = repairFocusedReceiptIssues(projectPath, paths, blockingSeverity);
-    if (repairReceiptIssues.length > 0) {
-      return failMessage(phase, repairReceiptIssues);
-    }
-  }
-
-  if (phase === "implementation" && activeIteration !== null) {
-    const focusedIssues = implementationFocusedReceiptIssues(projectPath, paths, activeIteration);
-    if (focusedIssues.length > 0) {
-      return failMessage(phase, focusedIssues);
-    }
-  }
-
-  if (phase === "iteration_validation" && activeIteration !== null) {
-    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
-    if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
-      const receiptIssues = validationReceiptBlockers(
-        projectPath,
-        formatReceiptScope({ kind: "iteration", iterationId: activeIteration }),
-        { blockingSeverity }
-      );
-      if (receiptIssues.length > 0) {
-        return failMessage(phase, receiptIssues);
-      }
-    }
-  }
-
-  if (phase === "final_validation") {
-    const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
-    if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
-      const receiptIssues = validationReceiptBlockers(projectPath, "final", { blockingSeverity });
-      if (receiptIssues.length > 0) {
-        return failMessage(phase, receiptIssues);
-      }
     }
   }
 

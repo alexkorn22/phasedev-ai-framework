@@ -53,7 +53,6 @@ export function getFlowStatus(
       artifacts.push(artifactStatus(changeDir, "architecture/design.md"));
       artifacts.push(artifactStatus(changeDir, "iteration_plan.md"));
       artifacts.push(artifactStatus(changeDir, "validation_findings.md"));
-      artifacts.push(artifactStatus(changeDir, "runtime/execution_receipts.json"));
     }
   }
 

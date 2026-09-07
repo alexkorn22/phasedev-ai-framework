@@ -16,8 +16,6 @@ Input artifacts:
 
 {{controller_changed_files_inventory}}
 
-{{execution_receipt_protocol}}
-
 Ordered workflow:
 1. Read the Current Repair Queue and the controller-observed worktree inventory above; the inventory is a snapshot at phase render time — refresh/inspect the actual git diff before selecting focused check targets and updating Check Evidence.
 2. Open the full findings registry only to preserve/update rows and confirm each queued ID still has latest status `open` or `reopened`.

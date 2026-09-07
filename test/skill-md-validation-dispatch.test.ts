@@ -44,8 +44,6 @@ describe("phasedev-orchestrator SKILL.md canonical dispatch bodies", () => {
 
     expect(prompt).toContain('Execute the current PhaseDev phase for change "<change>".');
     expect(prompt).toContain(ROLE_PHASE_STEP);
-    expect(prompt).toContain("Your receipt claim-id: <claim-id from phasedev claim-receipt>");
-    expect(prompt).toContain("phasedev complete-receipt <role> --scope <scope> --claim-id <claim-id>");
     expect(prompt).not.toContain(BARE_PHASE_STEP);
     expect(prompt).not.toMatch(/1\. Run: phasedev phase --change <change> — to get the phase contract\./);
   });
@@ -129,12 +127,10 @@ describe("phasedev-orchestrator SKILL.md browser auxiliary dispatch", () => {
     expect(prompt).toMatch(/PRD|acceptance evidence/i);
     expect(prompt).toMatch(/browser|manual/i);
     expect(prompt).toMatch(/phasedev add-finding/i);
-    expect(prompt).toMatch(/manual-acceptance/i);
-    expect(prompt).toMatch(/complete-receipt manual-acceptance/i);
     expect(prompt).toMatch(/pending browser work/i);
     expect(prompt).not.toMatch(/phasedev set-verdict/);
     expect(prompt).toMatch(/do not run unit, phase, or full project check commands/i);
-    expect(prompt).toContain("7. Do NOT run phasedev advance.");
+    expect(prompt).toContain("6. Do NOT run phasedev advance.");
   });
 
   test("browser auxiliary dispatch sits before final validation implementation-check wave", () => {

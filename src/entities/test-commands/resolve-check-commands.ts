@@ -164,12 +164,10 @@ function evidenceMatchesLegacyExactSuperset(recipe: string, executed: string): b
     if (isRunnerFlagToken(executedTokens[index])) {
       return false;
     }
-    if (UNSAFE_TARGET_PATTERN.test(executedTokens[index])) {
-      return false;
-    }
   }
 
-  return true;
+  const extraTargets = executedTokens.slice(recipeTokens.length).join(" ");
+  return isSafeTestTargetSubstitution(extraTargets);
 }
 function hasUnquotedShellComment(targets: string): boolean {
   let quote: '"' | "'" | null = null;

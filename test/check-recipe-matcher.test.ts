@@ -139,6 +139,15 @@ describe("check recipe placeholder matcher", () => {
     expect(evidenceMatchesCheckRecipe(recipe, "bun test test/a.test.ts; rm -rf /")).toBe(false);
   });
 
+  test("legacy exact superset rejects unsafe extra targets using recipe substitution safety", () => {
+    const recipe = "bun test test/a.test.ts test/b.test.ts test/c.test.ts test/d.test.ts";
+    expect(evidenceMatchesCheckRecipe(recipe, `${recipe} test/e.test.ts # comment`)).toBe(false);
+    expect(evidenceMatchesCheckRecipe(recipe, `${recipe} test/e.test.ts\nrm -rf /`)).toBe(false);
+    expect(evidenceMatchesCheckRecipe(recipe, `${recipe} test/e.test.ts >> /tmp/pwned`)).toBe(false);
+    expect(evidenceMatchesCheckRecipe(recipe, `${recipe} "--runInBand"`)).toBe(false);
+    expect(evidenceMatchesCheckRecipe(recipe, `${recipe} test/e.test.ts'`)).toBe(false);
+  });
+
   test("legacy exact recipe invalidates evidence after recipe target set changes", () => {
     const oldEvidence = "bun test test/a.test.ts test/b.test.ts test/c.test.ts test/d.test.ts test/e.test.ts";
     const newRecipe = "bun test test/x.test.ts test/y.test.ts test/z.test.ts test/w.test.ts";

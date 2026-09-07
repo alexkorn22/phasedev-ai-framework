@@ -14,7 +14,7 @@ import { validatePhase, validatePhaseExit } from "../src/features/phase-control/
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
-import { seedFinalValidationReceipts, seedImplementationFocusedReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -239,6 +239,10 @@ Test fixture only.
   }
 
   return changeDir;
+}
+
+function prepareGitContext(changeDir: string): void {
+  initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
 }
 
 describe("flow controller typed stages", () => {
@@ -983,7 +987,7 @@ Complete API work.
       "utf-8"
     );
 
-    seedFinalValidationReceipts(testTmpDir);
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1009,7 +1013,7 @@ Complete API work.
       "utf-8"
     );
 
-    seedIterationValidationReceipts(testTmpDir, 1);
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1022,14 +1026,14 @@ Complete API work.
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, { findings: validationFindings("ready", "final") });
+    const wedgeChangeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.writeFileSync(
-      path.join(testTmpDir, ".phasedev", "changes", "sample-change", "state.json"),
+      path.join(wedgeChangeDir, "state.json"),
       JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
       "utf-8"
     );
 
-    seedIterationValidationReceipts(testTmpDir, 1);
-
+    prepareGitContext(wedgeChangeDir);
     // Second, untouched copy of the same wedged state for the read-only check/sync-state comparison.
     const testTmpDir2 = createTempWorkspace("flow-controller-wedge-copy");
     fs.cpSync(path.join(testTmpDir, ".phasedev"), path.join(testTmpDir2, ".phasedev"), { recursive: true });
@@ -1066,7 +1070,7 @@ Complete API work.
       "utf-8"
     );
 
-    seedImplementationFocusedReceipts(testTmpDir, 2);
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1142,6 +1146,7 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1206,7 +1211,7 @@ Complete API work.
       "utf-8"
     );
 
-    seedFinalValidationReceipts(testTmpDir);
+    prepareGitContext(changeDir);
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
 
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
@@ -1603,7 +1608,7 @@ Test fixture only.
     // sets approved_by, so every approval here is "approved: true" with no approved_by.
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
-    seedImplementationFocusedReceipts(testTmpDir, 1);
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(false);
@@ -1629,7 +1634,7 @@ Test fixture only.
     }
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
-    seedImplementationFocusedReceipts(testTmpDir, 1);
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
@@ -1822,6 +1827,7 @@ Test fixture only.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1840,6 +1846,8 @@ Test fixture only.
       findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
     });
     const statePath = path.join(changeDir, "state.json");
+
+    prepareGitContext(changeDir);
 
     // Helper: write state and run advance. Each repair round uses a fresh
     // finding ID and rows accumulate (never deleted): the append-only baseline
@@ -2008,7 +2016,7 @@ Test fixture only.
         "utf-8"
       );
 
-      seedImplementationFocusedReceipts(testTmpDir, 1);
+      prepareGitContext(changeDir);
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
       expect(result.ok).toBe(true);
@@ -2197,7 +2205,7 @@ Test fixture only.
         "utf-8"
       );
 
-      seedIterationValidationReceipts(testTmpDir, 1);
+      prepareGitContext(changeDir);
       const checkFlowModule = require("../src/features/phase-control/check-flow");
       const result = checkFlowModule.checkValidationCompletion(testTmpDir, { scope: "iteration", iterationId: 1 });
 
@@ -2219,7 +2227,7 @@ Test fixture only.
         "utf-8"
       );
 
-      seedIterationValidationReceipts(testTmpDir, 1);
+      prepareGitContext(changeDir);
       const readyCheck = checkPhase(testTmpDir);
       expect(readyCheck.ok).toBe(true);
       expect(readyCheck.phase).toBe("iteration_validation");
@@ -2256,7 +2264,7 @@ Test fixture only.
       expect(refused.advanced).toBe(false);
 
       expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-09-07" }).ok).toBe(true);
-      seedFinalValidationReceipts(testTmpDir);
+      prepareGitContext(changeDir);
       const completed = advanceFlow(testTmpDir, config);
       expect(completed.ok).toBe(true);
       expect(completed.finished).toBe(true);
@@ -2279,7 +2287,7 @@ Test fixture only.
         "utf-8"
       );
 
-      seedImplementationFocusedReceipts(testTmpDir, 2);
+      prepareGitContext(changeDir);
       const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
       expect(result.ok).toBe(true);
@@ -2896,7 +2904,7 @@ Test fixture only.
         "utf-8"
       );
 
-      seedIterationValidationReceipts(testTmpDir, 1);
+      prepareGitContext(changeDir);
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);

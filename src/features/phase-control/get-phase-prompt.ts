@@ -23,7 +23,6 @@ import { quickPhasePrompt } from "./quick-phase-prompt";
 import { readCommitLog, iterationDiffBase } from "../../entities/change/flow-state";
 
 import { parseCurrentValidationFindings } from "../../entities/validation-findings/parse-validation-findings";
-import { repairFocusedResolvedChecks } from "../../entities/execution-receipts/focused-receipt-gates";
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
@@ -37,12 +36,6 @@ import { parseRepairFindingScope, resolveIterationFocusedCheckCommands, resolveR
 import { testCommandBlocker, validationRoleBlocker, phaseRecoveryCommand } from "./prompt-blockers";
 import { isValidationPhaseRole, ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
 import { renderRoleScopedValidationFindingsContract } from "./validation-role-scope";
-import {
-  renderImplementationReceiptProtocol,
-  renderRepairReceiptProtocol,
-  renderValidationRoleReceiptProtocol
-} from "./receipt-protocol";
-import { ReceiptUnit } from "../../entities/execution-receipts/types";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
   const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
@@ -211,13 +204,6 @@ export function renderImplementation(projectPath: string, config: Config, paths:
     plan_map: formatPlanMap(plan, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
     controller_changed_files_inventory: iterationScopedChangedFileInventory(projectPath, paths, currentPhase),
-    execution_receipt_protocol: renderImplementationReceiptProtocol(
-      `iteration:${currentPhase.id}`,
-      resolveIterationFocusedCheckCommands(currentPhase, testCommands).map(check => ({
-        unit: `check:${check.gate}` as Extract<ReceiptUnit, "check:unit" | "check:phase">,
-        command: check.command
-      }))
-    ),
     test_command: testCommand,
     test_targets_placeholder: TEST_TARGETS_PLACEHOLDER,
     self_check_command: flowCheckCommand(projectPath, changeName),
@@ -271,9 +257,6 @@ export function renderIterationValidation(projectPath: string, config: Config, p
         return log ? iterationDiffBase(log, currentPhase.id) ?? undefined : undefined;
       })()
     }),
-    execution_receipt_protocol: role === undefined
-      ? ""
-      : renderValidationRoleReceiptProtocol(role, `iteration:${currentPhase.id}`),
     validation_findings_artifact_contract: findingsContract
   }, config, {
     validationRole: role,
@@ -316,9 +299,6 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
       diffBase: readCommitLog(paths.statePath)?.start ?? undefined
     }),
-    execution_receipt_protocol: role === undefined
-      ? ""
-      : renderValidationRoleReceiptProtocol(role, "final", { fullGateCommand }),
     validation_findings_artifact_contract: findingsContract
   }, config, {
     validationRole: role,
@@ -357,21 +337,10 @@ export function renderFindingRepair(projectPath: string, config: Config, paths: 
   }
 
   const urls = urlsFor(paths);
-  const repairChecks = resolveRepairFocusedCheckCommands(plan, testCommands, repairScope);
-  const findingRows = parseCurrentValidationFindings(paths.findingsPath, config.blockingSeverity).map(finding => ({
-    phase: finding.phase,
-    blocksPr: finding.blocksPr,
-    latestStatus: finding.latestStatus
-  }));
-  const repairChecksForProtocol = repairFocusedResolvedChecks(plan, testCommands, findingRows);
-  const repairScopeKey = repairScope.iterationIds.length > 0
-    ? `iteration:${repairScope.iterationIds[0]}`
-    : "final";
 
   return renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(paths.findingsPath, config.blockingSeverity),
     controller_changed_files_inventory: repairWorktreeChangedFileInventory(projectPath),
-    execution_receipt_protocol: renderRepairReceiptProtocol(repairScopeKey, repairChecksForProtocol),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,
     design_path: urls.design_path,

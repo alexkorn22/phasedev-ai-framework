@@ -11,8 +11,6 @@ import { validatePhase, validatePhaseExit, revalidationPendingMessage, validatio
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 import { classifyStateRoute, StateRouteRelation } from "./state-route-consistency";
-import { validationReceiptBlockers } from "../receipt-ops/receipt-status";
-import { formatReceiptScope } from "../../entities/execution-receipts/scope";
 
 export type RouteKind = Route["kind"];
 
@@ -222,10 +220,6 @@ export function checkValidationCompletion(
     if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("iteration", route.kind));
     }
-
-    if (isReadyVerdict(findings.verdict) || findings.verdict === "pending" || findings.verdict === "repaired") {
-      issues.push(...validationReceiptBlockers(projectPath, formatReceiptScope({ kind: "iteration", iterationId: options.iterationId }), { changeName, blockingSeverity }));
-    }
   }
 
   if (findings?.exists && options.scope === "final") {
@@ -250,10 +244,6 @@ export function checkValidationCompletion(
 
     if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("final", route.kind));
-    }
-
-    if (isReadyVerdict(findings.verdict) || findings.verdict === "pending" || findings.verdict === "repaired") {
-      issues.push(...validationReceiptBlockers(projectPath, "final", { changeName, blockingSeverity }));
     }
   }
 

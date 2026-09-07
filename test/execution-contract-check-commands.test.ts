@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { buildChangePaths } from "../src/entities/change/paths";
@@ -22,7 +23,6 @@ import {
   renderResolvedCheckCommandLines
 } from "../src/entities/test-commands/resolve-check-commands";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
-import { seedImplementationFocusedReceipts } from "./helpers/receipt-fixtures";
 
 let testTmpDir: string;
 
@@ -267,6 +267,21 @@ function setupChange(
   );
 
   return changeDir;
+}
+
+function initGitWorkspaceWithCommitLog(projectPath: string, changeDir: string): void {
+  const run = (args: string[]) => spawnSync("git", ["-C", projectPath, ...args], { encoding: "utf-8" });
+  run(["init"]);
+  run(["config", "user.email", "test@example.com"]);
+  run(["config", "user.name", "Test"]);
+  run(["config", "commit.gpgsign", "false"]);
+  run(["add", "-A"]);
+  run(["commit", "-m", "base", "--no-gpg-sign"]);
+  const start = run(["rev-parse", "HEAD"]).stdout.trim();
+  const statePath = path.join(changeDir, "state.json");
+  const state = JSON.parse(fs.readFileSync(statePath, "utf-8")) as Record<string, unknown>;
+  state.commitLog = { start, iterations: {} };
+  fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf-8");
 }
 
 describe("execution_contract focused check recipes", () => {
@@ -639,7 +654,6 @@ Complete UI work.
     expect(result.prompt).toContain("- phase: `bun test --grep phase {{test_targets}}`");
     expect(result.prompt).not.toContain("bun test contract-full");
     expect(result.prompt).not.toContain("bun test legacy-unit");
-    expect(result.prompt).toContain("## Execution receipt protocol");
     expect((result.prompt.match(/bun test \{\{test_targets\}\}/g) ?? []).length).toBeGreaterThanOrEqual(1);
   });
 
@@ -674,7 +688,6 @@ Complete API work.
     expect(implementationCheck.blocked).toBe(false);
     expect(implementationCheck.prompt).toContain("run the `full` gate command exactly once: ``bun test `backtick-full-suite```");
     expect((implementationCheck.prompt.match(/backtick-full-suite/g) ?? []).length).toBe(1);
-    expect(implementationCheck.prompt).toContain("## Execution receipt protocol");
 
     for (const role of ["code-review", "security-review"] as const) {
       const reviewer = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, role);
@@ -715,7 +728,6 @@ Complete API work.
     expect(result.prompt).toContain("`bun test contract-full-suite`");
     expect(result.prompt).not.toContain("{{full_gate_command}}");
     expect((result.prompt.match(/bun test contract-full-suite/g) ?? []).length).toBe(1);
-    expect(result.prompt).toContain("## Execution receipt protocol");
     const reviewIndex = result.prompt.indexOf("audit `Check Evidence`");
     const fullGateIndex = result.prompt.indexOf("`bun test contract-full-suite`");
     expect(reviewIndex).toBeGreaterThan(-1);
@@ -1077,7 +1089,7 @@ Complete API work.
       expect(route.phase).toBe("iteration_validation");
     }
 
-    seedImplementationFocusedReceipts(testTmpDir, 1, "bun test test/api.test.ts");
+    initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
     const advance = advanceFlow(testTmpDir, DEFAULT_CONFIG);
     expect(advance.ok).toBe(true);
     expect(advance.newState?.activePhase).toBe("iteration_validation");

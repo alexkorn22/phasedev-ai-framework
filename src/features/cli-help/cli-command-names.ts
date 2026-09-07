@@ -32,10 +32,6 @@ export const CLI_COMMAND_NAMES = [
   "check",
   "check-validation",
   "check-archive",
-  "receipt-status",
-  "claim-receipt",
-  "complete-receipt",
-  "cancel-receipt",
   "version",
   "next"
 ] as const;
