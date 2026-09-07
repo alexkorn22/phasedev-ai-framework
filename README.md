@@ -68,7 +68,7 @@ $ phasedev phase
 > **Phase summary:**
 > - Output: `prd.md and execution_contract.md` per embedded Artifact Build Contract.
 > - Done when: `phasedev check` passes.
-> - Forbidden: change `approved` fields manually, write outside phase allowlist.
+> - Forbidden: change `approved` fields manually, write outside the phase artifact allowlist.
 Phase 1. Change Intake.
 
 Phase contract: prepare the initial change artifacts.

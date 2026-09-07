@@ -270,6 +270,38 @@ Additional checks:
     ]);
   });
 
+  test("parsePlan extracts gate-only required checks without copied commands", () => {
+    const planFile = path.join(testTmpDir, "plan_gate_only_checks.md");
+    fs.writeFileSync(planFile, `
+# Plan
+
+## Iteration 1: Validation Gates [~]
+
+### Tasks
+
+- [x] 1.1 Complete work
+
+### Checks
+
+- unit
+- phase
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test test/a.test.ts\` | passed | unit passed | none |
+| phase | \`bun test --grep phase test/a.test.ts\` | pending |  |  |
+`, "utf-8");
+
+    const phases = parsePlan(planFile);
+
+    expect(phases[0].requiredChecks).toEqual([
+      { check: "unit", command: "" },
+      { check: "phase", command: "" }
+    ]);
+  });
+
   test("parsePlan extracts multiple required phase checks from the Checks section", () => {
     const planFile = path.join(testTmpDir, "plan_required_checks.md");
     fs.writeFileSync(planFile, `
@@ -2600,6 +2632,31 @@ Test fixture only.
 `, "utf-8");
 
     expect(validateRulesArtifact(extraTextRulesFile)).toEqual([]);
+  });
+
+  test("validateRulesArtifact rejects unsafe focused recipes and invalid full gate recipes", () => {
+    const unsafeFocusedFile = path.join(testTmpDir, "unsafe_focused_execution_contract.md");
+    fs.writeFileSync(unsafeFocusedFile, `---
+approved: true
+date: 2026-06-02
+---
+# Rules
+
+## Test Commands
+
+| Gate | Command |
+|---|---|
+| unit | \`bun test {{test_targets}} {{test_targets}}\` |
+| phase | \`bun test --grep phase {{test_targets}}\` |
+| full | \`bun test {{test_targets}}\` |
+
+## Environment Notes
+Test fixture only.
+`, "utf-8");
+
+    const issues = validateRulesArtifact(unsafeFocusedFile);
+    expect(issues.some(issue => issue.includes("unit") && issue.includes("at most one"))).toBe(true);
+    expect(issues.some(issue => issue.includes("full") && issue.includes("placeholder"))).toBe(true);
   });
 
   test("validateExecutionContract ignores a ## Environment Notes heading inside a fenced code block", () => {

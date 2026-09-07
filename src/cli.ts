@@ -45,6 +45,11 @@ import { runArchive } from "./features/phase-control/archive-command";
 import { loadModelTiers } from "./entities/model-tiers/model-tiers";
 import { renderMissingHarnessUsage, renderSpawnPlan } from "./features/spawn-plan/render-spawn-plan";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
+import { RECEIPT_UNITS, ReceiptResult, ReceiptUnit } from "./entities/execution-receipts/types";
+import { claimReceipt } from "./features/receipt-ops/claim-receipt";
+import { completeReceipt } from "./features/receipt-ops/complete-receipt";
+import { cancelReceipt } from "./features/receipt-ops/cancel-receipt";
+import { receiptStatus } from "./features/receipt-ops/receipt-status";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -749,7 +754,8 @@ function handleCreateChange(ctx: CommandContext): void {
 function handlePhase(ctx: CommandContext): void {
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
-  const result = getPhasePrompt(ctx.projectPath, config, ctx.changeName);
+  const role = parseStringOption(ctx.args, "--role");
+  const result = getPhasePrompt(ctx.projectPath, config, ctx.changeName, role);
   reportCliResult(ctx.jsonMode, {
     ok: !result.blocked,
     kind: "phase",
@@ -908,6 +914,155 @@ function handleCheckArchive(ctx: CommandContext): void {
   });
 }
 
+function parseReceiptUnit(raw: string | undefined): ReceiptUnit | undefined {
+  if (!raw) return undefined;
+  return (RECEIPT_UNITS as readonly string[]).includes(raw) ? raw as ReceiptUnit : undefined;
+}
+
+function parseReceiptResult(raw: string | undefined): ReceiptResult | undefined {
+  if (raw === "passed" || raw === "failed" || raw === "blocked") {
+    return raw;
+  }
+  return undefined;
+}
+
+function parseReceiptScopeOption(args: string[]): string | undefined {
+  return parseStringOption(args, "--scope");
+}
+
+function handleReceiptStatus(ctx: CommandContext): void {
+  const scope = parseReceiptScopeOption(ctx.args);
+  if (!scope) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "receipt-status",
+      humanMessage: "[PHASEDEV RECEIPT-STATUS] FAILED: --scope <final|iteration:N> is required."
+    });
+    return;
+  }
+
+  const result = receiptStatus(ctx.projectPath, scope, { changeName: ctx.changeName });
+  const prefix = result.ok ? "[PHASEDEV RECEIPT-STATUS] OK" : "[PHASEDEV RECEIPT-STATUS] FAILED";
+  reportCliResult(ctx.jsonMode, {
+    ok: result.ok,
+    kind: "receipt-status",
+    humanMessage: `${prefix}: ${result.message}`,
+    jsonMessage: result.message,
+    data: { scope: result.scope, diffDigest: result.diffDigest, entries: result.entries }
+  });
+}
+
+function handleClaimReceipt(ctx: CommandContext): void {
+  const unit = parseReceiptUnit(ctx.args[1]);
+  const scope = parseReceiptScopeOption(ctx.args);
+  if (!unit) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "claim-receipt",
+      humanMessage: `[PHASEDEV CLAIM-RECEIPT] FAILED: <unit> is required. Allowed: ${RECEIPT_UNITS.join(", ")}.`
+    });
+    return;
+  }
+  if (!scope) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "claim-receipt",
+      humanMessage: "[PHASEDEV CLAIM-RECEIPT] FAILED: --scope <final|iteration:N> is required."
+    });
+    return;
+  }
+
+  const command = parseStringOption(ctx.args, "--command");
+  const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
+  runWithStateLock(ctx.projectPath, () => {
+    const result = claimReceipt(ctx.projectPath, unit, scope, {
+      command,
+      changeName: ctx.changeName,
+      blockingSeverity: config.blockingSeverity
+    });
+    const prefix = result.ok ? "[PHASEDEV CLAIM-RECEIPT] OK" : "[PHASEDEV CLAIM-RECEIPT] FAILED";
+    reportCliResult(ctx.jsonMode, {
+      ok: result.ok,
+      kind: "claim-receipt",
+      humanMessage: `${prefix}: ${result.message}`,
+      jsonMessage: result.message,
+      data: { action: result.action ?? null, claimId: result.claimId ?? null, unit, scope }
+    });
+  });
+}
+
+function handleCompleteReceipt(ctx: CommandContext): void {
+  const unit = parseReceiptUnit(ctx.args[1]);
+  const scope = parseReceiptScopeOption(ctx.args);
+  const claimId = parseStringOption(ctx.args, "--claim-id");
+  const resultValue = parseReceiptResult(parseStringOption(ctx.args, "--result"));
+  if (!unit || !scope || !claimId || !resultValue) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "complete-receipt",
+      humanMessage: "[PHASEDEV COMPLETE-RECEIPT] FAILED: <unit>, --scope, --claim-id, and --result passed|failed|blocked are required."
+    });
+    return;
+  }
+
+  const command = parseStringOption(ctx.args, "--command");
+  const summary = parseStringOption(ctx.args, "--summary");
+  const rawExitCode = parseStringOption(ctx.args, "--exit-code");
+  const exitCode = rawExitCode ? Number.parseInt(rawExitCode, 10) : undefined;
+
+  runWithStateLock(ctx.projectPath, () => {
+    const result = completeReceipt(ctx.projectPath, unit, scope, {
+      claimId,
+      result: resultValue,
+      command,
+      exitCode: Number.isInteger(exitCode) ? exitCode : undefined,
+      summary,
+      changeName: ctx.changeName
+    });
+    const prefix = result.ok ? "[PHASEDEV COMPLETE-RECEIPT] OK" : "[PHASEDEV COMPLETE-RECEIPT] FAILED";
+    reportCliResult(ctx.jsonMode, {
+      ok: result.ok,
+      kind: "complete-receipt",
+      humanMessage: `${prefix}: ${result.message}`,
+      jsonMessage: result.message,
+      data: { unit, scope, claimId, result: resultValue }
+    });
+  });
+}
+
+function handleCancelReceipt(ctx: CommandContext): void {
+  const unit = parseReceiptUnit(ctx.args[1]);
+  const scope = parseReceiptScopeOption(ctx.args);
+  const claimId = parseStringOption(ctx.args, "--claim-id");
+  const reason = parseStringOption(ctx.args, "--reason");
+  if (!unit || !scope || !claimId || !reason) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "cancel-receipt",
+      humanMessage: "[PHASEDEV CANCEL-RECEIPT] FAILED: <unit>, --scope, --claim-id, and --reason are required."
+    });
+    return;
+  }
+
+  const command = parseStringOption(ctx.args, "--command");
+  runWithStateLock(ctx.projectPath, () => {
+    const result = cancelReceipt(ctx.projectPath, unit, scope, {
+      claimId,
+      reason,
+      command,
+      changeName: ctx.changeName
+    });
+    const prefix = result.ok ? "[PHASEDEV CANCEL-RECEIPT] OK" : "[PHASEDEV CANCEL-RECEIPT] FAILED";
+    reportCliResult(ctx.jsonMode, {
+      ok: result.ok,
+      kind: "cancel-receipt",
+      humanMessage: `${prefix}: ${result.message}`,
+      jsonMessage: result.message,
+      data: { unit, scope, claimId }
+    });
+  });
+}
+
 function handleNext(ctx: CommandContext): void {
   const message = "[PHASEDEV] `phasedev next` is deprecated. Use `phasedev phase` or `phasedev advance` instead.";
   if (ctx.jsonMode) {
@@ -944,6 +1099,10 @@ const COMMANDS: Record<string, CommandHandler> = {
   check: handleCheck,
   "check-validation": handleCheckValidation,
   "check-archive": handleCheckArchive,
+  "receipt-status": handleReceiptStatus,
+  "claim-receipt": handleClaimReceipt,
+  "complete-receipt": handleCompleteReceipt,
+  "cancel-receipt": handleCancelReceipt,
   version: handleVersion,
   next: handleNext
 } satisfies Record<CliCommandName, CommandHandler>;

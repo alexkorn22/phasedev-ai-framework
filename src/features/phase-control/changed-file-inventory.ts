@@ -105,6 +105,38 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.+^${}()|[\]\\]/g, "\\$&");
 }
 
+export type SurfaceClassification = "expected" | "outside expected";
+
+function classifyAgainstSurface(filePath: string, patterns: string[]): SurfaceClassification {
+  if (patterns.length === 0) {
+    return "outside expected";
+  }
+  return pathMatchesSurface(filePath, patterns) ? "expected" : "outside expected";
+}
+
+function renderClassifiedInventory(rows: ChangeScanEntry[], surfacePatterns: string[]): string {
+  const classifiedRows = rows.map(entry => ({
+    ...entry,
+    classification: classifyAgainstSurface(entry.filePath, surfacePatterns)
+  }));
+  const expectedCount = classifiedRows.filter(entry => entry.classification === "expected").length;
+  const outsideCount = classifiedRows.length - expectedCount;
+
+  return [
+    "## Controller Observed Changed Files",
+    "",
+    "Expected Change Surface rows are a forecast/traceability aid, not a hard allowlist. Every actual changed file is listed below and classified against the current iteration surface.",
+    "",
+    "| Status | Path | Surface |",
+    "|---|---|---|",
+    ...classifiedRows.map(entry =>
+      `| ${escapeMarkdownTableCell(entry.status)} | ${escapeMarkdownTableCell(entry.filePath)} | ${entry.classification} |`
+    ),
+    "",
+    `Summary: ${expectedCount} expected, ${outsideCount} outside expected (${classifiedRows.length} changed file(s) total).`
+  ].join("\n");
+}
+
 function globToRegExp(pattern: string): RegExp {
   let expression = "^";
   for (let index = 0; index < pattern.length; index++) {
@@ -181,30 +213,7 @@ export function renderChangedFileInventory(projectPath: string, options: Changed
 
   if (options.phase) {
     const surfacePatterns = phaseExpectedSurfacePatterns(options.phase);
-    const matchedRows = surfacePatterns.length > 0
-      ? rows.filter(entry => pathMatchesSurface(entry.filePath, surfacePatterns))
-      : rows;
-    const outsideCount = rows.length - matchedRows.length;
-
-    if (matchedRows.length === 0) {
-      return [
-        "## Controller Observed Changed Files",
-        "",
-        `No changed files outside .phasedev/** matched the current phase Expected Change Surface. ${outsideCount} changed file(s) outside the current phase surface were hidden from this phase-scoped inventory; use read-only repository evidence only if scope evidence is contradictory.`
-      ].join("\n");
-    }
-
-    return [
-      "## Controller Observed Changed Files",
-      "",
-      "| Status | Path |",
-      "|---|---|",
-      ...matchedRows.map(entry => `| ${escapeMarkdownTableCell(entry.status)} | ${escapeMarkdownTableCell(entry.filePath)} |`),
-      ...(outsideCount > 0 ? [
-        "",
-        `${outsideCount} changed file(s) outside the current phase Expected Change Surface were hidden from this phase-scoped inventory.`
-      ] : [])
-    ].join("\n");
+    return renderClassifiedInventory(rows, surfacePatterns);
   }
 
   return [

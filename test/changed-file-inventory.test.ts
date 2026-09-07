@@ -101,4 +101,68 @@ describe("changed-file-inventory boundary diffs", () => {
     const out = renderChangedFileInventory(repo);
     expect(out).toContain("No changed files outside .phasedev/**");
   });
+
+  it("phase-scoped inventory lists every changed file classified as expected or outside expected", () => {
+    const repo = makeGitRepo(); dirs.push(repo);
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/planned.ts"), "planned");
+    fs.writeFileSync(path.join(repo, "src/unplanned.ts"), "unplanned");
+    const base = gitCommitAll(repo, "base");
+    fs.writeFileSync(path.join(repo, "src/planned.ts"), "planned-v2");
+    fs.writeFileSync(path.join(repo, "src/unplanned.ts"), "unplanned-v2");
+
+    const phase = {
+      id: 1,
+      name: "Surface",
+      status: "in_progress" as const,
+      tasks: [],
+      rawContent: [
+        "### Expected Change Surface",
+        "",
+        "| Area / Path Pattern | Change Type | Ownership | Trace |",
+        "|---|---|---|---|",
+        "| `src/planned.ts` | update | API | R1, SC1, D1 |"
+      ].join("\n")
+    };
+
+    const out = renderChangedFileInventory(repo, { diffBase: base, phase });
+    expect(out).toContain("src/planned.ts");
+    expect(out).toContain("src/unplanned.ts");
+    expect(out).toContain("expected");
+    expect(out).toContain("outside expected");
+    expect(out).not.toContain("hidden from this phase-scoped inventory");
+    expect(out).not.toContain("were hidden");
+  });
+
+  it("phase-scoped inventory lists every file when all changes are outside expected surface", () => {
+    const repo = makeGitRepo(); dirs.push(repo);
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/only-outside.ts"), "one");
+    fs.writeFileSync(path.join(repo, "lib/extra.ts"), "two");
+    const base = gitCommitAll(repo, "base");
+    fs.writeFileSync(path.join(repo, "src/only-outside.ts"), "one-v2");
+    fs.writeFileSync(path.join(repo, "lib/extra.ts"), "two-v2");
+
+    const phase = {
+      id: 1,
+      name: "Surface",
+      status: "in_progress" as const,
+      tasks: [],
+      rawContent: [
+        "### Expected Change Surface",
+        "",
+        "| Area / Path Pattern | Change Type | Ownership | Trace |",
+        "|---|---|---|---|",
+        "| `src/planned.ts` | update | API | R1, SC1, D1 |"
+      ].join("\n")
+    };
+
+    const out = renderChangedFileInventory(repo, { diffBase: base, phase });
+    expect(out).toContain("src/only-outside.ts");
+    expect(out).toContain("lib/extra.ts");
+    expect(out).toContain("outside expected");
+    expect(out).not.toContain("No changed files outside .phasedev/** matched");
+    expect(out).not.toContain("hidden");
+  });
 });

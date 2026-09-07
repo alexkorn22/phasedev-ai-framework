@@ -21,9 +21,10 @@ Positive decision flow:
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
 2. Build the validation scope from {{validation_scope_sources}}.
 3. Verify the changed-file inventory using the controller-observed inventory provided in the phase prompt (`## Controller Observed Changed Files`):
-   a. The controller computes the exact changed-file scope for this validation phase against the appropriate diffBase and Expected Change Surface.
-   b. Use the controller-provided inventory directly as the list of target files to review.
-   c. If controller evidence is unavailable, inspect files directly from the phase's Expected Change Surface in `iteration_plan.md`. Exclude `.phasedev/**` from all reviews.
+   a. The controller computes the actual changed-file scope for this validation phase against the appropriate diffBase and classifies files against the iteration `Expected Change Surface` forecast when applicable.
+   b. Use the controller-provided inventory directly as the complete list of target files to review, including every file classified as outside expected.
+   c. `Expected Change Surface` is a forecast/traceability aid, not a hard allowlist; incidental outside-surface files are not automatic defects when they still satisfy approved requirements/design.
+   d. If controller evidence is unavailable, inspect files from the actual git diff for the validation scope. Exclude `.phasedev/**` from all reviews.
 4. Inspect every changed production/source/config/test file {{validation_changed_file_scope}}; for large scopes, chunk review by requirement, phase, or path pattern, inspect the most requirement-critical and security-sensitive files first, and keep a short in-memory checklist of files reviewed.
 5. Perform requirements conformance, code review, and security review passes against the approved requirements, design, implementation plan, actual changed files, and Check Evidence.
 6. Decide the verdict from the open finding set and coverage completeness, then write only the allowed artifact updates.
@@ -35,6 +36,7 @@ Context budget and stop condition:
 
 - Add a `MUST-FIX` finding with `Class = validation` only when the changed-file inventory cannot be verified from concrete read-only evidence, or when controller/git evidence contradicts the {{validation_inventory_blocker_scope}} and the contradiction cannot be resolved.
 - Requirements conformance pass: {{validation_requirements_pass}}.
+- Test-quality audit: verify Check Evidence quality, completeness, traceability, and that every actual changed file in the controller inventory is covered by instantiated Check Evidence or a recorded finding; uncovered changed files are `MUST-FIX` validation findings without rerunning tests.
 - Code review pass: review every changed production/source/config/test file outside `.phasedev/**`, including, where applicable to changed files, correctness, edge cases, error/empty states, UI layout/responsive overflow and interaction states, data mapping/normalization behavior, architecture/layer boundaries, public API/export surface, maintainability, and test gaps for changed behavior. Incidental technical edits (types, compiler/lint fixes, imports) directly caused by planned changes are acceptable and are not findings unless they introduce bugs or exceed scope.
 - Security review pass: review every changed file outside `.phasedev/**`, including, where applicable to changed files, user/input handling, output encoding/XSS, injection risks, authorization/data isolation, secret or environment exposure, unsafe network/file/process access, dangerous APIs, and dependency/config exposure.
 - If the requirements conformance pass, code review pass, or security review pass cannot be completed with sufficient evidence, add a `MUST-FIX` finding with `Class = validation`.
@@ -48,7 +50,7 @@ Context budget and stop condition:
 - completely ignore `.phasedev/**` when looking for implementation findings: do not diff, review, or report any files under `.phasedev/**` as change set, product code, PR scope, or finding source.
 - Use `.phasedev/changes/<active>` only as the read-only flow input contract: requirements, rules, approved design, plan, and previous validation history.
 - Tests and additional checks from the Implementation phase are considered already successful because Implementation cannot advance with failed, blocked, pending, or missing required check evidence.
-- do not treat passing or declared Implementation checks as a substitute for changed-file review coverage.
+- do not treat passing or declared Implementation checks as a substitute for changed-file review coverage or Check Evidence actual-file coverage audit.
 - Structure, column set, allowed values, and verdict/type — only from the embedded Artifact Build Contract. `phasedev check-validation` catches every structural violation with a specific error message; fix what it reports.
 - Before searching for new issues, read existing `validation_findings.md` if it exists and re-verify EVERY `resolved` row: check its Resolution evidence against the actual repository state. If the repair is real, leave the row untouched; if the defect is still present, reopen that row with `phasedev reopen-finding <id> --evidence <text>` using new concrete evidence from working code outside `.phasedev/**` — never add the same finding under a new ID.
 - The findings registry is append-only. Preserve every existing row, including `resolved` rows. Never delete rows, never rewrite existing Severity/Class/Iteration/Finding/Required Fix values, and never recreate the file from the embedded template. The controller compares the table against a baseline snapshot and blocks the phase if history was lost.

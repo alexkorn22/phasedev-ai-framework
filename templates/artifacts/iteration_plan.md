@@ -13,6 +13,8 @@ Check Evidence contract:
 - Checks and Check Evidence rows must be 100% automated and offline test/build commands.
 - Never place manual checks (`manual:*`), live external database commands, or interactive browser tests in an iteration's Checks or Check Evidence.
 - Criteria requiring manual, visual, or staging verification belong to Final Validation / release acceptance.
+- In `### Checks`, list required gate names only (`- unit`, `- phase`); do not copy concrete commands from `execution_contract.md`.
+- In `Check Evidence`, record the exact instantiated command executed for each gate plus selected targets and decisive output.
 -->
 
 # Implementation Plan
@@ -47,6 +49,8 @@ Check Evidence contract:
 
 ### Expected Change Surface
 
+Forecast the likely touched paths/patterns for traceability and review comparison. This is not a hard allowlist; actual diffs may include incidental supporting files when they still satisfy approved requirements/design.
+
 | Area / Path Pattern | Change Type | Ownership | Trace |
 |---|---|---|---|
 |  |  |  |  |
@@ -55,7 +59,7 @@ Check Evidence contract:
 
 ### Checks
 
-- unit: ``
+- unit
 
 Additional checks:
 

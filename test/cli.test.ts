@@ -4,9 +4,11 @@ import * as path from "path";
 import { getConfigValue, parseConfig, DEFAULT_CONFIG } from "../src/entities/config/config";
 import { loadConfig } from "../src/entities/config/config";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
+import { resolveRoute } from "../src/features/phase-control/flow-route";
 import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { renderSkillPolicy } from "../src/features/phase-control/skill-policy";
 import { renderValidationCommonContract } from "../src/features/phase-control/validation-common-contract";
+import { renderValidationRoleAllowlist, renderValidationRoleChecks, renderValidationRoleCompletion, renderValidationIterationStatusRule } from "../src/features/phase-control/validation-role-scope";
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
@@ -289,7 +291,13 @@ function runNext(args: string[] = []): string {
     }
   }
 
-  const result = getRoutePrompt(testTmpDir, config);
+  const route = resolveRoute(testTmpDir, undefined, config.blockingSeverity);
+  const validationRole = route.kind === "iteration" && route.phase === "iteration_validation"
+    ? "implementation-check" as const
+    : route.kind === "final_validation"
+      ? "implementation-check" as const
+      : undefined;
+  const result = getRoutePrompt(testTmpDir, config, validationRole ? { validationRole } : undefined);
   return result.prompt;
 }
 
@@ -719,7 +727,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("If a detail is missing but does not change approval scope");
     expect(output).toContain("choose the smallest conservative planning assumption");
     expect(output).toContain("Examples of acceptable conservative planning assumptions:");
-    expect(output).toContain("Use the test command already listed in `execution_contract.md` for the matching evidence type");
+    expect(output).toContain("Name the required gate (`unit` or `phase`) for the matching evidence type");
     expect(output).toContain("Examples of required planning blockers:");
     expect(output).toContain("Approved PRD and approved design disagree about a public contract");
     expect(output).toContain("If the missing answer would change what the user is approving");
@@ -750,16 +758,36 @@ describe("flow-cli state machine", () => {
     expect(result.exitCode).toBe(0);
     const planPrompt = fs.readFileSync(path.join(outDir, "prompts", "04-phase-3-plan.md"), "utf-8");
     const implementationPrompt = fs.readFileSync(path.join(outDir, "prompts", "05-phase-4-implementation.md"), "utf-8");
-    const phaseValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-phase-validation.md"), "utf-8");
-    const finalValidationPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-final-validation.md"), "utf-8");
+    const phaseCodeReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-code-review.md"), "utf-8");
+    const phaseSecurityReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-security-review.md"), "utf-8");
+    const phaseImplementationCheckPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-implementation-check.md"), "utf-8");
+    const finalCodeReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-code-review.md"), "utf-8");
+    const finalSecurityReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-security-review.md"), "utf-8");
+    const finalImplementationCheckPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-implementation-check.md"), "utf-8");
+    const phaseValidationAliasPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-phase-validation.md"), "utf-8");
+    const finalValidationAliasPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-final-validation.md"), "utf-8");
     const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-phase-5r-repair.md"), "utf-8");
-    const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ sourceProjectPath: string; workingProjectPath: string }>;
-    const phasePlanLink = phaseValidationPrompt.match(/\[iteration_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
-    const phaseFindingsLink = phaseValidationPrompt.match(/\[validation_findings\.md\]\((file:\/\/[^)]+)\)/)?.[1];
-    const phaseOutputPath = phaseValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
-    const phaseCheckProjectPath = phaseValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope iteration --iteration-id 1/)?.[1];
-    const finalOutputPath = finalValidationPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
-    const finalCheckProjectPath = finalValidationPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope final/)?.[1];
+    const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf-8")) as Array<{ file: string; phase: string; sourceProjectPath: string; workingProjectPath: string }>;
+    const manifestBasenames = manifest.map(entry => path.basename(entry.file));
+    const expectedRolePrompts = [
+      "06-phase-5a-code-review.md",
+      "06-phase-5a-security-review.md",
+      "06-phase-5a-implementation-check.md",
+      "07-phase-5b-code-review.md",
+      "07-phase-5b-security-review.md",
+      "07-phase-5b-implementation-check.md"
+    ];
+    for (const fileName of expectedRolePrompts) {
+      expect(manifestBasenames).toContain(fileName);
+      expect(manifest.find(entry => path.basename(entry.file) === fileName)?.phase).toMatch(/^(iteration_validation|final_validation)$/);
+    }
+    expect(manifestBasenames).toContain("06-phase-5a-phase-validation.md");
+    expect(manifestBasenames).toContain("07-phase-5b-final-validation.md");
+    const phasePlanLink = phaseImplementationCheckPrompt.match(/\[iteration_plan\.md\]\((file:\/\/[^)]+)\)/)?.[1];
+    const phaseOutputPath = phaseImplementationCheckPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
+    const phaseCheckProjectPath = phaseImplementationCheckPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope iteration --iteration-id 1/)?.[1];
+    const finalOutputPath = finalImplementationCheckPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
+    const finalCheckProjectPath = finalImplementationCheckPrompt.match(/phasedev check-validation --project-path "([^"]+)" --scope final/)?.[1];
     const repairOutputPath = repairPrompt.match(/- Output path: `([^`]+validation_findings\.md)`/)?.[1];
     const repairCheckProjectPath = repairPrompt.match(/phasedev check --project-path "([^"]+)"/)?.[1];
 
@@ -777,7 +805,9 @@ describe("flow-cli state machine", () => {
     expect(implementationPrompt).toContain("Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries");
     expect(implementationPrompt).toContain("do not implement future-iteration tasks from the orientation alone");
     expect(implementationPrompt).toContain("retrieve only the rows or sections referenced by current-iteration `R#`, `SC#`, `D#`, checks, and risk boundaries");
-    expect(implementationPrompt).toContain("Inspect repository files only after the current iteration scope is understood, and only files or narrow searches needed by the current iteration `Expected Change Surface`.");
+    expect(implementationPrompt).toContain("prioritizing actual changed files and paths named in the current `Expected Change Surface` forecast");
+    expect(implementationPrompt).toContain("is a forecast/traceability aid for planning and review, not a hard allowlist");
+    expect(implementationPrompt).toContain("refresh/inspect the actual git diff");
     expect(implementationPrompt).not.toContain("Read this stage prompt, then the linked artifacts in this order");
     expect(implementationPrompt).not.toContain("Treat the linked artifacts and current iteration excerpt as the first retrieval layer.");
     expect(implementationPrompt).toContain("Context budget and stop condition:");
@@ -785,81 +815,93 @@ describe("flow-cli state machine", () => {
     expect(implementationPrompt).toContain("Keep future iterations as boundary context only");
     expect(implementationPrompt).toContain("Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.");
     expect(planPrompt).toContain("Phase 4. Iteration Planning.");
-    expect(phaseValidationPrompt).toContain("Skill compliance: list applied skills in your response");
+    expect(phaseCodeReviewPrompt).toContain("Execution role: code-review");
+    expect(phaseSecurityReviewPrompt).toContain("Execution role: security-review");
+    expect(phaseImplementationCheckPrompt).toContain("Execution role: implementation-check");
+    expect(phaseCodeReviewPrompt).not.toContain("[execution_contract.md]");
+    expect(phaseSecurityReviewPrompt).not.toContain("[execution_contract.md]");
+    expect(phaseImplementationCheckPrompt).toContain("[execution_contract.md]");
+    expect(phaseCodeReviewPrompt).not.toContain("phasedev set-verdict");
+    expect(phaseSecurityReviewPrompt).not.toContain("phasedev set-verdict");
+    expect(phaseImplementationCheckPrompt).toContain("phasedev set-verdict");
+    expect(phaseCodeReviewPrompt).toContain("Skill compliance: list applied skills in your response");
     expect(implementationPrompt).toContain("Skill compliance: list applied skills in your response");
     expect(implementationPrompt).toContain("if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary");
     expect(implementationPrompt).toContain("if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking");
     expect(implementationPrompt).toContain("do not block on PRD/design coverage gaps outside the current iteration boundary");
     expect(implementationPrompt).toContain("use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`");
-    expect(implementationPrompt).toContain("if checks fail and the failure is causally related to the current iteration change set, fix only inside the approved current-iteration surface and repeat the affected checks");
-    expect(implementationPrompt).toContain("if a check failure is unrelated to the current iteration, external/environmental, or outside the approved surface, do not repair outside scope");
+    expect(implementationPrompt).toContain("if checks fail and the failure is causally related to the current iteration change set, fix the causally related files and repeat the affected checks");
+    expect(implementationPrompt).toContain("if a check failure is unrelated to the current iteration, external/environmental, or blocked by an approved boundary you cannot change in this phase, do not repair outside approved scope");
     expect(implementationPrompt).toContain("if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the iteration heading `[~]`");
     expect(implementationPrompt).toContain("do not substitute a different route check");
     expect(implementationPrompt).toContain("--project-path");
     expect(implementationPrompt).toContain("Final response is allowed only after the self-check passes or the current iteration is honestly recorded as `blocked`.");
     expect(implementationPrompt).toContain("Implementation ready: Iteration 1: Prompt Generation");
     expect(implementationPrompt).not.toContain("{{artifact_build_contract}}");
-    expect(phaseValidationPrompt).toContain("Retrieval order:");
-    expect(phaseValidationPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
-    expect(phaseValidationPrompt).toContain("Context budget and stop condition:");
-    expect(phaseValidationPrompt).toContain("Verify the changed-file inventory using the controller-observed inventory");
-    expect(phaseValidationPrompt).toContain("The controller computes the exact changed-file scope for this validation phase");
-    expect(phaseValidationPrompt).toContain("Use the controller-provided inventory directly as the list of target files to review");
-    expect(phaseValidationPrompt).toContain("including, where applicable to changed files, user/input handling");
-    expect(phaseValidationPrompt).toContain("Preserve every existing row, including `resolved` rows");
-    expect(phaseValidationPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
-    expect(phaseValidationPrompt).toContain("verdict: <set_after_review>");
-    expect(phaseValidationPrompt).not.toContain("verdict: ready\ntype: iteration\ndate:");
-    expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(phaseCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
+    expect(phaseImplementationCheckPrompt).toContain("Retrieval order:");
+    expect(phaseImplementationCheckPrompt).toContain("If only a generated prompt bundle is being evaluated and its linked sandbox files are unavailable, use the embedded artifact contract and current phase label in this prompt");
+    expect(phaseImplementationCheckPrompt).toContain("Context budget and stop condition:");
+    expect(phaseImplementationCheckPrompt).toContain("Verify the changed-file inventory using the controller-observed inventory");
+    expect(phaseImplementationCheckPrompt).toContain("classifies files against the iteration `Expected Change Surface` forecast");
+    expect(phaseImplementationCheckPrompt).toContain("including every file classified as outside expected");
+    expect(phaseSecurityReviewPrompt).toContain("user/input handling");
+    expect(phaseImplementationCheckPrompt).toContain("Preserve every existing row, including `resolved` rows");
+    expect(phaseImplementationCheckPrompt).toContain("IDs are allocated by `add-finding` automatically (next `F<number>`)");
+    expect(phaseImplementationCheckPrompt).toContain("verdict: <set_after_review>");
+    expect(phaseImplementationCheckPrompt).not.toContain("verdict: ready\ntype: iteration\ndate:");
+    expect(phaseOutputPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-implementation-check", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(phaseCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "06-phase-5a-implementation-check"));
     expect(phasePlanLink).toBeTruthy();
     const phasePlanPath = phasePlanLink!.replace(/^file:\/\//, "");
-    expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
+    expect(phasePlanPath).toContain(path.join(outDir, "artifact-snapshots", "06-phase-5a-implementation-check"));
     const phasePlanSnapshot = fs.readFileSync(phasePlanPath, "utf-8");
     expect(phasePlanSnapshot).toContain("## Iteration 1: Prompt Generation [~]");
     expect(phasePlanSnapshot).not.toContain("## Iteration 1: Prompt Generation [x]");
-    expect(phaseFindingsLink).toBeTruthy();
-    const phaseFindingsPath = phaseFindingsLink!.replace(/^file:\/\//, "");
-    expect(phaseFindingsPath).toContain(path.join(outDir, "artifact-snapshots", "06-phase-5a-phase-validation"));
-    if (fs.existsSync(phaseFindingsPath)) {
-      expect(fs.readFileSync(phaseFindingsPath, "utf-8")).toContain("type: iteration");
-      expect(fs.readFileSync(phaseFindingsPath, "utf-8")).not.toContain("type: final");
+    if (fs.existsSync(phaseOutputPath!)) {
+      expect(fs.readFileSync(phaseOutputPath!, "utf-8")).toContain("type: iteration");
+      expect(fs.readFileSync(phaseOutputPath!, "utf-8")).not.toContain("type: final");
     }
-    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation"));
-    expect(phaseValidationPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md")}`);
-    expect(phaseValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).toContain("Phase 6B. Final Validation.");
-    expect(finalValidationPrompt).toContain("Retrieval order:");
-    expect(finalValidationPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
-    expect(finalValidationPrompt).toContain("scope = full change");
-    expect(finalValidationPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `iteration_plan.md` all iterations");
-    expect(finalValidationPrompt).toContain("Build the validation scope from the full approved PRD `Intent`, every `R#`, every `SC#`");
-    expect(finalValidationPrompt).toContain("Inspect every changed production/source/config/test file in the full change set");
-    expect(finalValidationPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
-    expect(finalValidationPrompt).toContain("do not force `repair_required`");
-    expect(finalValidationPrompt).toContain("run the `full` gate command from `execution_contract.md` exactly once");
-    expect(finalValidationPrompt).toContain("`verdict: ready` or `verdict: ready_with_risks` is allowed only when the full gate run passed");
-    expect(finalValidationPrompt).toContain("Final Validation does not mark iterations as `[x]`");
-    expect(finalValidationPrompt).toContain("type: final");
-    expect(finalValidationPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
-    expect(finalValidationPrompt).not.toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
-    expect(finalValidationPrompt).not.toContain("- repaired: use only in Repair Loop after actual blocking findings are resolved");
-    expect(finalValidationPrompt).toContain("phasedev check-validation --project-path");
-    expect(finalValidationPrompt).toContain("--scope final");
-    expect(finalValidationPrompt).toContain("snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
-    expect(finalValidationPrompt).toContain("during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead");
-    expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-final-validation"));
+    expect(phaseImplementationCheckPrompt).not.toContain(path.join(outDir, "artifact-snapshots", "07-phase-5b-implementation-check"));
+    expect(phaseImplementationCheckPrompt).not.toContain(`file://${path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "iteration_plan.md")}`);
+    expect(phaseImplementationCheckPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalImplementationCheckPrompt).toContain("Phase 6B. Final Validation.");
+    expect(finalImplementationCheckPrompt).toContain("Execution role: implementation-check");
+    expect(finalCodeReviewPrompt).toContain("Execution role: code-review");
+    expect(finalSecurityReviewPrompt).toContain("Execution role: security-review");
+    expect(finalCodeReviewPrompt).not.toContain("[execution_contract.md]");
+    expect(finalSecurityReviewPrompt).not.toContain("[execution_contract.md]");
+    expect(finalImplementationCheckPrompt).toContain("execution_contract.md");
+    expect(finalCodeReviewPrompt).not.toContain("run the `full` gate command");
+    expect(finalImplementationCheckPrompt).toContain("Retrieval order:");
+    expect(finalImplementationCheckPrompt).toContain("Start from the approved PRD target state, requirements, success criteria, and risk boundaries");
+    expect(finalImplementationCheckPrompt).toContain("scope = full change");
+    expect(finalImplementationCheckPrompt).toContain("Read linked flow artifacts in this order: `prd.md`, `architecture/design.md`, `iteration_plan.md` all iterations");
+    expect(finalImplementationCheckPrompt).toContain("Build the validation scope from the full approved PRD `Intent`, every `R#`, every `SC#`");
+    expect(finalImplementationCheckPrompt).toContain("Audit every actual changed production/source/config/test file in the full change set");
+    expect(finalImplementationCheckPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
+    expect(finalImplementationCheckPrompt).toContain("do not force `repair_required`");
+    expect(finalImplementationCheckPrompt).toContain("run the `full` gate command exactly once: `bun test`");
+    expect(finalImplementationCheckPrompt).toContain("is allowed only when this full gate run passed");
+    expect(finalImplementationCheckPrompt).toContain("type: final");
+    expect(finalImplementationCheckPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
+    expect(finalImplementationCheckPrompt).not.toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
+    expect(finalImplementationCheckPrompt).not.toContain("- repaired: use only in Repair Loop after actual blocking findings are resolved");
+    expect(finalImplementationCheckPrompt).toContain("phasedev check-validation --project-path");
+    expect(finalImplementationCheckPrompt).toContain("--scope final");
+    expect(finalImplementationCheckPrompt).toContain("snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
+    expect(finalImplementationCheckPrompt).toContain("during live `phasedev phase`, use the active change folder and Output path provided by the live prompt instead");
+    expect(finalOutputPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-implementation-check", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalCheckProjectPath).toBe(path.join(outDir, "artifact-snapshots", "07-phase-5b-implementation-check"));
     expect(finalOutputPath).toBe(path.join(finalCheckProjectPath!, ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
-    expect(finalValidationPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
-    expect(finalValidationPrompt).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current iteration");
-    expect(finalValidationPrompt).not.toContain("Build the validation scope from the current iteration `Goal`");
-    expect(finalValidationPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
-    expect(finalValidationPrompt).not.toContain("current-iteration artifacts, current-iteration changed files");
+    expect(finalImplementationCheckPrompt).not.toContain(`phasedev check-validation --project-path "${path.join(outDir, "sandbox-project")}" --scope final`);
+    expect(finalImplementationCheckPrompt).not.toContain(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"));
+    expect(finalImplementationCheckPrompt).not.toContain("Read linked flow artifacts in this order: `iteration_plan.md` current iteration");
+    expect(finalImplementationCheckPrompt).not.toContain("Build the validation scope from the current iteration `Goal`");
+    expect(finalImplementationCheckPrompt).not.toContain("Inspect every changed production/source/config/test file tied to the current iteration");
+    expect(finalImplementationCheckPrompt).not.toContain("current-iteration artifacts, current-iteration changed files");
     expect(repairPrompt).toContain("Phase 6R. Finding Repair.");
     expect(repairPrompt).toContain("Ordered workflow:");
-    expect(repairPrompt).toContain("Read the Current Repair Queue, then open the full findings registry only to preserve/update rows");
+    expect(repairPrompt).toContain("Read the Current Repair Queue and the controller-observed worktree inventory above");
     expect(repairPrompt).toContain("Context budget and stop condition:");
     expect(repairPrompt).toContain("Stop retrieval when every queued finding ID has a concrete repair target");
     expect(repairPrompt).toContain("preserve all existing registry rows that are not in the current blocking queue");
@@ -888,6 +930,22 @@ describe("flow-cli state machine", () => {
     expect(fs.existsSync(path.join(outDir, "sandbox-project", ".phasedev", "changes", "generated-agent-prompts", "validation_findings.md"))).toBe(true);
     expect(manifest[0].sourceProjectPath).toBe(testTmpDir);
     expect(manifest[0].workingProjectPath).toBe(path.join(outDir, "sandbox-project"));
+
+    for (const aliasPrompt of [phaseValidationAliasPrompt, finalValidationAliasPrompt]) {
+      expect(aliasPrompt).toContain("compatibility alias");
+      expect(aliasPrompt).toContain("--role");
+      expect(aliasPrompt).toContain("code-review");
+      expect(aliasPrompt).toContain("security-review");
+      expect(aliasPrompt).toContain("implementation-check");
+      expect(aliasPrompt).not.toContain("Phase contract:");
+      expect(aliasPrompt).not.toContain("Common Validation Contract");
+      expect(aliasPrompt).not.toContain("run the `full` gate command");
+      expect(aliasPrompt).not.toContain("phasedev set-verdict");
+    }
+    expect(phaseValidationAliasPrompt).toContain("06-phase-5a-code-review.md");
+    expect(phaseValidationAliasPrompt).toContain("06-phase-5a-implementation-check.md");
+    expect(finalValidationAliasPrompt).toContain("07-phase-5b-security-review.md");
+    expect(finalValidationAliasPrompt).toContain("07-phase-5b-implementation-check.md");
   });
 
   test("check reports invalid fresh PRD without rendering the next prompt", () => {
@@ -1591,11 +1649,8 @@ No iteration headings yet.
 
     expect(output).toContain("Phase 6B. Final Validation.");
     expect(output).not.toContain("Phase 6A. Iteration Validation.");
-    expect(output).not.toContain("bun test full");
-    expect(output).toContain("run the `full` gate command from `execution_contract.md` exactly once");
-    expect(output).toContain("Intent");
-    expect(output).toContain("Requirements");
-    expect(output).toContain("Success Criteria");
+    expect(output).toContain("run the `full` gate command exactly once: `bun test full`");
+    expect(output).toContain("approved PRD target state, requirements, success criteria");
     expect(output).toContain("## Controller Observed Changed Files");
     expect(output).toContain(`phasedev check-validation --project-path "${testTmpDir}" --scope final`);
   });
@@ -2057,7 +2112,12 @@ describe("flow templates", () => {
 
   function readValidationTemplate(name: "phase6a_iteration_validation.md" | "phase6b_final_validation.md"): string {
     const stage = name === "phase6b_final_validation.md" ? "final_validation" : "iteration_validation";
-    return readTemplate(name).replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)));
+    return readTemplate(name)
+      .replace("{{validation_common_contract}}", renderValidationCommonContract(stage, parseConfig(`stages: {}`)))
+      .replace("{{validation_role_checks}}", renderValidationRoleChecks(stage))
+      .replace("{{validation_role_allowlist}}", renderValidationRoleAllowlist(stage))
+      .replace("{{validation_role_completion}}", renderValidationRoleCompletion(stage))
+      .replace("{{validation_iteration_status_rule}}", renderValidationIterationStatusRule(stage));
   }
 
   test("phase templates carry {{skill_policy}} before Input, and {{skill_compliance_line}} where configured", () => {
@@ -2140,7 +2200,20 @@ describe("flow templates", () => {
     ];
 
     for (const [templateName, fragments] of expectations) {
-      const template = readTemplate(templateName);
+      let template = readTemplate(templateName);
+      if (templateName === "phase6a_iteration_validation.md") {
+        template = template
+          .replace("{{validation_role_allowlist}}", renderValidationRoleAllowlist("iteration_validation"))
+          .replace("{{validation_role_checks}}", renderValidationRoleChecks("iteration_validation"))
+          .replace("{{validation_role_completion}}", renderValidationRoleCompletion("iteration_validation"))
+          .replace("{{validation_iteration_status_rule}}", renderValidationIterationStatusRule("iteration_validation"));
+      }
+      if (templateName === "phase6b_final_validation.md") {
+        template = template
+          .replace("{{validation_role_allowlist}}", renderValidationRoleAllowlist("final_validation"))
+          .replace("{{validation_role_checks}}", renderValidationRoleChecks("final_validation"))
+          .replace("{{validation_role_completion}}", renderValidationRoleCompletion("final_validation"));
+      }
       expect(template).toContain("Allowed persistent artifacts for this phase");
       for (const fragment of fragments) {
         expect(template).toContain(fragment);

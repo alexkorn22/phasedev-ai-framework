@@ -500,9 +500,16 @@ Test fixture only.
 - [ ] 2.1 Build page
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("iteration_validation");
+    expect(route.blocked).toBe(true);
+    expect(route.prompt).toContain("Allowed roles:");
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
+    expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
@@ -535,10 +542,10 @@ Test fixture only.
 - [ ] 2.1 Build page
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
-    expect(result.prompt).toContain("commit the iteration");
+    expect(result.prompt).toContain("from `[~]` to `[x]`");
   });
 
   test("completed single-phase route reports phase validation stage", () => {
@@ -549,7 +556,12 @@ Test fixture only.
 - [x] 1.1 Implement endpoint
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("iteration_validation");
+    expect(route.blocked).toBe(true);
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
@@ -652,7 +664,7 @@ Complete API work.
     expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
-  test("current phase implementation prompt uses required phase check commands", () => {
+  test("current phase implementation blocks when iteration checks list full gate", () => {
     setupChange(`
 # Plan
 
@@ -680,8 +692,9 @@ Complete API work.
     const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
-    expect(result.prompt).toContain("- full: `bun test full`");
-    expect(result.prompt).not.toContain("- unit: `bun test unit`");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("full");
+    expect(result.prompt).not.toContain("Phase 5. Implementation.");
   });
 
   test("completed tasks with stale required check command evidence stay in implementation", () => {
@@ -726,7 +739,13 @@ Complete API work.
       findings: validationFindings("ready", "iteration")
     });
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("final_validation");
+    expect(route.blocked).toBe(true);
+    expect(route.prompt).toContain("Allowed roles:");
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("final_validation");
     expect(result.prompt).toContain("Phase 6B. Final Validation.");
@@ -3058,7 +3077,52 @@ Test fixture only.
 
       expect(result.blocked).toBe(true);
       expect(result.prompt).toContain("phasedev sync-state");
+      expect(result.prompt).toContain('artifacts resolve to "finding_repair"');
+      expect(result.prompt).toContain('phasedev phase --change "sample-change"');
+      expect(result.prompt).not.toContain("--role");
       expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    });
+
+    test("forward deadlock recovery uses role-scoped phase when reconciled target is final_validation", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings(
+          "repaired",
+          "final",
+          "| F1 | resolved | MUST-FIX | implementation | 1 | Fixed issue. | Resolved with test. |\n"
+        )
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({
+          activePhase: "finding_repair",
+          activeIteration: null,
+          repairCycleCount: 1,
+          findingsBaseline: {
+            rows: [{
+              id: "F1",
+              status: "resolved",
+              severity: "NICE-TO-HAVE",
+              className: "implementation",
+              iteration: "1",
+              finding: "Fixed issue.",
+              requiredFix: "Resolved with test."
+            }]
+          }
+        }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(true);
+      expect(result.prompt).toContain('artifacts resolve to "final_validation"');
+      expect(result.prompt).toContain('phasedev phase --change "sample-change" --role <name>');
+      expect(result.prompt).not.toMatch(/then run `phasedev phase`\./);
     });
 
     test("advance-pending same-rank drift: getPhasePrompt is not blocked and still renders the iteration_validation contract", () => {
@@ -3072,7 +3136,7 @@ Test fixture only.
       });
       writeState(changeDir, "iteration_validation", 1);
 
-      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "implementation-check");
 
       expect(result.blocked).toBe(false);
       expect(result.prompt).toContain("Phase 6A. Iteration Validation.");

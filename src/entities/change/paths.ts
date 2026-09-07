@@ -12,6 +12,8 @@ export interface ChangePaths {
   findingsPath: string;
   statePath: string;
   worklogPath: string;
+  runtimeDir: string;
+  executionReceiptsPath: string;
 }
 
 export function buildChangePaths(changeDir: string): ChangePaths {
@@ -24,7 +26,9 @@ export function buildChangePaths(changeDir: string): ChangePaths {
     iterationPlanPath: path.join(changeDir, "iteration_plan.md"),
     findingsPath: path.join(changeDir, "validation_findings.md"),
     statePath: path.join(changeDir, "state.json"),
-    worklogPath: path.join(changeDir, "worklog.md")
+    worklogPath: path.join(changeDir, "worklog.md"),
+    runtimeDir: path.join(changeDir, "runtime"),
+    executionReceiptsPath: path.join(changeDir, "runtime", "execution_receipts.json")
   };
 }
 

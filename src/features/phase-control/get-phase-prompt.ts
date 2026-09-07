@@ -8,6 +8,7 @@ import { renderArtifactContract } from "./artifact-contract";
 import { renderChangedFileInventory } from "./changed-file-inventory";
 import { toFileUrl } from "./prompt-formatters";
 import { formatPhaseExcerpt, formatPlanMap } from "./prompt-formatters";
+import { Iteration } from "../../entities/iteration-plan/types";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { Prompt } from "../../entities/phase/types";
@@ -25,7 +26,16 @@ import { parseCurrentValidationFindings } from "../../entities/validation-findin
 import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 import { escapeMarkdownTableCell } from "../../shared/markdown/table";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
-import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, finalValidationArtifactContract, renderValidationFindingsTemplate, implementationPlanArtifactContract, VALIDATION_FINDINGS_CANONICAL_FILL_RULES, taskContextBlock, renderKnowledgeContext } from "./prompt-render-helpers";
+import {
+  finalValidationArtifactContract,
+  renderValidationFindingsTemplate,
+  VALIDATION_FINDINGS_CANONICAL_FILL_RULES
+} from "./validation-findings-contract";
+import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, implementationPlanArtifactContract, taskContextBlock, renderKnowledgeContext, renderRepairCheckCommandsOrBlocker } from "./prompt-render-helpers";
+import { parseRepairFindingScope, TEST_TARGETS_PLACEHOLDER } from "../../entities/test-commands/resolve-check-commands";
+import { testCommandBlocker, validationRoleBlocker, phaseRecoveryCommand } from "./prompt-blockers";
+import { isValidationPhaseRole, ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
+import { renderRoleScopedValidationFindingsContract } from "./validation-role-scope";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
   const advanceCommand = changeName === undefined ? "phasedev advance" : `phasedev advance --change ${shellQuote(changeName)}`;
@@ -49,12 +59,14 @@ function artifactContractSimple(
   selfCheckCommand: string,
   date = todayIsoDate(),
   selfCheckFailureGuidance?: string,
-  includeSelfCheck?: boolean
+  includeSelfCheck?: boolean,
+  templateVariables?: Record<string, string>
 ): string {
   return renderArtifactContract({
     artifactId,
     resolvedOutputPath,
     templateName,
+    templateVariables,
     selfCheckCommand,
     selfCheckFailureGuidance,
     includeSelfCheck,
@@ -82,7 +94,19 @@ function validationFindingsContract(findingsPath: string, projectPath: string, b
   });
 }
 
-// ── Render Functions ───────────────────────────────────────
+function iterationScopedChangedFileInventory(
+  projectPath: string,
+  paths: ReturnType<typeof buildChangePaths>,
+  iteration: Iteration
+): string {
+  const log = readCommitLog(paths.statePath);
+  const diffBase = log ? iterationDiffBase(log, iteration.id) ?? undefined : undefined;
+  return renderChangedFileInventory(projectPath, { phase: iteration, diffBase });
+}
+
+function repairWorktreeChangedFileInventory(projectPath: string): string {
+  return renderChangedFileInventory(projectPath);
+}
 
 export function renderChangeIntake(projectPath: string, config: Config, activeChangePath: string | null, changeName?: string): string {
   const date = todayIsoDate();
@@ -94,8 +118,18 @@ export function renderChangeIntake(projectPath: string, config: Config, activeCh
   return renderPhaseTemplate("change_intake", "phase1_change_intake", {
     date,
     project_path: projectPath,
+    test_targets_placeholder: TEST_TARGETS_PLACEHOLDER,
     prd_artifact_contract: artifactContractSimple("prd.md", path.join(changeRoot, "prd.md"), "artifacts/prd", selfCheckCommand, date, undefined, false),
-    rules_artifact_contract: artifactContractSimple("execution_contract.md", path.join(changeRoot, "execution_contract.md"), "artifacts/execution_contract", selfCheckCommand, date, undefined, false),
+    rules_artifact_contract: artifactContractSimple(
+      "execution_contract.md",
+      path.join(changeRoot, "execution_contract.md"),
+      "artifacts/execution_contract",
+      selfCheckCommand,
+      date,
+      undefined,
+      false,
+      { test_targets_placeholder: TEST_TARGETS_PLACEHOLDER }
+    ),
     self_check_command: selfCheckCommand
   }, config) + taskContext;
 }
@@ -169,7 +203,9 @@ export function renderImplementation(projectPath: string, config: Config, paths:
     phase_id: `Iteration ${currentPhase.id}: ${currentPhase.name}`,
     plan_map: formatPlanMap(plan, currentPhase.id),
     phase_excerpt: formatPhaseExcerpt(currentPhase),
+    controller_changed_files_inventory: iterationScopedChangedFileInventory(projectPath, paths, currentPhase),
     test_command: testCommand,
+    test_targets_placeholder: TEST_TARGETS_PLACEHOLDER,
     self_check_command: flowCheckCommand(projectPath, changeName),
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
@@ -178,7 +214,7 @@ export function renderImplementation(projectPath: string, config: Config, paths:
   }, config);
 }
 
-export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number, changeName?: string): string | Prompt {
+export function renderIterationValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, activeIterationId: number, changeName?: string, role?: ValidationPhaseRole): string | Prompt {
   const plan = parsePlan(paths.iterationPlanPath);
   const currentPhase = plan.find(p => p.id === activeIterationId) ?? null;
   const urls = urlsFor(paths);
@@ -194,6 +230,17 @@ export function renderIterationValidation(projectPath: string, config: Config, p
   }
 
   const phaseLabel = `Iteration ${currentPhase.id}: ${currentPhase.name}`;
+  const findingsContract = role === undefined
+    ? validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName, currentPhase.id)
+    : renderRoleScopedValidationFindingsContract({
+      phase: "iteration_validation",
+      findingsPath: paths.findingsPath,
+      projectPath,
+      blockingSeverity: config.blockingSeverity,
+      changeName,
+      iterationId: currentPhase.id,
+      role
+    });
 
   return renderPhaseTemplate("iteration_validation", "phase6a_iteration_validation", {
     phase_id: phaseLabel,
@@ -210,12 +257,38 @@ export function renderIterationValidation(projectPath: string, config: Config, p
         return log ? iterationDiffBase(log, currentPhase.id) ?? undefined : undefined;
       })()
     }),
-    validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName, currentPhase.id)
-  }, config);
+    validation_findings_artifact_contract: findingsContract
+  }, config, {
+    validationRole: role,
+    pathTokens: {
+      plan_path: urls.plan_path,
+      findings_path: urls.findings_path,
+      prd_path: urls.prd_path,
+      rules_path: urls.rules_path,
+      design_path: urls.design_path
+    }
+  });
 }
 
-export function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
+export function renderFinalValidation(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string, role?: ValidationPhaseRole): string | Prompt {
   const urls = urlsFor(paths);
+  const testCommands = parseTestCommands(paths.executionContractPath).commands;
+  if (role === "implementation-check" && testCommands.full === undefined) {
+    return testCommandBlocker("final_validation", paths.executionContractPath, ["full"]);
+  }
+
+  const fullGateCommand = testCommands.full ?? "";
+  const findingsContract = role === undefined
+    ? finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
+    : renderRoleScopedValidationFindingsContract({
+      phase: "final_validation",
+      findingsPath: paths.findingsPath,
+      projectPath,
+      blockingSeverity: config.blockingSeverity,
+      changeName,
+      role
+    });
+
   return renderPhaseTemplate("final_validation", "phase6b_final_validation", {
     prd_path: urls.prd_path,
     rules_path: urls.rules_path,
@@ -226,20 +299,54 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     controller_changed_files_inventory: renderChangedFileInventory(projectPath, {
       diffBase: readCommitLog(paths.statePath)?.start ?? undefined
     }),
-    validation_findings_artifact_contract: finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
-  }, config);
+    validation_findings_artifact_contract: findingsContract
+  }, config, {
+    validationRole: role,
+    pathTokens: {
+      plan_path: urls.plan_path,
+      findings_path: urls.findings_path,
+      prd_path: urls.prd_path,
+      rules_path: urls.rules_path,
+      design_path: urls.design_path
+    },
+    fullGateCommand
+  });
 }
 
-export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string {
+function repairFindingScope(findingsPath: string, blockingSeverity: BlockingSeverity) {
+  if (!fs.existsSync(findingsPath)) {
+    return { iterationIds: [], hasFinalScopeFindings: false };
+  }
+
+  const findings = parseCurrentValidationFindings(findingsPath, blockingSeverity);
+  return parseRepairFindingScope(findings);
+}
+
+export function renderFindingRepair(projectPath: string, config: Config, paths: ReturnType<typeof buildChangePaths>, changeName?: string): string | Prompt {
+  const plan = parsePlan(paths.iterationPlanPath);
+  const testCommands = parseTestCommands(paths.executionContractPath).commands;
+  const repairScope = repairFindingScope(paths.findingsPath, config.blockingSeverity);
+  const repairTestCommands = renderRepairCheckCommandsOrBlocker(
+    plan,
+    testCommands,
+    repairScope,
+    paths.executionContractPath
+  );
+  if (typeof repairTestCommands !== "string") {
+    return repairTestCommands;
+  }
+
   const urls = urlsFor(paths);
   return renderPhaseTemplate("finding_repair", "phase6r_finding_repair", {
     repair_queue: formatRepairQueue(paths.findingsPath, config.blockingSeverity),
+    controller_changed_files_inventory: repairWorktreeChangedFileInventory(projectPath),
     findings_path: urls.findings_path,
     plan_path: urls.plan_path,
     design_path: urls.design_path,
     prd_path: urls.prd_path,
     research_path: urls.research_path,
     rules_path: urls.rules_path,
+    repair_test_commands: repairTestCommands,
     validation_findings_artifact_contract: validationFindingsContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
   }, config);
 }
@@ -253,11 +360,16 @@ export function renderArchiveContract(projectPath: string, activeChangePath: str
 
 /**
  * Get the contract for the currently active phase.
- * Pure read-only: never mutates state. The only blocker it can return is the
- * missing-test-command blocker for implementation, because that contract
- * cannot be rendered without the commands from execution_contract.md.
+ * Pure read-only: never mutates state. May return blockers when a phase
+ * contract cannot be rendered (missing execution_contract gates, invalid
+ * iteration Checks such as `full`, validation role requirements, etc.).
  */
-export function getPhasePrompt(projectPath: string, config: Config = loadConfig(), changeName?: string): Prompt {
+export function getPhasePrompt(
+  projectPath: string,
+  config: Config = loadConfig(),
+  changeName?: string,
+  role?: string
+): Prompt {
   const state = loadFlowState(projectPath, changeName);
   if (!state) {
     return {
@@ -303,6 +415,7 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
   }
 
   const paths = buildChangePaths(changeDir);
+  const resolvedChangeName = changeName ?? path.basename(changeDir);
 
   if (
     route.phase !== state.activePhase &&
@@ -313,11 +426,26 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       phase: activePhase,
       prompt: [
         `[PHASEDEV] BLOCKED: state.json is locked at "${state.activePhase}" but that phase cannot pass its exit gate; the artifacts resolve to "${route.phase}".`,
-        `Recovery: run \`phasedev sync-state\` to reconcile state.json forward to "${route.phase}", then run \`phasedev phase\`.`
+        `Recovery: run \`phasedev sync-state\` to reconcile state.json forward to "${route.phase}", then run \`${phaseRecoveryCommand(route.phase, resolvedChangeName)}\`.`
       ].join("\n"),
       blocked: true,
       reason: "State is deadlocked behind a failing exit gate"
     };
+  }
+
+  const validationRole = role === undefined || role === ""
+    ? undefined
+    : isValidationPhaseRole(role)
+      ? role
+      : null;
+
+  if (activePhase === "iteration_validation" || activePhase === "final_validation") {
+    if (validationRole === undefined) {
+      return validationRoleBlocker(activePhase, undefined, resolvedChangeName);
+    }
+    if (validationRole === null) {
+      return validationRoleBlocker(activePhase, role, resolvedChangeName);
+    }
   }
 
   let promptResult: Prompt;
@@ -379,7 +507,14 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       if (activeIteration === null) {
         return missingActiveIterationBlocker("iteration_validation", changeName);
       }
-      const rendered = renderIterationValidation(projectPath, config, paths, activeIteration, changeName);
+      const rendered = renderIterationValidation(
+        projectPath,
+        config,
+        paths,
+        activeIteration,
+        changeName,
+        validationRole ?? undefined
+      );
       if (typeof rendered !== "string") {
         return rendered;
       }
@@ -392,23 +527,33 @@ export function getPhasePrompt(projectPath: string, config: Config = loadConfig(
       break;
     }
 
-    case "final_validation":
+    case "final_validation": {
+      const rendered = renderFinalValidation(projectPath, config, paths, changeName, validationRole ?? undefined);
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
       promptResult = {
         command: "phase",
         phase: activePhase,
-        prompt: renderFinalValidation(projectPath, config, paths, changeName),
+        prompt: rendered,
         blocked: false
       };
       break;
+    }
 
-    case "finding_repair":
+    case "finding_repair": {
+      const rendered = renderFindingRepair(projectPath, config, paths, changeName);
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
       promptResult = {
         command: "phase",
         phase: activePhase,
-        prompt: renderFindingRepair(projectPath, config, paths, changeName),
+        prompt: rendered,
         blocked: false
       };
       break;
+    }
 
     case "archive":
       promptResult = {

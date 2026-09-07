@@ -24,25 +24,30 @@ Ordered workflow:
 2. Use the full-plan orientation to understand sequence, dependencies, completed prior work, and future boundaries; do not implement future-iteration tasks from the orientation alone.
 3. Read [prd.md]({{prd_path}}), [execution_contract.md]({{rules_path}}), and [design.md]({{design_path}}) only for the concrete `R#`, `SC#`, `D#`, checks, risk boundaries, and paths referenced by the current iteration, plus any directly referenced prior-iteration contract needed to avoid conflicting with already completed work.
 4. Identify the current iteration `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, `Check Evidence`, related `R#`, related `SC#`, approved `Risk boundaries`, and any prior-iteration boundary that the current iteration must preserve.
-5. Inspect repository files only after the current iteration scope is understood, and only files or narrow searches needed by the current iteration `Expected Change Surface`.
-6. Implement the smallest change set that completes the current iteration tasks, then run checks, update current-iteration task checkboxes and `Check Evidence`, run the controller self-check, and stop.
+5. Review the controller-observed changed-file inventory below as a snapshot at phase render time; immediately before selecting `{{test_targets_placeholder}}` and writing `Check Evidence`, refresh/inspect the actual git diff and reconcile it with the inventory.
+6. Inspect repository files after the current iteration scope is understood, prioritizing actual changed files and paths named in the current `Expected Change Surface` forecast.
+7. Implement the smallest change set that completes the current iteration tasks, then run checks, update current-iteration task checkboxes and `Check Evidence`, run the controller self-check, and stop.
+
+{{controller_changed_files_inventory}}
 
 Context budget and stop condition:
 - Treat the embedded full-plan orientation plus current iteration excerpt as the primary retrieval layer; do not load the full implementation plan unless the write-back or ambiguity exception above applies.
 - Keep future iterations as boundary context only. They can stop accidental overreach, but they do not authorize implementation or broad repository inspection.
 - For PRD/design/rules evidence, retrieve only the rows or sections referenced by current-iteration `R#`, `SC#`, `D#`, checks, and risk boundaries.
-- For repository evidence, start with the paths/patterns named in the current `Expected Change Surface`; use broad searches only when a named surface needs path discovery, and keep them minimal.
+- For repository evidence, start with actual changed files from the controller inventory and paths/patterns named in the current `Expected Change Surface` forecast; use broad searches only when a named surface needs path discovery, and keep them minimal.
 - Stop retrieval when every current-iteration task, related `R#`, related `SC#`, check row, and applicable risk boundary has enough evidence to implement and verify.
 - Do not inspect unrelated repository areas or future iterations to improve confidence after the stop condition is met.
 
 Scope rules:
 - execute only the current iteration shown above;
 - the current iteration change set implements only the `R#` and `SC#` tied to the current iteration in the approved plan;
-- `Expected Change Surface` in the current iteration constrains the allowed implementation areas for the current iteration;
+- `Expected Change Surface` in the current iteration is a forecast/traceability aid for planning and review, not a hard allowlist; hard boundaries remain `protectedPaths` (when configured) and material changes to approved PRD/design/risk/API/schema/dependency/security contracts;
+- select `{{test_targets_placeholder}}` from actual new/changed source and test files in the current git diff, not only from planned surface paths; include changed/new test files and relevant dependent tests/package checks named by repository evidence;
 - implementer scope: write production code, write automated tests (unit, integration, headless E2E), and execute automated test runners (e.g. `npm test`, `typecheck`, `lint`, `build`);
 - never run manual UI tests, interactive browser sessions, or start background dev-servers for ad-hoc browser testing during iteration implementation;
 - hermetic development: never attempt to connect to live external databases, remote cloud services, or staging APIs — verify all migrations and external adapters with mocked sources and in-memory fixtures;
-- do not expand scope beyond the current iteration `Expected Change Surface`, related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
+- a file outside `Expected Change Surface` is not automatically a defect; if the change is incidental and still satisfies approved requirements/design, record a concise justification in the final response; if it changes semantics/scope/boundaries, stop and route through plan/design reopen or user feedback instead of silently expanding scope;
+- do not expand scope beyond related `R#`, related `SC#`, and approved `Risk boundaries` without an explicit user decision;
 - do not implement work that is not positively required by `Target state`, a concrete `R#`, a concrete `SC#`, or `Risk boundaries`;
 - if an approved plan/design gap materially prevents safe current-iteration completion or verification for a required `Target state`, `R#`, `SC#`, `Evidence` type, or risk boundary, stop and report a blocker instead of expanding scope yourself;
 - if a plan/design gap does not materially prevent safe completion or verification of the current iteration inside the approved surface, record it as a remaining risk instead of blocking;
@@ -55,7 +60,7 @@ Scope rules:
 Completion checklist:
 - complete the current iteration tasks within the approved `prd.md`, approved design, and approved plan;
 - update only current-iteration task checkboxes in [iteration_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
-- execute every required check command below or record why it cannot be executed:
+- execute every required check recipe below by substituting actual new/changed test targets into `{{test_targets_placeholder}}` when present, then record the exact instantiated command in Check Evidence, or record why it cannot be executed:
 {{test_command}}
 - execute additional checks from the current iteration, if any, or record why they cannot be executed;
 - update `### Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}});
@@ -64,8 +69,8 @@ Completion checklist:
 - keep `Check Evidence` concise but concrete: command or method, result, what was verified, and blocker reason when blocked;
 - use only these `Result` values in `Check Evidence`: `pending`, `passed`, `failed`, `blocked`, `not_applicable`;
 - advance toward validation only after current-iteration `Check Evidence` has every required check recorded as `passed` and has no `pending`, `failed`, or `blocked` rows;
-- if checks fail and the failure is causally related to the current iteration change set, fix only inside the approved current-iteration surface and repeat the affected checks;
-- if a check failure is unrelated to the current iteration, external/environmental, or outside the approved surface, do not repair outside scope; record `Result = blocked` when it prevents verification, otherwise record the remaining risk with exact evidence;
+- if checks fail and the failure is causally related to the current iteration change set, fix the causally related files and repeat the affected checks;
+- if a check failure is unrelated to the current iteration, external/environmental, or blocked by an approved boundary you cannot change in this phase, do not repair outside approved scope; record `Result = blocked` when it prevents verification, otherwise record the remaining risk with exact evidence;
 - if an external blocker prevents completion, record `Result = blocked`, include a short concrete reason in `Evidence` or `Notes`, and explain the blocker in the final response;
 - execute the controller self-check before stopping: `{{self_check_command}}`;
 - if the controller self-check command, binary, or environment is unavailable, record the exact command and error class, keep the iteration heading `[~]`, update `Check Evidence` honestly with `Result = blocked` if route verification is prevented, and do not substitute a different route check;

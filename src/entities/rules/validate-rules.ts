@@ -1,7 +1,16 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { sectionLines } from "../../shared/markdown/headings";
-import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
+import {
+  validateArtifactStructure,
+  validateTableShape,
+  type ArtifactStructureSpec,
+  type TableShapeSpec
+} from "../artifact-structure";
+import {
+  validateFocusedCheckRecipe,
+  validateFullCheckRecipe
+} from "../test-commands/resolve-check-commands";
 
 const REQUIRED_SECTIONS = ["Test Commands", "Environment Notes"];
 const REQUIRED_COMMAND_KEYS = ["unit", "phase", "full"];
@@ -44,6 +53,12 @@ function validateTestCommands(lines: string[], issues: string[]): void {
     }
     if (value.length === 0) {
       issues.push(`Test Commands command \`${row.cells[0]}\` must be non-empty.`);
+    }
+    if (key === "unit" || key === "phase") {
+      issues.push(...validateFocusedCheckRecipe(key, value));
+    }
+    if (key === "full") {
+      issues.push(...validateFullCheckRecipe(value));
     }
   }
 

@@ -31,6 +31,7 @@ Planning instructions:
    - every iteration, including the only iteration, goes through `Implementation -> Iteration Validation`;
    - after successful Iteration Validation for all iterations, the flow proceeds to `Final Validation`;
    - each iteration must fit fully into one AI-agent working session without context overflow;
+   - `Expected Change Surface` rows are a forecast/traceability aid for reviewers and implementers, not a hard allowlist; hard boundaries remain `protectedPaths` (when configured) and material changes to approved PRD/design/risk/API/schema/dependency/security contracts;
    - functional vertical slicing: slice work by complete functional capability (e.g. database schema + backend logic + UI wiring for a specific user story), NOT by horizontal architectural layers (do NOT split schema-only, types-only, or UI-only into separate iterations);
    - self-containment: each iteration must bring its part of the functionality to a state that is fully verifiable by its checks and Iteration Validation immediately upon its completion, without relying on changes planned in later iterations;
    - do not split tightly coupled functionality across iterations; failure criterion: if iteration N cannot be fully validated without changes planned in iteration N+1 or later, the boundaries are wrong and the split must be reworked;
@@ -41,7 +42,8 @@ Planning instructions:
    - boundary self-check: before finalizing the plan, answer for every iteration "Can this iteration be fully validated as complete if none of the later iterations have been executed?"; if the answer is no, rework the iteration boundaries before writing `iteration_plan.md`; do not record this check in the artifact or the final response.
 5. The plan must trace `Intent` from [prd.md]({{prd_path}}):
    - iteration sequencing must cover every `R#`, every `SC#`, and every relevant approved design decision `D#`;
-   - checks in `### Checks` and `### Check Evidence` must contain ONLY automated, deterministic, and offline commands (unit tests, integration tests, typecheck, lint, build, headless test scripts). Never place manual checks (`manual:*`), interactive browser driving, or live external database commands in iteration checks;
+   - checks in `### Checks` must list required gate names only (`- unit`, `- phase`); do not copy concrete commands from `execution_contract.md`; legacy `- gate: \`command\`` syntax remains readable;
+   - `### Checks` and `### Check Evidence` must contain ONLY automated, deterministic, and offline commands (unit tests, integration tests, typecheck, lint, build, headless test scripts). Never place manual checks (`manual:*`), interactive browser driving, or live external database commands in iteration checks;
    - `SC#` criteria requiring manual/visual verification or live external environments must be mapped to `[Deferred to Final Validation / Manual Acceptance]` rather than placed as iteration check commands;
    - external data sources, migrations, and APIs must be verified in iteration checks through automated tests with mocks/fakes/in-memory fixtures;
    - risk boundaries must be represented in the generated plan.
@@ -60,7 +62,7 @@ Prefer a complete, approvable plan when approved inputs support one:
 
 Examples of acceptable conservative planning assumptions:
 - Choose the smaller existing module or package named by the approved design when two equivalent local file placements both satisfy the same `R#`, `SC#`, and `D#`.
-- Use the test command already listed in `execution_contract.md` for the matching evidence type when the PRD names the evidence type but not the exact command.
+- Name the required gate (`unit` or `phase`) for the matching evidence type when the PRD names the evidence type but not the exact per-iteration test targets.
 - Keep an iteration as one 3-10 file change when the approved scope is small and no `R#`, `SC#`, `D#`, public contract, or risk boundary requires a separate iteration.
 
 Examples of required planning blockers:

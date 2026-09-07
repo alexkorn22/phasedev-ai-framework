@@ -40,8 +40,9 @@ Artifact requirements:
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
-- `execution_contract.md` requires concrete gate commands for `unit`, `phase`, and `full` in section `## Test Commands`, plus an optional `## Environment Notes` section.
-- For each `execution_contract.md` gate (`unit`, `phase`, `full`), use real project test/build commands based on repository evidence (`package.json`, `Makefile`, etc.). Do not invent commands.
+- `execution_contract.md` requires stable `unit` and `phase` command recipes (optionally using `{{test_targets_placeholder}}` for per-iteration target substitution) and one exact `full` repository-wide command in section `## Test Commands`, plus an optional `## Environment Notes` section.
+- For `execution_contract.md` gates `unit` and `phase`, derive stable runner recipes from repository evidence (`package.json`, `Makefile`, etc.) without guessing concrete future test file paths; use `{{test_targets_placeholder}}` when targets vary per iteration.
+- For `execution_contract.md` gate `full`, record one exact repository-wide command for Final Validation; do not use placeholders in `full`.
 - All product requirements, behavioral constraints, risk boundaries, success criteria, and manual acceptance checks belong strictly in `prd.md`. `execution_contract.md` serves purely as the technical test runner manifest.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 

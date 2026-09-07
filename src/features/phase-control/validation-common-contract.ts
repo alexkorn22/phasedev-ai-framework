@@ -23,7 +23,7 @@ const PHASE_VALIDATION_COMMON: ValidationCommonVariables = {
   validation_changed_file_scope: "tied to the current iteration",
   validation_budget_target: "current-iteration artifacts, current-iteration changed files, and narrow searches needed to prove completeness or a concrete finding",
   validation_stop_coverage_units: "every current-iteration task, related `R#`, related `SC#`, Check Evidence row, applicable risk/design boundary, and changed file",
-  validation_inventory_blocker_scope: "expected current-iteration surface",
+  validation_inventory_blocker_scope: "actual changed-file inventory for the current iteration",
   validation_requirements_pass: "confirm the current iteration satisfies its approved plan/design/PRD trace and does not add unapproved behavior",
   validation_execution_rule: "Validation mode is review-only: do not rerun tests, builds, browsers, migrations, deployments, or other execution gates.",
   validation_full_gate_line: "Full gate: not_applicable (review-only iteration validation)"

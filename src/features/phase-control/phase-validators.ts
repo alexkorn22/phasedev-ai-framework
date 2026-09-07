@@ -8,6 +8,7 @@ import { validateDesign } from "../../entities/design/validate-design";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { checkArchiveCompletion } from "./check-archive";
@@ -16,6 +17,8 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
+import { validationReceiptBlockers } from "../receipt-ops/receipt-status";
+import { formatReceiptScope } from "../../entities/execution-receipts/scope";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -117,7 +120,8 @@ export function validatePhase(
         return failMessage(phase, [`Iteration ${activeIteration} not found in iteration plan.`]);
       }
 
-      const blockers = iterationValidationBlockers(iter);
+      const testCommands = parseTestCommands(paths.executionContractPath).commands;
+      const blockers = iterationValidationBlockers(iter, testCommands);
       if (blockers.length > 0) {
         return failMessage(phase, blockers);
       }
@@ -331,6 +335,24 @@ export function validatePhaseExit(
 
     if (issues.length > 0) {
       return failMessage(phase, issues);
+    }
+  }
+
+  if (phase === "iteration_validation" && activeIteration !== null) {
+    const receiptIssues = validationReceiptBlockers(
+      projectPath,
+      formatReceiptScope({ kind: "iteration", iterationId: activeIteration }),
+      { blockingSeverity }
+    );
+    if (receiptIssues.length > 0) {
+      return failMessage(phase, receiptIssues);
+    }
+  }
+
+  if (phase === "final_validation") {
+    const receiptIssues = validationReceiptBlockers(projectPath, "final", { blockingSeverity });
+    if (receiptIssues.length > 0) {
+      return failMessage(phase, receiptIssues);
     }
   }
 

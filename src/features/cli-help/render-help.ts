@@ -56,9 +56,13 @@ Commands:
       writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
 
-  phasedev phase [--project-path <path>] [--config <path>]
+  phasedev phase [--project-path <path>] [--config <path>] [--role <name>]
       Print the contract for the active phase (read-only).
       Idempotent: repeated calls (without advance) return the same contract.
+      For iteration_validation and final_validation, --role must be provided and must be
+      one of: code-review, security-review, implementation-check. Missing or unknown
+      roles fail closed with the allowed-role list and no executable contract.
+      Other phases ignore --role and preserve legacy behavior when it is absent.
       Side effects: none.
 
   phasedev spawn-plan --harness <name> [--project-path <path>] [--config <path>]
@@ -127,6 +131,27 @@ Commands:
   phasedev check-archive --archive-path <path>
       Validate completed archive state and optional delta specs.
       Side effects: none.
+
+  phasedev receipt-status [--project-path <path>] [--change <name>] --scope <final|iteration:N>
+      Print current execution receipt status for a validation or execution scope.
+      Side effects: none.
+
+  phasedev claim-receipt <unit> [--project-path <path>] [--change <name>] --scope <final|iteration:N> [--command <exact instantiated>]
+      Claim an execution receipt under the state lock. Units: code-review, security-review,
+      manual-acceptance, implementation-check, check:unit, check:phase, check:full.
+      A current passed receipt returns action skip. An active claim fails closed.
+      Side effects: writes runtime/execution_receipts.json.
+
+  phasedev complete-receipt <unit> [--project-path <path>] [--change <name>] --scope <final|iteration:N>
+      --claim-id <id> --result passed|failed|blocked [--command <exact instantiated>]
+      [--exit-code N] [--summary <text>]
+      Complete a claimed receipt with the matching claim id.
+      Side effects: writes runtime/execution_receipts.json.
+
+  phasedev cancel-receipt <unit> [--project-path <path>] [--change <name>] --scope <final|iteration:N>
+      --claim-id <id> --reason <text> [--command <exact instantiated>]
+      Cancel a crashed or abandoned claim with the matching claim id.
+      Side effects: writes runtime/execution_receipts.json.
 
   phasedev config [--project-path <path>] [--config <path>] <key>
       Read a dot-notation config key from .phasedev/config.yaml and print its value.
@@ -255,8 +280,18 @@ Options:
   --project-path, -p <path>   Target project path. Defaults to the current directory.
   --change <name>             Target change when several exist (defaults to the only change)
   --config <path>             Explicit PhaseDev config path. Accepted by most commands that read config.
+  --role <name>               Validation role for phase on iteration_validation or final_validation
+                              (code-review | security-review | implementation-check). Required on those
+                              phases; missing or unknown roles fail closed with the allowed-role list.
   --phase <phase>             Phase override for check.
   --scope iteration|final         Validation scope for check-validation.
+  --scope final|iteration:N       Receipt scope for receipt-status, claim-receipt, complete-receipt, cancel-receipt.
+  --command <exact instantiated>  Exact instantiated command for check receipt claim/complete.
+  --claim-id <id>                 Active receipt claim id for complete-receipt or cancel-receipt.
+  --result passed|failed|blocked  Receipt completion result for complete-receipt.
+  --reason <text>                 Cancellation reason for cancel-receipt.
+  --exit-code N                   Observed exit code for complete-receipt.
+  --summary <text>                Completion summary for complete-receipt.
   --iteration-id <N>              Iteration number for phase validation checks.
   --archive-path <path>       Archived change path for check-archive.
   --by <name>                 Approver name for approve command.

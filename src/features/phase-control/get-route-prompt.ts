@@ -1,5 +1,6 @@
 import { Config, DEFAULT_CONFIG } from "../../entities/config/config";
 import { Prompt } from "../../entities/phase/types";
+import { ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
 import { archivePrompt } from "./archive-stage";
 import {
   archiveReadinessBlocker,
@@ -10,7 +11,8 @@ import {
   invalidResearchBlocker,
   invalidRulesBlocker,
   prompt,
-  validationFindingsBlocker
+  validationFindingsBlocker,
+  validationRoleBlocker
 } from "./prompt-blockers";
 import { resolveRoute } from "./flow-route";
 import { unreachable } from "../../shared/type/unreachable";
@@ -25,6 +27,10 @@ import {
   renderTechnicalDesign
 } from "./get-phase-prompt";
 
+export interface RoutePromptOptions {
+  validationRole?: ValidationPhaseRole;
+}
+
 /**
  * Resolve the flow route from artifacts and return the matching prompt:
  * either a phase contract (same renderers as `phasedev phase`) or a blocker.
@@ -34,10 +40,15 @@ import {
  *
  * Not part of the public CLI surface: kept as the route→prompt parity harness
  * for controller tests and as the runtime dependency of
- * scripts/generate-agent-prompts.ts (npm run prompts:generate); production
- * CLI prompts go through getPhasePrompt.
+ * scripts/generate-agent-prompts.ts (npm run prompts:generate). Unlike
+ * `phasedev phase`, validation phases require `options.validationRole`; without
+ * it, a dispatcher blocker is returned instead of the legacy monolithic contract.
  */
-export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CONFIG): Prompt {
+export function getRoutePrompt(
+  projectPath: string,
+  config: Config = DEFAULT_CONFIG,
+  options?: RoutePromptOptions
+): Prompt {
   const route = resolveRoute(projectPath, undefined, config.blockingSeverity);
 
   switch (route.kind) {
@@ -75,8 +86,13 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
       return invalidPlanBlocker(route.paths.iterationPlanPath, route.issues);
     case "invalid_findings":
       return validationFindingsBlocker(route.paths.findingsPath, route.issues);
-    case "finding_repair":
-      return prompt("phase", "finding_repair", renderFindingRepair(projectPath, config, route.paths));
+    case "finding_repair": {
+      const rendered = renderFindingRepair(projectPath, config, route.paths);
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
+      return prompt("phase", "finding_repair", rendered);
+    }
     case "archive_readiness_blocked":
       return archiveReadinessBlocker(
         "All implementation iterations must be marked [x] before archive.",
@@ -93,7 +109,17 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
       );
     case "iteration": {
       if (route.phase === "iteration_validation") {
-        const rendered = renderIterationValidation(projectPath, config, route.paths, route.activeIteration.id);
+        if (options?.validationRole === undefined) {
+          return validationRoleBlocker("iteration_validation");
+        }
+        const rendered = renderIterationValidation(
+          projectPath,
+          config,
+          route.paths,
+          route.activeIteration.id,
+          undefined,
+          options.validationRole
+        );
         if (typeof rendered !== "string") {
           return rendered;
         }
@@ -105,8 +131,22 @@ export function getRoutePrompt(projectPath: string, config: Config = DEFAULT_CON
       }
       return prompt("phase", "implementation", rendered);
     }
-    case "final_validation":
-      return prompt("phase", "final_validation", renderFinalValidation(projectPath, config, route.paths));
+    case "final_validation": {
+      if (options?.validationRole === undefined) {
+        return validationRoleBlocker("final_validation");
+      }
+      const rendered = renderFinalValidation(
+        projectPath,
+        config,
+        route.paths,
+        undefined,
+        options.validationRole
+      );
+      if (typeof rendered !== "string") {
+        return rendered;
+      }
+      return prompt("phase", "final_validation", rendered);
+    }
     default:
       return unreachable(route, "getRoutePrompt route.kind");
   }

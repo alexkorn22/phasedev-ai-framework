@@ -1,5 +1,6 @@
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
@@ -10,6 +11,8 @@ import { validatePhase, validatePhaseExit, revalidationPendingMessage, validatio
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 import { classifyStateRoute, StateRouteRelation } from "./state-route-consistency";
+import { validationReceiptBlockers } from "../receipt-ops/receipt-status";
+import { formatReceiptScope } from "../../entities/execution-receipts/scope";
 
 export type RouteKind = Route["kind"];
 
@@ -208,7 +211,8 @@ export function checkValidationCompletion(
       } else if (phaseIteration.status !== "completed") {
         issues.push(readyIterationIssue(findings.verdict, options.iterationId));
       } else {
-        const blockers = iterationValidationBlockers(phaseIteration);
+        const testCommands = paths ? parseTestCommands(paths.executionContractPath).commands : undefined;
+        const blockers = iterationValidationBlockers(phaseIteration, testCommands);
         if (blockers.length > 0) {
           issues.push(`\`verdict: ${findings.verdict}\` is valid only after Iteration ${options.iterationId} has no validation readiness blockers: ${blockers.join("; ")}.`);
         }
@@ -217,6 +221,10 @@ export function checkValidationCompletion(
 
     if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("iteration", route.kind));
+    }
+
+    if (isReadyVerdict(findings.verdict) || findings.verdict === "pending" || findings.verdict === "repaired") {
+      issues.push(...validationReceiptBlockers(projectPath, formatReceiptScope({ kind: "iteration", iterationId: options.iterationId }), { changeName, blockingSeverity }));
     }
   }
 
@@ -242,6 +250,10 @@ export function checkValidationCompletion(
 
     if (findings.verdict === "repair_required" && route.kind !== "finding_repair") {
       issues.push(repairRequiredIssue("final", route.kind));
+    }
+
+    if (isReadyVerdict(findings.verdict) || findings.verdict === "pending" || findings.verdict === "repaired") {
+      issues.push(...validationReceiptBlockers(projectPath, "final", { changeName, blockingSeverity }));
     }
   }
 

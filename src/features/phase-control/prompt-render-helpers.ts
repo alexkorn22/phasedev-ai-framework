@@ -10,13 +10,22 @@ import { renderSkillComplianceLine, renderSkillPolicy } from "./skill-policy";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { Prompt } from "../../entities/phase/types";
-import { testCommandBlocker } from "./prompt-blockers";
+import {
+  iterationRequiresFullGate,
+  missingRepairFocusedGateCommands,
+  renderResolvedCheckCommandLines,
+  resolveIterationFocusedCheckCommands,
+  resolveRepairFocusedCheckCommands,
+  TEST_TARGETS_PLACEHOLDER,
+  type RepairFindingScope
+} from "../../entities/test-commands/resolve-check-commands";
+import { iterationFullGateBlocker, testCommandBlocker } from "./prompt-blockers";
 import { renderValidationCommonContract } from "./validation-common-contract";
+import { renderValidationRoleTemplateVariables, renderValidationRoleOpeningSummary, interpolateValidationRolePathTokens } from "./validation-role-scope";
+import { ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
 import { renderArtifactContract } from "./artifact-contract";
 import { todayIsoDate } from "../../shared/time/today-iso-date";
 import { RESEARCH_TEMPLATE_SAMPLE_VALUES } from "../../entities/research-facts/sample-values";
-import { renderBlockingSeverityPolicy } from "./blocking-severity-policy";
-import { BlockingSeverity } from "../../entities/validation-findings/blocking-severity";
 
 // ── Phase Opening Summary ──────────────────────────────────
 
@@ -44,7 +53,7 @@ export function renderPhaseOpeningSummary(phase: Phase): string {
     "> **Phase summary:**",
     `> - Output: \`${summary.output}\` per embedded Artifact Build Contract.`,
     `> - Done when: \`${summary.selfCheck}\` passes.`,
-    "> - Forbidden: change `approved` fields manually, write outside phase allowlist.",
+    "> - Forbidden: change `approved` fields manually, or write outside this phase's Artifact allowlist (listed flow artifacts only — not an Expected Change Surface forecast of repository edit scope).",
     DISPATCH_PRECEDENCE_LINE,
     ""
   ].join("\n");
@@ -132,10 +141,6 @@ export function flowCheckCommand(projectPath: string, changeName?: string): stri
   return `phasedev check --project-path ${shellQuote(projectPath)}${changeFlag(changeName)}`;
 }
 
-export function flowFinalValidationCheckCommand(projectPath: string, changeName?: string): string {
-  return `phasedev check-validation --project-path ${shellQuote(projectPath)} --scope final${changeFlag(changeName)}`;
-}
-
 export const PATH_RESOLUTION_RULE = [
   "Path resolution & workspace confinement rules:",
   "- Flow artifact names in this prompt (e.g. `prd.md`, `execution_contract.md`, `research_facts.md`, `architecture/design.md`, `iteration_plan.md`, `validation_findings.md`) are paths inside the active change folder, not paths from the project repository root.",
@@ -156,50 +161,99 @@ export function renderPhaseTemplate(
   phase: Phase,
   templateName: string,
   variables: Record<string, string>,
-  config: Config
+  config: Config,
+  options?: { validationRole?: ValidationPhaseRole; pathTokens?: { plan_path: string; findings_path: string; prd_path?: string; rules_path?: string; design_path?: string }; fullGateCommand?: string }
 ): string {
+  const validationRoleVariables = phase === "iteration_validation" || phase === "final_validation"
+    ? (() => {
+      const roleVars = renderValidationRoleTemplateVariables(phase, config, options?.validationRole, {
+        fullGateCommand: options?.fullGateCommand
+      });
+      if (!options?.pathTokens) {
+        return roleVars;
+      }
+      return {
+        ...roleVars,
+        validation_role_checks: interpolateValidationRolePathTokens(roleVars.validation_role_checks, options.pathTokens),
+        validation_iteration_status_rule: interpolateValidationRolePathTokens(roleVars.validation_iteration_status_rule, options.pathTokens),
+        validation_input_artifacts: interpolateValidationRolePathTokens(roleVars.validation_input_artifacts, options.pathTokens),
+        validation_retrieval_order: interpolateValidationRolePathTokens(roleVars.validation_retrieval_order, options.pathTokens)
+      };
+    })()
+    : {};
+
   return renderTemplate(templateName, {
     ...variables,
     path_resolution_rule: PATH_RESOLUTION_RULE,
-    phase_opening_summary: renderPhaseOpeningSummary(phase),
+    phase_opening_summary: options?.validationRole && (phase === "iteration_validation" || phase === "final_validation")
+      ? renderValidationRoleOpeningSummary(phase as "iteration_validation" | "final_validation", options.validationRole)
+      : renderPhaseOpeningSummary(phase),
     self_check_fallback: SELF_CHECK_FALLBACK,
-    validation_common_contract: renderValidationCommonContract(phase, config),
+    validation_common_contract: validationRoleVariables.validation_common_contract
+      ?? renderValidationCommonContract(phase, config),
     skill_policy: renderSkillPolicy(),
-    skill_compliance_line: renderSkillComplianceLine()
+    skill_compliance_line: renderSkillComplianceLine(),
+    ...validationRoleVariables
   });
 }
 
 // ── Required check commands ────────────────────────────────
 
-function isKnownTestCommandKey(check: string): check is keyof TestCommands {
-  return check === "unit" || check === "phase" || check === "full";
-}
-
-function requiredCheckKeys(currentPhase: Iteration): Array<keyof TestCommands> {
-  const keys = (currentPhase.requiredChecks ?? [])
-    .map(check => check.check.trim().toLowerCase())
-    .filter(isKnownTestCommandKey);
-  return keys.length > 0 ? Array.from(new Set(keys)) : ["unit"];
-}
-
 /**
  * Render the iteration's required check commands from execution_contract.md,
- * or return a testCommandBlocker Prompt when a required command is missing.
+ * or return a blocker Prompt when a required command is missing or invalid.
  */
 export function renderRequiredCheckCommands(currentPhase: Iteration, testCommands: TestCommands, rulesPath: string): string | Prompt {
-  const requiredChecks = currentPhase.requiredChecks ?? [];
-  const checks = requiredChecks.length > 0
-    ? requiredChecks
-    : [{ check: "unit", command: testCommands.unit ?? "" }];
-  const missingKnownKeys = requiredCheckKeys(currentPhase).filter(key => testCommands[key] === undefined);
+  if (iterationRequiresFullGate(currentPhase)) {
+    return iterationFullGateBlocker(rulesPath);
+  }
+
+  const requiredGates = (currentPhase.requiredChecks ?? [])
+    .map(check => check.check.trim().toLowerCase())
+    .filter((gate): gate is "unit" | "phase" => gate === "unit" || gate === "phase");
+  const gates = requiredGates.length > 0 ? Array.from(new Set(requiredGates)) : ["unit" as const];
+  const missingKnownKeys = gates.filter(gate => testCommands[gate] === undefined);
   if (missingKnownKeys.length > 0) {
     return testCommandBlocker("implementation", rulesPath, missingKnownKeys);
   }
 
-  return checks.map(check => {
-    const normalizedCheck = check.check.trim().toLowerCase();
-    return `- ${normalizedCheck}: \`${check.command}\``;
-  }).join("\n");
+  const resolvedChecks = resolveIterationFocusedCheckCommands(currentPhase, testCommands);
+  if (resolvedChecks.length === 0) {
+    return testCommandBlocker("implementation", rulesPath, gates);
+  }
+
+  return renderResolvedCheckCommandLines(resolvedChecks);
+}
+
+export function renderRepairCheckCommands(
+  plan: Iteration[],
+  testCommands: TestCommands,
+  scope: RepairFindingScope
+): string {
+  const checks = resolveRepairFocusedCheckCommands(plan, testCommands, scope);
+  if (checks.length === 0) {
+    return "- none (no focused unit/phase gates apply to the current repair queue)";
+  }
+  const lines = renderResolvedCheckCommandLines(checks);
+  const targetSelectionNote =
+    "- Select test targets from files changed by the repair; instantiate each recipe before executing; never run `full`.";
+  if (scope.hasFinalScopeFindings && scope.iterationIds.length === 0) {
+    return `${lines}\n${targetSelectionNote}\n- Run only checks relevant to actual repair changes; reuse still-valid passed evidence when repair did not change code or tests.`;
+  }
+  return `${lines}\n${targetSelectionNote}`;
+}
+
+export function renderRepairCheckCommandsOrBlocker(
+  plan: Iteration[],
+  testCommands: TestCommands,
+  scope: RepairFindingScope,
+  rulesPath: string
+): string | Prompt {
+  const missing = missingRepairFocusedGateCommands(plan, testCommands, scope);
+  if (missing.length > 0) {
+    return testCommandBlocker("finding_repair", rulesPath, missing);
+  }
+  return renderRepairCheckCommands(plan, testCommands, scope);
 }
 
 // ── Artifact Contracts ─────────────────────────────────────
@@ -216,53 +270,13 @@ export function researchArtifactContract(researchPath: string, projectPath: stri
   });
 }
 
-const ITERATION_ALLOWED_VERDICTS = "ready, ready_with_risks, repair_required, repaired";
-const FINAL_ALLOWED_VERDICTS = "ready, ready_with_risks, repair_required";
-const REPAIRED_VERDICT_NOTE =
-  "- repaired: use only in Repair Loop after actual blocking findings are resolved; do not use ready or ready_with_risks from Repair Loop.\n";
-
-/**
- * Render validation_findings.md with the verdict list and `type` value bound
- * to the artifact variant, instead of string-patching prose after render.
- */
-export function renderValidationFindingsTemplate(type: "iteration" | "final", date: string, blockingSeverity: BlockingSeverity): string {
-  return renderTemplate("artifacts/validation_findings", {
-    date,
-    artifact_type: type,
-    allowed_verdicts: type === "iteration" ? ITERATION_ALLOWED_VERDICTS : FINAL_ALLOWED_VERDICTS,
-    repaired_verdict_note: type === "iteration" ? REPAIRED_VERDICT_NOTE : "",
-    blocking_severity_policy: renderBlockingSeverityPolicy(blockingSeverity)
-  });
-}
-
-export const VALIDATION_FINDINGS_CANONICAL_FILL_RULES = [
-  "- Never write this artifact by hand: `phasedev add-finding` and `phasedev set-verdict` create it when missing, and every row or verdict change goes through the phasedev findings commands. The embedded template only documents the structure the CLI maintains.",
-  "- If the Output path already exists, it is edited in place through those commands: never recreate it from the embedded template and never drop existing table rows.",
-  "- The findings registry is append-only; the controller diffs it against a baseline snapshot and fails the self-check if rows were deleted or rewritten."
-];
-
-export function finalValidationArtifactContract(findingsPath: string, projectPath: string, blockingSeverity: BlockingSeverity, changeName?: string): string {
-  const date = todayIsoDate();
-
-  return renderArtifactContract({
-    artifactId: "validation_findings.md",
-    resolvedOutputPath: findingsPath,
-    templateName: "artifacts/validation_findings",
-    templateContent: renderValidationFindingsTemplate("final", date, blockingSeverity),
-    selfCheckCommand: flowFinalValidationCheckCommand(projectPath, changeName),
-    selfCheckFailureGuidance:
-      "Artifact contract check must pass before reporting this phase complete. If it fails, fix only `validation_findings.md`, then rerun the same command.",
-    canonicalFillRules: VALIDATION_FINDINGS_CANONICAL_FILL_RULES,
-    date,
-  });
-}
-
 const IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES = [
   "- `iteration_plan.md` is a human approval artifact and a downstream machine contract; keep prose concise and put review decisions inside existing template fields only.",
   "- Keep `approved: false`; only the user can approve the plan.",
   "- Keep exactly the non-iteration `##` sections from the template, then sequential `## Iteration N: Name [ ]` headings. Planning initializes every iteration status as `[ ]`.",
   "- Fill `Approval Summary` as the compact review surface: sequencing risk and validation.",
   "- Fill `Generation Bundle`, `Overview`, each iteration `Goal`, `Expected Change Surface`, `Tasks`, `Checks`, and `Check Evidence` from approved PRD/design/execution_contract only.",
+  "- In `### Checks`, list required gate names only (`- unit`, `- phase`); do not copy concrete commands from `execution_contract.md`. Legacy `- gate: \\`command\\`` syntax remains readable but new plans must use gate-only entries.",
   "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete iteration, task, check, evidence, or change-surface trace content.",
   "- Do not use vague trace labels such as `all requirements`; reference concrete `R#`, `SC#`, and relevant `D#` IDs.",
   "- Use concise tables, grouped lists, and short paragraphs inside existing template sections when they improve review speed; do not add review-only sections or decorative content.",

@@ -7,6 +7,7 @@ import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";
 import { Phase } from "../src/entities/phase/types";
+import { VALIDATION_PHASE_ROLES, ValidationPhaseRole, formatAllowedValidationRoles } from "../src/entities/phase/validation-phase-role";
 import { shellQuote } from "../src/shared/shell/shell-quote";
 
 interface StageOutput {
@@ -202,14 +203,76 @@ function saveNextPrompt(
   fileName: string,
   expectedPhase: Exclude<Phase, "init">,
   options: Options,
-  config: ReturnType<typeof loadConfig>
+  config: ReturnType<typeof loadConfig>,
+  routeOptions?: { validationRole?: ValidationPhaseRole }
 ): StageOutput {
-  const prompt = getRoutePrompt(projectPath, config);
+  const prompt = getRoutePrompt(projectPath, config, routeOptions);
   if (prompt.phase !== expectedPhase) {
     throw new Error(`Expected ${expectedPhase} prompt, got ${prompt.phase} for ${fileName}.`);
   }
 
   return savePrompt(promptsDir, fileName, prompt.phase, prompt.prompt, options, projectPath);
+}
+
+function saveValidationRolePrompts(
+  projectPath: string,
+  promptsDir: string,
+  phase: "iteration_validation" | "final_validation",
+  filePrefix: string,
+  options: Options,
+  config: ReturnType<typeof loadConfig>
+): StageOutput[] {
+  return VALIDATION_PHASE_ROLES.map(role =>
+    saveNextPrompt(
+      projectPath,
+      promptsDir,
+      `${filePrefix}-${role}.md`,
+      phase,
+      options,
+      config,
+      { validationRole: role }
+    )
+  );
+}
+
+function validationDispatcherAliasContent(
+  phase: "iteration_validation" | "final_validation",
+  legacyFileName: string,
+  roleScopedEntries: string[]
+): string {
+  const phaseLabel = phase === "iteration_validation" ? "Iteration Validation (6A)" : "Final Validation (6B)";
+  return [
+    "================================================================================",
+    `[GENERATED BUNDLE] DISPATCHER: ${phaseLabel}`,
+    "",
+    `This legacy filename (${legacyFileName}) is a compatibility alias only.`,
+    "It does not contain an executable validation contract.",
+    "",
+    "Use one of these role-scoped prompts from this bundle instead:",
+    ...roleScopedEntries.map(entry => `- ${entry}`),
+    "",
+    `Allowed roles: ${formatAllowedValidationRoles()}`,
+    "Recovery: run `phasedev phase --change <change> --role <name>` with one of the allowed roles.",
+    "================================================================================"
+  ].join("\n");
+}
+
+function saveValidationDispatcherAlias(
+  promptsDir: string,
+  fileName: string,
+  phase: "iteration_validation" | "final_validation",
+  roleScopedEntries: string[],
+  options: Options,
+  workingProjectPath: string
+): StageOutput {
+  return savePrompt(
+    promptsDir,
+    fileName,
+    phase,
+    validationDispatcherAliasContent(phase, fileName, roleScopedEntries),
+    options,
+    workingProjectPath
+  );
 }
 
 function approvedArtifact(body: string): string {
@@ -523,11 +586,41 @@ function main(): void {
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "05-phase-4-implementation.md", "implementation", options, config));
   writePlan(paths, "iteration_validation");
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "06-phase-5a-phase-validation.md", "iteration_validation", options, config));
+  manifest.push(...saveValidationRolePrompts(
+    workingProjectPath,
+    promptsDir,
+    "iteration_validation",
+    "06-phase-5a",
+    options,
+    config
+  ));
+  manifest.push(saveValidationDispatcherAlias(
+    promptsDir,
+    "06-phase-5a-phase-validation.md",
+    "iteration_validation",
+    VALIDATION_PHASE_ROLES.map(role => `06-phase-5a-${role}.md`),
+    options,
+    workingProjectPath
+  ));
   writePlan(paths, "final_validation");
   writePhaseReadyFindings(paths);
 
-  manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "07-phase-5b-final-validation.md", "final_validation", options, config));
+  manifest.push(...saveValidationRolePrompts(
+    workingProjectPath,
+    promptsDir,
+    "final_validation",
+    "07-phase-5b",
+    options,
+    config
+  ));
+  manifest.push(saveValidationDispatcherAlias(
+    promptsDir,
+    "07-phase-5b-final-validation.md",
+    "final_validation",
+    VALIDATION_PHASE_ROLES.map(role => `07-phase-5b-${role}.md`),
+    options,
+    workingProjectPath
+  ));
   writeRepairFindings(paths);
 
   manifest.push(saveNextPrompt(workingProjectPath, promptsDir, "08-phase-5r-repair.md", "finding_repair", options, config));
