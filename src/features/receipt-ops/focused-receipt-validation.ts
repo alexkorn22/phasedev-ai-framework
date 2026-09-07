@@ -69,14 +69,16 @@ export function repairFocusedReceiptIssues(
   }));
   const plan = parsePlan(paths.iterationPlanPath);
   const testCommands = parseTestCommands(paths.executionContractPath).commands;
-  const scope = repairReceiptScope(plan, findingRows);
+  const scope = repairReceiptScope(plan, findingRows, { includeResolvedFindings: true });
   const diffDigest = computeDiffDigest(projectPath, resolveScopeDiffBase(paths.statePath, scope));
 
   return focusedReceiptBlockers({
     file: loaded.file,
     scope,
     diffDigest,
-    requirements: repairFocusedReceiptRequirements(plan, testCommands, findingRows)
+    requirements: repairFocusedReceiptRequirements(plan, testCommands, findingRows, {
+      includeResolvedFindings: true
+    })
   });
 }
 

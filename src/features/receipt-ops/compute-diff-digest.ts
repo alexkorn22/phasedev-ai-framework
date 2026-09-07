@@ -1,11 +1,12 @@
 import { createHash } from "crypto";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { iterationDiffBase, readCommitLog } from "../../entities/change/flow-state";
 import { ParsedReceiptScope } from "../../entities/execution-receipts/scope";
 import { runGit } from "../../shared/shell/git";
 
-const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+const EMPTY_TREE_SHA = "4b825dc642cb6eb6a060e54bf8d69288fbee4904";
 
 export interface DiffDigestEntry {
   layer: "committed" | "staged" | "unstaged" | "untracked";
@@ -61,19 +62,36 @@ function digestPathContent(metadata: ReturnType<typeof readPathMetadata>): strin
 }
 
 function gitShowBytes(projectPath: string, objectRef: string, filePath: string): Buffer | null {
-  const result = runGit(projectPath, ["show", `${objectRef}:${filePath}`]);
-  if (!result.ok) {
+  const result = spawnSync(
+    "git",
+    ["-C", projectPath, "show", `${objectRef}:${filePath}`],
+    { encoding: "buffer", maxBuffer: 16 * 1024 * 1024 }
+  );
+  if (result.status !== 0 || result.stdout === undefined || result.stdout.length === 0) {
     return null;
   }
-  return Buffer.from(result.stdout, "utf8");
+  return Buffer.isBuffer(result.stdout) ? result.stdout : Buffer.from(result.stdout);
+}
+
+function deletedObjectRef(layer: DiffDigestEntry["layer"], diffBase: string): string {
+  if (layer === "committed") {
+    return diffBase;
+  }
+  return "HEAD";
 }
 
 function contentHashForEntry(
   projectPath: string,
   filePath: string,
-  status: string
+  status: string,
+  layer: DiffDigestEntry["layer"],
+  diffBase: string
 ): string {
   if (status.startsWith("D") || status === "D") {
+    const bytes = gitShowBytes(projectPath, deletedObjectRef(layer, diffBase), filePath);
+    if (bytes !== null) {
+      return hashBytes(bytes);
+    }
     return hashLiteral("DELETED");
   }
 
@@ -103,20 +121,11 @@ function parseNameStatusLine(line: string): { status: string; filePath: string }
   return { status, filePath };
 }
 
-function parseStatusLine(line: string): { status: string; filePath: string } | null {
-  if (line.trim().length === 0 || line.length < 4) {
-    return null;
-  }
-  return {
-    status: line.slice(0, 2).trim(),
-    filePath: normalizePath(line.slice(3))
-  };
-}
-
 function collectNameStatusEntries(
   projectPath: string,
   args: string[],
-  layer: DiffDigestEntry["layer"]
+  layer: DiffDigestEntry["layer"],
+  diffBase: string
 ): DiffDigestEntry[] {
   const result = runGit(projectPath, args);
   if (!result.ok) {
@@ -132,11 +141,11 @@ function collectNameStatusEntries(
       layer,
       status: entry.status,
       filePath: entry.filePath,
-      contentHash: contentHashForEntry(projectPath, entry.filePath, entry.status)
+      contentHash: contentHashForEntry(projectPath, entry.filePath, entry.status, layer, diffBase)
     }));
 }
 
-function collectUntrackedEntries(projectPath: string): DiffDigestEntry[] {
+function collectUntrackedEntries(projectPath: string, diffBase: string): DiffDigestEntry[] {
   const result = runGit(projectPath, ["ls-files", "--others", "--exclude-standard", "--", "."]);
   if (!result.ok) {
     return [];
@@ -150,7 +159,7 @@ function collectUntrackedEntries(projectPath: string): DiffDigestEntry[] {
       layer: "untracked" as const,
       status: "??",
       filePath: normalizePath(filePath),
-      contentHash: contentHashForEntry(projectPath, filePath, "??")
+      contentHash: contentHashForEntry(projectPath, filePath, "??", "untracked", diffBase)
     }));
 }
 
@@ -160,10 +169,10 @@ export function buildDiffDigestEntries(
 ): DiffDigestEntry[] {
   const base = diffBase ?? EMPTY_TREE_SHA;
   const entries = [
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", `${base}..HEAD`, "--", "."], "committed"),
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "--cached", "HEAD", "--", "."], "staged"),
-    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "HEAD", "--", "."], "unstaged"),
-    ...collectUntrackedEntries(projectPath)
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", `${base}..HEAD`, "--", "."], "committed", base),
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "--cached", "HEAD", "--", "."], "staged", base),
+    ...collectNameStatusEntries(projectPath, ["diff", "--name-status", "HEAD", "--", "."], "unstaged", base),
+    ...collectUntrackedEntries(projectPath, base)
   ];
 
   entries.sort((left, right) => {

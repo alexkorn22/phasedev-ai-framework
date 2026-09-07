@@ -22,6 +22,7 @@ import {
   renderResolvedCheckCommandLines
 } from "../src/entities/test-commands/resolve-check-commands";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { seedImplementationFocusedReceipts } from "./helpers/receipt-fixtures";
 
 let testTmpDir: string;
 
@@ -1073,6 +1074,7 @@ Complete API work.
       expect(route.phase).toBe("iteration_validation");
     }
 
+    seedImplementationFocusedReceipts(testTmpDir, 1, "bun test test/api.test.ts");
     const advance = advanceFlow(testTmpDir, DEFAULT_CONFIG);
     expect(advance.ok).toBe(true);
     expect(advance.newState?.activePhase).toBe("iteration_validation");

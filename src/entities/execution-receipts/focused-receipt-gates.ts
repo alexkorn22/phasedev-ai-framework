@@ -1,12 +1,14 @@
 import { digestCommand } from "./command-digest";
 import { findCurrentReceipt } from "./receipt-store";
 import { ExecutionReceiptsFile, ReceiptUnit } from "./types";
+import { parseFindingRowIteration } from "../validation-findings/parse-validation-findings";
 import { Iteration } from "../iteration-plan/types";
 import { TestCommands } from "../test-commands/parse-test-commands";
 import {
   evidenceMatchesRequiredCheck,
   normalizeTestCommand,
   parseRepairFindingScope,
+  RepairFindingScope,
   resolveRepairFocusedCheckCommands
 } from "../test-commands/resolve-check-commands";
 import { formatReceiptScope, ParsedReceiptScope } from "./scope";
@@ -87,12 +89,37 @@ export interface RepairFindingRow {
   latestStatus: string;
 }
 
+export function repairExitFindingScope(findings: RepairFindingRow[]): RepairFindingScope {
+  const blocking = findings.filter(finding => finding.blocksPr);
+  const iterationIds = new Set<number>();
+  let hasFinalScopeFindings = false;
+
+  for (const finding of blocking) {
+    if (finding.phase.trim().toLowerCase() === "final") {
+      hasFinalScopeFindings = true;
+      continue;
+    }
+    const iterationId = parseFindingRowIteration(finding.phase);
+    if (iterationId !== null) {
+      iterationIds.add(iterationId);
+    }
+  }
+
+  return {
+    iterationIds: Array.from(iterationIds),
+    hasFinalScopeFindings
+  };
+}
+
 export function repairFocusedReceiptRequirements(
   plan: Iteration[],
   testCommands: TestCommands,
-  findings: RepairFindingRow[]
+  findings: RepairFindingRow[],
+  options?: { includeResolvedFindings?: boolean }
 ): FocusedReceiptRequirement[] {
-  const scope = parseRepairFindingScope(findings);
+  const scope = options?.includeResolvedFindings
+    ? repairExitFindingScope(findings)
+    : parseRepairFindingScope(findings);
   const checks = resolveRepairFocusedCheckCommands(plan, testCommands, scope);
   return checks.flatMap(check => {
     const unit = gateUnit(check.gate);
@@ -110,9 +137,12 @@ export function repairFocusedReceiptRequirements(
 
 export function repairReceiptScope(
   plan: Iteration[],
-  findings: RepairFindingRow[]
+  findings: RepairFindingRow[],
+  options?: { includeResolvedFindings?: boolean }
 ): ParsedReceiptScope {
-  const scope = parseRepairFindingScope(findings);
+  const scope = options?.includeResolvedFindings
+    ? repairExitFindingScope(findings)
+    : parseRepairFindingScope(findings);
   if (scope.iterationIds.length > 0) {
     return { kind: "iteration", iterationId: scope.iterationIds[0] };
   }

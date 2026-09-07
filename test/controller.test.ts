@@ -14,7 +14,7 @@ import { validatePhase, validatePhaseExit } from "../src/features/phase-control/
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
-import { seedFinalValidationReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
+import { seedFinalValidationReceipts, seedImplementationFocusedReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -1066,6 +1066,7 @@ Complete API work.
       "utf-8"
     );
 
+    seedImplementationFocusedReceipts(testTmpDir, 2);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1602,6 +1603,7 @@ Test fixture only.
     // sets approved_by, so every approval here is "approved: true" with no approved_by.
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
+    seedImplementationFocusedReceipts(testTmpDir, 1);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(false);
@@ -1627,6 +1629,7 @@ Test fixture only.
     }
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
+    seedImplementationFocusedReceipts(testTmpDir, 1);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
@@ -2005,6 +2008,7 @@ Test fixture only.
         "utf-8"
       );
 
+      seedImplementationFocusedReceipts(testTmpDir, 1);
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
       expect(result.ok).toBe(true);
@@ -2275,6 +2279,7 @@ Test fixture only.
         "utf-8"
       );
 
+      seedImplementationFocusedReceipts(testTmpDir, 2);
       const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
       expect(result.ok).toBe(true);

@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { createHash } from "crypto";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -135,9 +136,35 @@ function addOpenBlockingFinding(changeDir: string) {
   const findingsPath = path.join(changeDir, "validation_findings.md");
   const content = fs.readFileSync(findingsPath, "utf-8");
   fs.writeFileSync(findingsPath, content.replace(
-    "| ID | Status |",
-    "| F1 | open | must_fix | bug | 1 | broken | fix it |\n| ID | Status |"
+    "|---|---|---|---|---|---|---|",
+    "|---|---|---|---|---|---|---|\n| F1 | open | MUST-FIX | implementation | Iteration 1 | broken | fix it |"
   ));
+}
+
+function writeFindingsRepaired(changeDir: string) {
+  const findingsPath = path.join(changeDir, "validation_findings.md");
+  const content = fs.readFileSync(findingsPath, "utf-8");
+  fs.writeFileSync(findingsPath, content
+    .replace("verdict: pending", "verdict: repaired")
+    .replace(
+      "|---|---|---|---|---|---|---|",
+      "|---|---|---|---|---|---|---|\n| F1 | resolved | MUST-FIX | implementation | Iteration 1 | broken | fix it |"
+    ), "utf-8");
+}
+
+function hashLiteralMisreadUtf8(bytes: Buffer): string {
+  return createHash("sha256").update(bytes.toString("utf8"), "utf8").digest("hex");
+}
+
+async function spawnClaimReceiptJson(cwd: string): Promise<{ exitCode: number; envelope: { ok: boolean; message?: string; data?: { action?: string | null } } }> {
+  const proc = Bun.spawn(
+    ["bun", cliPath, "claim-receipt", "code-review", "--scope", "iteration:1", "--project-path", cwd, "--json"],
+    { cwd, stdout: "pipe", stderr: "pipe" }
+  );
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  const envelope = JSON.parse(stdout.trim());
+  return { exitCode, envelope };
 }
 
 let testTmpDir: string;
@@ -391,6 +418,7 @@ describe("execution receipts", () => {
   test("malformed receipt schema is rejected without mutation", () => {
     const changeDir = seedChange(testTmpDir);
     const receiptsPath = path.join(changeDir, "runtime", "execution_receipts.json");
+    fs.mkdirSync(path.dirname(receiptsPath), { recursive: true });
     const hostile = JSON.stringify({
       version: 1,
       receipts: [{
@@ -416,6 +444,26 @@ describe("execution receipts", () => {
     expect(fs.readFileSync(receiptsPath, "utf-8")).toBe(hostile);
   });
 
+  test("strict parser rejects incomplete cancelled receipt records", () => {
+    const hostile = JSON.stringify({
+      version: 1,
+      receipts: [{
+        unit: "code-review",
+        scope: "iteration:1",
+        diffDigest: "abc",
+        commandDigest: null,
+        status: "cancelled",
+        cancelReason: "agent crashed",
+        completedAt: "2026-01-01T00:01:00.000Z"
+      }]
+    }, null, 2);
+
+    const parsed = parseExecutionReceiptsFile(JSON.parse(hostile));
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.some(issue => issue.path.includes("claimId"))).toBe(true);
+    expect(parsed.issues.some(issue => issue.path.includes("claimedAt"))).toBe(true);
+  });
+
   test("missing full gate command digest fails final validation blockers clearly", () => {
     const blockers = finalValidationReceiptBlockers({
       file: emptyExecutionReceiptsFile(),
@@ -426,7 +474,7 @@ describe("execution receipts", () => {
     expect(blockers[0]).toContain("missing the full gate command");
   });
 
-  test("manual acceptance detection covers canonical, legacy PRD, legacy wording, and none", () => {
+  test("manual acceptance detection covers authoritative signals and rejects generic wording", () => {
     expect(requiresManualAcceptance({
       planContent: "- SC2 [Deferred to Final Validation / Manual Acceptance]",
       prdContent: ""
@@ -441,6 +489,21 @@ describe("execution receipts", () => {
       planContent: "Acceptance evidence requires browser verification in staging.",
       prdContent: ""
     })).toBe(true);
+
+    expect(requiresManualAcceptance({
+      planContent: "Final wave requires browser/manual validation before full gate.",
+      prdContent: ""
+    })).toBe(true);
+
+    expect(requiresManualAcceptance({
+      planContent: "Run visual validation of the dashboard layout.",
+      prdContent: ""
+    })).toBe(false);
+
+    expect(requiresManualAcceptance({
+      planContent: "Acceptance evidence requires visual inspection only.",
+      prdContent: ""
+    })).toBe(false);
 
     expect(requiresManualAcceptance({
       planContent: "# Plan\n\n## Iteration 1",
@@ -472,6 +535,22 @@ describe("execution receipts", () => {
     expect(entries.some(entry => entry.filePath === "link.txt")).toBe(true);
   });
 
+  test("diff digest hashes deleted binary git objects as raw bytes", () => {
+    const binaryPath = path.join(testTmpDir, "committed.bin");
+    const binaryBytes = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
+    fs.writeFileSync(binaryPath, binaryBytes);
+    gitCommitAll(testTmpDir, "add binary");
+    const headWithBinary = spawnSync("git", ["-C", testTmpDir, "rev-parse", "HEAD"], { encoding: "utf-8" }).stdout.trim();
+
+    fs.unlinkSync(binaryPath);
+    const expectedHash = createHash("sha256").update(binaryBytes).digest("hex");
+    const entries = buildDiffDigestEntries(testTmpDir, headWithBinary);
+    const deletedEntry = entries.find(entry => entry.filePath === "committed.bin" && entry.status.startsWith("D"));
+    expect(deletedEntry).toBeDefined();
+    expect(deletedEntry?.contentHash).toBe(expectedHash);
+    expect(deletedEntry?.contentHash).not.toBe(hashLiteralMisreadUtf8(binaryBytes));
+  });
+
   test("implementation exit requires current passed focused receipts for Check Evidence", () => {
     const changeDir = seedImplementationChange(testTmpDir);
     const paths = buildChangePaths(changeDir);
@@ -493,12 +572,10 @@ describe("execution receipts", () => {
       activeIteration: 1,
       repairCycleCount: 1
     });
-    fs.writeFileSync(paths.findingsPath, fs.readFileSync(paths.findingsPath, "utf-8")
-      .replace("verdict: pending", "verdict: repaired")
-      .replace("| ID | Status |", "| F1 | resolved | must_fix | bug | 1 | broken | fix it |\n| ID | Status |"), "utf-8");
+    writeFindingsRepaired(changeDir);
 
     const noCodeExit = validatePhaseExit(testTmpDir, "finding_repair", paths, 1);
-    expect(noCodeExit.ok).toBe(true);
+    expect(noCodeExit.ok, noCodeExit.issues.join("; ")).toBe(true);
 
     fs.writeFileSync(path.join(testTmpDir, "src-fix.ts"), "export const x = 1;\n");
     const blocked = validatePhaseExit(testTmpDir, "finding_repair", paths, 1);
@@ -519,12 +596,16 @@ describe("execution receipts", () => {
 
     for (const unit of ["code-review", "security-review"] as const) {
       const claim = claimReceipt(testTmpDir, unit, "final");
-      expect(claim.ok).toBe(true);
-      completeReceipt(testTmpDir, unit, "final", { claimId: claim.claimId!, result: "passed" });
+      expect(claim.ok, claim.message).toBe(true);
+      const completed = completeReceipt(testTmpDir, unit, "final", {
+        claimId: claim.claimId!,
+        result: "passed"
+      });
+      expect(completed.ok, completed.message).toBe(true);
     }
 
     const implClaim = claimReceipt(testTmpDir, "implementation-check", "final");
-    expect(implClaim.ok).toBe(true);
+    expect(implClaim.ok, implClaim.message).toBe(true);
 
     const premature = completeReceipt(testTmpDir, "implementation-check", "final", {
       claimId: implClaim.claimId!,
@@ -554,27 +635,29 @@ describe("execution receipts", () => {
   });
 
   test("concurrent claim-receipt invocations serialize through state lock", async () => {
-    seedChange(testTmpDir);
-    const args = [
-      cliPath,
-      "claim-receipt",
-      "code-review",
-      "--scope",
-      "iteration:1",
-      "--project-path",
-      testTmpDir
-    ];
+    const changeDir = seedChange(testTmpDir);
+    const receiptsPath = path.join(changeDir, "runtime", "execution_receipts.json");
 
-    const results = await Promise.all([
-      Bun.spawn(["bun", ...args], { cwd: testTmpDir, stdout: "pipe", stderr: "pipe" }).exited,
-      Bun.spawn(["bun", ...args], { cwd: testTmpDir, stdout: "pipe", stderr: "pipe" }).exited
+    const [first, second] = await Promise.all([
+      spawnClaimReceiptJson(testTmpDir),
+      spawnClaimReceiptJson(testTmpDir)
     ]);
 
-    const first = runCli(["receipt-status", "--scope", "iteration:1", "--project-path", testTmpDir], testTmpDir);
-    expect(first.exitCode).toBe(0);
-    const claimedCount = (first.stdout.match(/claimed/g) ?? []).length;
-    expect(claimedCount).toBe(1);
-    expect(results.every(code => code === 0 || code === 1)).toBe(true);
+    const outcomes = [first, second];
+    const successes = outcomes.filter(outcome => outcome.envelope.ok);
+    const failures = outcomes.filter(outcome => !outcome.envelope.ok);
+
+    expect(successes.length).toBe(1);
+    expect(failures.length).toBe(1);
+    expect(successes[0]?.exitCode).toBe(0);
+    expect(successes[0]?.envelope.data?.action).toBe("claimed");
+    expect(failures[0]?.exitCode).toBe(1);
+    expect(failures[0]?.envelope.message ?? "").toMatch(/already claimed/i);
+
+    expect(fs.existsSync(receiptsPath)).toBe(true);
+    const file = JSON.parse(fs.readFileSync(receiptsPath, "utf-8"));
+    const claimed = file.receipts.filter((entry: { status: string }) => entry.status === "claimed");
+    expect(claimed.length).toBe(1);
   });
 });
 

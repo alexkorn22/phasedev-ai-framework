@@ -9,6 +9,7 @@ import { buildChangePaths } from "../src/entities/change/paths";
 import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
+import { seedFinalValidationReceipts, seedIterationValidationReceipts } from "./helpers/receipt-fixtures";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-git-"));
@@ -246,6 +247,7 @@ describe("advance commit gate", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     driveToIterationValidationExit(repo);
     fs.writeFileSync(path.join(repo, "leftover.ts"), "x"); // uncommitted outside .phasedev
+    seedIterationValidationReceipts(repo, 1);
 
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
@@ -257,6 +259,7 @@ describe("advance commit gate", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
     const head = gitCommitAll(repo, "iter1");
+    seedIterationValidationReceipts(repo, 1);
 
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
@@ -270,6 +273,7 @@ describe("advance commit gate", () => {
     const changeDir = driveToIterationValidationExit(repo);
     const head = gitCommitAll(repo, "iter1");
     fs.writeFileSync(path.join(repo, "leftover.ts"), "x"); // dirty tree left on purpose
+    seedIterationValidationReceipts(repo, 1);
 
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
@@ -280,6 +284,7 @@ describe("advance commit gate", () => {
   it("does not gate in a non-git project", () => {
     const plain = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-plain-")); dirs.push(plain);
     driveToIterationValidationExit(plain);
+    seedIterationValidationReceipts(plain, 1);
 
     const res = advanceFlow(plain, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
@@ -290,6 +295,7 @@ describe("advance commit gate", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
     const firstHead = gitCommitAll(repo, "iter1");
+    seedIterationValidationReceipts(repo, 1);
 
     const firstAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(firstAdvance.ok).toBe(true);
@@ -309,6 +315,7 @@ describe("advance commit gate", () => {
     const repairHead = gitCommitAll(repo, "repair fix");
     expect(repairHead).not.toBe(firstHead);
 
+    seedIterationValidationReceipts(repo, 1);
     const secondAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(secondAdvance.ok).toBe(true);
@@ -319,6 +326,7 @@ describe("advance commit gate", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
     gitCommitAll(repo, "iter1");
+    seedIterationValidationReceipts(repo, 1);
 
     const toFinalValidation = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(toFinalValidation.ok).toBe(true);
@@ -334,6 +342,7 @@ describe("advance commit gate", () => {
       "ready",
       { type: "final", date: "2026-09-07" }
     ).ok).toBe(true);
+    seedFinalValidationReceipts(repo, "bun test full");
     const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(cleanComplete.ok).toBe(true);
     expect(cleanComplete.finished).toBe(true);

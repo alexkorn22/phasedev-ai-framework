@@ -100,6 +100,7 @@ export function completeReceiptRecord(input: {
   fullCommandDigest?: string | null;
 }): { file: ExecutionReceiptsFile; outcome: CompleteReceiptOutcome } {
   const completionBlockers = implementationCheckCompletionBlockers({
+    unit: input.unit,
     file: input.file,
     scope: input.scope,
     diffDigest: input.diffDigest,

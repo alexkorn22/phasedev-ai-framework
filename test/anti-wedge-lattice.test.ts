@@ -6,6 +6,7 @@ import { syncState } from "../src/features/phase-control/sync-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { seedFinalValidationReceipts } from "./helpers/receipt-fixtures";
 import { ActivePhase } from "../src/entities/change/flow-state";
 
 // ---------------------------------------------------------------------------
@@ -622,6 +623,10 @@ describe("anti-wedge lattice: no reachable validation state wedges", () => {
   test.each(LATTICE.map(c => [c.name, c] as const))("%s", (_name, c) => {
     const { root, changeDir } = buildState(c.plan, c.findings, c.state);
     const before = snapshot(changeDir);
+
+    if (c.expected === "complete") {
+      seedFinalValidationReceipts(root, "bun test full");
+    }
 
     const advance = advanceFlow(root, DEFAULT_CONFIG);
     const sync = advance.ok ? undefined : syncState(root);

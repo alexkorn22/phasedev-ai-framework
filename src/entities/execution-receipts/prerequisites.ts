@@ -143,13 +143,14 @@ export function claimPrerequisiteBlockers(input: {
 }
 
 export function implementationCheckCompletionBlockers(input: {
+  unit: ReceiptUnit;
   file: ExecutionReceiptsFile;
   scope: string;
   diffDigest: string;
   fullCommandDigest: string | null;
   result: "passed" | "failed" | "blocked";
 }): string[] {
-  if (input.scope !== "final" || input.result !== "passed") {
+  if (input.unit !== "implementation-check" || input.scope !== "final" || input.result !== "passed") {
     return [];
   }
   if (input.fullCommandDigest === null) {

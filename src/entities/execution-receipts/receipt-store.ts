@@ -110,6 +110,12 @@ function validateTerminalRecord(
 }
 
 function validateCancelledRecord(record: Record<string, unknown>, path: string, issues: ParseExecutionReceiptsIssue[]): void {
+  if (!isNonEmptyString(record.claimId)) {
+    issues.push({ path: `${path}.claimId`, message: "Cancelled receipt requires claimId." });
+  }
+  if (!isNonEmptyString(record.claimedAt)) {
+    issues.push({ path: `${path}.claimedAt`, message: "Cancelled receipt requires claimedAt." });
+  }
   if (!isNonEmptyString(record.completedAt)) {
     issues.push({ path: `${path}.completedAt`, message: "Cancelled receipt requires completedAt." });
   }

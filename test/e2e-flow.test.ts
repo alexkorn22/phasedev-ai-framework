@@ -16,6 +16,11 @@ import { findPendingArchiveState } from "../src/entities/change/archive-state";
 import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 import { syncState } from "../src/features/phase-control/sync-state";
+import {
+  seedFinalValidationReceipts,
+  seedImplementationFocusedReceipts,
+  seedIterationValidationReceipts
+} from "./helpers/receipt-fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -316,19 +321,57 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
   const changeDir = path.join(root, ".phasedev", "changes", name);
   const paths = buildChangePaths(changeDir);
 
+  const advanceStep = () => {
+    const changesDir = path.join(root, ".phasedev", "changes");
+    const activeChanges = fs.existsSync(changesDir)
+      ? fs.readdirSync(changesDir, { withFileTypes: true })
+          .filter(entry => entry.isDirectory() && entry.name !== "archive")
+          .map(entry => entry.name)
+      : [];
+
+    if (activeChanges.length <= 1) {
+      return advanceFlow(root, config, name);
+    }
+
+    const stashRoot = path.join(root, ".phasedev", ".multi-change-stash");
+    fs.mkdirSync(stashRoot, { recursive: true });
+    for (const other of activeChanges) {
+      if (other === name) {
+        continue;
+      }
+      const from = path.join(changesDir, other);
+      const to = path.join(stashRoot, other);
+      if (fs.existsSync(to)) {
+        fs.rmSync(to, { recursive: true, force: true });
+      }
+      fs.renameSync(from, to);
+    }
+
+    try {
+      return advanceFlow(root, config, name);
+    } finally {
+      for (const entry of fs.readdirSync(stashRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+        fs.renameSync(path.join(stashRoot, entry.name), path.join(changesDir, entry.name));
+      }
+    }
+  };
+
   return [
     // 1. change_intake -> code_research
     () => {
       simulateAgent(paths.prdPath, makePrdBody(fixture), true);
       simulateAgent(paths.executionContractPath, makeExecutionContractBody(), true);
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("code_research");
     },
     // 2. code_research -> technical_design
     () => {
       writeFile(paths.researchPath, makeResearchFactsBody(fixture));
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("technical_design");
     },
@@ -336,7 +379,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.designPath, makeDesignBody());
       approveArtifact(paths.designPath, "test");
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_planning");
     },
@@ -344,7 +387,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.iterationPlanPath, makeIterationPlanBody());
       approveArtifact(paths.iterationPlanPath, "test");
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("implementation");
       expect(result.newState?.activeIteration).toBe(1);
@@ -354,7 +397,8 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
       const planContent = markIterationOneDone(fs.readFileSync(paths.iterationPlanPath, "utf-8"));
       writeFile(paths.iterationPlanPath, planContent);
       approveArtifact(paths.iterationPlanPath, "test");
-      const result = advanceFlow(root, config, name);
+      seedImplementationFocusedReceipts(root, 1, "echo unit", name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_validation");
     },
@@ -362,7 +406,8 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "iteration"));
       expect(setIterationStatus(root, 1, "completed", undefined, name).ok).toBe(true);
-      const result = advanceFlow(root, config, name);
+      seedIterationValidationReceipts(root, 1, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("final_validation");
     },
@@ -371,7 +416,8 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     // runArchive moves the change dir into archive/.
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
-      const result = advanceFlow(root, config, name);
+      seedFinalValidationReceipts(root, "echo full", name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.message).toBe("Final validation passed. Flow complete.");
       expect(fs.existsSync(changeDir)).toBe(true);
@@ -658,6 +704,7 @@ describe("E2E flow via CLI subprocess", () => {
     const reapprovePlan = run(["approve", planPath]);
     expect(reapprovePlan.code).toBe(0);
 
+    seedImplementationFocusedReceipts(testTmpDir, 1, "echo unit", "test-flow");
     expectCheckSignalsReadyToAdvance();
 
     const adv5 = run(["advance"]);
@@ -678,6 +725,7 @@ describe("E2E flow via CLI subprocess", () => {
     const setIterStatus = run(["set-iteration-status", "1", "x"]);
     expect(setIterStatus.code).toBe(0);
 
+    seedIterationValidationReceipts(testTmpDir, 1, "test-flow");
     expectCheckSignalsReadyToAdvance();
 
     const adv6 = run(["advance"]);
@@ -692,6 +740,7 @@ describe("E2E flow via CLI subprocess", () => {
     const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
 
+    seedFinalValidationReceipts(testTmpDir, "echo full", "test-flow");
     expectCheckSignalsReadyToAdvance();
 
     const adv7 = run(["advance"]);
@@ -1028,6 +1077,7 @@ describe("stale final verdict scope-change e2e", () => {
     writeFile(paths.iterationPlanPath, implementedPlan);
     approveArtifact(paths.iterationPlanPath, "test");
 
+    seedImplementationFocusedReceipts(root, newIterationId, "echo unit", "full-arc-e2e");
     const toIterationValidation = advanceFlow(root, config, "full-arc-e2e");
     expect(toIterationValidation.ok).toBe(true);
     expect(toIterationValidation.newState?.activePhase).toBe("iteration_validation");
@@ -1045,6 +1095,7 @@ describe("stale final verdict scope-change e2e", () => {
 
     // (c) advance -> route falls to final_validation (all [x], type iteration);
     // advance sets type: final; run fresh final validation; set-verdict ready.
+    seedIterationValidationReceipts(root, newIterationId, "full-arc-e2e");
     const toFinalValidation = advanceFlow(root, config, "full-arc-e2e");
     expect(toFinalValidation.ok).toBe(true);
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
@@ -1056,6 +1107,7 @@ describe("stale final verdict scope-change e2e", () => {
 
     // (d) advance clean-completes at final_validation (no mutation); runArchive
     // then performs the archive mutation.
+    seedFinalValidationReceipts(root, "echo full", "full-arc-e2e");
     const toFinalComplete = advanceFlow(root, config, "full-arc-e2e");
     expect(toFinalComplete.ok).toBe(true);
     expect(toFinalComplete.message).toBe("Final validation passed. Flow complete.");
@@ -1100,6 +1152,7 @@ describe("stale final verdict scope-change e2e", () => {
     wedged = { ...(wedged as NonNullable<typeof wedged>), activePhase: "iteration_validation", activeIteration: 1 };
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(wedged, null, 2) + "\n", "utf-8");
 
+    seedIterationValidationReceipts(root, 1, "self-heal-e2e");
     const result = advanceFlow(root, config, "self-heal-e2e");
     expect(result.ok).toBe(true);
     expect(loadFlowState(root, "self-heal-e2e")?.activePhase).not.toBe("iteration_validation");
