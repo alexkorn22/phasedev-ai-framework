@@ -76,6 +76,8 @@ Commands:
   phasedev check [--project-path <path>] [--phase <phase>]
   phasedev check --check-orphans [--project-path <path>]
       Validate artifacts for the active phase (or --phase override).
+      When the active phase is complete and artifacts already resolve to the next
+      phase, reports OK with a notice to run phasedev advance; this is normal progress.
       --check-orphans instead scans for orphaned or unfinished archive directories.
       Side effects: none.
 
@@ -99,6 +101,9 @@ Commands:
       Does not archive: once final validation passes, run phasedev archive.
       Self-heals internal registry state (verdict: pending, type normalization)
       during validation; agents never set those values themselves.
+      Entering iteration_validation or final_validation resets an inherited terminal
+      verdict (ready or ready_with_risks) to pending, so every validation scope starts
+      unvalidated and final validation cannot be skipped.
       Side effects: updates state.json, flips iteration status.
 
   phasedev archive <change-name> [--project-path <path>] [--config <path>]

@@ -12,6 +12,39 @@ export interface ValidationStateNormalization {
 }
 
 /**
+ * Normalizes a newly entered validation scope. An inherited terminal verdict
+ * would pre-pass the new scope and collapse final_validation into archive_ready.
+ */
+export function enterValidationPhase(
+  paths: ChangePaths,
+  enteredPhase: ActivePhase,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): ValidationStateNormalization {
+  const expected = expectedFindingsType(enteredPhase);
+  if (!expected) {
+    return { changed: false, notes: [] };
+  }
+
+  setFindingsType(paths.findingsPath, expected);
+
+  const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
+  if (
+    findings.exists &&
+    (findings.verdict === "ready" || findings.verdict === "ready_with_risks") &&
+    resetVerdictToPending(paths.findingsPath).ok
+  ) {
+    return {
+      changed: true,
+      notes: [
+        `Reset the inherited \`${findings.verdict}\` verdict to \`pending\`: ${enteredPhase} is a new validation scope and starts unvalidated; run the validation, then set a terminal verdict with \`phasedev set-verdict\`.`
+      ]
+    };
+  }
+
+  return { changed: false, notes: [] };
+}
+
+/**
  * Pre-route normalization for the mutating commands (advance, sync-state).
  * Enforces Invariant T and invalidates a stale terminal-final verdict after a
  * scope change. resolveRoute stays pure; all writes happen here.

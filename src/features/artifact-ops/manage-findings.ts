@@ -135,7 +135,7 @@ function isKnownVerdict(value: string): value is (typeof KNOWN_VERDICTS)[number]
 
 function correctedVerdict(current: string, addedSeverity: string, blockingSeverity: BlockingSeverity): string | null {
   const isBlocking = severityBlocks(addedSeverity.toUpperCase() as ValidationFindingSeverity, blockingSeverity);
-  if (isBlocking && ["ready", "ready_with_risks", "repaired"].includes(current)) return "repair_required";
+  if (isBlocking && ["pending", "ready", "ready_with_risks", "repaired"].includes(current)) return "repair_required";
   if (!isBlocking && current === "ready") return "ready_with_risks";
   return null;
 }
@@ -153,7 +153,9 @@ function verdictAfterResolve(current: string, remainingOpenBlocking: number): st
  */
 function applyVerdictCorrection(parsed: ReturnType<typeof parseTable>, addedSeverity: string, blockingSeverity: BlockingSeverity): string {
   const current = readVerdictLine(parsed.frontmatter);
-  if (current === null || !isKnownVerdict(current)) return "";
+  // `pending` is not a set-verdict value but is correctable: a blocking finding
+  // recorded in a freshly entered validation scope makes that scope repair_required.
+  if (current === null || (!isKnownVerdict(current) && current !== "pending")) return "";
   const next = correctedVerdict(current, addedSeverity, blockingSeverity);
   if (!next) return "";
   parsed.frontmatter = parsed.frontmatter.replace(/^verdict:\s*.*$/m, `verdict: ${next}`);

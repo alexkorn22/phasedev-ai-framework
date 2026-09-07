@@ -127,6 +127,7 @@ Use the current model aliases of your environment; the tiers are what matter.
 
 - In OpenCode: select the tier subagent `subagent_type: "phasedev-<tier>"` (e.g. `phasedev-cheap`, `phasedev-standard`, `phasedev-strong`), which activates the corresponding model defined in `opencode.json`.
 - In dynamic-model harnesses (e.g. `claude-code`, `codex`, `antigravity`): generic agent types must always pass an explicit `model` equal to the graded tier — omitting it silently inherits the orchestrator's (usually most expensive) model.
+- In Cursor: `Task` with `subagent_type: "generalPurpose"` and `model` copied verbatim from `phasedev spawn-plan --harness cursor` (or the equivalent graded slug). Never omit `model`, never pass `inherit`, never use `explore` / `shell` / `bash` / `browser` / `bugbot` / `security-review` for Express stage work — those types pin their own models.
 - Custom types with a pinned model: never override it. Custom types without one: pass the graded tier explicitly.
 - For reviewers and for implementers working from prose (not complete code), the mid tier (`phasedev-standard`) is the floor — an under-powered model takes 2–3× the turns and costs more overall.
 - Escalate on evidence: if a report shows the stage was harder than graded, re-dispatch the remainder one tier up (`phasedev-standard` → `phasedev-strong`). Never retry the same dispatch unchanged.

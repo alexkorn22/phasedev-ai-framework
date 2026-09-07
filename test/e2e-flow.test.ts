@@ -60,12 +60,12 @@ function changeDir(): string {
 }
 
 // The current phase's artifacts already satisfy the flow, so the artifact-derived
-// route has moved ahead of the still-locked state.json — check grades that ahead
-// phase (whose own artifacts don't exist yet) and points the agent at `advance`.
+// route has moved ahead of the still-locked state.json. Check reports the locked
+// phase complete and points the agent at `advance`.
 function expectCheckSignalsReadyToAdvance(): void {
   const result = run(["check"]);
-  expect(result.code).toBe(1);
-  expect(result.out).toContain("run `phasedev advance`");
+  expect(result.code).toBe(0);
+  expect(result.out).toContain("Run `phasedev advance`");
 }
 
 function simulateAgent(file: string, body: string, approved = false): void {
@@ -1033,6 +1033,7 @@ describe("stale final verdict scope-change e2e", () => {
     expect(toIterationValidation.newState?.activePhase).toBe("iteration_validation");
     const enteredValidationFindings = fs.readFileSync(paths.findingsPath, "utf-8");
     expect(enteredValidationFindings).toContain("type: iteration");
+    expect(enteredValidationFindings).toContain("verdict: pending");
 
     const iterationVerdict = setFindingsVerdict(paths.findingsPath, "ready", { type: "iteration", date: "2026-07-14" });
     expect(iterationVerdict.ok).toBe(true);
@@ -1049,6 +1050,7 @@ describe("stale final verdict scope-change e2e", () => {
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
     const enteredFinalFindings = fs.readFileSync(paths.findingsPath, "utf-8");
     expect(enteredFinalFindings).toContain("type: final");
+    expect(enteredFinalFindings).toContain("verdict: pending");
 
     writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
 
@@ -1088,6 +1090,7 @@ describe("stale final verdict scope-change e2e", () => {
     const changeDir = path.join(root, ".phasedev", "changes", "self-heal-e2e");
     const paths = buildChangePaths(changeDir);
 
+    expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-07-14" }).ok).toBe(true);
     const findingsBefore = fs.readFileSync(paths.findingsPath, "utf-8");
     expect(findingsBefore).toContain("verdict: ready");
     expect(findingsBefore).toContain("type: final");
