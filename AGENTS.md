@@ -129,6 +129,7 @@ PhaseDev is designed to be operated by a main **Orchestrator Agent** (shipped as
 - Severity levels: `must_fix`, `recommended`, `nit`.
 - Verdicts: `ready`, `ready_with_risks` (no open `must_fix`), `repair_required` (open `must_fix`), `repaired`.
 - Hand-editing `validation_findings.md` is **strictly prohibited** — only CLI commands may mutate it.
+- Entering `iteration_validation` or `final_validation` (via `advance` or a forward `sync-state`) resets an inherited terminal verdict (`ready`/`ready_with_risks`) to the CLI transient `pending`; every validation scope starts unvalidated, so final validation can never be skipped by a verdict carried over from iteration validation.
 
 ---
 
@@ -147,7 +148,7 @@ All commands support the global `--json` flag to print `{ ok, kind, phase?, mess
 
 ### Orchestration & Flow Loop
 - `phasedev phase [--project-path <path>] [--config <path>]`: Prints the executable phase contract for the active phase (read-only, idempotent).
-- `phasedev check [--project-path <path>] [--phase <phase>] [--check-orphans]`: Validates artifacts of the active phase against schema and completeness rules.
+- `phasedev check [--project-path <path>] [--phase <phase>] [--check-orphans]`: Validates artifacts of the active phase against schema and completeness rules. When the locked active phase is complete and artifacts already resolve to the next phase, reports OK with a `run phasedev advance` notice (normal forward progress, not an artifact issue).
 - `phasedev advance [--project-path <path>] [--config <path>]`: Validates active phase and transitions `state.json` to the next phase. Refuses if invalid or unapproved. Archive-silent.
 - `phasedev clarify [--project-path <path>] [--change <name>]`: Prints decision-points contract to resolve questions with the user before a phase artifact is drafted.
 - `phasedev feedback [--project-path <path>]`: Prints user-feedback handling contract (classifies bug vs scope change).

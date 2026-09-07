@@ -16,9 +16,10 @@ import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
-import { checkPhase } from "../src/features/phase-control/check-flow";
-import { addFinding } from "../src/features/artifact-ops/manage-findings";
+import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
+import { addFinding, setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { expectedFindingsType } from "../src/features/phase-control/expected-findings-type";
+import { enterValidationPhase } from "../src/features/phase-control/normalize-validation-state";
 
 let testTmpDir: string;
 
@@ -65,7 +66,7 @@ function validPrdBody(): string {
 `;
 }
 
-function validationFindings(verdict: "ready" | "ready_with_risks" | "repair_required" | "repaired", type: "iteration" | "final", rows = ""): string {
+function validationFindings(verdict: "pending" | "ready" | "ready_with_risks" | "repair_required" | "repaired", type: "iteration" | "final", rows = ""): string {
   return `---
 verdict: ${verdict}
 type: ${type}
@@ -2175,7 +2176,7 @@ Test fixture only.
   });
 
   describe("findings type auto-promotion into final_validation", () => {
-    test("advance from iteration_validation to final_validation promotes type: iteration to type: final", () => {
+    test("advance from iteration_validation enters a fresh final_validation scope", () => {
       const changeDir = setupChange(`
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
@@ -2188,15 +2189,119 @@ Test fixture only.
         "utf-8"
       );
 
-      const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
+      const readyCheck = checkPhase(testTmpDir);
+      expect(readyCheck.ok).toBe(true);
+      expect(readyCheck.phase).toBe("iteration_validation");
+      expect(readyCheck.message).toContain("phasedev advance");
+
+      const config = { ...DEFAULT_CONFIG, requireIterationCommit: false };
+      const result = advanceFlow(testTmpDir, config);
 
       expect(result.ok).toBe(true);
+      expect(result.advanced).toBe(true);
+      expect(result.finished).toBe(false);
       expect(result.newState?.activePhase).toBe("final_validation");
+      expect(result.message).toContain("Advanced to final_validation");
+      expect(result.message).toContain("Reset the inherited `ready` verdict to `pending`");
 
       const paths = buildChangePaths(changeDir);
       const findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
       expect(findingsContent).toContain("type: final");
       expect(findingsContent).not.toContain("type: iteration");
+      expect(findingsContent).toContain("verdict: pending");
+      expect(resolveRoute(testTmpDir).kind).toBe("final_validation");
+
+      const phaseCheck = checkPhase(testTmpDir);
+      expect(phaseCheck.ok).toBe(false);
+      expect(phaseCheck.phase).toBe("final_validation");
+      expect(phaseCheck.message).toContain("Validation pending: verdict is `pending`");
+
+      const completionCheck = checkValidationCompletion(testTmpDir, { scope: "final" });
+      expect(completionCheck.ok).toBe(false);
+      expect(completionCheck.message).toContain("Validation pending: verdict is `pending`");
+
+      const refused = advanceFlow(testTmpDir, config);
+      expect(refused.ok).toBe(false);
+      expect(refused.advanced).toBe(false);
+
+      expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-09-07" }).ok).toBe(true);
+      const completed = advanceFlow(testTmpDir, config);
+      expect(completed.ok).toBe(true);
+      expect(completed.finished).toBe(true);
+      expect(completed.message).toBe("Final validation passed. Flow complete.");
+    });
+
+    test("advance into iteration_validation resets an inherited iteration verdict", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+
+## Iteration 2: UI [~]
+- [x] 2.1 Build page
+`, {
+        findings: validationFindings("ready", "iteration")
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({ activePhase: "implementation", activeIteration: 2, repairCycleCount: 0 }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, requireIterationCommit: false });
+
+      expect(result.ok).toBe(true);
+      expect(result.newState?.activePhase).toBe("iteration_validation");
+      expect(result.newState?.activeIteration).toBe(2);
+      expect(result.message).toContain("Reset the inherited `ready` verdict to `pending`");
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: iteration");
+      expect(findingsContent).toContain("verdict: pending");
+    });
+
+    test("enterValidationPhase preserves repaired verdicts and ignores non-validation or missing findings", () => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("repaired", "iteration")
+      });
+      const paths = buildChangePaths(changeDir);
+
+      expect(enterValidationPhase(paths, "final_validation").changed).toBe(false);
+      let findingsContent = fs.readFileSync(paths.findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
+      expect(findingsContent).toContain("verdict: repaired");
+
+      expect(enterValidationPhase(paths, "finding_repair")).toEqual({ changed: false, notes: [] });
+      fs.rmSync(paths.findingsPath);
+      expect(enterValidationPhase(paths, "iteration_validation")).toEqual({ changed: false, notes: [] });
+      expect(fs.existsSync(paths.findingsPath)).toBe(false);
+    });
+
+    test.each([
+      ["iteration", { scope: "iteration", iterationId: 1 } as const],
+      ["final", { scope: "final" } as const]
+    ])("checkValidationCompletion rejects pending %s validation", (type, options) => {
+      const changeDir = setupChange(`
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("pending", type)
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({
+          activePhase: type === "iteration" ? "iteration_validation" : "final_validation",
+          activeIteration: type === "iteration" ? 1 : null,
+          repairCycleCount: 0
+        }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = checkValidationCompletion(testTmpDir, options);
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("Validation pending: verdict is `pending`");
     });
 
     test("a MUST-FIX finding added in final_validation routes to finding_repair instead of a type deadlock", () => {
@@ -2542,6 +2647,44 @@ Test fixture only.
       expect(readFindingsBaseline(path.join(changeDir, "state.json"))).toBeNull();
     });
 
+    test("syncState enters forward-synced final_validation with a pending verdict", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings("ready", "iteration", "| F1 | resolved | MUST-FIX | implementation | 1 | API response omitted error handling. | Add error mapping. |\n")
+      });
+      writeRawState(changeDir, {
+        activePhase: "iteration_validation",
+        activeIteration: 1,
+        repairCycleCount: 1,
+        findingsBaseline: {
+          rows: [{
+            id: "F1",
+            status: "resolved",
+            severity: "NICE-TO-HAVE",
+            className: "implementation",
+            iteration: "1",
+            finding: "API response omitted error handling.",
+            requiredFix: "Add error mapping."
+          }]
+        }
+      });
+
+      const result = syncState(testTmpDir);
+
+      expect(result.ok).toBe(true);
+      expect(result.changed).toBe(true);
+      expect(result.toPhase).toBe("final_validation");
+      expect(result.message).toContain("Reset the inherited `ready` verdict to `pending`");
+      expect(loadFlowState(testTmpDir)?.activePhase).toBe("final_validation");
+      const findingsContent = fs.readFileSync(buildChangePaths(changeDir).findingsPath, "utf-8");
+      expect(findingsContent).toContain("type: final");
+      expect(findingsContent).toContain("verdict: pending");
+    });
+
     test("syncState will not fabricate an archive transition when the locked phase's exit gate genuinely fails", () => {
       // Artifacts resolve to archive_ready (final verdict ready, all iterations
       // completed) but the locked final_validation phase's own exit gate still
@@ -2728,7 +2871,7 @@ Test fixture only.
     });
   });
 
-  describe("checkPhase grades the artifact-derived route, not the stale lock", () => {
+  describe("checkPhase grades a complete lock before advance and the route on deadlock or backward drift", () => {
     function writeState(changeDir: string, phase: string, iteration: number | null = null) {
       fs.writeFileSync(
         path.join(changeDir, "state.json"),
@@ -2737,7 +2880,7 @@ Test fixture only.
       );
     }
 
-    test("forward drift: lock=change_intake but artifacts resolve further, checkPhase grades the route phase", () => {
+    test("forward drift: lock=change_intake but artifacts resolve further, checkPhase reports the lock complete", () => {
       const changeDir = setupChange(`
 # Plan
 
@@ -2749,9 +2892,9 @@ Test fixture only.
 
       const result = checkPhase(testTmpDir);
 
-      expect(result.phase).toBe("technical_design");
-      expect(result.message).toContain("state.json is locked at change_intake");
-      expect(result.message).toContain("artifacts resolve to technical_design");
+      expect(result.ok).toBe(true);
+      expect(result.phase).toBe("change_intake");
+      expect(result.message).toContain("artifacts already resolve to technical_design");
       expect(result.message).toContain("phasedev advance");
     });
 
@@ -2804,7 +2947,7 @@ Test fixture only.
       expect(result.message).not.toContain("is locked at");
     });
 
-    test("recommended threshold: check reports finding_repair for an open RECOMMENDED", () => {
+    test("recommended threshold: check reports iteration_validation complete before advancing to finding_repair", () => {
       const changeDir = setupChange(`
 # Plan
 
@@ -2817,8 +2960,9 @@ Test fixture only.
 
       const result = checkPhase(testTmpDir, undefined, undefined, "recommended");
 
-      expect(result.phase).toBe("finding_repair");
+      expect(result.phase).toBe("iteration_validation");
       expect(result.ok).toBe(true);
+      expect(result.message).toContain("artifacts already resolve to finding_repair");
     });
 
     test("forward deadlock: checkPhase recommends sync-state, not the old combined advance-or-rollback phrasing", () => {
@@ -2867,6 +3011,8 @@ Test fixture only.
 
       const result = checkPhase(testTmpDir);
 
+      expect(result.ok).toBe(true);
+      expect(result.phase).toBe("iteration_validation");
       expect(result.message).toContain("phasedev advance");
       expect(result.message).not.toContain("phasedev sync-state");
     });

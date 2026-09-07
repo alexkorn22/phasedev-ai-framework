@@ -294,6 +294,7 @@ const CONCRETE_DEFECT = new RegExp(
   [
     "does not exist",
     "top-level tasks are not all completed",
+    "validation pending",
     "re-validation pending",
     "repair not finished",
     "still open or reopened",

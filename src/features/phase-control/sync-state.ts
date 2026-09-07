@@ -6,7 +6,7 @@ import { resolveRoute } from "./flow-route";
 import { classifyStateRoute } from "./state-route-consistency";
 import { validatePhaseExit } from "./phase-validators";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
-import { normalizeValidationState } from "./normalize-validation-state";
+import { enterValidationPhase, normalizeValidationState } from "./normalize-validation-state";
 
 export interface SyncStateResult {
   ok: boolean;
@@ -87,6 +87,7 @@ export function syncState(
     // snapshot from before this reconciliation, rejecting legitimate rework.
     clearFindingsBaseline(path.join(changeDir, FLOW_STATE_FILE));
 
+    const entry = enterValidationPhase(paths, routePhase, blockingSeverity);
     const nextIteration = route.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
     saveFlowState(
       projectPath,
@@ -94,13 +95,14 @@ export function syncState(
       changeName
     );
 
-    const forwardArtifactsNote = normalization.changed ? "" : " No artifacts were modified.";
+    const forwardArtifactsNote = normalization.changed || entry.changed ? "" : " No artifacts were modified.";
+    const entryNote = entry.changed ? ` ${entry.notes.join(" ")}` : "";
     return {
       ok: true,
       changed: true,
       fromPhase: state.activePhase,
       toPhase: routePhase,
-      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved).${forwardArtifactsNote} Run: phasedev phase.${resetNote}`
+      message: `Synced state.json forward: ${state.activePhase} -> ${routePhase} (the locked phase's exit gate had failed; activeIteration and repairCycleCount preserved).${forwardArtifactsNote} Run: phasedev phase.${resetNote}${entryNote}`
     };
   }
 

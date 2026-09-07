@@ -40,6 +40,10 @@ export function revalidationPendingMessage(): string {
   return "Re-validation pending: verdict is `repaired`. Re-run validation, then set a terminal verdict with `phasedev set-verdict ready|ready_with_risks|repair_required`.";
 }
 
+export function validationPendingMessage(): string {
+  return "Validation pending: verdict is `pending` (CLI transient set when this validation scope was entered). Run the validation for this scope, then set a terminal verdict with `phasedev set-verdict ready|ready_with_risks|repair_required`.";
+}
+
 /**
  * Read file content for schema section validation.
  * Returns empty string if file doesn't exist.
@@ -142,6 +146,9 @@ export function validatePhase(
       if (findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
         issues.push(revalidationPendingMessage());
       }
+      if (findings.verdict === "pending") {
+        issues.push(validationPendingMessage());
+      }
 
       // NOTE: iteration completeness (whether findings cover the active
       // iteration) is checkValidationCompletion's authority, not this gate's.
@@ -196,6 +203,9 @@ export function validatePhase(
 
       if (findings.verdict === "repaired" && findings.openBlockingRows.length === 0) {
         issues.push(revalidationPendingMessage());
+      }
+      if (findings.verdict === "pending") {
+        issues.push(validationPendingMessage());
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);

@@ -6,10 +6,10 @@ import { checkFindingsAgainstBaseline } from "../../entities/validation-findings
 import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase, readFindingsBaseline } from "../../entities/change/flow-state";
-import { validatePhase, validatePhaseExit, revalidationPendingMessage } from "./phase-validators";
+import { validatePhase, validatePhaseExit, revalidationPendingMessage, validationPendingMessage } from "./phase-validators";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
-import { classifyStateRoute } from "./state-route-consistency";
+import { classifyStateRoute, StateRouteRelation } from "./state-route-consistency";
 
 export type RouteKind = Route["kind"];
 
@@ -61,19 +61,12 @@ function repairRequiredIssue(scope: ValidationCheckOptions["scope"], routeKind: 
  * does not (the lock is stuck, forward or behind the route).
  */
 function buildDivergenceNotice(
-  projectPath: string,
   state: FlowState,
   route: Route,
-  paths: ChangePaths,
-  blockingSeverity: BlockingSeverity
+  relation: StateRouteRelation
 ): string {
-  const exitGateOk = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, blockingSeverity).ok;
-  const relation = classifyStateRoute(state, route, exitGateOk);
   const routePhase = route.phase;
 
-  if (relation === "advance_pending") {
-    return `\nstate.json is locked at ${state.activePhase} but artifacts resolve to ${routePhase}; run \`phasedev advance\` to move forward.`;
-  }
   if (relation === "forward_deadlock") {
     return `\nstate.json is locked at ${state.activePhase} but ${state.activePhase} cannot pass its exit gate; run \`phasedev sync-state\` to reconcile state.json forward to ${routePhase}.`;
   }
@@ -129,10 +122,30 @@ export function checkPhase(
   const activeIteration = route?.kind === "iteration" ? route.activeIteration.id : state.activeIteration;
 
   const paths = buildChangePaths(changeDir);
+  let relation: StateRouteRelation | null = null;
+  if (route && route.phase !== state.activePhase) {
+    const exitGateOk = validatePhaseExit(
+      projectPath,
+      state.activePhase,
+      paths,
+      state.activeIteration,
+      blockingSeverity
+    ).ok;
+    relation = classifyStateRoute(state, route, exitGateOk);
+
+    if (relation === "advance_pending") {
+      return {
+        ok: true,
+        phase: state.activePhase,
+        message: `[PHASEDEV CHECK] OK: phase ${state.activePhase} is complete; artifacts already resolve to ${route.phase}. Run \`phasedev advance\` to move forward.`
+      };
+    }
+  }
+
   const v = validatePhase(projectPath, phase, paths, activeIteration, blockingSeverity);
 
-  const divergenceNotice = route && phase !== state.activePhase
-    ? buildDivergenceNotice(projectPath, state, route, paths, blockingSeverity)
+  const divergenceNotice = route && relation
+    ? buildDivergenceNotice(state, route, relation)
     : "";
 
   return {
@@ -184,6 +197,9 @@ export function checkValidationCompletion(
     if (findings.verdict === "repaired") {
       issues.push(revalidationPendingMessage());
     }
+    if (findings.verdict === "pending") {
+      issues.push(validationPendingMessage());
+    }
 
     if (isReadyVerdict(findings.verdict)) {
       const phaseIteration = paths ? parsePlan(paths.iterationPlanPath).find(candidate => candidate.id === options.iterationId) : undefined;
@@ -211,6 +227,9 @@ export function checkValidationCompletion(
 
     if (findings.verdict === "repaired") {
       issues.push(revalidationPendingMessage());
+    }
+    if (findings.verdict === "pending") {
+      issues.push(validationPendingMessage());
     }
 
     if (isReadyVerdict(findings.verdict) && route.kind !== "archive_ready") {

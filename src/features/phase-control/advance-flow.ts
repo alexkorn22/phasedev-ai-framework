@@ -7,10 +7,8 @@ import { validatePhaseExit } from "./phase-validators";
 import { resolveRoute, Route } from "./flow-route";
 import { Phase } from "../../entities/phase/types";
 import { detectStateRouteConflict } from "./state-route-consistency";
-import { setFindingsType } from "../artifact-ops/manage-findings";
-import { expectedFindingsType } from "./expected-findings-type";
 import { gitHeadSha } from "../../shared/shell/git";
-import { normalizeValidationState } from "./normalize-validation-state";
+import { enterValidationPhase, normalizeValidationState } from "./normalize-validation-state";
 import { quickAdvance } from "./quick-advance";
 import { clarifyReminderFor } from "./get-clarify-prompt";
 import { AdvanceResult, commitGateBlocks } from "./advance-shared";
@@ -253,6 +251,20 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   const paths = buildChangePaths(changeDir);
 
+  // The exit gate is evaluated twice around normalization on purpose:
+  // normalization may repair the gate (stale `type`, Rule b) or deliberately
+  // invalidate an already-passed final verdict after a scope change (Rule a,
+  // `ready` -> `pending`). A phase that was finished as its artifacts stood
+  // before normalization stays finished; otherwise the normalized artifacts
+  // get a second chance to pass.
+  const validationBeforeNormalization = validatePhaseExit(
+    projectPath,
+    state.activePhase,
+    paths,
+    state.activeIteration,
+    config.blockingSeverity,
+    config
+  );
   const normalization = normalizeValidationState(paths, state.activePhase, config.blockingSeverity);
 
   // Consistency gate: the phase lock (state.json) and the artifact-derived route
@@ -265,7 +277,9 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
 
   // (A) Per-phase exit gate: structural validity plus phase-completion
   // conditions. Entry conditions are resolveRoute's job (step C).
-  const v = validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, config.blockingSeverity, config);
+  const v = validationBeforeNormalization.ok
+    ? validationBeforeNormalization
+    : validatePhaseExit(projectPath, state.activePhase, paths, state.activeIteration, config.blockingSeverity, config);
   if (!v.ok) {
     return refuse(
       `Cannot leave phase "${state.activePhase}":\n${v.issues.join("\n")}`
@@ -435,14 +449,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     return refuse(`Cannot advance: ${sideEffect.reason}`);
   }
 
-  // Invariant T: on entering a validation phase, validation_findings.md's `type`
-  // must match that phase (iteration_validation -> iteration, final_validation ->
-  // final). Idempotent; no-op when the file is absent. Other phases (finding_repair,
-  // quick_*) are left untouched so the repaired->final branch keeps type: final.
-  const enteredType = expectedFindingsType(nextState.activePhase);
-  if (enteredType) {
-    setFindingsType(paths.findingsPath, enteredType);
-  }
+  const entry = enterValidationPhase(paths, nextState.activePhase, config.blockingSeverity);
 
   // Snapshot the findings table as the repair-gate baseline whenever entering
   // a phase that reads or writes validation_findings.md, so later gates diff
@@ -488,6 +495,7 @@ export function advanceFlow(projectPath: string, config: Config, changeName?: st
     finalNextState,
     `Advanced to ${finalNextState.activePhase}${iterSuffix}.` +
       (normalization.changed ? ` ${normalization.notes.join(" ")}` : "") +
+      (entry.changed ? ` ${entry.notes.join(" ")}` : "") +
       clarifyReminderFor(finalNextState.activePhase)
   );
 }

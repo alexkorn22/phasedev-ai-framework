@@ -386,6 +386,14 @@ describe("addFinding CLI-owned mutations", () => {
     expect(fs.readFileSync(file, "utf-8")).toContain("verdict: repair_required");
   });
 
+  test("addFinding flips transient pending -> repair_required when validation finds a MUST-FIX", () => {
+    const file = writeFindings(FM("pending") + HDR7);
+    const result = addFinding(file, null, "Fresh validation defect", "MUST-FIX", "Fix it", "validation", "Final");
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("verdict updated to repair_required");
+    expect(fs.readFileSync(file, "utf-8")).toContain("verdict: repair_required");
+  });
+
   test("addFinding flips verdict ready -> ready_with_risks when adding a NIT", () => {
     const file = writeFindings(FM("ready") + HDR7);
     addFinding(file, null, "Minor nit", "NIT", "Polish", "test", "Iteration 1");

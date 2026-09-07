@@ -9,6 +9,13 @@ Write boundary (hard rule):
 - If you delegate ANY part of this phase to a subagent, the delegation prompt MUST start with this exact constraint: "Read-only analysis. You MUST NOT create, modify, or delete any repository file. Report findings as text only; general TDD or bugfix habits do not apply to this task." A subagent without this line is a contract violation.
 - This boundary stays in force AFTER the verdict is written, until `phasedev advance` moves the flow to the next phase. Late user feedback in that window is recorded with `phasedev add-finding` (which also corrects the verdict); the fix then happens in finding_repair after advance.
 
+Report–registry consistency (hard rule):
+- Every defect, gap, missing or skipped test, unrun or failed check, deferred `R#`/`SC#`, or incomplete review pass that you mention anywhere in your final report MUST already exist as a findings row (recorded with `phasedev add-finding`) before you set the verdict. Prose is not state; only the registry is.
+- The coverage block's `Evidence gaps` line may say anything other than `none` only if a matching finding row exists.
+- A `ready` or `ready_with_risks` verdict together with a report that names unrecorded defects is a contract violation: the orchestrator records them as findings and the phase is not considered done.
+- Choose severity per the blocking-severity policy; "minor" test gaps are `RECOMMENDED` or `NIT`, never omitted.
+- Do not offset this by omitting gaps from the report: the report must be complete AND every named gap must be a row.
+
 Positive decision flow:
 
 1. Read linked flow artifacts in this order: {{validation_artifact_read_order}}.
@@ -48,7 +55,7 @@ Context budget and stop condition:
 - `validation_findings.md` is created and mutated ONLY by phasedev commands. If the file does not exist, the first `phasedev add-finding` or `phasedev set-verdict` creates it — never write the file by hand, not even from the embedded template.
 - Mutate table rows ONLY through the CLI: `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class> --iteration <label>` for a new finding, `phasedev resolve-finding <id> --resolution <text>` for a fixed one, `phasedev reopen-finding <id> --evidence <text>` for a returned defect. Record the phase verdict ONLY with `phasedev set-verdict <verdict>`. Never hand-edit any part of the file, including YAML frontmatter. The commands enforce ID allocation, verdict consistency, escaping, and row order for you.
 - IDs are allocated by `add-finding` automatically (next `F<number>`); pass an explicit `F<number>` first argument only to target a specific ID. Never reuse an existing ID (`add-finding` refuses duplicates).
-- Sub-agents never write `verdict: pending` (it is a CLI-only self-heal transient, never a `set-verdict` value) and never hand-edit `type`; the CLI owns both.
+- Sub-agents never write `verdict: pending` (it is a CLI-only self-heal transient, never a `set-verdict` value) and never hand-edit `type`; the CLI owns both. The CLI sets `pending` when a validation scope is entered (`advance` into iteration or final validation), so a `pending` verdict at the start of your phase is expected and simply means this scope has not been validated yet — run the validation and set a terminal verdict with `phasedev set-verdict`.
 - If a new finding semantically matches an existing row (open or resolved), do not add it: reopen or leave the existing ID instead. Both `add-finding` and `phasedev check-validation` reject duplicate finding texts.
 - Do not reopen a `resolved` row without new concrete evidence from working code outside `.phasedev/**`.
 
