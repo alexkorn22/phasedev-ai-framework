@@ -1,0 +1,4 @@
+autoApprove: false
+blockingSeverity: must_fix
+requireIterationCommit: false
+roles: {}
