@@ -44,9 +44,43 @@ date: 2026-07-04
 | F1 | resolved | RECOMMENDED | validation | 1 | Finding 1 | Fix 1 |`;
 }
 
+function iterationPlanBody(iterationStatus: "[x]" | "[~]" | "[ ]"): string {
+  return `# Implementation Plan
+
+## Approval Summary
+
+| Field | Value |
+|---|---|
+| Approved | yes |
+
+## Generation Bundle
+
+| Artifact | Path |
+|---|---|
+| design | architecture/design.md |
+
+## Iteration Overview
+
+| Iteration | Status |
+|---|---|
+| 1 | API |
+
+## Iteration 1: API ${iterationStatus}
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+`;
+}
+
 function setupChange(
   contractBody: string,
-  options: { findings?: string; activePhase?: string; gateEvidence?: string } = {}
+  options: {
+    findings?: string;
+    activePhase?: string;
+    gateEvidence?: string;
+    iterationPlan?: string;
+  } = {}
 ): string {
   const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
   fs.mkdirSync(changeDir, { recursive: true });
@@ -57,6 +91,9 @@ function setupChange(
   if (options.gateEvidence) {
     fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), options.gateEvidence, "utf-8");
   }
+  if (options.iterationPlan) {
+    fs.writeFileSync(path.join(changeDir, "iteration_plan.md"), options.iterationPlan, "utf-8");
+  }
   if (options.activePhase) {
     fs.writeFileSync(
       path.join(changeDir, "state.json"),
@@ -65,6 +102,10 @@ function setupChange(
     );
   }
   return changeDir;
+}
+
+function gateIssuesMatchingFull(issues: string[]): boolean {
+  return issues.some(issue => /full/i.test(issue));
 }
 
 function runCli(args: string[]): { exitCode: number; output: string } {
@@ -102,6 +143,20 @@ describe("set-verdict final gate enforcement", () => {
     const before = fs.readFileSync(findingsPath, "utf-8");
 
     const result = runCli(["set-verdict", "ready"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toMatch(/full/i);
+    expect(fs.readFileSync(findingsPath, "utf-8")).toBe(before);
+  });
+
+  test("set-verdict ready_with_risks on final with no evidence file fails and leaves verdict unchanged", () => {
+    const changeDir = setupChange(validRulesBody(), {
+      findings: validFindings("final", "repaired"),
+      activePhase: "final_validation"
+    });
+    const findingsPath = path.join(changeDir, "validation_findings.md");
+    const before = fs.readFileSync(findingsPath, "utf-8");
+
+    const result = runCli(["set-verdict", "ready_with_risks"]);
     expect(result.exitCode).toBe(1);
     expect(result.output).toMatch(/full/i);
     expect(fs.readFileSync(findingsPath, "utf-8")).toBe(before);
@@ -193,7 +248,48 @@ describe("validatePhase final_validation gate enforcement", () => {
     const paths = buildChangePaths(changeDir);
     const result = validatePhase(testTmpDir, "final_validation", paths, null);
     expect(result.ok).toBe(false);
-    expect(result.issues.some(issue => /full/i.test(issue))).toBe(true);
+    expect(gateIssuesMatchingFull(result.issues)).toBe(true);
+  });
+
+  test("validatePhase skips gate issues when ready verdict has incomplete iteration plan", () => {
+    const changeDir = setupChange(validRulesBody(), {
+      findings: validFindings("final", "ready"),
+      iterationPlan: iterationPlanBody("[~]")
+    });
+    const paths = buildChangePaths(changeDir);
+    const result = validatePhase(testTmpDir, "final_validation", paths, null);
+    expect(gateIssuesMatchingFull(result.issues)).toBe(false);
+  });
+
+  test("validatePhase reports gate issues when ready verdict and all iterations are complete", () => {
+    const changeDir = setupChange(validRulesBody(), {
+      findings: validFindings("final", "ready"),
+      iterationPlan: iterationPlanBody("[x]")
+    });
+    const paths = buildChangePaths(changeDir);
+    const result = validatePhase(testTmpDir, "final_validation", paths, null);
+    expect(gateIssuesMatchingFull(result.issues)).toBe(true);
+  });
+
+  test("check-validation final skips gate issues when ready verdict has incomplete iteration plan", () => {
+    setupChange(validRulesBody(), {
+      findings: validFindings("final", "ready"),
+      iterationPlan: iterationPlanBody("[~]")
+    });
+
+    const result = runCli(["check-validation", "--scope", "final"]);
+    expect(result.output).not.toMatch(/Final gate `full`/i);
+  });
+
+  test("check-validation final reports gate issues when ready verdict and all iterations are complete", () => {
+    setupChange(validRulesBody(), {
+      findings: validFindings("final", "ready"),
+      iterationPlan: iterationPlanBody("[x]")
+    });
+
+    const result = runCli(["check-validation", "--scope", "final"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toMatch(/Final gate `full`/i);
   });
 
   test("setFindingsVerdict direct call bypasses gate enforcement", () => {

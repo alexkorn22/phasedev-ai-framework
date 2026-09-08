@@ -61,6 +61,9 @@ export function finalReadyGateIssues(paths: ChangePaths): string[] {
   return issues;
 }
 
+// Gate issues apply only when every iteration is [x] (archive-bound). An
+// incomplete plan skips gate checks so a stale final ready verdict can still
+// advance out of final_validation during scope-change un-wedge.
 export function finalReadyGateIssuesWhenArchiveBound(paths: ChangePaths): string[] {
   if (!fs.existsSync(paths.iterationPlanPath)) {
     return finalReadyGateIssues(paths);

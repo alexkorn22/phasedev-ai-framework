@@ -17,7 +17,7 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
-import { finalReadyGateIssues, finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
+import { finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 
 export interface PhaseValidation {
   ok: boolean;
