@@ -10,7 +10,7 @@ import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
-import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
+import { passedFullGateEvidence, prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-git-"));
@@ -322,11 +322,13 @@ describe("advance commit gate", () => {
     expect(readFindingsBaseline(statePath)).not.toBeNull();
 
     // advance now clean-completes at final_validation without mutating anything.
+    const paths = buildChangePaths(changeDir);
     expect(setFindingsVerdict(
-      buildChangePaths(changeDir).findingsPath,
+      paths.findingsPath,
       "ready",
       { type: "final", date: "2026-09-07" }
     ).ok).toBe(true);
+    fs.writeFileSync(paths.finalGateEvidencePath, passedFullGateEvidence("bun test full"), "utf-8");
     const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(cleanComplete.ok).toBe(true);
     expect(cleanComplete.finished).toBe(true);
