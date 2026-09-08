@@ -10,11 +10,12 @@ Write boundary (hard rule):
 - This boundary stays in force AFTER the verdict is written, until `phasedev advance` moves the flow to the next phase. Late user feedback in that window is recorded with `phasedev add-finding` (which also corrects the verdict); the fix then happens in finding_repair after advance.
 
 Report–registry consistency (hard rule):
-- Every defect, gap, missing or skipped test, unrun or failed check, deferred `R#`/`SC#`, or incomplete audit pass that you mention anywhere in your final report MUST already exist as a findings row (recorded with `phasedev add-finding`) before you set the verdict. Prose is not state; only the registry is.
-- The coverage block's `Evidence gaps` line may say anything other than `none` only if a matching finding row exists.
-- A `ready` or `ready_with_risks` verdict together with a report that names unrecorded defects is a contract violation: the orchestrator records them as findings and the phase is not considered done.
+- Product defects, unmet `R#`/`SC#`, failed tests after a gate **ran**, and incomplete audit passes that you mention anywhere in your final report MUST already exist as findings rows (recorded with `phasedev add-finding`) before you set a terminal verdict. Prose is not state; only the registry is.
+- Unrun `full` or browser gates, infrastructure unavailable, or inability to open localhost because the environment blocked it are **not** product defects: do **not** `add-finding`, do **not** set `verdict: ready` or `verdict: ready_with_risks`, and do **not** treat them as `Evidence gaps` that require a finding row.
+- A report that names a **product** gap without a matching finding row is still a contract violation: the orchestrator records them as findings and the phase is not considered done.
+- The coverage block's `Evidence gaps` line may report missing **product** proof only when a matching finding row exists. Missing gate execution belongs in gate evidence / blocked status, not in `Evidence gaps`.
 - Choose severity per the blocking-severity policy; "minor" test gaps are `RECOMMENDED` or `NIT`, never omitted.
-- Do not offset this by omitting gaps from the report: the report must be complete AND every named gap must be a row.
+- Do not offset this by omitting gaps from the report: the report must be complete AND every named **product** gap must be a row.
 
 Positive decision flow:
 

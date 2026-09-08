@@ -186,7 +186,7 @@ That is the entire non-validation prompt — the fixed body plus the four option
 
 ### Canonical dispatch: validation phases (6A / 6B)
 
-Use only for `iteration_validation` and `final_validation`. Validation roles from the cached spawn-plan grid: `code-review`, `security-review`, `implementation-check`. Never invent `final-validator` or any other validation role. Fill `<role>` in step 1 and the dispatch role slot with the same validation role.
+Use only for `iteration_validation` and `final_validation`. Validation roles from the cached spawn-plan grid: `code-review`, `security-review`, `implementation-check`, and `browser-qa` for `final_validation` only. Never invent `final-validator` or any other validation role. Fill `<role>` in step 1 and the dispatch role slot with the same validation role.
 
 #### Wave recipe
 
@@ -203,12 +203,12 @@ Never dispatch two `implementation-check` agents for the same iteration validati
 
 | Wave | Roles | Runs project checks? | Owns |
 |---|---|---|---|
-| Wave 1 (review roles may run in parallel) | one `code-review` + one `security-review` over the full change; plus a separate browser/manual validation sub-agent when PRD/plan requires browser evidence | zero — findings only | `phasedev add-finding` rows only |
-| Wave 2 (sequential, after wave 1 complete with no blocking findings) | exactly one `implementation-check` | runs `execution_contract.md` `full` exactly once | verdict, `phasedev check-validation` |
+| Wave 1 (review roles may run in parallel) | one `code-review` + one `security-review` over the full change; plus one `browser-qa` **only when** `execution_contract.md` contains `## Browser Validation` (detect by reading that artifact — do not infer from PRD alone) | `browser-qa` runs browser scenarios only; reviewers run zero project checks | `phasedev add-finding` rows for product defects; `phasedev record-gate browser` for gate evidence |
+| Wave 2 (sequential, after wave 1 complete with no blocking product findings) | exactly one `implementation-check` | runs `execution_contract.md` `full` exactly once | verdict, `phasedev record-gate full`, `phasedev check-validation` |
 
-Browser validation is a separate subagent when required, completes in wave 1 before the full gate, and never runs `unit`/`phase`/`full` unless its own browser contract explicitly requires browser tooling. Missing browser evidence is pending browser work, not a product finding; actual browser defects use `phasedev add-finding`.
+Spawn `browser-qa` with the same validation canonical body as other 6B roles: `phasedev phase --change <change> --role browser-qa`. Browser validation completes in wave 1 before the full gate. `browser-qa` never runs `unit`/`phase`/`full`. Product defects from `browser-qa` use `phasedev add-finding`; missing browser, blocked localhost, or other environment blockers use `phasedev record-gate browser --result blocked` — retry `browser-qa` in `final_validation`, do **not** `add-finding`, do **not** dispatch `implementer` or route to `finding_repair` for that.
 
-Never run `full` in parallel with review or browser work. Never dispatch two `implementation-check` agents for the same final validation scope.
+Never run `full` in parallel with review or browser work. Never dispatch two `implementation-check` agents for the same final validation scope. The implementer does not own the `full` gate or browser validation.
 
 *Dynamic harness (`Agent` tool):*
 ```javascript
@@ -234,42 +234,12 @@ You work ONLY on the change "<change>".
 
 *OpenCode harness (`task` tool with tier-based subagents):* same prompt body as Dynamic harness above; use `subagent_type: "phasedev-<tier>"`.
 
-That is the entire validation prompt — the fixed body plus the role slot above, and nothing else.
-
-### Canonical dispatch: browser/manual auxiliary validation
-
-Use during `final_validation` wave 1 when PRD/plan acceptance evidence requires browser or manual validation. This dispatch is separate from PhaseDev validation roles (`code-review`, `security-review`, `implementation-check`). Complete browser/manual work before wave-2 `implementation-check` runs the `full` gate.
-
-*Dynamic harness (`Agent` tool):*
-```javascript
-Agent(
-  description: "final_validation: browser/manual auxiliary validation",
-  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
-  prompt: `Execute browser/manual validation for change "<change>".
-
-Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
-
-You work ONLY on the change "<change>".
-
-1. Read PRD and implementation-plan acceptance evidence for browser/manual requirements; perform only browser or manual verification work required by that evidence.
-2. Record actual product defects with phasedev add-finding; report missing browser evidence as pending browser work, not as a product finding.
-3. Do not run unit, phase, or full project check commands and do not set a validation verdict.
-4. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
-5. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
-6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
-)
-```
-
-*Cursor harness (`Task` tool — model from spawn-plan is mandatory):* same prompt body as Dynamic harness above; use `subagent_type: "generalPurpose"` and the spawn-plan model.
-
-*OpenCode harness (`task` tool with tier-based subagents):* same prompt body as Dynamic harness above; use `subagent_type: "phasedev-<tier>"`.
-
-That is the entire browser/manual auxiliary prompt — the fixed body plus the role slot above, and nothing else.
+That is the entire validation prompt — the fixed body plus the role slot above, and nothing else. For `browser-qa`, use this same validation canonical body with `--role browser-qa`; there is no separate browser/manual auxiliary prompt.
 
 **Infrastructure vs product outcomes (orchestrator)**
 
 - **Product full-gate failure** (command ran, tests failed): the `implementation-check` sub-agent records a concrete `MUST-FIX` finding with failing test/path evidence; `advance` may route to `finding_repair`.
-- **Infrastructure unavailable** (sandbox/network/binary/access exit before a truthful full-gate result): report **blocked**, remain in `final_validation`, do **not** `add-finding`, do **not** route to `finding_repair`; retry only the `implementation-check` wave-2 sub-agent after environment or access changes.
+- **Infrastructure unavailable** (sandbox/network/binary/access exit before a truthful full-gate or browser result): report **blocked** via `record-gate`, remain in `final_validation`, do **not** `add-finding`, do **not** route to `finding_repair`; retry only the blocked role (`browser-qa` for missing browser / blocked localhost; `implementation-check` for blocked `full`) after environment or access changes.
 
 **Sequential command deduplication (orchestrator)**
 
@@ -286,7 +256,7 @@ Do not add `check_runs.md` or new state fields for deduplication.
 
 **Finding repair dispatch (orchestrator)**
 
-Route repair from the **open finding class and required fix**, not from phase name alone. Dispatch an implementer only for findings whose repair requires code/test/plan/design work. Do **not** dispatch an implementer when only validation-infrastructure retry or browser/manual validation work remains — handle those with environment access or a browser/manual subagent instead.
+Route repair from the **open finding class and required fix**, not from phase name alone. Dispatch an implementer only for findings whose repair requires code/test/plan/design work. The implementer does not own the `full` gate or browser validation. Do **not** dispatch an implementer when only validation-infrastructure retry or pending gate evidence remains — retry the owning validation role (`browser-qa` or `implementation-check`) in `final_validation` instead.
 
 **Orchestrator boundary**
 
@@ -298,9 +268,11 @@ Shared dispatch rules (both bodies): artifact self-validation and the final-resp
 
 Read every sub-agent's final report in full; this is the orchestrator's only result channel and is not artifact inspection. `validation_findings.md` is state; report prose is not.
 
-If a validation, review, or QA report names concrete defects or gaps while the registry has no matching row and the verdict is `ready` or `ready_with_risks`, the phase is NOT done. This includes missing or skipped tests, an unrun or failed gate, deferred `R#`/`SC#` requirements, an incomplete review pass, or "gaps but not findings." Do not run `advance` and never report "0 findings" from the table alone when prose says otherwise.
+If a validation, review, or QA report names concrete **product** defects or gaps while the registry has no matching row and the verdict is `ready` or `ready_with_risks`, the phase is NOT done. This includes missing or skipped tests, unmet `R#`/`SC#` requirements, incomplete review passes, or "gaps but not findings." Do not run `advance` and never report "0 findings" from the table alone when prose names unrecorded **product** gaps.
 
-**Infrastructure blockers are not product findings.** When an `implementation-check` report says the full gate, sandbox, network, binary, or environment was unavailable, treat it as blocked in `final_validation` — do not `add-finding`, do not route to `finding_repair`, and retry wave 2 only after environment or access changes. Missing browser evidence is pending browser work, not a finding.
+**Unrun or blocked gates are not missing findings.** When a report says `full` or browser gates were unrun, blocked by infrastructure, or localhost could not be opened because the environment blocked it, treat that as gate evidence (`record-gate` / blocked status), remain in `final_validation`, do **not** `add-finding`, and retry the owning role. Only product defects after a gate **ran** (failed tests, UI bugs found in browser) require findings rows.
+
+**Infrastructure blockers are not product findings.** When an `implementation-check` report says the full gate, sandbox, network, binary, or environment was unavailable, or `browser-qa` reports blocked localhost / missing browser tooling, treat it as blocked in `final_validation` — do not `add-finding`, do not route to `finding_repair`, and retry the owning role only after environment or access changes.
 
 Either record every product item directly:
 

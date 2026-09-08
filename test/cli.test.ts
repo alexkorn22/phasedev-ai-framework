@@ -889,6 +889,15 @@ describe("flow-cli state machine", () => {
     expect(finalImplementationCheckPrompt).toContain("run the `full` gate command exactly once: `bun test`");
     expect(finalImplementationCheckPrompt).toContain("phasedev record-gate full");
     expect(finalImplementationCheckPrompt).toContain("is allowed only after `phasedev record-gate full` passed");
+    expect(finalImplementationCheckPrompt).toContain("failed tests after a gate **ran**");
+    expect(finalImplementationCheckPrompt).toMatch(/Unrun `full`|unrun browser|infrastructure unavailable/i);
+    expect(finalImplementationCheckPrompt).toMatch(/do \*\*not\*\* `add-finding`/i);
+    expect(finalImplementationCheckPrompt).toMatch(/gate evidence|Evidence gaps/i);
+    expect(finalImplementationCheckPrompt).not.toContain("unrun or failed check");
+    expect(finalImplementationCheckPrompt).not.toContain("MUST already exist as a findings row");
+    expect(phaseImplementationCheckPrompt).not.toContain("phasedev record-gate");
+    expect(phaseImplementationCheckPrompt).not.toContain("unrun or failed check");
+    expect(phaseImplementationCheckPrompt).toMatch(/Unrun `full`|unrun browser|not\*\* product defects/i);
     expect(finalBrowserQaPrompt).toContain("Execution role: browser-qa");
     expect(finalBrowserQaPrompt).toContain("phasedev record-gate browser");
     expect(finalImplementationCheckPrompt).toContain("type: final");

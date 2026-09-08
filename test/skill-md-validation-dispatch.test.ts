@@ -8,7 +8,7 @@ const skillMd = fs.readFileSync(skillMdPath, "utf-8");
 
 const NON_VALIDATION_HEADING = "### Canonical dispatch: non-validation phases";
 const VALIDATION_HEADING = "### Canonical dispatch: validation phases (6A / 6B)";
-const BROWSER_AUXILIARY_HEADING = "### Canonical dispatch: browser/manual auxiliary validation";
+const OLD_UNRUN_FINDING_BULLET = "unrun or failed check";
 
 const BARE_PHASE_STEP = "1. Run: phasedev phase --change <change> — to get the phase contract.";
 const ROLE_PHASE_STEP = "1. Run: phasedev phase --change <change> --role <role> — to get the phase contract.";
@@ -82,21 +82,52 @@ describe("phasedev-orchestrator SKILL.md validation dispatch behavior", () => {
   test("final_validation runs review/browser before one full-gate implementation-check", () => {
     const section = sectionBody(skillMd, VALIDATION_HEADING);
     expect(section).toMatch(/wave 1[\s\S]*code-review[\s\S]*security-review/i);
-    expect(section).toMatch(/browser[\s\S]*before[\s\S]*full/i);
+    expect(section).toMatch(/browser-qa[\s\S]*before[\s\S]*full/i);
     expect(section).toMatch(/wave 2[\s\S]*implementation-check[\s\S]*exactly once/i);
     expect(section).toMatch(/never run `full` in parallel/i);
+  });
+
+  test("lists browser-qa as a final_validation validation role", () => {
+    const section = sectionBody(skillMd, VALIDATION_HEADING);
+    expect(section).toMatch(/browser-qa[\s\S]*final_validation/i);
+    expect(section).toContain("`browser-qa`");
+  });
+
+  test("spawns browser-qa only when execution_contract has Browser Validation section", () => {
+    const section = sectionBody(skillMd, VALIDATION_HEADING);
+    expect(section).toMatch(/browser-qa[\s\S]*## Browser Validation/i);
+    expect(section).toMatch(/execution_contract\.md[\s\S]*Browser Validation/i);
+    expect(section).not.toMatch(/browser-qa[\s\S]*PRD-only|PRD\/plan requires browser evidence without execution_contract/i);
+  });
+
+  test("blocked or missing gates retry in final_validation without findings or finding_repair", () => {
+    expect(skillMd).toMatch(/blocked[\s\S]*final_validation[\s\S]*not[\s\S]*add-finding/i);
+    expect(skillMd).toMatch(/blocked[\s\S]*not[\s\S]*finding_repair/i);
+    expect(skillMd).toMatch(/missing browser|blocked localhost|blocked `full`/i);
+    expect(skillMd).toMatch(/retry[\s\S]*browser-qa|retry[\s\S]*implementation-check/i);
   });
 
   test("infrastructure unavailable stays blocked in final_validation without product findings", () => {
     expect(skillMd).toMatch(/infrastructure[\s\S]*blocked/i);
     expect(skillMd).toMatch(/infrastructure[\s\S]*not[\s\S]*add-finding/i);
     expect(skillMd).toMatch(/infrastructure[\s\S]*not[\s\S]*finding_repair/i);
-    expect(skillMd).toMatch(/missing browser evidence[\s\S]*pending browser work/i);
   });
 
   test("finding_repair dispatch follows open finding class not phase name alone", () => {
     expect(skillMd).toMatch(/finding_repair[\s\S]*open finding class/i);
-    expect(skillMd).toMatch(/do not dispatch implementer[\s\S]*validation-infrastructure|browser\/manual/i);
+    expect(skillMd).toMatch(/do not dispatch implementer[\s\S]*validation-infrastructure|browser|infra/i);
+  });
+
+  test("implementer does not own full gate or browser validation", () => {
+    expect(skillMd).toMatch(/implementer[\s\S]*does not own[\s\S]*full|does not own[\s\S]*`full`/i);
+    expect(skillMd).toMatch(/implementer[\s\S]*does not own[\s\S]*browser|browser-qa/i);
+  });
+
+  test("report reconciliation does not treat unrun gates as missing findings", () => {
+    const reconciliation = skillMd.slice(skillMd.indexOf("## Sub-Agent Report Reconciliation"));
+    expect(reconciliation).not.toContain(OLD_UNRUN_FINDING_BULLET);
+    expect(reconciliation).toMatch(/product[\s\S]*(no matching row|without a matching finding|product gap)/i);
+    expect(reconciliation).toMatch(/unrun|blocked gate|gate evidence/i);
   });
 
   test("documents sequential command deduplication without check_runs artifacts", () => {
@@ -117,26 +148,19 @@ describe("phasedev-orchestrator SKILL.md validation dispatch behavior", () => {
   });
 });
 
-describe("phasedev-orchestrator SKILL.md browser auxiliary dispatch", () => {
-  test("defines a complete canonical browser/manual dispatch body separate from validation roles", () => {
-    const section = sectionBody(skillMd, BROWSER_AUXILIARY_HEADING);
-    const prompt = firstJavascriptFence(section);
-
-    expect(prompt).toContain('Execute browser/manual validation for change "<change>".');
-    expect(prompt).not.toContain("--role <role>");
-    expect(prompt).toMatch(/PRD|acceptance evidence/i);
-    expect(prompt).toMatch(/browser|manual/i);
-    expect(prompt).toMatch(/phasedev add-finding/i);
-    expect(prompt).toMatch(/pending browser work/i);
-    expect(prompt).not.toMatch(/phasedev set-verdict/);
-    expect(prompt).toMatch(/do not run unit, phase, or full project check commands/i);
-    expect(prompt).toContain("6. Do NOT run phasedev advance.");
+describe("phasedev-orchestrator SKILL.md browser-qa dispatch", () => {
+  test("does not define a separate browser/manual prompt without --role", () => {
+    expect(skillMd).not.toContain("### Canonical dispatch: browser/manual auxiliary validation");
+    expect(skillMd).not.toMatch(/Read PRD and implementation-plan acceptance evidence for browser/i);
+    expect(skillMd).not.toContain('Execute browser/manual validation for change "<change>".');
   });
 
-  test("browser auxiliary dispatch sits before final validation implementation-check wave", () => {
-    const validationStart = skillMd.indexOf(VALIDATION_HEADING);
-    const browserStart = skillMd.indexOf(BROWSER_AUXILIARY_HEADING);
-    expect(browserStart).toBeGreaterThan(validationStart);
-    expect(sectionBody(skillMd, VALIDATION_HEADING)).toMatch(/browser\/manual auxiliary validation/i);
+  test("browser-qa uses the same validation canonical body with --role browser-qa", () => {
+    const section = sectionBody(skillMd, VALIDATION_HEADING);
+    const prompt = firstJavascriptFence(section);
+
+    expect(prompt).toContain("phasedev phase --change <change> --role <role>");
+    expect(section).toMatch(/browser-qa[\s\S]*--role browser-qa/i);
+    expect(section).toMatch(/browser-qa[\s\S]*same validation body|same validation canonical body/i);
   });
 });
