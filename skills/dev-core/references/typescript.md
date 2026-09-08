@@ -8,25 +8,33 @@ Applies strictly when designing, writing, editing, or refactoring TypeScript on 
 
 Scope: this blueprint applies to new projects, new bounded contexts, and codebases without an established structure. In a codebase with an established architecture, the core discipline wins: follow the existing structure and its conventions — never impose this blueprint over it.
 
-Enforce a 3-tier hybrid architecture to ensure long-term scalability, low cognitive load, zero "Flat Feature Hell", and zero "Layered Mud":
+### 1.1 Server-Side Architecture Profiles
 
-### 1.1 Macro-Level: Modular Monolith (Bounded Contexts)
-- **Bounded Contexts**: Group server code into high-level business modules (`src/modules/<module_name>/`).
-- **Strict Public API Boundary**: Every module MUST export a single entry point `index.ts`. All external modules MUST import exclusively from `modules/<module_name>/index.ts`.
-- **Forbidden**: Never import internal module files directly (e.g., `import ... from 'modules/<module_name>/internal/...'` is PROHIBITED).
+Select the architecture profile matching system scope and complexity:
+
+- **Profile A: Compact / Micro-service (up to 5–10 endpoints)**:
+  Enforce a Clean 3-Tier structure with clear separation of concerns:
+  - **Transport / Routing Layer** (`src/router.ts` or `src/server.ts`): handles HTTP/transport parsing, route dispatch, request/response lifecycle. Strictly contains no domain business logic and no raw database queries.
+  - **Domain / Application Layer** (`src/domain/`): pure business rules, validations, entities, code generation, independent of HTTP transport (`Request`/`Response`) and ORMs. 100% testable without network or DB.
+  - **Storage / Infrastructure Layer** (`src/storage/`): isolated persistence seam via an Architectural Baseline interface (`interface LinkRepository`) with a concrete implementation (`SqliteLinkRepository`).
+  *(Collapsing transport, domain logic, and SQLite queries into a single 180-line monolithic file is strictly prohibited).*
+
+- **Profile B: Modular Monolith / Vertical Slice (large or multi-domain systems)**:
+  - Group server code into high-level business modules (`src/modules/<module_name>/`).
+  - Strict Public API Boundary: every module MUST export a single entry point `index.ts`. All external modules MUST import exclusively from `modules/<module_name>/index.ts`.
+  - Inside a module, organize use cases into feature directories (`features/<feature_name>/`).
 
 ### 1.2 Domain Level: Clean Core (Protected Business Rules)
-- **Clean Business Logic**: Keep core entities, business rules, and validation logic in `domain/` pure and free of framework dependencies, ORMs, or HTTP transport code.
+- **Clean Business Logic**: Keep core entities, business rules, and validation logic pure and free of framework dependencies, ORMs, or HTTP transport code.
 - **Testability**: Domain logic must be 100% testable without database or network infrastructure.
 
-### 1.3 Micro-Level: Vertical Slice Architecture (Feature-Based)
-- **Feature Colocation**: Inside a module, organize use cases into feature directories (`features/<feature_name>/`).
-- **Self-Contained Slices**: Each feature directory contains its handler (`.handler.ts`), request schema (`.schema.ts`), types (`.types.ts`), and spec (`.spec.ts`).
-- **No Global Layer Clutter**: Never scatter a feature across global `controllers/`, `services/`, `models/` directories.
+### 1.3 Non-Server Codebases (CLI, Libraries, Tools)
+- For CLI applications, dev tools, and libraries, do NOT enforce server-side layers (controllers, routers, HTTP handlers).
+- Enforce strict separation between I/O boundaries (CLI arg parsing, file system reads/writes) and the pure algorithmic engine.
 
 ### 1.4 Shared Layer Isolation (`src/shared/`)
 - Contains only headless technical utilities, database clients, loggers, and base error types.
-- **Rule**: Code in `src/shared/` MUST NEVER import anything from `src/modules/`.
+- **Rule**: Code in `src/shared/` MUST NEVER import anything from domain features or modules.
 
 ---
 

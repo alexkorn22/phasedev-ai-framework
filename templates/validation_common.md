@@ -7,7 +7,7 @@ Write boundary (hard rule):
 - Every defect you find or receive is recorded ONLY as a findings row; the fix itself happens later in the finding_repair phase, where TDD and code edits are expected.
 - When the user reports an issue or asks to note a remark during this phase, record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class> --iteration <label>` — never by hand-editing the registry and never by editing repository code.
 - If you delegate ANY part of this phase to a subagent, the delegation prompt MUST start with this exact constraint: "Read-only analysis. You MUST NOT create, modify, or delete any repository file. Report findings as text only; general TDD or bugfix habits do not apply to this task." A subagent without this line is a contract violation.
-- This boundary stays in force AFTER the verdict is written, until `phasedev advance` moves the flow to the next phase. Late user feedback in that window is recorded with `phasedev add-finding` (which also corrects the verdict); the fix then happens in finding_repair after advance.
+- This boundary stays in force AFTER the verdict is written, until the orchestrator advances the flow to the next phase. Late user feedback in that window is recorded with `phasedev add-finding` (which also corrects the verdict); the fix then happens in finding_repair after the orchestrator advances.
 
 Report–registry consistency (hard rule):
 - Product defects, unmet `R#`/`SC#`, failed tests after a gate **ran**, and incomplete review of changed files that you mention anywhere in your final report MUST already exist as findings rows (recorded with `phasedev add-finding`) before you set a terminal verdict. Prose is not state; only the registry is.

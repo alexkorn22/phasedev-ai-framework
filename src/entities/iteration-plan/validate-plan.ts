@@ -293,7 +293,11 @@ export function validatePlanStructure(iterations: Iteration[], prdPath?: string,
     for (const task of allTasks) {
       const taskLabel = task.id || task.name;
       if (task.id.length === 0) {
-        issues.push(`Iteration ${phase.id}: ${phase.name} has a task with invalid task ID syntax: ${task.name}. ${CANONICAL_TASK_SYNTAX}`);
+        if (/^(\*\*)?(files|interfaces|test specification|step)/i.test(task.name)) {
+          issues.push(`Iteration ${phase.id}: ${phase.name} has task checkbox with metadata header "${task.name}". Task metadata must use plain markdown bullets (e.g. \`- **Files:**\`), not task checkboxes (\`- [ ]\`).`);
+        } else {
+          issues.push(`Iteration ${phase.id}: ${phase.name} has a task with invalid task ID syntax: ${task.name}. ${CANONICAL_TASK_SYNTAX}`);
+        }
         continue;
       }
 

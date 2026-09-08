@@ -22,11 +22,19 @@ import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/f
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
 
-function run(args: string[]): { code: number; out: string } {
+function run(
+  args: string[],
+  env?: Record<string, string>
+): { code: number; out: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, ...args, "--project-path", testTmpDir],
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: {
+      ...process.env,
+      PHASEDEV_ORCHESTRATOR: "1",
+      ...env
+    }
   });
   return { code: result.exitCode, out: result.stdout.toString() + result.stderr.toString() };
 }

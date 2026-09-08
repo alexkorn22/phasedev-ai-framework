@@ -315,11 +315,19 @@ function runInit(args: string[] = []): string {
   return result.stdout.toString();
 }
 
-function runCli(args: string[] = []): { exitCode: number; output: string } {
+function runCli(
+  args: string[] = [],
+  env?: Record<string, string>
+): { exitCode: number; output: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, ...args],
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: {
+      ...process.env,
+      PHASEDEV_ORCHESTRATOR: "1",
+      ...env
+    }
   });
 
   return {
@@ -672,7 +680,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("final response must be exactly one short plain blocker sentence or one compact line such as `Blocked: self-check unavailable (<exact command failure>)`");
     expect(output).toContain("Research ready:");
     expect(output).toContain("Route: design");
-    expect(output).toContain("Next: phasedev advance");
+    expect(output).toContain("Next: report completion to orchestrator. Do NOT run phasedev advance.");
     expectSubstringsInOrder(output, [
       "Phase 2. Code Research.",
       "## Skill Boundary",
@@ -743,7 +751,7 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Plan path:");
     expect(output).toContain("Self-check: <exact command> -> <result>");
     expect(output).toContain("Skill compliance: list applied skills in your response");
-    expect(output).toContain("Next: review iteration_plan.md, set approved: true and approved_by: \"<your name>\" only if accepted, then run phasedev advance.");
+    expect(output).toContain("Next: report completion to orchestrator. The plan requires approval via 'phasedev approve' before advance. Do NOT self-approve, do NOT run phasedev advance or phasedev archive.");
     expect(output).toContain("For any blocker stop, do not use the `Plan ready` template and do not add extra sections.");
     expect(output).toContain("Blocked: material PRD/design realignment required (<affected R#/SC#/D# or risk boundary>)");
     expect(output).not.toContain("Immediately after the title/intro, add a compact visual review surface");

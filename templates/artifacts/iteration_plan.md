@@ -6,7 +6,7 @@
 Iteration status contract:
 - Keep iteration headings machine-readable: ## Iteration N: Name [status]
 - Status values: [ ] not started, [~] in progress, [x] validation passed.
-- Use exactly this checkbox syntax for top-level tasks: `- [ ] <iteration>.<task> Task description`.
+- Use exactly this checkbox syntax for top-level tasks: `- [ ] <iteration>.<task> Task description`. Task metadata (Files, Interfaces, Test Specification) MUST use plain markdown bullets (- **Files:**), NEVER checkboxes.
 
 Check Evidence contract:
 - Keep Check Evidence as a markdown table with Result: pending, passed, failed, blocked, not_applicable.

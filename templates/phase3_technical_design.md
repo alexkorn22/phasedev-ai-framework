@@ -58,7 +58,7 @@ Artifact-specific content rules:
 - Explicitly connect the design direction to PRD `Intent`, `Target state`, `R#`, `SC#`, and `Risk boundaries`; do not introduce design work outside those approved inputs.
 - In `## Traceability Mapping`, include one row for every `R#` and `SC#`; each row must reference at least one valid `D#` and either valid `F#`/`S#` evidence or `not_applicable: <short reason>` when the validated research record justifies no applicable evidence for that row.
 - Define each `D#` exactly once in `## Key Design Decisions`, and make every `D#` traceable from at least one row.
-- Use `## Contracts, Interfaces & Boundaries` for changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable: <reason>` only when there is no material contract surface.
+- Use `## Contracts, Interfaces & Boundaries` for component decomposition, changed contracts, public interfaces, dependency boundaries, schemas, APIs, runtime ownership, or `not_applicable: <reason>` only when there is no material contract surface. The design must define concrete component boundaries and TypeScript interface signatures (in fenced code blocks); designing an implementation that dumps all code into a single monolithic file (e.g. `src/index.ts` or `src/server.ts`) without layer decomposition is an architectural defect. Do NOT add deeper heading levels (e.g. `###`) in this section.
 - Use `## Architecture Package Map` as the index of approvable design files when multiple `architecture/*.md` documents exist. Its `File` column uses active-change-folder design package paths, not project-root paths. Link every additional `architecture/*.md` file that is part of approval.
 - The controller checks approval only on `architecture/design.md`; explicitly listed subdocuments are approved through that entrypoint.
 
@@ -151,4 +151,4 @@ Phase completion:
   - linked architecture docs created, or `none`;
   - self-check command and result;
   - {{skill_compliance_line}}
-  - exact next step: review `architecture/design.md`, set `approved: true` and `approved_by: "<reviewer>"` only if accepted, then run `phasedev advance`.
+  - exact next step: report completion to orchestrator. The design requires approval via 'phasedev approve' before advance. Do NOT self-approve, do NOT run phasedev advance or phasedev archive.

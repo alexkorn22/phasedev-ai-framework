@@ -34,7 +34,7 @@ Targeted focused check commands (from execution_contract.md; never `full`):
 
 Browser and full-gate re-check prohibition:
 - never start a background dev-server, never drive a browser, never run `full`;
-- if Required Fix tells you to run `full`, open a URL, or launch browser QA, do not execute it; verify the product repair with focused `unit`/`phase` only; browser/`full` re-check happens in `final_validation` after `phasedev advance`;
+- if Required Fix tells you to run `full`, open a URL, or launch browser QA, do not execute it; verify the product repair with focused `unit`/`phase` only; browser/`full` re-check happens in `final_validation` after transition by the orchestrator;
 - `resolve-finding` still requires a concrete focused check in Resolution.
 
 Context budget and stop condition:
@@ -107,7 +107,7 @@ Changed files/artifacts: <paths>
 Checks: <targeted checks and results>
 Self-check: <exact command> -> <result>
 {{skill_compliance_line}}
-Next transition: phasedev advance (run by the user or orchestrator).
+Next transition: report completion to the orchestrator (orchestrator executes advance). Do NOT run phasedev advance.
 ```
 
 - For a blocker, do not use the success template. State the blocked finding IDs, the missing material decision/evidence or external failure, targeted checks already attempted, self-check status if reached, and skill compliance in no more than five bullets.

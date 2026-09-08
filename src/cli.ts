@@ -48,10 +48,12 @@ import { runArchive } from "./features/phase-control/archive-command";
 import { loadModelTiers } from "./entities/model-tiers/model-tiers";
 import { renderMissingHarnessUsage, renderSpawnPlan } from "./features/spawn-plan/render-spawn-plan";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
+import { assertLifecyclePermission } from "./features/lifecycle-guard/assert-lifecycle-permission";
+import type { CommandContext } from "./shared/cli/command-context";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--force", "--yes", "--check-orphans", "--quick"]);
+const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--force", "--yes", "--check-orphans", "--quick", "--manual-lifecycle"]);
 
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
@@ -221,12 +223,6 @@ function runWithOptionalStateLock(projectPath: string, action: () => void): void
   action();
 }
 
-interface CommandContext {
-  args: string[];
-  jsonMode: boolean;
-  projectPath: string;
-  changeName?: string;
-}
 type CommandHandler = (ctx: CommandContext) => void;
 
 function handleVersion(ctx: CommandContext): void {
@@ -723,6 +719,7 @@ function handleLog(ctx: CommandContext): void {
 }
 
 function handleResetChange(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "reset-change")) return;
   runWithOptionalStateLock(ctx.projectPath, () => {
     const force = hasFlag(ctx.args, "--yes", "--force");
     const result = resetChange(ctx.projectPath, force, ctx.changeName);
@@ -908,6 +905,7 @@ function handleClarify(ctx: CommandContext): void {
 }
 
 function handleAdvance(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "advance")) return;
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
   runWithStateLock(ctx.projectPath, () => {
@@ -927,6 +925,7 @@ function handleAdvance(ctx: CommandContext): void {
 }
 
 function handleArchive(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "archive")) return;
   const name = firstPositional(ctx.args);
   if (!name) {
     reportCliResult(ctx.jsonMode, {

@@ -1256,7 +1256,7 @@ Complete API work.
     const promptResult = getRoutePrompt(testTmpDir, DEFAULT_CONFIG);
     expect(promptResult.phase).toBe("archive");
     expect(promptResult.blocked).toBe(true);
-    expect(promptResult.prompt).toContain("phasedev advance");
+    expect(promptResult.prompt).toContain("phasedev archive");
     expect(fs.existsSync(changeDir)).toBe(true);
 
     const result = startArchiveStage(testTmpDir, changeDir, new Date());

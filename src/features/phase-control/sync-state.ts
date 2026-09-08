@@ -79,7 +79,7 @@ export function syncState(
         changed: false,
         fromPhase: state.activePhase,
         toPhase: routePhase,
-        message: `state.json is locked at ${state.activePhase}, whose exit gate has failed, and artifacts resolve to archive; fix the failing exit gate, then run \`phasedev advance\`, which performs the archive mutation. sync-state will not fabricate an archive transition.${resetNote}`
+        message: `state.json is locked at ${state.activePhase}, whose exit gate has failed, and artifacts resolve to archive; fix the failing exit gate, then run \`phasedev archive <change-name>\`, which performs the archive mutation. sync-state will not fabricate an archive transition.${resetNote}`
       };
     }
 

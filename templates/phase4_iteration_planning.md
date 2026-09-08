@@ -83,6 +83,13 @@ When the decisions arrive, or when your dispatch assigns the whole phase, write 
 
 This clause changes only WHEN the artifact is written. The uncertainty decision flow above still governs what you resolve on your own.
 
+## Planner Self-Review Checklist
+
+Before finalizing `iteration_plan.md` and running the self-check, confirm internally:
+1. **Spec Coverage:** Are all PRD requirements (`R#`), system capabilities (`SC#`), and design decisions (`D#`) mapped to tasks?
+2. **Placeholder Scan:** Zero placeholders, TODOs, TBDs, or "write tests later". Every task defines concrete files, signatures, and tests.
+3. **Type & Interface Consistency:** Do function and interface names in `Produces` of task N match `Consumes` in task N+1?
+
 ## Artifact self-check
 
 After creating `iteration_plan.md`, immediately validate the new artifact before completing the phase:
@@ -102,7 +109,7 @@ Phase completion:
   - `Plan path: {{plan_path}}`
   - `Self-check: <exact command> -> <result>`
   - {{skill_compliance_line}}
-  - `Next: review iteration_plan.md, set approved: true and approved_by: "<your name>" only if accepted, then run phasedev advance.`
+  - `Next: report completion to orchestrator. The plan requires approval via 'phasedev approve' before advance. Do NOT self-approve, do NOT run phasedev advance or phasedev archive.`
 - For any blocker stop, do not use the `Plan ready` template and do not add extra sections. Use exactly one short plain blocker sentence or one compact line such as:
   - `Blocked: missing required input artifact (<exact linked path>)`
   - `Blocked: plan self-check unavailable (<exact command failure>)`

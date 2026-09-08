@@ -59,6 +59,7 @@ Scope rules:
 
 Completion checklist:
 - complete the current iteration tasks within the approved `prd.md`, approved design, and approved plan;
+- execute each task in iteration_plan.md following the mandatory tdd-method (write failing test -> verify failure -> minimal implementation -> verify pass -> refactor) for all behavioral contracts and deliverables, observing Test Economy from dev-core (no ballast tests for trivial glue/config);
 - update only current-iteration task checkboxes in [iteration_plan.md]({{plan_path}}) to `[x]` when the tasks are complete;
 - execute every required check recipe below by substituting actual new/changed test targets into `{{test_targets_placeholder}}` when present, then record the exact instantiated command in Check Evidence, or record why it cannot be executed:
 {{test_command}}
@@ -93,4 +94,4 @@ Allowed persistent artifacts for this phase:
 
 Phase completion:
 - After updating the change set and `iteration_plan.md`, stop.
-- Tell the user that the current iteration is ready for validation and the next transition is through `phasedev advance`.
+- Report completion to the orchestrator that the current iteration is ready for validation. Do NOT run phasedev advance or phasedev archive.

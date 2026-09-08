@@ -101,11 +101,11 @@ export function getRoutePrompt(
       );
     case "archive_ready":
       // The archive mutation (move + .phase-archive.json) is owned by
-      // `phasedev advance` (advanceFlow), never by prompt resolution.
+      // `phasedev archive <change-name>`, never by prompt resolution.
       return archiveReadinessBlocker(
         "Archive is ready.",
         route.activeChangePath,
-        "Run 'phasedev advance' to move the change into the archive and start the archive phase."
+        "Run 'phasedev archive <change-name>' to move the change into the archive and start the archive phase."
       );
     case "iteration": {
       if (route.phase === "iteration_validation") {

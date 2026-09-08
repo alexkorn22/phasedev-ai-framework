@@ -286,6 +286,9 @@ const IMPLEMENTATION_PLAN_CANONICAL_FILL_RULES = [
   "- Every `R#`, every `SC#`, each `SC#` Evidence type, every risk boundary, and every relevant approved `D#` must appear in concrete iteration, task, check, evidence, or change-surface trace content.",
   "- Do not use vague trace labels such as `all requirements`; reference concrete `R#`, `SC#`, and relevant `D#` IDs.",
   "- Use concise tables, grouped lists, and short paragraphs inside existing template sections when they improve review speed; do not add review-only sections or decorative content.",
+  "- Each task must explicitly define `- **Files:**` (Create/Modify/Test), `- **Interfaces:**` (Consumes/Produces with exact types), and `- **Test Specification:**` (actual test code or `N/A: Test Economy (<justification>)` for pure config/glue tasks).",
+  "- No Placeholders: forbid TODO, TBD, \"add validation later\", \"write tests\". Provide actual code/types.",
+  "- Syntax rule: Actionable tasks MUST use `- [ ] <id> <name>`. Metadata blocks MUST use plain bullets (`- **Files:**`), NEVER checkboxes (`- [ ]`).",
   "- Do not use emoji in `iteration_plan.md`; keep machine-sensitive approval artifacts plain text.",
 ];
 

@@ -92,4 +92,4 @@ Phase completion:
   - `Interpretation: <one-sentence final task interpretation>`
   - {{skill_compliance_line}}
   - `Self-check: <exact command> -> <result>`
-  - `Next: review the files, set approved: true and approved_by: "<reviewer>", then run phasedev advance`
+  - `Next: report completion to orchestrator. Artifacts require approval by the user or approval-reviewer via 'phasedev approve'. Do NOT self-approve, do NOT run phasedev advance or phasedev archive.`

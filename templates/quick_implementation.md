@@ -2,7 +2,7 @@
 
 {{skill_policy}}
 
-Implement the plan recorded in `worklog.md` and prove it works with a real run / tests. Commit the change.
+Implement the plan recorded in `worklog.md` and prove it works with a real run / tests. Report completion to the orchestrator.
 
 Inputs:
 - Worklog (task, spec, plan): {{worklog_path}}
@@ -15,7 +15,7 @@ Inputs:
 1. Review project memory: observe project taboos in `PROJECT KNOWLEDGE & ANTI-PATTERNS` below; avoid repeating known mistakes.
 2. Implement exactly the plan in `worklog.md`. Respect `protectedPaths` if configured (requires `[allows-protected-paths]` in `worklog.md` if intentional).
 3. Prove it: run the relevant tests / the real command; record the command (`exit code 0`) and result in `worklog.md` under `## Verification`.
-4. Commit the work (a new commit is required to advance).
+4. Verify implementation via tests and report completion to the orchestrator (orchestrator commits the iteration before advance). Do NOT git commit, do NOT phasedev advance.
 
 ## Self-check
 
@@ -27,7 +27,7 @@ Inputs:
 
 ## Completion
 
-Stop after the change is implemented, proven, and committed.
+Stop after the change is implemented and verified via tests.
 
 Final report skill-compliance:
 {{skill_compliance_line}}
