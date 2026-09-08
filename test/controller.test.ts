@@ -371,7 +371,8 @@ Test fixture only.
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
-    expect(result.prompt).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
+    expect(result.prompt).toContain("Success-criteria evidence types stay in `prd.md`");
+    expect(result.prompt).toContain("also write `## Browser Validation` in `execution_contract.md`");
     expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");

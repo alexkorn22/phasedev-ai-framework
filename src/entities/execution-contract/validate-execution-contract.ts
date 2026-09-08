@@ -1,5 +1,7 @@
 import { validateRulesArtifact } from "../rules/validate-rules";
 
+export { parseBrowserValidation, type BrowserValidation } from "./parse-browser-validation";
+
 export interface ExecutionContractValidationResult {
   valid: boolean;
   issues: string[];

@@ -61,6 +61,43 @@ describe("validateArtifactStructure", () => {
     expect(issues).toContain("sample.md must not contain headings deeper than `##`: `### Too deep`.");
   });
 
+  test("allows optional sections while preserving required relative order", () => {
+    const policy = {
+      required: ["Alpha", "Beta"],
+      optional: ["Gamma"],
+      mustBeLastIfPresent: ["Gamma"],
+      membershipCaseInsensitive: true,
+      orderCaseInsensitive: true
+    };
+    const content = build("# Sample\n\n## Alpha\n\nText.\n\n## Beta\n\nText.\n\n## Gamma\n\nText.\n");
+    expect(validateArtifactStructure(content, { ...SPEC, sections: policy }).issues).toEqual([]);
+  });
+
+  test("reports optional section that is not last when mustBeLastIfPresent applies", () => {
+    const policy = {
+      required: ["Alpha", "Beta"],
+      optional: ["Gamma"],
+      mustBeLastIfPresent: ["Gamma"],
+      membershipCaseInsensitive: true,
+      orderCaseInsensitive: true
+    };
+    const content = build("# Sample\n\n## Alpha\n\n## Gamma\n\n## Beta\n\n");
+    const { issues } = validateArtifactStructure(content, { ...SPEC, sections: policy });
+    expect(issues).toContain("sample.md section `## Gamma` must be the last `##` section when present.");
+  });
+
+  test("reports broken required relative order when optional sections are allowed", () => {
+    const policy = {
+      required: ["Alpha", "Beta"],
+      optional: ["Gamma"],
+      membershipCaseInsensitive: true,
+      orderCaseInsensitive: true
+    };
+    const content = build("# Sample\n\n## Beta\n\n## Alpha\n\n");
+    const { issues } = validateArtifactStructure(content, { ...SPEC, sections: policy });
+    expect(issues).toContain("sample.md required `##` sections must appear in this order: `## Alpha`, `## Beta`.");
+  });
+
   test("ignores placeholder inside fenced code block", () => {
     const content = build("# Sample\n\n## Alpha\n\n```\nTBD: something\n```\n\n## Beta\n\n```\nTODO: something else\nunknown\n```\n");
     const { issues } = validateArtifactStructure(content, SPEC);

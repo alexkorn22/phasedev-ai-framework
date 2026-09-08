@@ -615,7 +615,8 @@ describe("flow-cli state machine", () => {
     expect(output).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(output).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
     expect(output).toContain("Stop condition: stop reading once you can fill `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
-    expect(output).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
+    expect(output).toContain("Success-criteria evidence types stay in `prd.md`");
+    expect(output).toContain("also write `## Browser Validation` in `execution_contract.md`");
     expect(output).toContain("embedded template is the only artifact structure");
     expect(output).toContain("Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths");
     expect(output.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);

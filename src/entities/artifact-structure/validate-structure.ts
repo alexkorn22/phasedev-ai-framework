@@ -24,6 +24,8 @@ export const BLOCKED_PLACEHOLDERS = [
  */
 export interface SectionPolicy {
   required: string[];
+  optional?: string[];
+  mustBeLastIfPresent?: string[];
   membershipCaseInsensitive: boolean;
   orderCaseInsensitive: boolean;
 }
@@ -93,6 +95,8 @@ function validateSectionPolicy(name: string, actual: string[], policy: SectionPo
   const membershipEquals = policy.membershipCaseInsensitive
     ? (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
     : (a: string, b: string) => a === b;
+  const allowedSections = [...policy.required, ...(policy.optional ?? [])];
+  const hasOptionalSections = (policy.optional?.length ?? 0) > 0;
 
   for (const section of policy.required) {
     if (!actual.some(candidate => membershipEquals(candidate, section))) {
@@ -101,12 +105,36 @@ function validateSectionPolicy(name: string, actual: string[], policy: SectionPo
   }
 
   for (const section of actual) {
-    if (!policy.required.some(allowed => membershipEquals(allowed, section))) {
+    if (!allowedSections.some(allowed => membershipEquals(allowed, section))) {
       issues.push(`${name} contains unexpected section \`## ${section}\`.`);
     }
   }
 
   const normalize = (value: string): string => (policy.orderCaseInsensitive ? value.toLowerCase() : value);
+
+  if (hasOptionalSections) {
+    const requiredInActual = actual
+      .filter(section => policy.required.some(required => membershipEquals(required, section)))
+      .map(normalize);
+    const requiredOrder = policy.required.map(normalize);
+    if (
+      requiredInActual.length !== requiredOrder.length ||
+      requiredInActual.some((section, index) => section !== requiredOrder[index])
+    ) {
+      issues.push(
+        `${name} required \`##\` sections must appear in this order: ${policy.required.map(section => `\`## ${section}\``).join(", ")}.`
+      );
+    }
+
+    for (const section of policy.mustBeLastIfPresent ?? []) {
+      const sectionIndex = actual.findIndex(candidate => membershipEquals(candidate, section));
+      if (sectionIndex !== -1 && sectionIndex !== actual.length - 1) {
+        issues.push(`${name} section \`## ${section}\` must be the last \`##\` section when present.`);
+      }
+    }
+    return;
+  }
+
   const actualOrder = actual.map(normalize);
   const requiredOrder = policy.required.map(normalize);
   if (actualOrder.length !== requiredOrder.length || actualOrder.some((section, index) => section !== requiredOrder[index])) {

@@ -45,7 +45,7 @@ Artifact requirements:
 - `execution_contract.md` requires stable `unit` and `phase` command recipes (optionally using `{{test_targets_placeholder}}` for per-iteration target substitution) and one exact `full` repository-wide command in section `## Test Commands`, plus an optional `## Environment Notes` section.
 - For `execution_contract.md` gates `unit` and `phase`, derive stable runner recipes from repository evidence (`package.json`, `Makefile`, etc.) without guessing concrete future test file paths; use `{{test_targets_placeholder}}` when targets vary per iteration.
 - For `execution_contract.md` gate `full`, record one exact repository-wide command for Final Validation; do not use placeholders in `full`.
-- All product requirements, behavioral constraints, risk boundaries, usage examples, non-goals, success criteria, and manual acceptance checks belong strictly in `prd.md`. `execution_contract.md` serves purely as the technical test runner manifest.
+- Success-criteria evidence types stay in `prd.md`; when those evidence types need a live UI session, also write `## Browser Validation` in `execution_contract.md`. When they do not, omit the section.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 When applying the output paths in the Artifact Build Contracts below, replace `<derive-slug-from-final-task>` with your chosen slug. Never ask the user for this slug as a prerequisite to creating artifacts.
