@@ -1,6 +1,6 @@
 import { Config, DEFAULT_CONFIG } from "../../entities/config/config";
 import { Prompt } from "../../entities/phase/types";
-import { ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
+import { ValidationPhaseRole, isValidationPhaseRole } from "../../entities/phase/validation-phase-role";
 import { archivePrompt } from "./archive-stage";
 import {
   archiveReadinessBlocker,
@@ -112,6 +112,9 @@ export function getRoutePrompt(
         if (options?.validationRole === undefined) {
           return validationRoleBlocker("iteration_validation");
         }
+        if (!isValidationPhaseRole("iteration_validation", options.validationRole)) {
+          return validationRoleBlocker("iteration_validation", options.validationRole);
+        }
         const rendered = renderIterationValidation(
           projectPath,
           config,
@@ -134,6 +137,9 @@ export function getRoutePrompt(
     case "final_validation": {
       if (options?.validationRole === undefined) {
         return validationRoleBlocker("final_validation");
+      }
+      if (!isValidationPhaseRole("final_validation", options.validationRole)) {
+        return validationRoleBlocker("final_validation", options.validationRole);
       }
       const rendered = renderFinalValidation(
         projectPath,

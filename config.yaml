@@ -57,6 +57,10 @@ roles:
     tier: strong
     skills: [security-review-method]
     comment: Traces attacker-controlled input through the diff's security-sensitive surfaces
+  browser-qa:
+    tier: standard
+    skills: [verification-method]
+    comment: Final validation auxiliary — exercises Browser Validation from execution_contract.md in a real browser; records product defects as findings and gate evidence; never runs unit/phase/full
   spec_sync:
     tier: cheap
     skills: [spec-delta-method]

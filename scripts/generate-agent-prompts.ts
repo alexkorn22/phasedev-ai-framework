@@ -7,7 +7,7 @@ import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig, resolveConfigPath } from "../src/entities/config/config";
 import { buildChangePaths, ChangePaths } from "../src/entities/change/paths";
 import { Phase } from "../src/entities/phase/types";
-import { VALIDATION_PHASE_ROLES, ValidationPhaseRole, formatAllowedValidationRoles } from "../src/entities/phase/validation-phase-role";
+import { ITERATION_VALIDATION_ROLES, FINAL_VALIDATION_ROLES, ValidationPhaseRole, formatAllowedValidationRoles } from "../src/entities/phase/validation-phase-role";
 import { shellQuote } from "../src/shared/shell/shell-quote";
 
 interface StageOutput {
@@ -222,7 +222,7 @@ function saveValidationRolePrompts(
   options: Options,
   config: ReturnType<typeof loadConfig>
 ): StageOutput[] {
-  return VALIDATION_PHASE_ROLES.map(role =>
+  return (phase === "iteration_validation" ? ITERATION_VALIDATION_ROLES : FINAL_VALIDATION_ROLES).map(role =>
     saveNextPrompt(
       projectPath,
       promptsDir,
@@ -251,7 +251,7 @@ function validationDispatcherAliasContent(
     "Use one of these role-scoped prompts from this bundle instead:",
     ...roleScopedEntries.map(entry => `- ${entry}`),
     "",
-    `Allowed roles: ${formatAllowedValidationRoles()}`,
+    `Allowed roles: ${formatAllowedValidationRoles(phase)}`,
     "Recovery: run `phasedev phase --change <change> --role <name>` with one of the allowed roles.",
     "================================================================================"
   ].join("\n");
@@ -330,6 +330,14 @@ function rulesBody(): string {
 
 ## Environment Notes
 Test fixture only.
+
+## Browser Validation
+
+| Field | Value |
+|---|---|
+| start | Launch the sandbox preview server and wait for the shell to load. |
+| url | http://localhost:3000/app |
+| criteria | The primary navigation renders and the home view is interactive. |
 `;
 }
 
@@ -610,7 +618,7 @@ function main(): void {
     promptsDir,
     "06-phase-5a-phase-validation.md",
     "iteration_validation",
-    VALIDATION_PHASE_ROLES.map(role => `06-phase-5a-${role}.md`),
+    ITERATION_VALIDATION_ROLES.map(role => `06-phase-5a-${role}.md`),
     options,
     workingProjectPath
   ));
@@ -629,7 +637,7 @@ function main(): void {
     promptsDir,
     "07-phase-5b-final-validation.md",
     "final_validation",
-    VALIDATION_PHASE_ROLES.map(role => `07-phase-5b-${role}.md`),
+    FINAL_VALIDATION_ROLES.map(role => `07-phase-5b-${role}.md`),
     options,
     workingProjectPath
   ));

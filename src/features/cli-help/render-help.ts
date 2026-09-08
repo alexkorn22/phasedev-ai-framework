@@ -60,8 +60,8 @@ Commands:
       Print the contract for the active phase (read-only).
       Idempotent: repeated calls (without advance) return the same contract.
       For iteration_validation and final_validation, --role must be provided and must be
-      one of: code-review, security-review, implementation-check. Missing or unknown
-      roles fail closed with the allowed-role list and no executable contract.
+      one of: code-review, security-review, implementation-check (browser-qa is final_validation only).
+      Missing or unknown roles fail closed with the allowed-role list and no executable contract.
       Other phases ignore --role and preserve legacy behavior when it is absent.
       Side effects: none.
 

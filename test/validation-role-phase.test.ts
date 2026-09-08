@@ -5,7 +5,10 @@ import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
 import { phaseRecoveryCommand } from "../src/features/phase-control/prompt-blockers";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
-import { VALIDATION_PHASE_ROLES } from "../src/entities/phase/validation-phase-role";
+import {
+  FINAL_VALIDATION_ROLES,
+  ITERATION_VALIDATION_ROLES
+} from "../src/entities/phase/validation-phase-role";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
@@ -70,6 +73,21 @@ function validRulesBody(): string {
 ## Environment Notes
 Test fixture only.
 `;
+}
+
+function browserValidationSection(overrides: { start?: string; url?: string; criteria?: string } = {}): string {
+  return `## Browser Validation
+
+| Field | Value |
+|---|---|
+| start | ${overrides.start ?? "Launch the preview server and wait for the shell."} |
+| url | ${overrides.url ?? "http://localhost:3000/app"} |
+| criteria | ${overrides.criteria ?? "The dashboard renders with primary navigation visible."} |
+`;
+}
+
+function validRulesBodyWithBrowserValidation(overrides: { start?: string; url?: string; criteria?: string } = {}): string {
+  return `${validRulesBody()}\n\n${browserValidationSection(overrides)}`;
 }
 
 function withImplementationPlanContract(planContent: string): string {
@@ -254,9 +272,10 @@ describe("validation role phase contracts", () => {
     expect(result.phase).toBe("iteration_validation");
     expect(result.prompt).toContain("Allowed roles:");
     expect(result.prompt).toContain('phasedev phase --change "sample-change" --role <name>');
-    for (const role of VALIDATION_PHASE_ROLES) {
+    for (const role of ITERATION_VALIDATION_ROLES) {
       expect(result.prompt).toContain(role);
     }
+    expect(result.prompt).not.toContain("browser-qa");
     expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).not.toContain("Artifact Build Contract: validation_findings.md");
   });
@@ -267,6 +286,9 @@ describe("validation role phase contracts", () => {
     expect(result.blocked).toBe(true);
     expect(result.phase).toBe("final_validation");
     expect(result.prompt).toContain("Allowed roles:");
+    for (const role of FINAL_VALIDATION_ROLES) {
+      expect(result.prompt).toContain(role);
+    }
     expect(result.prompt).not.toContain("Phase 6B. Final Validation.");
   });
 
@@ -455,7 +477,73 @@ describe("validation role phase contracts", () => {
     expect(result.output).toContain("phasedev phase");
     expect(result.output).toContain("--role <name>");
     expect(result.output).toContain("code-review, security-review, implementation-check");
+    expect(result.output).toContain("browser-qa");
+    expect(result.output).toMatch(/browser-qa.*final_validation only|final_validation only.*browser-qa/i);
     expect(result.output).toContain("fail closed");
+  });
+
+  test("browser-qa role is blocked on iteration_validation", () => {
+    setupValidationChange("iteration_validation");
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "browser-qa");
+    expect(result.blocked).toBe(true);
+    expect(result.phase).toBe("iteration_validation");
+    expect(result.prompt).toContain("browser-qa");
+    expect(result.prompt).toContain("Allowed roles:");
+    expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+  });
+
+  test("browser-qa on final_validation without Browser Validation section is blocked", () => {
+    setupValidationChange("final_validation", "[x]");
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "browser-qa");
+    expect(result.blocked).toBe(true);
+    expect(result.phase).toBe("final_validation");
+    expect(result.prompt).toContain("Browser Validation section is absent; do not dispatch browser-qa.");
+    expect(result.prompt).not.toContain("Phase 6B. Final Validation.");
+  });
+
+  test("browser-qa on final_validation with Browser Validation section renders browser contract without full gate", () => {
+    setupValidationChange("final_validation", "[x]");
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    writeArtifact(
+      path.join(changeDir, "execution_contract.md"),
+      validRulesBodyWithBrowserValidation({
+        start: "Run bun run dev and wait for port 3000.",
+        url: "http://localhost:3000/dashboard",
+        criteria: "Login form accepts credentials and redirects to dashboard."
+      })
+    );
+
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "browser-qa");
+    expect(result.blocked).toBe(false);
+    expect(result.prompt).toContain("Execution role: browser-qa");
+    expect(result.prompt).toContain("Run bun run dev and wait for port 3000.");
+    expect(result.prompt).toContain("http://localhost:3000/dashboard");
+    expect(result.prompt).toContain("Login form accepts credentials and redirects to dashboard.");
+    expect(result.prompt).toContain("phasedev record-gate browser");
+    expect(result.prompt).not.toMatch(/run the `full` gate command/);
+    expect(result.prompt).not.toContain("- full:");
+    expect(result.prompt).toContain("do NOT run `phasedev set-verdict`");
+    expect(result.prompt).not.toMatch(/set the phase verdict ONLY with `phasedev set-verdict`/);
+  });
+
+  test("implementation-check on final_validation includes record-gate full and excludes browser start", () => {
+    setupValidationChange("final_validation", "[x]");
+    const changeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
+    writeArtifact(
+      path.join(changeDir, "execution_contract.md"),
+      validRulesBodyWithBrowserValidation({
+        start: "Run bun run dev and wait for port 3000.",
+        url: "http://localhost:3000/dashboard",
+        criteria: "Login form accepts credentials."
+      }).replace("| full | `bun test full` |", "| full | `bun test contract-full-suite` |")
+    );
+
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "implementation-check");
+    expect(result.blocked).toBe(false);
+    expect(result.prompt).toContain("phasedev record-gate full");
+    expect(result.prompt).toContain("`bun test contract-full-suite`");
+    expect(result.prompt).not.toContain("Run bun run dev and wait for port 3000.");
+    expect(result.prompt).not.toContain("http://localhost:3000/dashboard");
   });
 
   test("getRoutePrompt fails closed for validation phases without role", () => {

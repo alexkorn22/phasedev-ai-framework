@@ -129,18 +129,38 @@ function finalImplementationCheckChecks(fullGateCommand: string): string {
 - all iterations in [iteration_plan.md]({{plan_path}}) have status \`[x]\`;
 - final requirements conformance pass: verify the full change against PRD, approved design, and implementation plan;
 - audit \`Check Evidence\` across all iterations and perform the test quality audit using phase-allowed evidence;
-- after the requirements conformance pass and Check Evidence audit are complete, run the \`full\` gate command exactly once: ${renderedFullGateCommand}; do not run it before review/evidence completion; \`verdict: ready\` or \`verdict: ready_with_risks\` is allowed only when this full gate run passed;
-- if the full gate run fails with product test failures, add a \`MUST-FIX\` finding with the exact command, failing test/path evidence, and set \`verdict: repair_required\`;
-- if the full gate command, binary, sandbox, network, or environment is unavailable, report blocked and remain in \`final_validation\`; do not add a finding, do not set a terminal verdict, and do not route to \`finding_repair\`; retry only after environment or access changes;
+- after the requirements conformance pass and Check Evidence audit are complete, run the \`full\` gate command exactly once: ${renderedFullGateCommand}; do not run it before review/evidence completion; do not start a background dev-server or drive a browser;
+- after the single \`full\` gate run, record the gate result with \`phasedev record-gate full --result passed|failed|blocked --evidence "..."\`;
+- if the full gate run fails with product test failures, add a \`MUST-FIX\` finding (class \`test\` or \`implementation\`) with the exact command and failing test/path evidence, run \`phasedev record-gate full --result failed\`, and set \`verdict: repair_required\`; Required Fix must name the failing test/path, not "re-run full";
+- if the full gate command, binary, sandbox, network, or environment is unavailable, run \`phasedev record-gate full --result blocked\`; do not add a finding, do not set a terminal verdict, and do not route to \`finding_repair\`; retry only after environment or access changes;
+- \`verdict: ready\` or \`verdict: ready_with_risks\` is allowed only after \`phasedev record-gate full\` passed;
 - record other blocking gaps with \`phasedev add-finding\` and set the phase verdict ONLY with \`phasedev set-verdict\`;
 - run \`phasedev check-validation\` before reporting this role complete;
 - do NOT perform the code review pass or security review pass in this role; other roles own those passes.`;
 }
 
+function finalBrowserQaChecks(browser: { start: string; url: string; criteria: string }): string {
+  return `Required phase-contract checks:
+- ${roleHeader("browser-qa")}
+- scope = full change Browser Validation section from [execution_contract.md]({{rules_path}});
+- start the application using the configured start instructions: ${browser.start}
+- open the URL: ${browser.url}
+- walk the acceptance criteria: ${browser.criteria}
+- record product defects ONLY with \`phasedev add-finding\` using Class = implementation, test, or security;
+- on environment failure (sandbox restrictions, missing binary, port bind failure from the environment): run \`phasedev record-gate browser --result blocked --evidence "..."\`; do NOT add a finding; do NOT run \`phasedev set-verdict\`;
+- on application crash at start (product defect): add a finding (class implementation or test), then run \`phasedev record-gate browser --result failed\`;
+- after completing browser scenarios (product bugs may still be recorded as findings): run \`phasedev record-gate browser --result passed\` when the UI was exercised; product bugs remain separate findings;
+- do NOT run \`unit\`, \`phase\`, or the \`full\` gate command;
+- do NOT run \`phasedev set-verdict\`.`;
+}
+
 export function renderValidationRoleChecks(
   phase: ValidationScopePhase,
   role?: ValidationPhaseRole,
-  options?: { fullGateCommand?: string }
+  options?: {
+    fullGateCommand?: string;
+    browserValidation?: { start: string; url: string; criteria: string };
+  }
 ): string {
   if (role === undefined) {
     return phase === "iteration_validation" ? ITERATION_VALIDATION_FULL_CHECKS : FINAL_VALIDATION_FULL_CHECKS;
@@ -154,6 +174,8 @@ export function renderValidationRoleChecks(
         return iterationSecurityReviewChecks();
       case "implementation-check":
         return iterationImplementationCheckChecks();
+      case "browser-qa":
+        return iterationCodeReviewChecks();
     }
   }
 
@@ -164,6 +186,12 @@ export function renderValidationRoleChecks(
       return finalSecurityReviewChecks();
     case "implementation-check":
       return finalImplementationCheckChecks(options?.fullGateCommand ?? "<missing full gate command>");
+    case "browser-qa":
+      return finalBrowserQaChecks(options?.browserValidation ?? {
+        start: "<missing browser start>",
+        url: "<missing browser url>",
+        criteria: "<missing browser criteria>"
+      });
   }
 }
 
@@ -179,6 +207,22 @@ const FINAL_FULL_ALLOWLIST = `## Artifact allowlist
 
 Allowed persistent artifacts for this phase:
 - active change folder \`validation_findings.md\` at the Artifact Build Contract Output path
+
+Any file not listed above is read-only for this phase.`;
+
+const FINAL_IMPLEMENTATION_CHECK_ALLOWLIST = `## Artifact allowlist
+
+Allowed persistent artifacts for this phase:
+- active change folder \`validation_findings.md\` at the Artifact Build Contract Output path
+- active change folder \`final_gate_evidence.md\` via \`phasedev record-gate\` only (never hand-edit)
+
+Any file not listed above is read-only for this phase.`;
+
+const BROWSER_QA_ALLOWLIST = `## Artifact allowlist
+
+Allowed persistent artifacts for this phase:
+- active change folder \`validation_findings.md\` at the Artifact Build Contract Output path (findings rows only through \`phasedev add-finding\`)
+- active change folder \`final_gate_evidence.md\` via \`phasedev record-gate\` only (never hand-edit)
 
 Any file not listed above is read-only for this phase.`;
 
@@ -205,8 +249,12 @@ export function renderValidationRoleAllowlist(
     return phase === "iteration_validation" ? ITERATION_FULL_ALLOWLIST : FINAL_FULL_ALLOWLIST;
   }
 
+  if (role === "browser-qa") {
+    return BROWSER_QA_ALLOWLIST;
+  }
+
   if (role === "implementation-check") {
-    return phase === "iteration_validation" ? ITERATION_IMPLEMENTATION_CHECK_ALLOWLIST : FINAL_FULL_ALLOWLIST;
+    return phase === "iteration_validation" ? ITERATION_IMPLEMENTATION_CHECK_ALLOWLIST : FINAL_IMPLEMENTATION_CHECK_ALLOWLIST;
   }
 
   return FINDINGS_ONLY_ALLOWLIST;
@@ -239,12 +287,20 @@ const IMPLEMENTATION_CHECK_FINAL_COMPLETION = `Phase completion:
 - Tell the user the verdict and whether the full change is confirmed correctly solved.
 - Do not perform code review or security review in this role.`;
 
+const BROWSER_QA_COMPLETION = `Phase completion:
+- After recording findings with \`phasedev add-finding\` and browser gate evidence with \`phasedev record-gate browser\`, stop and report what you exercised.
+- Do not record verdicts, update iteration status, run unit/phase/full commands, or perform completion gates owned by another role.`;
+
 export function renderValidationRoleCompletion(
   phase: ValidationScopePhase,
   role?: ValidationPhaseRole
 ): string {
   if (role === undefined) {
     return phase === "iteration_validation" ? ITERATION_FULL_COMPLETION : FINAL_FULL_COMPLETION;
+  }
+
+  if (role === "browser-qa") {
+    return BROWSER_QA_COMPLETION;
   }
 
   if (role === "implementation-check") {
@@ -336,6 +392,10 @@ export function renderValidationRoleInputArtifacts(
   if (role === "implementation-check") {
     return implementationCheckInputArtifacts(phase);
   }
+  if (role === "browser-qa") {
+    return `${reviewRoleInputArtifacts(phase)}
+- Browser Validation and test command rules: [execution_contract.md]({{rules_path}})`;
+  }
   return reviewRoleInputArtifacts(phase);
 }
 
@@ -343,6 +403,14 @@ export function renderValidationRoleRetrievalOrder(
   phase: ValidationScopePhase,
   role?: ValidationPhaseRole
 ): string {
+  if (role === "browser-qa") {
+    return [
+      "Retrieval order:",
+      "- Start from the Browser Validation section in [execution_contract.md]({{rules_path}}), then read PRD/design/plan only for the `R#`, `SC#`, and risk boundaries needed to interpret the browser criteria.",
+      "- Treat linked artifact paths as the active change source of truth.",
+      "- Use repository reads only to start the app, exercise the configured URL/criteria, and verify product defects."
+    ].join("\n");
+  }
   if (role === undefined || role === "implementation-check") {
     return implementationCheckRetrievalOrder(phase);
   }
@@ -422,8 +490,8 @@ function implementationCheckCommonVariables(phase: ValidationScopePhase): Implem
       validation_stop_coverage_units: "every approved `R#`, `SC#`, applicable design/risk boundary, implementation iteration, Check Evidence row, and changed file outside `.phasedev/**`",
       validation_inventory_blocker_scope: "expected full-change surface",
       validation_requirements_pass: "confirm the full change satisfies the approved PRD, approved design, and approved implementation plan without adding unapproved behavior",
-      validation_execution_rule: "Validation mode is review-only with exactly one required execution: after review and Check Evidence audit are complete, run the authorized full gate command exactly once from the project root and record its result before deciding the verdict. Do not rerun `unit`, `phase`, additional checks, builds, browsers, migrations, or deployments. If the full gate fails with product test failures, add a `MUST-FIX` finding with failing test/path evidence. If the command, binary, sandbox, network, or environment is unavailable, report blocked, remain in `final_validation`, do not add a product finding, and do not route to `finding_repair`.",
-      validation_full_gate_line: "Full gate: record the authorized full gate command and result"
+      validation_execution_rule: "Validation mode is review-only with exactly one required execution: after review and Check Evidence audit are complete, run the authorized full gate command exactly once from the project root, record the result with `phasedev record-gate full`, and decide the verdict only after a passed full gate record. Do not rerun `unit`, `phase`, additional checks, builds, browsers, migrations, or deployments. If the full gate fails with product test failures, add a `MUST-FIX` finding with failing test/path evidence and record `phasedev record-gate full --result failed`. If the command, binary, sandbox, network, or environment is unavailable, record `phasedev record-gate full --result blocked`, remain in `final_validation`, do not add a product finding, and do not route to `finding_repair`.",
+      validation_full_gate_line: "Full gate: record the authorized full gate command and result with `phasedev record-gate full`"
     };
   }
 
@@ -464,11 +532,36 @@ function implementationCheckCommonContract(phase: ValidationScopePhase, config: 
   ].join("\n");
 }
 
+function browserQaCommonContract(): string {
+  const variables = reviewRoleCommonVariables("final_validation");
+  const scopedCommon = renderTemplate("validation_common_review_role", {
+    ...variables,
+    validation_execution_rule: "Validation mode is browser QA only: start the configured app, open the configured URL, walk the configured criteria, record product defects with `phasedev add-finding`, and record browser gate evidence with `phasedev record-gate browser`. Do not run `unit`, `phase`, or the `full` gate command.",
+    skill_compliance_line: renderSkillComplianceLine()
+  });
+
+  return [
+    "## Role-Scoped Validation Contract",
+    "",
+    "- Execution role: browser-qa",
+    "- Role scope is the full change Browser Validation section.",
+    "- This role records product defects only through `phasedev add-finding` and browser gate evidence only through `phasedev record-gate browser`.",
+    "- This role does not own verdict recording, check-validation, unit/phase/full execution, or iteration status updates.",
+    "- Mandatory skills still come exclusively from your dispatch prompt; this role scopes execution responsibilities only.",
+    "",
+    scopedCommon
+  ].join("\n");
+}
+
 export function renderRoleScopedValidationCommonContract(
   phase: ValidationScopePhase,
   config: Config,
   role: ValidationPhaseRole
 ): string {
+  if (role === "browser-qa") {
+    return browserQaCommonContract();
+  }
+
   if (role === "implementation-check") {
     return implementationCheckCommonContract(phase, config);
   }
@@ -559,6 +652,17 @@ export function renderValidationRoleOpeningSummary(
     ].join("\n");
   }
 
+  if (role === "browser-qa") {
+    return [
+      "> **Phase summary:**",
+      "> - Output: findings rows in `validation_findings.md` through `phasedev add-finding` and browser gate evidence through `phasedev record-gate browser`.",
+      "> - Done when: the configured browser scenarios were exercised and gate evidence is recorded.",
+      "> - Forbidden: unit/phase/full execution, verdict recording, check-validation ownership, iteration status updates, and writes outside the role allowlist.",
+      dispatchPrecedence,
+      ""
+    ].join("\n");
+  }
+
   const selfCheck = phase === "iteration_validation"
     ? "phasedev check-validation --scope iteration"
     : "phasedev check-validation --scope final";
@@ -577,7 +681,10 @@ export function renderValidationRoleTemplateVariables(
   phase: ValidationScopePhase,
   config: Config,
   role?: ValidationPhaseRole,
-  options?: { fullGateCommand?: string }
+  options?: {
+    fullGateCommand?: string;
+    browserValidation?: { start: string; url: string; criteria: string };
+  }
 ): Record<string, string> {
   const validationCommonContract = role === undefined
     ? renderValidationCommonContract(phase, config)

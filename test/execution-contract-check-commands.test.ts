@@ -659,6 +659,61 @@ Complete UI work.
     expect((result.prompt.match(/bun test \{\{test_targets\}\}/g) ?? []).length).toBeGreaterThanOrEqual(1);
   });
 
+  test("repair prompt forbids executing full or browser Required Fixes while preserving finding text", () => {
+    setupChange(`
+## Iteration 1: API [x]
+
+### Goal
+
+Complete API work.
+
+### Tasks
+
+- [x] 1.1 Implement endpoint
+
+### Checks
+
+- unit: \`bun test legacy-unit\`
+
+### Check Evidence
+
+| Check | Command Or Method | Result | Evidence | Notes |
+|---|---|---|---|---|
+| unit | \`bun test contract-unit\` | passed | ok | none |
+`, {
+      activePhase: "finding_repair",
+      activeIteration: null,
+      executionContract: `${executionContractBody({
+        unit: "bun test {{test_targets}}",
+        full: "bun test contract-full"
+      })}
+
+## Browser Validation
+
+| Field | Value |
+|---|---|
+| start | Launch the preview server. |
+| url | http://localhost:3000/login |
+| criteria | Login succeeds with valid credentials. |
+`,
+      findings: validationFindings(
+        "repair_required",
+        "final",
+        "| F1 | open | MUST-FIX | test | Final | Full gate failed. | Re-run execution_contract full gate exactly once: bun test contract-full |\n| F2 | open | MUST-FIX | implementation | Final | Browser login broken. | Open http://localhost:3000/login and verify login succeeds. |\n"
+      )
+    });
+
+    const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+    expect(result.blocked).toBe(false);
+    expect(result.prompt).toContain("Re-run execution_contract full gate exactly once: bun test contract-full");
+    expect(result.prompt).toContain("http://localhost:3000/login");
+    const repairCommandsSection = result.prompt.split("Targeted focused check commands")[1]?.split("Context budget")[0] ?? "";
+    expect(repairCommandsSection).not.toContain("- full:");
+    expect(repairCommandsSection).not.toContain("bun test contract-full");
+    expect(result.prompt).toMatch(/never start a background dev-server/i);
+    expect(result.prompt).toMatch(/do not execute it.*focused `unit`\/`phase` only/i);
+  });
+
   test("final_validation implementation-check renders backtick full command exactly once via safe inline code", () => {
     setupChange(`
 ## Iteration 1: API [x]

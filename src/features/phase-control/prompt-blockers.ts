@@ -201,7 +201,7 @@ export function validationRoleBlocker(
   role?: string,
   changeName?: string
 ): Prompt {
-  const allowedRoles = formatAllowedValidationRoles();
+  const allowedRoles = formatAllowedValidationRoles(phase);
   const detail = role === undefined
     ? "Missing required --role for validation phase."
     : `Unknown or disallowed role "${role}".`;
@@ -212,6 +212,15 @@ export function validationRoleBlocker(
     `Recovery: run \`${phaseWithRoleCommand(changeName)}\` with one of the allowed roles.`,
     "================================================================================"
   ].join("\n"), true, role === undefined ? "Missing validation role" : "Invalid validation role");
+}
+
+export function browserQaAbsentBlocker(changeName?: string): Prompt {
+  return prompt("phase", "final_validation", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Browser Validation section is absent; do not dispatch browser-qa.",
+    `Recovery: add a Browser Validation section to execution_contract.md or run \`${phaseWithRoleCommand(changeName)}\` with a different role.`,
+    "================================================================================"
+  ].join("\n"), true, "Browser Validation section absent");
 }
 
 export function finalCommitBlocker(changeSlug: string, changeName?: string): Prompt {

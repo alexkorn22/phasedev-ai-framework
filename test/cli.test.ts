@@ -768,6 +768,7 @@ describe("flow-cli state machine", () => {
     const finalCodeReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-code-review.md"), "utf-8");
     const finalSecurityReviewPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-security-review.md"), "utf-8");
     const finalImplementationCheckPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-implementation-check.md"), "utf-8");
+    const finalBrowserQaPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-browser-qa.md"), "utf-8");
     const phaseValidationAliasPrompt = fs.readFileSync(path.join(outDir, "prompts", "06-phase-5a-phase-validation.md"), "utf-8");
     const finalValidationAliasPrompt = fs.readFileSync(path.join(outDir, "prompts", "07-phase-5b-final-validation.md"), "utf-8");
     const repairPrompt = fs.readFileSync(path.join(outDir, "prompts", "08-phase-5r-repair.md"), "utf-8");
@@ -779,7 +780,8 @@ describe("flow-cli state machine", () => {
       "06-phase-5a-implementation-check.md",
       "07-phase-5b-code-review.md",
       "07-phase-5b-security-review.md",
-      "07-phase-5b-implementation-check.md"
+      "07-phase-5b-implementation-check.md",
+      "07-phase-5b-browser-qa.md"
     ];
     for (const fileName of expectedRolePrompts) {
       expect(manifestBasenames).toContain(fileName);
@@ -885,7 +887,10 @@ describe("flow-cli state machine", () => {
     expect(finalImplementationCheckPrompt).toContain("Declarative Check Evidence such as `passed` without these details is weak evidence, not an automatic blocker");
     expect(finalImplementationCheckPrompt).toContain("do not force `repair_required`");
     expect(finalImplementationCheckPrompt).toContain("run the `full` gate command exactly once: `bun test`");
-    expect(finalImplementationCheckPrompt).toContain("is allowed only when this full gate run passed");
+    expect(finalImplementationCheckPrompt).toContain("phasedev record-gate full");
+    expect(finalImplementationCheckPrompt).toContain("is allowed only after `phasedev record-gate full` passed");
+    expect(finalBrowserQaPrompt).toContain("Execution role: browser-qa");
+    expect(finalBrowserQaPrompt).toContain("phasedev record-gate browser");
     expect(finalImplementationCheckPrompt).toContain("type: final");
     expect(finalImplementationCheckPrompt).toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required.");
     expect(finalImplementationCheckPrompt).not.toContain("verdict must be exactly one of: ready, ready_with_risks, repair_required, repaired.");
@@ -919,7 +924,7 @@ describe("flow-cli state machine", () => {
     expect(repairPrompt).toContain("`validation`: repair validation evidence, registry row accuracy, or Check Evidence consistency");
     expect(repairPrompt).toContain("`security`: change affected source/config/tests needed to remove the security blocker");
     expect(repairPrompt).toContain("`code_review`: change the exact files or active change artifacts identified by the review finding");
-    expect(repairPrompt).toContain("do not set `ready` or `ready_with_risks` during the Repair Loop phase");
+    expect(repairPrompt).toContain("never start a background dev-server");
     expect(repairPrompt).toContain("in generated prompt bundles, snapshot Output paths and snapshot self-check project paths are fixture paths for bundle self-check coherence");
     expect(repairPrompt).toContain("Success final response is allowed only after the self-check passes.");
     expect(repairPrompt).toContain("Resolved findings: <F# list>");
@@ -950,6 +955,8 @@ describe("flow-cli state machine", () => {
     expect(phaseValidationAliasPrompt).toContain("06-phase-5a-implementation-check.md");
     expect(finalValidationAliasPrompt).toContain("07-phase-5b-security-review.md");
     expect(finalValidationAliasPrompt).toContain("07-phase-5b-implementation-check.md");
+    expect(finalValidationAliasPrompt).toContain("07-phase-5b-browser-qa.md");
+    expect(finalValidationAliasPrompt).toContain("browser-qa");
   });
 
   test("check reports invalid fresh PRD without rendering the next prompt", () => {

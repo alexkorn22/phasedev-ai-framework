@@ -162,12 +162,18 @@ export function renderPhaseTemplate(
   templateName: string,
   variables: Record<string, string>,
   config: Config,
-  options?: { validationRole?: ValidationPhaseRole; pathTokens?: { plan_path: string; findings_path: string; prd_path?: string; rules_path?: string; design_path?: string }; fullGateCommand?: string }
+  options?: {
+    validationRole?: ValidationPhaseRole;
+    pathTokens?: { plan_path: string; findings_path: string; prd_path?: string; rules_path?: string; design_path?: string };
+    fullGateCommand?: string;
+    browserValidation?: { start: string; url: string; criteria: string };
+  }
 ): string {
   const validationRoleVariables = phase === "iteration_validation" || phase === "final_validation"
     ? (() => {
       const roleVars = renderValidationRoleTemplateVariables(phase, config, options?.validationRole, {
-        fullGateCommand: options?.fullGateCommand
+        fullGateCommand: options?.fullGateCommand,
+        browserValidation: options?.browserValidation
       });
       if (!options?.pathTokens) {
         return roleVars;

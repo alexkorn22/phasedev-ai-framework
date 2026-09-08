@@ -32,6 +32,11 @@ Ordered workflow:
 Targeted focused check commands (from execution_contract.md; never `full`):
 {{repair_test_commands}}
 
+Browser and full-gate re-check prohibition:
+- never start a background dev-server, never drive a browser, never run `full`;
+- if Required Fix tells you to run `full`, open a URL, or launch browser QA, do not execute it; verify the product repair with focused `unit`/`phase` only; browser/`full` re-check happens in `final_validation` after `phasedev advance`;
+- `resolve-finding` still requires a concrete focused check in Resolution.
+
 Context budget and stop condition:
 - Stop retrieval when every queued finding ID has a concrete repair target, source-of-truth requirement/design/plan context, affected file or artifact evidence, and a verification path or documented blocker.
 - Do not read unrelated repository areas, historical chat, generated prompt bundles, or config files to improve confidence after the narrow repair path is established.

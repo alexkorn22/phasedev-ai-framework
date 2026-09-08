@@ -33,8 +33,9 @@ import {
 } from "./validation-findings-contract";
 import { urlsFor, flowCheckCommand, renderPhaseTemplate, renderRequiredCheckCommands, researchArtifactContract, implementationPlanArtifactContract, taskContextBlock, renderKnowledgeContext, renderRepairCheckCommandsOrBlocker } from "./prompt-render-helpers";
 import { parseRepairFindingScope, resolveIterationFocusedCheckCommands, resolveRepairFocusedCheckCommands, TEST_TARGETS_PLACEHOLDER } from "../../entities/test-commands/resolve-check-commands";
-import { testCommandBlocker, validationRoleBlocker, phaseRecoveryCommand } from "./prompt-blockers";
+import { testCommandBlocker, validationRoleBlocker, browserQaAbsentBlocker, phaseRecoveryCommand } from "./prompt-blockers";
 import { isValidationPhaseRole, ValidationPhaseRole } from "../../entities/phase/validation-phase-role";
+import { parseBrowserValidation } from "../../entities/execution-contract/parse-browser-validation";
 import { renderRoleScopedValidationFindingsContract } from "./validation-role-scope";
 
 function missingActiveIterationBlocker(phase: "implementation" | "iteration_validation", changeName?: string): Prompt {
@@ -277,6 +278,13 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
     return testCommandBlocker("final_validation", paths.executionContractPath, ["full"]);
   }
 
+  const browserValidation = parseBrowserValidation(paths.executionContractPath);
+  if (role === "browser-qa") {
+    if (!browserValidation.present || !browserValidation.start || !browserValidation.url || !browserValidation.criteria) {
+      return browserQaAbsentBlocker(changeName);
+    }
+  }
+
   const fullGateCommand = testCommands.full ?? "";
   const findingsContract = role === undefined
     ? finalValidationArtifactContract(paths.findingsPath, projectPath, config.blockingSeverity, changeName)
@@ -309,7 +317,14 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
       rules_path: urls.rules_path,
       design_path: urls.design_path
     },
-    fullGateCommand
+    fullGateCommand,
+    browserValidation: role === "browser-qa" && browserValidation.present
+      ? {
+        start: browserValidation.start ?? "",
+        url: browserValidation.url ?? "",
+        criteria: browserValidation.criteria ?? ""
+      }
+      : undefined
   });
 }
 
@@ -436,7 +451,8 @@ export function getPhasePrompt(
 
   const validationRole = role === undefined || role === ""
     ? undefined
-    : isValidationPhaseRole(role)
+    : (activePhase === "iteration_validation" || activePhase === "final_validation")
+      && isValidationPhaseRole(activePhase, role)
       ? role
       : null;
 
