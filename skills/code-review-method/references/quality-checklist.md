@@ -4,7 +4,7 @@ Checklist meanings only; there is no score arithmetic. Each check is answered 1 
 
 ## Checks
 
-**Types.** Unions/enums/branded types where plain string/number is too loose; explicit return types on public functions; no implicit any, no `as unknown as X`, no unjustified non-null assertions.
+**Types.** Unions/enums/branded types where plain string/number is too loose; explicit return types on public functions; no implicit any, no `as unknown as X`, no unjustified non-null assertions; strict handling of indexed access (`noUncheckedIndexedAccess`).
 
 **Validation (critical).** Input validated at every boundary: required fields, format/range/allowlist, runtime schema at the entry point. Identity validators (`(v) => v`, bare casts after `.json()`) validate nothing.
 
@@ -16,7 +16,7 @@ Checklist meanings only; there is no score arithmetic. Each check is answered 1 
 
 **Data.** Multi-table mutations in transactions with FK order respected; nullables guarded; monetary values in exact arithmetic (actual currency only — indices and ratios are N/A); a single canonical source per data point; multi-store writes have a NAMED consistency mechanism (outbox, saga, reconciliation) with the partial-failure path exercised.
 
-**Structure.** Size within thresholds (see size-thresholds.md — auxiliary signal); no magic values; no dead code (commented-out old implementations are dead code; explanatory comments and documented workarounds are not); no duplicated logic — procedure: list methods over 20 lines, find blocks sharing 10+ structurally identical lines; count identical try/catch/handler patterns, 5+ repetitions fail regardless of block size; beware "each block is only 3 lines" — total duplicated lines matter; new code follows existing project patterns ("special snowflake" is a violation).
+**Structure.** Size within thresholds (see size-thresholds.md — auxiliary signal); no magic values; no dead code (commented-out old implementations are dead code; explanatory comments and documented workarounds are not); no duplicated logic — procedure: list methods over 20 lines, find blocks sharing 10+ structurally identical lines; count identical try/catch/handler patterns, 5+ repetitions fail regardless of block size; beware "each block is only 3 lines" — total duplicated lines matter; new code follows existing project patterns ("special snowflake" is a violation). For server projects, Profile A (Micro-service Clean 3-Tier: Routing -> Domain -> Storage) is a legitimate architectural baseline; an I/O, database, or repository interface with a single implementation is standard testability practice, not over-engineering. Collapsing transport, domain rules, and SQL into a single monolithic file fails Structure.
 
 **Async/Concurrency.** Every async call awaited or explicitly fire-and-forget with a catch; no sequential await where batch suffices; no N+1; no check-then-act races — mutations idempotent or CAS-protected; cancellation propagated, not re-created mid-chain; every spawned task has an owner that joins or aborts it; shared mutable state race-free by construction and proven by tooling — a review opinion is not proof, the race detector is.
 

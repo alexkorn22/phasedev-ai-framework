@@ -14,10 +14,14 @@ const ALLOWED_EVIDENCE_TYPES = new Set(["unit", "phase", "full", "review", "manu
 
 const REQUIRED_SECTIONS = [
   "Intent",
+  "Usage Contract",
+  "Non-Goals",
   "Requirements",
   "Success Criteria"
 ];
 
+const USAGE_CONTRACT_HEADERS = ["Surface", "Input", "Output", "Error"];
+const NON_GOALS_HEADERS = ["ID", "Must not change"];
 const REQUIREMENTS_HEADERS = ["ID", "Requirement"];
 const SUCCESS_CRITERIA_HEADERS = ["ID", "Verifies", "Criterion", "Evidence"];
 
@@ -35,6 +39,8 @@ const STRUCTURE_SPEC: ArtifactStructureSpec = {
 };
 
 const INTENT_TABLE: TableShapeSpec = { section: "Intent", headers: ["Field", "Value"], mode: "filtered", rowChecks: false };
+const USAGE_CONTRACT_TABLE: TableShapeSpec = { section: "Usage Contract", headers: USAGE_CONTRACT_HEADERS, mode: "filtered", rowChecks: true };
+const NON_GOALS_TABLE: TableShapeSpec = { section: "Non-Goals", headers: NON_GOALS_HEADERS, mode: "filtered", rowChecks: true };
 const REQUIREMENTS_TABLE: TableShapeSpec = { section: "Requirements", headers: REQUIREMENTS_HEADERS, mode: "filtered", rowChecks: false };
 const SUCCESS_CRITERIA_TABLE: TableShapeSpec = { section: "Success Criteria", headers: SUCCESS_CRITERIA_HEADERS, mode: "filtered", rowChecks: false };
 
@@ -68,6 +74,36 @@ function validateIntent(lines: string[], issues: string[]): void {
   const changeType = values.get("Change type")?.trim();
   if (changeType && !ALLOWED_CHANGE_TYPES.has(changeType)) {
     issues.push("Intent field `Change type` must be one of: feature, fix, refactor, infra, experiment.");
+  }
+}
+
+function validateUsageContract(lines: string[], issues: string[]): void {
+  const dataRows = validateTableShape(lines, USAGE_CONTRACT_TABLE, issues);
+
+  if (dataRows.length === 0) {
+    issues.push("Section `## Usage Contract` must contain at least one usage example row with Input, Output, and Error.");
+  }
+}
+
+function validateNonGoals(lines: string[], issues: string[]): void {
+  const dataRows = validateTableShape(lines, NON_GOALS_TABLE, issues);
+  const nonGoalIds = new Set<string>();
+
+  if (dataRows.length === 0) {
+    issues.push("Section `## Non-Goals` must contain at least one boundary row like `NG1`.");
+  }
+
+  for (const row of dataRows) {
+    const id = row.cells[0] ?? "";
+    if (!/^NG\d+$/.test(id)) {
+      issues.push(`Non-Goals row ${row.rowNumber} ID must use \`NG#\` format.`);
+    }
+    if (nonGoalIds.has(id)) {
+      issues.push(`Non-Goals table contains duplicate ID \`${id}\`.`);
+    }
+    if (id.length > 0) {
+      nonGoalIds.add(id);
+    }
   }
 }
 
@@ -158,6 +194,8 @@ export function validatePrdArtifact(filePath: string): string[] {
   const { issues, lines } = validateArtifactStructure(content, STRUCTURE_SPEC);
 
   validateIntent(lines, issues);
+  validateUsageContract(lines, issues);
+  validateNonGoals(lines, issues);
   const requirementIds = validateRequirements(lines, issues);
   validateSuccessCriteria(lines, requirementIds, issues);
 

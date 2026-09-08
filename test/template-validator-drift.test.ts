@@ -134,9 +134,12 @@ describe("template ↔ validator drift", () => {
     const commandKeys = parseStringArray(validatorRulesContent, "REQUIRED_COMMAND_KEYS");
     expect(commandKeys.length).toBeGreaterThan(0);
 
-    const gatesLine = findLine(intakeTemplateContent, "gate commands for");
+    const gateContract = [
+      findLine(intakeTemplateContent, "requires stable `unit` and `phase` command recipes"),
+      findLine(intakeTemplateContent, "gate `full`")
+    ].join("\n");
     for (const key of commandKeys) {
-      expect(gatesLine).toContain(`\`${key}\``);
+      expect(gateContract).toContain(`\`${key}\``);
     }
   });
 

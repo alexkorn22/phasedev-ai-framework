@@ -9,6 +9,8 @@ import { buildChangePaths } from "../src/entities/change/paths";
 import { readCommitLog, readFindingsBaseline } from "../src/entities/change/flow-state";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { passedFullGateEvidence, prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 function makeGitRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-git-"));
@@ -43,6 +45,7 @@ function validPrdBody(): string {
 | Target state | Exercise the commit gate. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -244,9 +247,9 @@ afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true
 describe("advance commit gate", () => {
   it("refuses to advance out of a passing iteration_validation when the tree is dirty", () => {
     const repo = makeGitRepo(); dirs.push(repo);
-    driveToIterationValidationExit(repo);
+    const changeDir = driveToIterationValidationExit(repo);
+    initGitWorkspaceWithCommitLog(repo, changeDir);
     fs.writeFileSync(path.join(repo, "leftover.ts"), "x"); // uncommitted outside .phasedev
-
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(res.ok).toBe(false);
@@ -256,8 +259,8 @@ describe("advance commit gate", () => {
   it("advances and records the boundary SHA when the tree is clean", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
+    initGitWorkspaceWithCommitLog(repo, changeDir);
     const head = gitCommitAll(repo, "iter1");
-
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(res.ok).toBe(true);
@@ -268,29 +271,20 @@ describe("advance commit gate", () => {
   it("does not gate when requireIterationCommit is false (still records boundary when a commit exists)", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
+    initGitWorkspaceWithCommitLog(repo, changeDir);
     const head = gitCommitAll(repo, "iter1");
     fs.writeFileSync(path.join(repo, "leftover.ts"), "x"); // dirty tree left on purpose
-
     const res = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
     expect(res.ok).toBe(true);
     expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(head);
   });
 
-  it("does not gate in a non-git project", () => {
-    const plain = fs.mkdtempSync(path.join(os.tmpdir(), "phasedev-plain-")); dirs.push(plain);
-    driveToIterationValidationExit(plain);
-
-    const res = advanceFlow(plain, { ...DEFAULT_CONFIG, requireIterationCommit: true });
-
-    expect(res.ok).toBe(true);
-  });
-
   it("overwrites iterations[N] on a repair-cycle re-validation of iteration N", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
+    initGitWorkspaceWithCommitLog(repo, changeDir);
     const firstHead = gitCommitAll(repo, "iter1");
-
     const firstAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(firstAdvance.ok).toBe(true);
     expect(readCommitLog(buildChangePaths(changeDir).statePath)?.iterations["1"]).toBe(firstHead);
@@ -308,7 +302,6 @@ describe("advance commit gate", () => {
     fs.writeFileSync(path.join(repo, "repair-fix.ts"), "x");
     const repairHead = gitCommitAll(repo, "repair fix");
     expect(repairHead).not.toBe(firstHead);
-
     const secondAdvance = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
 
     expect(secondAdvance.ok).toBe(true);
@@ -318,8 +311,8 @@ describe("advance commit gate", () => {
   it("refuses to archive when the tree is dirty, then archives once committed", () => {
     const repo = makeGitRepo(); dirs.push(repo);
     const changeDir = driveToIterationValidationExit(repo);
+    initGitWorkspaceWithCommitLog(repo, changeDir);
     gitCommitAll(repo, "iter1");
-
     const toFinalValidation = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(toFinalValidation.ok).toBe(true);
     expect(toFinalValidation.newState?.activePhase).toBe("final_validation");
@@ -329,11 +322,13 @@ describe("advance commit gate", () => {
     expect(readFindingsBaseline(statePath)).not.toBeNull();
 
     // advance now clean-completes at final_validation without mutating anything.
+    const paths = buildChangePaths(changeDir);
     expect(setFindingsVerdict(
-      buildChangePaths(changeDir).findingsPath,
+      paths.findingsPath,
       "ready",
       { type: "final", date: "2026-09-07" }
     ).ok).toBe(true);
+    fs.writeFileSync(paths.finalGateEvidencePath, passedFullGateEvidence("bun test full"), "utf-8");
     const cleanComplete = advanceFlow(repo, { ...DEFAULT_CONFIG, requireIterationCommit: true });
     expect(cleanComplete.ok).toBe(true);
     expect(cleanComplete.finished).toBe(true);

@@ -1,4 +1,5 @@
 import { Prompt, Phase } from "../../entities/phase/types";
+import { formatAllowedValidationRoles } from "../../entities/phase/validation-phase-role";
 import { TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { toFileUrl } from "./prompt-formatters";
 import { shellQuote } from "../../shared/shell/shell-quote";
@@ -47,6 +48,18 @@ export function autoApprovalBlocker(phase: Phase, title: string, artifactPaths: 
     `Once approved, run '${advanceCommand(changeName)}' again.`,
     "================================================================================"
   ].join("\n"), true, title);
+}
+
+export function iterationFullGateBlocker(rulesPath: string): Prompt {
+  return prompt("phase", "implementation", [
+    "================================================================================",
+    "[FLOW CONTROLLER] BLOCKED: Invalid iteration check gate",
+    "Iteration implementation checks may list only focused gates `unit` and/or `phase`.",
+    "The `full` gate is reserved for Final Validation implementation-check and must not appear in iteration `### Checks`.",
+    `- Link: ${toFileUrl(rulesPath)}`,
+    "Update iteration_plan.md to remove `full` from the current iteration checks, then run `phasedev phase` again.",
+    "================================================================================"
+  ].join("\n"), true, "Invalid iteration check gate");
 }
 
 export function testCommandBlocker(phase: Phase, rulesPath: string, missing: Array<keyof TestCommands>): Prompt {
@@ -164,6 +177,53 @@ export function iterationCommitBlocker(
     "To opt out of this gate, set 'requireIterationCommit: false' in config.yaml.",
     "================================================================================"
   ].join("\n"), true, "Iteration commit required");
+}
+
+function barePhaseCommand(changeName?: string): string {
+  const changeToken = changeName === undefined ? "<change>" : shellQuote(changeName);
+  return `phasedev phase --change ${changeToken}`;
+}
+
+function phaseWithRoleCommand(changeName?: string): string {
+  const changeToken = changeName === undefined ? "<change>" : shellQuote(changeName);
+  return `phasedev phase --change ${changeToken} --role <name>`;
+}
+
+export function phaseRecoveryCommand(phase: Phase, changeName?: string): string {
+  if (phase === "iteration_validation" || phase === "final_validation") {
+    return phaseWithRoleCommand(changeName);
+  }
+  return barePhaseCommand(changeName);
+}
+
+export function validationRoleBlocker(
+  phase: "iteration_validation" | "final_validation",
+  role?: string,
+  changeName?: string
+): Prompt {
+  const allowedRoles = formatAllowedValidationRoles(phase);
+  const detail = role === undefined
+    ? "Missing required --role for validation phase."
+    : `Unknown or disallowed role "${role}".`;
+  return prompt("phase", phase, [
+    "================================================================================",
+    `[FLOW CONTROLLER] BLOCKED: ${detail}`,
+    `Allowed roles: ${allowedRoles}`,
+    `Recovery: run \`${phaseWithRoleCommand(changeName)}\` with one of the allowed roles.`,
+    "================================================================================"
+  ].join("\n"), true, role === undefined ? "Missing validation role" : "Invalid validation role");
+}
+
+export function browserQaAbsentBlocker(changeName?: string, sectionPresent = false): Prompt {
+  const detail = sectionPresent
+    ? "Browser Validation section is present but incomplete; do not dispatch browser-qa until start, url, and criteria are filled."
+    : "Browser Validation section is absent; do not dispatch browser-qa.";
+  return prompt("phase", "final_validation", [
+    "================================================================================",
+    `[FLOW CONTROLLER] BLOCKED: ${detail}`,
+    `Recovery: add or complete the Browser Validation section in execution_contract.md or run \`${phaseWithRoleCommand(changeName)}\` with a different role.`,
+    "================================================================================"
+  ].join("\n"), true, sectionPresent ? "Browser Validation section incomplete" : "Browser Validation section absent");
 }
 
 export function finalCommitBlocker(changeSlug: string, changeName?: string): Prompt {

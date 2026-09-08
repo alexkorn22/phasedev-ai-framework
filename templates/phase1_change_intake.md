@@ -18,8 +18,8 @@ Decision flow:
 2. After intake is complete, gather only enough local evidence to write stable setup artifacts:
    - Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change.
    - Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery, plus focused searches for concrete evidence.
-   - Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions.
-3. Resolve material ambiguity and conflicts before writing files. User task text and clarifications define requested product intent; project and repo-local instructions constrain how work may be done; repository evidence clarifies existing behavior but must not silently override user intent. If a conflict or unknown can change `Intent`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands, name the affected artifact fields, ask 1-3 short questions, and stop.
+   - Stop condition: stop reading once you can fill `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions.
+3. Resolve material ambiguity and conflicts before writing files. User task text and clarifications define requested product intent; project and repo-local instructions constrain how work may be done; repository evidence clarifies existing behavior but must not silently override user intent. If a conflict or unknown can change `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, success evidence type, risk boundaries, or test commands, name the affected artifact fields, ask 1-3 short questions, and stop.
 4. Run the interpretation checkpoint. Summarize the final interpretation, material user answers, accepted non-material assumptions, and any "no additional constraints" answer in your working context. Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data to write both artifacts without material assumptions.
 5. If an active change directory already exists (or is specified by the controller), write artifacts into that active change directory. Otherwise, choose a short kebab-case change folder slug from the final task text after the checkpoint is satisfied. The slug is agent-derived, not user intake, unless the user already specified an exact folder name.
 6. Before creating the change folder, prevent slug collisions in `{{project_path}}/.phasedev/changes/`. If the chosen slug exists, do not overwrite or reuse it; derive the next non-conflicting slug by appending `-2`, then `-3`, while it still clearly represents the task. If an exact user-specified folder name collides, or no safe representative slug can be derived, stop with a blocker instead of asking for a slug.
@@ -38,11 +38,14 @@ Phase invariants:
 Artifact requirements:
 - Later research, design, planning, implementation, and validation phases will treat `prd.md` and `execution_contract.md` as source-of-truth inputs, so write stable, testable statements that can be carried forward without reinterpreting the conversation.
 - `prd.md` `Intent` records the change type, why it is needed, target state, and risk boundaries.
+- `prd.md` `Usage Contract` records at least one concrete I/O example for the changed surface (`API`, `CLI`, `UI`, or library): exact Input, Output, and Error. Prose about expected behavior is not a substitute.
+- `prd.md` `Non-Goals` records modules, APIs, and behaviors that must not change.
 - `prd.md` `Requirements` contains only required project behavior or project results.
 - `prd.md` `Success Criteria` contains verifiable criteria and evidence type, with enough specificity for later validators to decide whether evidence satisfies each criterion.
-- `execution_contract.md` requires concrete gate commands for `unit`, `phase`, and `full` in section `## Test Commands`, plus an optional `## Environment Notes` section.
-- For each `execution_contract.md` gate (`unit`, `phase`, `full`), use real project test/build commands based on repository evidence (`package.json`, `Makefile`, etc.). Do not invent commands.
-- All product requirements, behavioral constraints, risk boundaries, success criteria, and manual acceptance checks belong strictly in `prd.md`. `execution_contract.md` serves purely as the technical test runner manifest.
+- `execution_contract.md` requires stable `unit` and `phase` command recipes (optionally using `{{test_targets_placeholder}}` for per-iteration target substitution) and one exact `full` repository-wide command in section `## Test Commands`, plus an optional `## Environment Notes` section.
+- For `execution_contract.md` gates `unit` and `phase`, derive stable runner recipes from repository evidence (`package.json`, `Makefile`, etc.) without guessing concrete future test file paths; use `{{test_targets_placeholder}}` when targets vary per iteration.
+- For `execution_contract.md` gate `full`, record one exact repository-wide command for Final Validation; do not use placeholders in `full`.
+- Success-criteria evidence types stay in `prd.md`; when those evidence types need a live UI session, also write `## Browser Validation` in `execution_contract.md`. When they do not, omit the section.
 - The AI agent must not change `approved: false` to `approved: true`; approval is performed by the user.
 
 When applying the output paths in the Artifact Build Contracts below, replace `<derive-slug-from-final-task>` with your chosen slug. Never ask the user for this slug as a prerequisite to creating artifacts.
@@ -69,7 +72,7 @@ If the check fails, fix the reported artifact issues in this same phase, then re
 
 Formatting rules:
 - Artifact Build Contracts above are the canonical source for exact structure, comment removal, placeholder handling, and output paths.
-- Stable review surface for `prd.md` is the `Intent`, `Requirements`, and `Success Criteria` tables themselves.
+- Stable review surface for `prd.md` is the `Intent`, `Usage Contract`, `Non-Goals`, `Requirements`, and `Success Criteria` tables themselves.
 - Use concise tables and short wording instead of decorative formatting.
 - Use one primary human language for artifact prose; keep code identifiers, file paths, commands, and source terms in their original form.
 - If a list grows beyond 7 items, group it by meaningful categories instead of using one long flat list.
@@ -89,4 +92,4 @@ Phase completion:
   - `Interpretation: <one-sentence final task interpretation>`
   - {{skill_compliance_line}}
   - `Self-check: <exact command> -> <result>`
-  - `Next: review the files, set approved: true and approved_by: "<reviewer>", then run phasedev advance`
+  - `Next: report completion to orchestrator. Artifacts require approval by the user or approval-reviewer via 'phasedev approve'. Do NOT self-approve, do NOT run phasedev advance or phasedev archive.`

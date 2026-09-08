@@ -2,6 +2,21 @@
  * Shared fixture helpers for PhaseDev tests.
  */
 
+export function prdUsageContractAndNonGoals(): string {
+  return `## Usage Contract
+
+| Surface | Input | Output | Error |
+|---|---|---|---|
+| CLI | \`phasedev check\` | exit 0 | exit 1 with schema issues |
+
+## Non-Goals
+
+| ID | Must not change |
+|---|---|
+| NG1 | Do not change unrelated production modules. |
+`;
+}
+
 export function validPrdBody(): string {
   return `# PRD
 
@@ -14,6 +29,7 @@ export function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -129,4 +145,23 @@ date: 2026-07-04
 | ID | Status | Severity | Class | Iteration | Finding | Required Fix |
 |---|---|---|---|---|---|---|
 ${rows}`;
+}
+
+export function passedFullGateEvidence(fullCommand: string, evidence = "12 passed, 0 failed"): string {
+  return `# Final Gate Evidence
+
+| Gate | Result | Command | Evidence |
+|---|---|---|---|
+| full | passed | \`${fullCommand}\` | ${evidence} |
+`;
+}
+
+export function passedBrowserGateEvidence(url: string, fullCommand: string, evidence = "UI verified manually"): string {
+  return `# Final Gate Evidence
+
+| Gate | Result | Command | Evidence |
+|---|---|---|---|
+| full | passed | \`${fullCommand}\` | 12 passed, 0 failed |
+| browser | passed | \`${url}\` | ${evidence} |
+`;
 }

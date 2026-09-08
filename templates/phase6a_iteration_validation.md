@@ -5,55 +5,24 @@ Phase contract: validate current iteration readiness against the implementation 
 {{skill_policy}}
 
 Input artifacts:
-- PRD intent, requirements, and success criteria: [prd.md]({{prd_path}})
-- Test command rules: [execution_contract.md]({{rules_path}})
-- Approved design: [architecture/design.md]({{design_path}})
-- Implementation plan: [iteration_plan.md]({{plan_path}})
+{{validation_input_artifacts}}
 
 Current iteration:
 {{phase_id}}
 
 {{controller_changed_files_inventory}}
 
-Retrieval order:
-- Start from the current iteration in [iteration_plan.md]({{plan_path}}), then read PRD/design/rules only for the `R#`, `SC#`, risk boundaries, design decisions, and check commands referenced by that iteration.
-- Treat linked artifact paths as the active change source of truth.
-- Use repository reads and narrow searches only to verify the current iteration changed-file set, implementation completeness, code review findings, and security findings.
+{{validation_retrieval_order}}
 
-Required phase-contract checks:
-- scope = current iteration;
-- use the current iteration `Expected Change Surface` as a review aid for changed-file inventory and scope comparison, but not as a substitute for actual repository evidence;
-- incidental technical changes: changes to auxiliary files (such as type definitions, re-exports, test runner configurations, or caller wiring) that are directly necessary to satisfy the compiler, linter, or test runner as a consequence of the planned work MUST NOT be treated as plan-surface defects (`class: plan`), provided they do not add unapproved features or violate risk boundaries;
-- inspect every changed production/source/config/test file tied to the current iteration, not only the flow artifacts or `Check Evidence`;
-- plan-first check: the current iteration implementation matches `Goal`, `Tasks`, `Checks`, `Check Evidence`, and iteration scope from [iteration_plan.md]({{plan_path}});
-- PRD/design are used as approved constraints and traceability context, not as full PRD completeness validation;
-- validate the current iteration against the concrete `R#` and `SC#` tied to this iteration in the implementation plan/design;
-- verify that the current iteration does not violate approved PRD `Target state`, `Risk boundaries`, or approved design boundaries;
-- verify that the current iteration does not add behavior outside the positive PRD contract unless explicitly approved in design/plan;
-- completeness of production/test/source/config changes for the current iteration and current iteration task statuses is checked through review methods without running tests;
-- `Check Evidence` for the current iteration in [iteration_plan.md]({{plan_path}}) is checked as evidence that Implementation checks ran; verify that entries cite exact commands and decisive output (exit code 0, test counts) rather than subjective claims; if an entry contains vague hand-waving ("looks good", "verified manually"), flag it as a finding for unproven verification;
-- do not rerun tests or additional checks at this phase;
-- Write validation result to [validation_findings.md]({{findings_path}}) using only the embedded Artifact Build Contract for structure, record rows and the verdict only through the phasedev findings commands (add-finding / resolve-finding / reopen-finding / set-verdict); `phasedev check-validation` catches every structural violation.
-- if the final verdict is `ready` or `ready_with_risks`, change the current iteration status in [iteration_plan.md]({{plan_path}}) from `[~]` to `[x]`;
-- if the final verdict is `repair_required`, keep the current iteration status as `[~]`.
+{{validation_role_checks}}
 
 {{path_resolution_rule}}
-- Update iteration status only in the linked active change folder [iteration_plan.md]({{plan_path}}).
+{{validation_iteration_status_rule}}
 
 {{validation_common_contract}}
 
 {{validation_findings_artifact_contract}}
 
-## Artifact allowlist
+{{validation_role_allowlist}}
 
-Allowed persistent artifacts for this phase:
-- active change folder `validation_findings.md` at the Artifact Build Contract Output path
-- iteration status in active change folder `iteration_plan.md`, only when allowed by validation verdict
-
-Any file not listed above is read-only for this phase.
-
-Phase completion:
-- After writing `validation_findings.md` and possibly updating the iteration status, stop.
-- On a `ready` or `ready_with_risks` verdict, after marking the iteration `[x]`, stop and report readiness. The orchestrator or user will commit the iteration's code changes together with the updated `.phasedev` artifacts (suggested message: `phasedev(<change>): iteration N — <name>`) before running `phasedev advance`. If the working tree is not clean, `phasedev advance` will block until the iteration is committed (unless `requireIterationCommit: false` in config.yaml).
-- Tell the user the verdict, whether the iteration is confirmed correctly solved, and the next transition through `phasedev advance`.
-- If the user reports a defect after the verdict is written and before `phasedev advance`, do not edit repository code and do not delegate a code task: record it with `phasedev add-finding "<finding>" <severity> --required-fix <text> --class <class>` (the command corrects the verdict automatically), then stop — you do not run `phasedev advance`; the flow driver (user or orchestrator) advances, and the flow routes to finding_repair where the fix is implemented.
+{{validation_role_completion}}

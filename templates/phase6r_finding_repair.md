@@ -14,17 +14,28 @@ Input artifacts:
 
 {{repair_queue}}
 
+{{controller_changed_files_inventory}}
+
 Ordered workflow:
-1. Read the Current Repair Queue, then open the full findings registry only to preserve/update rows and confirm each queued ID still has latest status `open` or `reopened`.
-2. Read the embedded Artifact Build Contract before editing `validation_findings.md`.
-3. Read only the linked source-of-truth artifacts needed by the queued finding classes: `iteration_plan.md` first, then the specific `R#`/`SC#` or risk boundary in `prd.md`, then the specific design/research/rules evidence needed for the repair.
-4. **Test Harness Protection Protocol**:
+1. Read the Current Repair Queue and the controller-observed worktree inventory above; the inventory is a snapshot at phase render time — refresh/inspect the actual git diff before selecting focused check targets and updating Check Evidence.
+2. Open the full findings registry only to preserve/update rows and confirm each queued ID still has latest status `open` or `reopened`.
+3. Read the embedded Artifact Build Contract before editing `validation_findings.md`.
+4. Read only the linked source-of-truth artifacts needed by the queued finding classes: `iteration_plan.md` first, then the specific `R#`/`SC#` or risk boundary in `prd.md`, then the specific design/research/rules evidence needed for the repair.
+5. **Test Harness Protection Protocol**:
    - For code/logic defects (`implementation` or `security` class): write a targeted reproduction test demonstrating the defect first. Verify that it fails on current code.
    - Patch the production/implementation code to fix the defect.
    - Never "fix" a finding by weakening, deleting, or altering the assertions in the reproduction test. The reproduction test must pass unaltered.
-5. Inspect affected production/test/source/config files only after artifact context identifies the narrow change surface; prefer exact file paths from the finding, plan, check evidence, or changed-file evidence over broad repository searches.
-6. Patch the smallest required source files or active change artifacts for the finding class, run targeted checks that prove the repair when available, then update `Check Evidence` if it changed.
-7. Update only the existing finding rows for repaired queued IDs, preserve all other rows, set the verdict according to the rule below, run the self-check, and stop.
+6. Inspect affected production/test/source/config files from actual repair changes after artifact context identifies the narrow change surface; prefer exact paths from the controller inventory, finding, plan, check evidence, or git diff over broad repository searches.
+7. Patch the smallest required source files or active change artifacts for the finding class, select targeted focused check commands from actual repair changes (never `full`), run them when repair changes invalidate prior evidence, otherwise reuse still-valid passed evidence, then update `Check Evidence` if it changed.
+8. Update only the existing finding rows for repaired queued IDs, preserve all other rows, set the verdict according to the rule below, run the self-check, and stop.
+
+Targeted focused check commands (from execution_contract.md; never `full`):
+{{repair_test_commands}}
+
+Browser and full-gate re-check prohibition:
+- never start a background dev-server, never drive a browser, never run `full`;
+- if Required Fix tells you to run `full`, open a URL, or launch browser QA, do not execute it; verify the product repair with focused `unit`/`phase` only; browser/`full` re-check happens in `final_validation` after transition by the orchestrator;
+- `resolve-finding` still requires a concrete focused check in Resolution.
 
 Context budget and stop condition:
 - Stop retrieval when every queued finding ID has a concrete repair target, source-of-truth requirement/design/plan context, affected file or artifact evidence, and a verification path or documented blocker.
@@ -96,7 +107,7 @@ Changed files/artifacts: <paths>
 Checks: <targeted checks and results>
 Self-check: <exact command> -> <result>
 {{skill_compliance_line}}
-Next transition: phasedev advance (run by the user or orchestrator).
+Next transition: report completion to the orchestrator (orchestrator executes advance). Do NOT run phasedev advance.
 ```
 
 - For a blocker, do not use the success template. State the blocked finding IDs, the missing material decision/evidence or external failure, targeted checks already attempted, self-check status if reached, and skill compliance in no more than five bullets.

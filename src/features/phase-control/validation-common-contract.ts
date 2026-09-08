@@ -23,7 +23,7 @@ const PHASE_VALIDATION_COMMON: ValidationCommonVariables = {
   validation_changed_file_scope: "tied to the current iteration",
   validation_budget_target: "current-iteration artifacts, current-iteration changed files, and narrow searches needed to prove completeness or a concrete finding",
   validation_stop_coverage_units: "every current-iteration task, related `R#`, related `SC#`, Check Evidence row, applicable risk/design boundary, and changed file",
-  validation_inventory_blocker_scope: "expected current-iteration surface",
+  validation_inventory_blocker_scope: "actual changed-file inventory for the current iteration",
   validation_requirements_pass: "confirm the current iteration satisfies its approved plan/design/PRD trace and does not add unapproved behavior",
   validation_execution_rule: "Validation mode is review-only: do not rerun tests, builds, browsers, migrations, deployments, or other execution gates.",
   validation_full_gate_line: "Full gate: not_applicable (review-only iteration validation)"
@@ -37,8 +37,8 @@ const FINAL_VALIDATION_COMMON: ValidationCommonVariables = {
   validation_stop_coverage_units: "every approved `R#`, `SC#`, applicable design/risk boundary, implementation iteration, Check Evidence row, and changed file outside `.phasedev/**`",
   validation_inventory_blocker_scope: "expected full-change surface",
   validation_requirements_pass: "confirm the full change satisfies the approved PRD, approved design, and approved implementation plan without adding unapproved behavior",
-  validation_execution_rule: "Validation mode is review-only with exactly one required execution: run the `full` gate command from `execution_contract.md` exactly once from the project root and record its result before deciding the verdict. Do not rerun `unit`, `phase`, additional checks, builds, browsers, migrations, or deployments.",
-  validation_full_gate_line: "Full gate: <exact full command> -> passed / failed / unavailable"
+  validation_execution_rule: "Validation mode is review-only with role-scoped execution gates: when `execution_contract.md` contains a Browser Validation section, browser scenarios are owned by `browser-qa` (record with `phasedev record-gate browser`); the authorized `full` gate command is owned by `implementation-check` and must be recorded with `phasedev record-gate full` before a terminal verdict. Do not rerun `unit`, `phase`, additional checks, builds, migrations, or deployments from roles that do not own these gates.",
+  validation_full_gate_line: "Full gate: record the authorized full gate command and result with `phasedev record-gate full` (blocked/unavailable is gate evidence, not a finding)"
 };
 
 export function renderValidationCommonContract(phase: Phase, config: Config): string {

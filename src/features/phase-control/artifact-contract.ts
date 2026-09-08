@@ -6,6 +6,7 @@ export interface ArtifactContractOptions {
   resolvedOutputPath: string;
   templateName: string;
   templateContent?: string;
+  templateVariables?: Record<string, string>;
   selfCheckCommand: string;
   selfCheckFailureGuidance?: string;
   includeSelfCheck?: boolean;
@@ -17,7 +18,8 @@ export interface ArtifactContractOptions {
 export function renderArtifactContract(options: ArtifactContractOptions): string {
   const templateContent = options.templateContent ?? renderTemplate(options.templateName, {
     date: options.date,
-    approval_frontmatter: buildApprovalFrontmatter(options.date)
+    approval_frontmatter: buildApprovalFrontmatter(options.date),
+    ...options.templateVariables
   });
   const hasYamlFrontmatter = templateContent.trimStart().startsWith("---\n");
 

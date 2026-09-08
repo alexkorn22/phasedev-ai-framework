@@ -13,7 +13,7 @@ Inputs:
 
 ## Verdicts
 
-1. Nothing needed (expected default) — the only trace is the git commit.
+1. Nothing needed (expected default) — the only trace is the orchestrator's git commit.
 2. Fix an existing spec in place.
 3. Create a delta spec — the change turned out to alter/add behaviour that lives in `specs/` by this project's standards. Decided from the diff, not in advance.
 
@@ -21,7 +21,7 @@ The decision is made from the final diff. Verdict 3 materialises as a delta spec
 
 ## Completion
 
-Stop after the verdict is decided. Then run `phasedev archive <change-name>` to enter the archive phase.
+Stop after the verdict is decided and report completion to the orchestrator. Do NOT run phasedev archive or phasedev advance.
 
 Final report skill-compliance:
 {{skill_compliance_line}}

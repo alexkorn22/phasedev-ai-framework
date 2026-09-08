@@ -1,3 +1,9 @@
+import { TestCommands } from "../test-commands/parse-test-commands";
+import {
+  authoritativeRequiredCheckCommand,
+  evidenceMatchesRequiredCheck,
+  iterationRequiresFullGate
+} from "../test-commands/resolve-check-commands";
 import { Iteration, Task } from "./types";
 
 function allTopLevelTasksCompleted(phase: Iteration): boolean {
@@ -12,22 +18,24 @@ export function hasIncompleteTask(tasks: Task[]): boolean {
   return flattenTasks(tasks).some(task => task.status !== "completed");
 }
 
-function normalizeEvidenceCommand(value: string): string {
-  return value.trim().replace(/^`(.+)`$/, "$1").replace(/\s+/g, " ").trim();
-}
-
-function hasPassedRequiredCheckEvidence(phase: Iteration, requiredCheck: { check: string; command: string }): boolean {
+function hasPassedRequiredCheckEvidence(
+  phase: Iteration,
+  requiredCheck: { check: string; command: string },
+  testCommands?: TestCommands
+): boolean {
   const requiredCheckName = requiredCheck.check.trim().toLowerCase();
-  const requiredCommand = normalizeEvidenceCommand(requiredCheck.command);
   return (phase.checkEvidence ?? []).some(row =>
     row.result === "passed" &&
     row.check.trim().toLowerCase() === requiredCheckName &&
-    normalizeEvidenceCommand(row.commandOrMethod) === requiredCommand
+    evidenceMatchesRequiredCheck(requiredCheck, row.commandOrMethod, testCommands)
   );
 }
 
-export function iterationValidationBlockers(phase: Iteration): string[] {
+export function iterationValidationBlockers(phase: Iteration, testCommands?: TestCommands): string[] {
   const blockers: string[] = [];
+  if (iterationRequiresFullGate(phase)) {
+    blockers.push("iteration Checks may list only focused gates `unit` and/or `phase`; `full` is reserved for Final Validation implementation-check");
+  }
   if (!allTopLevelTasksCompleted(phase)) {
     blockers.push("top-level tasks are not all completed");
   }
@@ -38,14 +46,17 @@ export function iterationValidationBlockers(phase: Iteration): string[] {
     blockers.push(`Check Evidence has unready result(s): ${unreadyResults.join(", ")}`);
   }
   const missingRequired = (phase.requiredChecks ?? [])
-    .filter(required => !hasPassedRequiredCheckEvidence(phase, required))
-    .map(required => `${required.check}: ${required.command}`);
+    .filter(required => !hasPassedRequiredCheckEvidence(phase, required, testCommands))
+    .map(required => {
+      const command = authoritativeRequiredCheckCommand(required, testCommands);
+      return `${required.check}: ${command}`;
+    });
   if (missingRequired.length > 0) {
     blockers.push(`required check evidence is missing or stale: ${missingRequired.join(", ")}`);
   }
   return blockers;
 }
 
-export function isIterationReadyForValidation(phase: Iteration): boolean {
-  return iterationValidationBlockers(phase).length === 0;
+export function isIterationReadyForValidation(phase: Iteration, testCommands?: TestCommands): boolean {
+  return iterationValidationBlockers(phase, testCommands).length === 0;
 }

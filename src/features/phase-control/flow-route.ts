@@ -7,6 +7,7 @@ import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { Iteration } from "../../entities/iteration-plan/types";
 import { isIterationReadyForValidation, iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parseTestCommands, TestCommands } from "../../entities/test-commands/parse-test-commands";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { validatePrdArtifact } from "../../entities/prd/validate-prd";
 import { validateExecutionContract } from "../../entities/execution-contract/validate-execution-contract";
@@ -37,8 +38,8 @@ export type Route =
   | { kind: "iteration"; phase: "implementation" | "iteration_validation"; paths: ChangePaths; activeIteration: Iteration; activeChangePath: string }
   | { kind: "final_validation"; phase: "final_validation"; paths: ChangePaths; activeChangePath: string };
 
-function iterationPhase(activeIteration: Iteration): "implementation" | "iteration_validation" {
-  return isIterationReadyForValidation(activeIteration) ? "iteration_validation" : "implementation";
+function iterationPhase(activeIteration: Iteration, testCommands: TestCommands): "implementation" | "iteration_validation" {
+  return isIterationReadyForValidation(activeIteration, testCommands) ? "iteration_validation" : "implementation";
 }
 
 const VERDICT_ONLY_OPEN_BLOCKING_ISSUE_CODES: ReadonlySet<ValidationFindingIssue["code"]> = new Set([
@@ -174,6 +175,8 @@ export function resolveRoute(
     return { kind: "iteration_planning_approval", phase: "iteration_planning", paths, activeChangePath: changeDir };
   }
 
+  const testCommands = parseTestCommands(paths.executionContractPath).commands;
+
   const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
   if (findings.exists) {
     const onlyVerdictCannotBypassOpenBlocking = findings.openBlockingRows.length > 0 &&
@@ -217,7 +220,7 @@ export function resolveRoute(
     if (fallbackIteration) {
       return {
         kind: "iteration",
-        phase: iterationPhase(fallbackIteration),
+        phase: iterationPhase(fallbackIteration, testCommands),
         paths,
         activeIteration: fallbackIteration,
         activeChangePath: changeDir
@@ -231,7 +234,7 @@ export function resolveRoute(
   if (incompleteIteration) {
     return {
       kind: "iteration",
-      phase: iterationPhase(incompleteIteration),
+      phase: iterationPhase(incompleteIteration, testCommands),
       paths,
       activeIteration: incompleteIteration,
       activeChangePath: changeDir
@@ -243,7 +246,7 @@ export function resolveRoute(
                      (findings.verdict === "ready" || findings.verdict === "ready_with_risks");
   if (finalReady) {
     const allPhasesCompleted = planPhases.length > 0 && planPhases.every(phase => phase.status === "completed");
-    const hasAnyReadinessBlockers = planPhases.some(phase => iterationValidationBlockers(phase).length > 0);
+    const hasAnyReadinessBlockers = planPhases.some(phase => iterationValidationBlockers(phase, testCommands).length > 0);
     if (!allPhasesCompleted || hasAnyReadinessBlockers) {
       return { kind: "archive_readiness_blocked", phase: "archive", paths, activeChangePath: changeDir };
     }

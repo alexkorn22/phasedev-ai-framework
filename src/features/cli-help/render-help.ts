@@ -56,9 +56,13 @@ Commands:
       writes a worklog.md skeleton instead of the full artifact set.
       Side effects: creates .phasedev/changes/<name>/ and state.json.
 
-  phasedev phase [--project-path <path>] [--config <path>]
+  phasedev phase [--project-path <path>] [--config <path>] [--role <name>]
       Print the contract for the active phase (read-only).
       Idempotent: repeated calls (without advance) return the same contract.
+      For iteration_validation and final_validation, --role must be provided and must be
+      one of: code-review, security-review, implementation-check (browser-qa is final_validation only).
+      Missing or unknown roles fail closed with the allowed-role list and no executable contract.
+      Other phases ignore --role and preserve legacy behavior when it is absent.
       Side effects: none.
 
   phasedev spawn-plan --harness <name> [--project-path <path>] [--config <path>]
@@ -171,6 +175,13 @@ Commands:
       Creates the file with an empty table when missing. Updates the date field.
       Side effects: modifies or creates validation_findings.md.
 
+  phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]
+      Record final gate evidence in final_gate_evidence.md for the active change.
+      For full, --command defaults to the execution contract full test command and must
+      match it when provided. For browser, the Browser Validation section must exist and
+      the stored command is its url (--command is optional and must match url when passed).
+      Side effects: modifies or creates final_gate_evidence.md.
+
   phasedev version
       Print the PhaseDev framework version.
       Aliases: phasedev --version, phasedev -V.
@@ -255,6 +266,9 @@ Options:
   --project-path, -p <path>   Target project path. Defaults to the current directory.
   --change <name>             Target change when several exist (defaults to the only change)
   --config <path>             Explicit PhaseDev config path. Accepted by most commands that read config.
+  --role <name>               Validation role for phase on iteration_validation or final_validation
+                              (code-review | security-review | implementation-check). Required on those
+                              phases; missing or unknown roles fail closed with the allowed-role list.
   --phase <phase>             Phase override for check.
   --scope iteration|final         Validation scope for check-validation.
   --iteration-id <N>              Iteration number for phase validation checks.
@@ -267,7 +281,9 @@ Options:
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
   --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
-  --evidence <text>           New evidence for reopen-finding.
+  --evidence <text>           New evidence for reopen-finding, or gate evidence text for record-gate.
+  --result <passed|failed|blocked> Final gate result for record-gate.
+  --command <text>            Optional gate command override for record-gate (must match execution contract).
   --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json, or "Final" during final validation.
   --tail N                    Show last N log entries.
   --archived                   Include archived changes (changes/list command).

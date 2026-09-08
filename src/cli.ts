@@ -19,10 +19,13 @@ import {
   resolveFinding,
   reopenFinding,
   setFindingsVerdict,
+  findingsVerdictConsistencyIssue,
   isPlaceholderRequiredFix,
   deriveIterationLabel,
   FindingsCreateContext
 } from "./features/artifact-ops/manage-findings";
+import { recordFinalGate } from "./features/artifact-ops/manage-gate-evidence";
+import { finalReadyGateIssues } from "./features/phase-control/final-gate-readiness";
 import { todayIsoDate } from "./shared/time/today-iso-date";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
@@ -31,7 +34,7 @@ import { resetChange } from "./features/flow-state/reset-change";
 import { resolveChangeDir } from "./entities/change/active-change";
 import { AmbiguousChangeError, MissingPhasedevDirError, UnknownChangeError } from "./entities/change/change-errors";
 import { loadFlowState } from "./entities/change/flow-state";
-import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
+import { buildChangePaths, ChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
 import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-phase";
@@ -45,10 +48,12 @@ import { runArchive } from "./features/phase-control/archive-command";
 import { loadModelTiers } from "./entities/model-tiers/model-tiers";
 import { renderMissingHarnessUsage, renderSpawnPlan } from "./features/spawn-plan/render-spawn-plan";
 import { reportCliResult, extractIssueLines } from "./shared/cli/json-output";
+import { assertLifecyclePermission } from "./features/lifecycle-guard/assert-lifecycle-permission";
+import type { CommandContext } from "./shared/cli/command-context";
 import * as fs from "fs";
 import * as path from "path";
 
-const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--force", "--yes", "--check-orphans", "--quick"]);
+const BOOLEAN_FLAGS = new Set(["--json", "--version", "--help", "--force", "--yes", "--check-orphans", "--quick", "--manual-lifecycle"]);
 
 function firstPositional(args: string[]): string | undefined {
   for (let i = 1; i < args.length; i++) {
@@ -121,6 +126,16 @@ function resolveFindingsPath(projectPath: string, changeName?: string): string {
   }
 }
 
+function resolveActiveChangePaths(projectPath: string, changeName?: string): ChangePaths | null {
+  try {
+    const changeDir = resolveChangeDir(projectPath, changeName);
+    if (!changeDir) return null;
+    return buildChangePaths(changeDir);
+  } catch {
+    return null;
+  }
+}
+
 function findingsCreateContext(projectPath: string, changeName?: string): FindingsCreateContext {
   const state = loadFlowState(projectPath, changeName);
   return {
@@ -132,6 +147,23 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
 function findingsTypeCoercion(projectPath: string, changeName?: string): "iteration" | "final" | undefined {
   const state = loadFlowState(projectPath, changeName);
   return state ? (expectedFindingsType(state.activePhase) ?? undefined) : undefined;
+}
+
+function setVerdictFinalGateIssues(
+  projectPath: string,
+  changeName: string | undefined,
+  verdict: string
+): string[] {
+  if (verdict !== "ready" && verdict !== "ready_with_risks") {
+    return [];
+  }
+  const createContext = findingsCreateContext(projectPath, changeName);
+  const coerceType = findingsTypeCoercion(projectPath, changeName);
+  if (createContext.type !== "final" && coerceType !== "final") {
+    return [];
+  }
+  const paths = resolveActiveChangePaths(projectPath, changeName);
+  return paths ? finalReadyGateIssues(paths) : [];
 }
 
 const DEFAULT_LOCK_WAIT_MS = 15_000;
@@ -191,12 +223,6 @@ function runWithOptionalStateLock(projectPath: string, action: () => void): void
   action();
 }
 
-interface CommandContext {
-  args: string[];
-  jsonMode: boolean;
-  projectPath: string;
-  changeName?: string;
-}
 type CommandHandler = (ctx: CommandContext) => void;
 
 function handleVersion(ctx: CommandContext): void {
@@ -483,6 +509,65 @@ function handleReopenFinding(ctx: CommandContext): void {
   });
 }
 
+function handleRecordGate(ctx: CommandContext): void {
+  const gate = ctx.args[1];
+  const result = parseStringOption(ctx.args, "--result");
+  const evidence = parseStringOption(ctx.args, "--evidence");
+  const command = parseStringOption(ctx.args, "--command");
+
+  if (!gate || gate.startsWith("--")) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: <full|browser> is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  if (!result) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: --result passed|failed|blocked is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  if (!evidence) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: --evidence <text> is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  const paths = resolveActiveChangePaths(ctx.projectPath, ctx.changeName);
+  if (!paths) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage: "[PHASEDEV RECORD-GATE] FAILED: could not resolve the active change path."
+    });
+    return;
+  }
+
+  runWithOptionalStateLock(ctx.projectPath, () => {
+    const recordResult = recordFinalGate(paths, gate, result, evidence, command);
+    const prefix = recordResult.ok ? "[PHASEDEV RECORD-GATE] OK" : "[PHASEDEV RECORD-GATE] FAILED";
+    reportCliResult(ctx.jsonMode, {
+      ok: recordResult.ok,
+      kind: "record-gate",
+      humanMessage: `${prefix}: ${recordResult.message}`,
+      jsonMessage: recordResult.message,
+      data: { file: paths.finalGateEvidencePath, gate, result }
+    });
+  });
+}
+
 function handleSetVerdict(ctx: CommandContext): void {
   const verdict = ctx.args[1];
   if (!verdict || verdict.startsWith("--")) {
@@ -508,6 +593,31 @@ function handleSetVerdict(ctx: CommandContext): void {
 
   const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   runWithOptionalStateLock(ctx.projectPath, () => {
+    const consistencyIssue = findingsVerdictConsistencyIssue(targetFile, verdict, config.blockingSeverity);
+    if (consistencyIssue) {
+      reportCliResult(ctx.jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: `[PHASEDEV SET-VERDICT] FAILED: ${consistencyIssue}`,
+        jsonMessage: consistencyIssue,
+        data: { file: targetFile, verdict }
+      });
+      return;
+    }
+
+    const gateIssues = setVerdictFinalGateIssues(ctx.projectPath, ctx.changeName, verdict);
+    if (gateIssues.length > 0) {
+      const message = gateIssues.join(" ");
+      reportCliResult(ctx.jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: `[PHASEDEV SET-VERDICT] FAILED: ${message}`,
+        jsonMessage: message,
+        data: { file: targetFile, verdict }
+      });
+      return;
+    }
+
     const result = setFindingsVerdict(
       targetFile,
       verdict,
@@ -609,6 +719,7 @@ function handleLog(ctx: CommandContext): void {
 }
 
 function handleResetChange(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "reset-change")) return;
   runWithOptionalStateLock(ctx.projectPath, () => {
     const force = hasFlag(ctx.args, "--yes", "--force");
     const result = resetChange(ctx.projectPath, force, ctx.changeName);
@@ -749,7 +860,8 @@ function handleCreateChange(ctx: CommandContext): void {
 function handlePhase(ctx: CommandContext): void {
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
-  const result = getPhasePrompt(ctx.projectPath, config, ctx.changeName);
+  const role = parseStringOption(ctx.args, "--role");
+  const result = getPhasePrompt(ctx.projectPath, config, ctx.changeName, role);
   reportCliResult(ctx.jsonMode, {
     ok: !result.blocked,
     kind: "phase",
@@ -793,6 +905,7 @@ function handleClarify(ctx: CommandContext): void {
 }
 
 function handleAdvance(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "advance")) return;
   const configPath = resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args));
   const config = loadConfig(configPath);
   runWithStateLock(ctx.projectPath, () => {
@@ -812,6 +925,7 @@ function handleAdvance(ctx: CommandContext): void {
 }
 
 function handleArchive(ctx: CommandContext): void {
+  if (!assertLifecyclePermission(ctx, "archive")) return;
   const name = firstPositional(ctx.args);
   if (!name) {
     reportCliResult(ctx.jsonMode, {
@@ -926,6 +1040,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "resolve-finding": handleResolveFinding,
   "reopen-finding": handleReopenFinding,
   "set-verdict": handleSetVerdict,
+  "record-gate": handleRecordGate,
   changes: handleChanges, list: handleChanges,
   config: handleConfig,
   log: handleLog,

@@ -4,7 +4,7 @@
 
 # ⚙️ PhaseDev AI Framework
 
-[![Version](https://img.shields.io/badge/version-1.6.12-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.6.18-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -68,7 +68,7 @@ $ phasedev phase
 > **Phase summary:**
 > - Output: `prd.md and execution_contract.md` per embedded Artifact Build Contract.
 > - Done when: `phasedev check` passes.
-> - Forbidden: change `approved` fields manually, write outside phase allowlist.
+> - Forbidden: change `approved` fields manually, write outside the phase artifact allowlist.
 Phase 1. Change Intake.
 
 Phase contract: prepare the initial change artifacts.

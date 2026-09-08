@@ -161,9 +161,9 @@ Example: "send a welcome email after signup" gets a direct call in the signup fl
 
 **Over-abstraction (framework disease):**
 
-- A layer with a single implementation and no test or config reason to exist.
+- A layer with a single implementation and no test, architectural baseline, or config reason to exist.
 - Pass-through methods and transit files that only forward calls.
-- Interfaces, generics, factories, registries instantiated exactly once.
+- Interfaces, generics, factories, registries instantiated exactly once for purely speculative reasons (NOTE: Architectural Baseline interfaces for I/O, database, repository, or external boundaries with a single concrete implementation are baseline engineering decency for testability and dependency inversion, NOT over-abstraction).
 - Adding one field forces the same edit through DTO → mapper → interface → service → repository: shotgun surgery caused by layers.
 - Helpers used once that add indirection, not clarity.
 
@@ -308,7 +308,7 @@ Catching yourself doing any of these means the fix is at the wrong level or the 
 - Swallowing an error or widening a catch so the flow "works".
 - Suppressing type checks (`any`, ignore-comments, non-null assertions) "temporarily".
 - Leaving a stub, TODO, or partial implementation and reporting the task as done.
-- Adding a layer, interface, or config option "for the future" with a single implementation.
+- Adding a speculative layer, interface, or config option "for the future" with a single implementation (NOTE: Architectural Baseline interfaces for I/O, database, or external boundaries — such as a Repository interface with a single SQLite implementation — are an architectural baseline for testability and dependency inversion, NOT speculative over-engineering. This flag applies strictly to speculative business-layer abstractions, factories of factories, and empty pass-through proxies).
 
 ## Exit Checklist
 

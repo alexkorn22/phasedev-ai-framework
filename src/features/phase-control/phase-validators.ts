@@ -8,6 +8,7 @@ import { validateDesign } from "../../entities/design/validate-design";
 import { validatePlanArtifact } from "../../entities/iteration-plan/validate-plan-artifact";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
 import { checkArchiveCompletion } from "./check-archive";
@@ -16,6 +17,7 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
+import { finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -117,7 +119,8 @@ export function validatePhase(
         return failMessage(phase, [`Iteration ${activeIteration} not found in iteration plan.`]);
       }
 
-      const blockers = iterationValidationBlockers(iter);
+      const testCommands = parseTestCommands(paths.executionContractPath).commands;
+      const blockers = iterationValidationBlockers(iter, testCommands);
       if (blockers.length > 0) {
         return failMessage(phase, blockers);
       }
@@ -206,6 +209,10 @@ export function validatePhase(
       }
       if (findings.verdict === "pending") {
         issues.push(validationPendingMessage());
+      }
+
+      if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
+        issues.push(...finalReadyGateIssuesWhenArchiveBound(paths));
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);

@@ -20,7 +20,7 @@ Use the Artifact Build Contract below as the only source of structure for `resea
 {{research_artifact_contract}}
 
 Decision flow:
-1. Read approved `prd.md` and `execution_contract.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
+1. Read approved `prd.md` and `execution_contract.md` first. Extract `Intent`, `Target state`, `Risk boundaries`, `Usage Contract`, `Non-Goals`, every `R#`, every `SC#`, and each requested evidence type as the research targets.
 2. Gather only enough repository evidence to trace those targets:
    - Retrieval order: project instructions and package/test metadata, then code/config/tests/runtime wiring directly tied to the PRD targets, then `.phasedev/specs` if present, then focused follow-up searches for unresolved target-specific evidence gaps.
    - Context budget: use 2-4 broad file listings/searches total as a soft cap, at most one per target area such as package layout, source modules, tests, runtime/config, and specs, then focused `rg` queries and file reads for concrete identifiers, modules, commands, tests, and spec areas. Do not perform exhaustive repository or spec audits.
@@ -67,7 +67,7 @@ Phase completion:
 Research ready: {{research_path}}
 Self-check: {{self_check_command}} -> <result>
 Route: design
-Next: phasedev advance
+Next: report completion to orchestrator. Do NOT run phasedev advance.
 {{skill_compliance_line}}
 ```
 

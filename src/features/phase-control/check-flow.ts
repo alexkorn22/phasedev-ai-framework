@@ -1,5 +1,6 @@
 import { buildChangePaths, ChangePaths } from "../../entities/change/paths";
 import { iterationValidationBlockers } from "../../entities/iteration-plan/iteration-readiness";
+import { parseTestCommands } from "../../entities/test-commands/parse-test-commands";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact, ValidationFindingsVerdict } from "../../entities/validation-findings/parse-validation-findings";
 import { checkFindingsAgainstBaseline } from "../../entities/validation-findings/findings-baseline";
@@ -7,6 +8,7 @@ import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase, readFindingsBaseline } from "../../entities/change/flow-state";
 import { validatePhase, validatePhaseExit, revalidationPendingMessage, validationPendingMessage } from "./phase-validators";
+import { finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 import { classifyStateRoute, StateRouteRelation } from "./state-route-consistency";
@@ -208,7 +210,8 @@ export function checkValidationCompletion(
       } else if (phaseIteration.status !== "completed") {
         issues.push(readyIterationIssue(findings.verdict, options.iterationId));
       } else {
-        const blockers = iterationValidationBlockers(phaseIteration);
+        const testCommands = paths ? parseTestCommands(paths.executionContractPath).commands : undefined;
+        const blockers = iterationValidationBlockers(phaseIteration, testCommands);
         if (blockers.length > 0) {
           issues.push(`\`verdict: ${findings.verdict}\` is valid only after Iteration ${options.iterationId} has no validation readiness blockers: ${blockers.join("; ")}.`);
         }
@@ -230,6 +233,10 @@ export function checkValidationCompletion(
     }
     if (findings.verdict === "pending") {
       issues.push(validationPendingMessage());
+    }
+
+    if (isReadyVerdict(findings.verdict) && paths) {
+      issues.push(...finalReadyGateIssuesWhenArchiveBound(paths));
     }
 
     if (isReadyVerdict(findings.verdict) && route.kind !== "archive_ready") {

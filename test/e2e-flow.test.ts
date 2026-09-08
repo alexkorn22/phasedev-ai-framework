@@ -16,15 +16,25 @@ import { findPendingArchiveState } from "../src/entities/change/archive-state";
 import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 import { syncState } from "../src/features/phase-control/sync-state";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
 
-function run(args: string[]): { code: number; out: string } {
+function run(
+  args: string[],
+  env?: Record<string, string>
+): { code: number; out: string } {
   const result = Bun.spawnSync({
     cmd: ["bun", "run", cliPath, ...args, "--project-path", testTmpDir],
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: {
+      ...process.env,
+      PHASEDEV_ORCHESTRATOR: "1",
+      ...env
+    }
   });
   return { code: result.exitCode, out: result.stdout.toString() + result.stderr.toString() };
 }
@@ -100,6 +110,7 @@ function makePrdBody(params: { why: string; targetState: string; requirement: st
 | Target state | ${params.targetState} |
 | Risk boundaries | None beyond normal project risk |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -316,19 +327,57 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
   const changeDir = path.join(root, ".phasedev", "changes", name);
   const paths = buildChangePaths(changeDir);
 
+  const advanceStep = () => {
+    const changesDir = path.join(root, ".phasedev", "changes");
+    const activeChanges = fs.existsSync(changesDir)
+      ? fs.readdirSync(changesDir, { withFileTypes: true })
+          .filter(entry => entry.isDirectory() && entry.name !== "archive")
+          .map(entry => entry.name)
+      : [];
+
+    if (activeChanges.length <= 1) {
+      return advanceFlow(root, config, name);
+    }
+
+    const stashRoot = path.join(root, ".phasedev", ".multi-change-stash");
+    fs.mkdirSync(stashRoot, { recursive: true });
+    for (const other of activeChanges) {
+      if (other === name) {
+        continue;
+      }
+      const from = path.join(changesDir, other);
+      const to = path.join(stashRoot, other);
+      if (fs.existsSync(to)) {
+        fs.rmSync(to, { recursive: true, force: true });
+      }
+      fs.renameSync(from, to);
+    }
+
+    try {
+      return advanceFlow(root, config, name);
+    } finally {
+      for (const entry of fs.readdirSync(stashRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+        fs.renameSync(path.join(stashRoot, entry.name), path.join(changesDir, entry.name));
+      }
+    }
+  };
+
   return [
     // 1. change_intake -> code_research
     () => {
       simulateAgent(paths.prdPath, makePrdBody(fixture), true);
       simulateAgent(paths.executionContractPath, makeExecutionContractBody(), true);
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("code_research");
     },
     // 2. code_research -> technical_design
     () => {
       writeFile(paths.researchPath, makeResearchFactsBody(fixture));
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("technical_design");
     },
@@ -336,7 +385,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.designPath, makeDesignBody());
       approveArtifact(paths.designPath, "test");
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_planning");
     },
@@ -344,7 +393,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.iterationPlanPath, makeIterationPlanBody());
       approveArtifact(paths.iterationPlanPath, "test");
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("implementation");
       expect(result.newState?.activeIteration).toBe(1);
@@ -354,7 +403,8 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
       const planContent = markIterationOneDone(fs.readFileSync(paths.iterationPlanPath, "utf-8"));
       writeFile(paths.iterationPlanPath, planContent);
       approveArtifact(paths.iterationPlanPath, "test");
-      const result = advanceFlow(root, config, name);
+      initGitWorkspaceWithCommitLog(root, changeDir);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("iteration_validation");
     },
@@ -362,7 +412,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "iteration"));
       expect(setIterationStatus(root, 1, "completed", undefined, name).ok).toBe(true);
-      const result = advanceFlow(root, config, name);
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.newState?.activePhase).toBe("final_validation");
     },
@@ -371,7 +421,8 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     // runArchive moves the change dir into archive/.
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
-      const result = advanceFlow(root, config, name);
+      writeFile(paths.finalGateEvidencePath, passedFullGateEvidence("echo full"));
+      const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.message).toBe("Final validation passed. Flow complete.");
       expect(fs.existsSync(changeDir)).toBe(true);
@@ -658,6 +709,7 @@ describe("E2E flow via CLI subprocess", () => {
     const reapprovePlan = run(["approve", planPath]);
     expect(reapprovePlan.code).toBe(0);
 
+    initGitWorkspaceWithCommitLog(testTmpDir, cdir);
     expectCheckSignalsReadyToAdvance();
 
     const adv5 = run(["advance"]);
@@ -677,7 +729,6 @@ describe("E2E flow via CLI subprocess", () => {
     // Mark iteration 1 as [x] (completed) so resolveRoute can move past it
     const setIterStatus = run(["set-iteration-status", "1", "x"]);
     expect(setIterStatus.code).toBe(0);
-
     expectCheckSignalsReadyToAdvance();
 
     const adv6 = run(["advance"]);
@@ -691,7 +742,7 @@ describe("E2E flow via CLI subprocess", () => {
     // -----------------------------------------------------------------------
     const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
-
+    writeFile(path.join(cdir, "final_gate_evidence.md"), passedFullGateEvidence("echo full"));
     expectCheckSignalsReadyToAdvance();
 
     const adv7 = run(["advance"]);
@@ -793,6 +844,8 @@ describe("repaired finding re-validation e2e", () => {
     // advanceFlow's setFindingsType side effect — no manual type edit.
     expect(createChange(root, "repair-e2e").ok).toBe(true);
     const config = loadConfig();
+    const repairChangeDir = path.join(root, ".phasedev", "changes", "repair-e2e");
+    initGitWorkspaceWithCommitLog(root, repairChangeDir);
 
     const steps = buildLifecycleSteps(root, config, "repair-e2e", {
       why: "Verify a repaired final finding re-validates and reaches archive",
@@ -1027,7 +1080,6 @@ describe("stale final verdict scope-change e2e", () => {
       );
     writeFile(paths.iterationPlanPath, implementedPlan);
     approveArtifact(paths.iterationPlanPath, "test");
-
     const toIterationValidation = advanceFlow(root, config, "full-arc-e2e");
     expect(toIterationValidation.ok).toBe(true);
     expect(toIterationValidation.newState?.activePhase).toBe("iteration_validation");
@@ -1053,6 +1105,7 @@ describe("stale final verdict scope-change e2e", () => {
     expect(enteredFinalFindings).toContain("verdict: pending");
 
     writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+    writeFile(paths.finalGateEvidencePath, passedFullGateEvidence("echo full"));
 
     // (d) advance clean-completes at final_validation (no mutation); runArchive
     // then performs the archive mutation.
@@ -1099,7 +1152,6 @@ describe("stale final verdict scope-change e2e", () => {
     expect(wedged).not.toBeNull();
     wedged = { ...(wedged as NonNullable<typeof wedged>), activePhase: "iteration_validation", activeIteration: 1 };
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify(wedged, null, 2) + "\n", "utf-8");
-
     const result = advanceFlow(root, config, "self-heal-e2e");
     expect(result.ok).toBe(true);
     expect(loadFlowState(root, "self-heal-e2e")?.activePhase).not.toBe("iteration_validation");
@@ -1147,6 +1199,7 @@ describe("multi-change e2e", () => {
 | Target state | Alpha advances without touching beta |
 | Risk boundaries | None beyond normal project risk |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

@@ -78,7 +78,7 @@ Both modes are available at the selection point.
 
 1. Create the change: `phasedev create-change <name> --quick --task-file <path>` — the same command shape as Standard ([Initialization](#initialization) step 2), so the task-definition decision point hands its result over the same way and `intake_task.md` is written here too (`state.json`: `flowMode: "quick"`, `activePhase: quick_plan`). The `quick_plan` contract injects `intake_task.md` into the sub-agent's prompt from disk, the same way `change_intake` does — no need to also paste the summary into the dispatch prompt.
 2. Drive the same primitives as Standard — `phasedev phase`, `phasedev check`, `phasedev advance` — but the phase sequence is the fixed linear chain `quick_plan → quick_implementation → quick_validation → quick_spec_revision → archive`; it branches before `resolveRoute` and does not use Standard's phase graph.
-3. Delegate each quick phase to a dedicated sub-agent exactly as in [Sub-Agent Spawning](#sub-agent-spawning) — the sub-agent reads its own contract via `phasedev phase`.
+3. Delegate each quick phase to a dedicated sub-agent exactly as in [Sub-Agent Spawning](#sub-agent-spawning) — the sub-agent reads its own contract via `phasedev phase`. The sub-agent does NOT commit code. Before advancing from `quick_implementation`, the orchestrator commits the implementation changes to git to satisfy `quickAdvance` requirements.
 4. **Single stop:** after `quick_plan`, the sub-agent fills `worklog.md` (`## Task` / `## Short Specification` / `## Plan`, English) — the orchestrator never writes the worklog itself. Stop and get the user's plan confirmation before `quick_implementation` starts.
 5. **Validation fix loop stays in-session:** fix `quick_validation` issues by looping sub-agents in the orchestrator's own session — there is no findings artifact in Quick mode.
 6. **`quick_spec_revision`** uses a fresh-context sub-agent that reports exactly one of three verdicts: nothing to change, fix the spec in place, or write a delta spec at archive time.
@@ -108,15 +108,15 @@ Each iteration:
 
 1. **Validate active phase:** `phasedev check` — checks artifact validity (approval is not checked here).
 2. **Advance or work:**
-   - If `check` returns OK → run `phasedev advance`. If advance succeeds, ALWAYS spawn sub-agents on the phase named by `Advanced to <X>` — never run `status` or archive first.
+   - If `check` returns OK → run `PHASEDEV_ORCHESTRATOR=1 phasedev advance`. If advance succeeds, ALWAYS spawn sub-agents on the phase named by `Advanced to <X>` — never run `status` or archive first.
    - If `check` returns issues, or advance refuses with `invalid_*` (artifact issues) or `archive_readiness_blocked` (iterations not complete) → spawn sub-agents on the **current** active phase.
    - If advance refuses with `Cannot leave phase` or `Nothing to advance` → the phase is unfinished; spawn sub-agents on the **current** active phase.
    - If advance refuses with `*_approval` (needs approval), the phase work is already done and valid — do NOT spawn sub-agents; handle per [Auto-Approval](#auto-approval), otherwise stop per [Termination](#termination).
-3. **Verify:** when all sub-agents for the phase have reported with passing self-checks:
+3. **Verify:** when all sub-agents for the active phase have reported with passing self-checks — for `iteration_validation` and `final_validation`, follow the wave recipe in [Canonical dispatch: validation phases (6A / 6B)](#canonical-dispatch-validation-phases-6a--6b) before treating the phase complete:
    - If leaving a passed iteration validation (Phase 6A), commit the iteration code and updated `.phasedev` artifacts (suggested commit message: `phasedev(<change>): iteration N — <name>`) before advancing. If `.phasedev/` is git-ignored, commit code only, state that in the report, and never edit `.gitignore`; this is not a blocker.
-   - Run `phasedev advance`. If it accepts, spawn on the phase named by `Advanced to <X>`, then continue the loop. If it refuses (e.g. with a commit blocker), commit uncommitted changes and rerun `advance`, or handle per [Auto-Approval](#auto-approval), [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), or [Termination](#termination).
+   - Run `PHASEDEV_ORCHESTRATOR=1 phasedev advance`. If it accepts, spawn on the phase named by `Advanced to <X>`, then continue the loop. If it refuses (e.g. with a commit blocker), commit uncommitted changes and rerun `PHASEDEV_ORCHESTRATOR=1 phasedev advance`, or handle per [Auto-Approval](#auto-approval), [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), or [Termination](#termination).
 
-**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Whether the phase's sub-agents run **sequentially or in parallel** is also the orchestrator's per-phase decision — e.g., two sub-agents holding different roles may run concurrently on the same phase. Each sub-agent reads the same phase contract itself via `phasedev phase` (the orchestrator does not transmit the contract text) and self-validates with `phasedev check` before reporting. Several concurrent sub-agents may safely mutate the same registry (e.g., multiple `phasedev add-finding` writers on `validation_findings.md`): every mutating phasedev command is serialized by an exclusive framework lock, so parallel writers cannot corrupt state — never serialize writers for registry safety. The only obligation sits with each writer: check the command outcome and retry on `[PHASEDEV] BLOCKED` — a mutation counts as applied only after its `OK` line (the CLI already waits for a busy lock internally, so BLOCKED is a rare exception, not the normal parallel outcome). The framework guarantees only the invariant: `phasedev phase --change X` returns the same contract for every sub-agent until `advance --change X` is called — an advance on another change does not affect X's contract. This lock keeps N agents on a phase safe whether they run sequentially or in parallel.
+**N sub-agents per phase is dynamic.** How many (1 or more) is exclusively the orchestrator's decision, made per-phase per-change — no framework-level binding ties phases to agent counts or types. Whether the phase's sub-agents run **sequentially or in parallel** is also the orchestrator's per-phase decision — e.g., two sub-agents holding different roles may run concurrently on the same phase. Non-validation sub-agents read their phase contract via bare `phasedev phase --change <change>`; validation sub-agents (`iteration_validation`, `final_validation`) read role-scoped contracts via `phasedev phase --change <change> --role <role>` (the orchestrator does not transmit contract text). Every sub-agent self-validates with `phasedev check` before reporting. Several concurrent sub-agents may safely mutate the same registry (e.g., multiple `phasedev add-finding` writers on `validation_findings.md`): every mutating phasedev command is serialized by an exclusive framework lock, so parallel writers cannot corrupt state — never serialize writers for registry safety. The only obligation sits with each writer: check the command outcome and retry on `[PHASEDEV] BLOCKED` — a mutation counts as applied only after its `OK` line (the CLI already waits for a busy lock internally, so BLOCKED is a rare exception, not the normal parallel outcome). The framework guarantees only the invariant: `phasedev phase --change X` (or `phasedev phase --change X --role R` for validation roles) returns the same contract for every sub-agent with the same role until `advance --change X` is called — an advance on another change does not affect X's contract. This lock keeps N agents on a phase safe whether they run sequentially or in parallel.
 
 What NOT to do:
 - **Do not introduce** any phase→agent-count or phase→agent-type table, and do not hardcode per-phase counts ("for design — 3 agents").
@@ -149,7 +149,17 @@ For every executable phase, spawn a dedicated sub-agent via the harness sub-agen
 
 The model comes from the chosen role's entry in the cached `spawn-plan` grid, not from your own guess: pick the role, pass its model (or select `phasedev-<tier>` in OpenCode). Your judgment sits one level up — in which roles a phase needs. When `spawn-plan` output has a tier instead of a concrete model name for a role, that role's tier has no mapped model on this machine — whether because the mapping is unset entirely or only partially covers this harness (other roles can still resolve to real model names in the same run): run that role on the session model and report that explicitly in your notes/report. If a report shows the work was harder than the role implies, re-dispatch the remainder under a role whose model is stronger — an underpowered model on multi-step work often takes 2-3× the turns and costs more overall.
 
-**Sub-agent prompt** (the single canonical prompt; the goal, role, stage, and decisions lines are optional slots). Copy the fixed body VERBATIM — the orchestrator's entire authorship is filling the four optional slots. Adding ANY other instruction about the phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict):
+**Orchestrator Lifecycle & Workspace Guards:**
+Before dispatching any sub-agent:
+- **Phase Snapshot Guard**: Record `PRE_PHASE=$(phasedev status --json | jq -r .phase)`. After sub-agent completes, record `POST_PHASE=$(phasedev status --json | jq -r .phase)`. If `POST_PHASE !== PRE_PHASE`, the sub-agent unlawfully mutated the lifecycle — STOP immediately and report the violation.
+- **Commit Guard**: Record `PRE_HASH=$(git rev-parse --verify HEAD 2>/dev/null || echo "EMPTY_REPO")`. After sub-agent completes, record `CURR_HASH=$(git rev-parse --verify HEAD 2>/dev/null || echo "EMPTY_REPO")`. If `CURR_HASH !== PRE_HASH`, the sub-agent unlawfully committed to git — STOP immediately and report.
+- **Delta-Cleanliness Guard (Read-Only Roles)**: For read-only roles (`code_research`, `code-review`, `security-review`, `browser-qa`, `approval-reviewer`), record `PRE_STATUS=$(git status --porcelain)`. After completion, record `POST_STATUS=$(git status --porcelain)`. If `POST_STATUS` introduces any modified or untracked files outside `.phasedev/` compared to `PRE_STATUS`, the sub-agent violated read-only boundaries — STOP immediately and report.
+
+**Sub-agent prompt** — two complete canonical bodies. Pick exactly one body for the active phase; copy the fixed body VERBATIM and fill only the optional slots. Adding ANY other instruction about phase work — artifact read order, changed-file inventories, review checklists, verdict policy, findings-command recipes — is a violation: those belong to the phase contract printed by `phasedev phase`, and a second copy in the dispatch prompt drifts out of date and conflicts with it (the contract itself tells the sub-agent to ignore such details on conflict).
+
+### Canonical dispatch: non-validation phases
+
+Use for every executable phase except `iteration_validation` and `final_validation` (`change_intake`, `code_research`, `technical_design`, `iteration_planning`, `implementation`, `finding_repair`, `archive`, and all Quick phases). Step 1 uses bare `phasedev phase --change <change>`.
 
 *Dynamic harness (`Agent` tool):*
 ```javascript
@@ -165,6 +175,10 @@ Your role: <role name from spawn-plan>. Mandatory skills: <the skills column fro
 
 You work ONLY on the change "<change>".
 
+CRITICAL CONSTRAINTS:
+- FORBIDDEN: phasedev advance, phasedev archive, phasedev set-verdict (except implementation-check), git commit, git push, git tag.
+- You are strictly an execution worker. Only the orchestrator mutates flow phase and commits to git.
+
 1. Run: phasedev phase --change <change> — to get the phase contract.
 2. Follow your role's mandatory skills and execute the phase contract.
 3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
@@ -174,22 +188,56 @@ You work ONLY on the change "<change>".
 )
 ```
 
-*Cursor harness (`Task` tool — model from spawn-plan is mandatory):*
+*Cursor harness (`Task` tool — model from spawn-plan is mandatory):* same prompt body as Dynamic harness above; use `subagent_type: "generalPurpose"` and the spawn-plan model.
+
+*OpenCode harness (`task` tool with tier-based subagents):* same prompt body as Dynamic harness above; use `subagent_type: "phasedev-<tier>"`.
+
+That is the entire non-validation prompt — the fixed body plus the four optional slots above, and nothing else.
+
+### Canonical dispatch: validation phases (6A / 6B)
+
+Use only for `iteration_validation` and `final_validation`. Validation roles from the cached spawn-plan grid: `code-review`, `security-review`, `implementation-check`, and `browser-qa` for `final_validation` only. Never invent `final-validator` or any other validation role. Fill `<role>` in step 1 and the dispatch role slot with the same validation role.
+
+#### Wave recipe
+
+**`iteration_validation` (Phase 6A)**
+
+| Wave | Roles | Runs project checks? | Owns |
+|---|---|---|---|
+| Wave 1 (may run in parallel) | one `code-review` + one `security-review` | zero — findings only | `phasedev add-finding` rows only |
+| Wave 2 (sequential, after wave 1) | exactly one `implementation-check` | zero — consume Implementation `Check Evidence` | verdict, `phasedev check-validation`, iteration `[~]` → `[x]` |
+
+Never dispatch two `implementation-check` agents for the same iteration validation scope.
+
+**`final_validation` (Phase 6B)**
+
+| Wave | Roles | Runs project checks? | Owns |
+|---|---|---|---|
+| Wave 1 (review roles may run in parallel) | one `code-review` + one `security-review` over the full change; plus one `browser-qa` **only when** `execution_contract.md` contains `## Browser Validation` (detect by reading that artifact — do not infer from PRD alone) | `browser-qa` runs browser scenarios only; reviewers run zero project checks | `phasedev add-finding` rows for product defects; `phasedev record-gate browser` for gate evidence |
+| Wave 2 (sequential, after wave 1 complete with no blocking product findings) | exactly one `implementation-check` | runs `execution_contract.md` `full` exactly once | verdict, `phasedev record-gate full`, `phasedev check-validation` |
+
+Spawn `browser-qa` with the same validation canonical body as other 6B roles: `phasedev phase --change <change> --role browser-qa`. Browser validation completes in wave 1 before the full gate. `browser-qa` never runs `unit`/`phase`/`full`. Product defects from `browser-qa` use `phasedev add-finding`; missing browser, blocked localhost, or other environment blockers use `phasedev record-gate browser --result blocked` — retry `browser-qa` in `final_validation`, do **not** `add-finding`, do **not** dispatch `implementer` or route to `finding_repair` for that.
+
+Never run `full` in parallel with review or browser work. Never dispatch two `implementation-check` agents for the same final validation scope. The implementer does not own the `full` gate or browser validation.
+
+*Single-iteration optimization:* If the change has exactly 1 iteration and no code changes occurred after passing 6A, wave 1 `code-review` and `security-review` may be skipped in 6B (since the code was already reviewed in 6A). However, `browser-qa` (if required by `execution_contract.md`) is NEVER skipped in 6B and runs in wave 1 before wave 2 `implementation-check` runs the `full` gate.
+
+*Dynamic harness (`Agent` tool):*
 ```javascript
-Task(
-  subagent_type: "generalPurpose",
+Agent(
   description: "<phase-name>: execute phase contract",
-  model: "<exact spawn-plan model string for the chosen role — never omit, never inherit>",
+  model: "<model resolved by `phasedev spawn-plan` for the chosen role — see Model selection; a tier only when that role's tier has no mapped model on this machine>",
   prompt: `Execute the current PhaseDev phase for change "<change>".
 
-<intake context: the goal description on the first \`change_intake\` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
 Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
-<Stage: fork analysis only — OPTIONAL STAGE LINE for stage 1 at technical_design and iteration_planning; omit otherwise>
-<Decisions already taken: <list> — OPTIONAL DECISIONS LINE for stage 2 fallback; omit otherwise>
 
 You work ONLY on the change "<change>".
 
-1. Run: phasedev phase --change <change> — to get the phase contract.
+CRITICAL CONSTRAINTS:
+- FORBIDDEN: phasedev advance, phasedev archive, phasedev set-verdict (except implementation-check), git commit, git push, git tag.
+- You are strictly an execution worker. Only the orchestrator mutates flow phase and commits to git.
+
+1. Run: phasedev phase --change <change> --role <role> — to get the phase contract.
 2. Follow your role's mandatory skills and execute the phase contract.
 3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
 4. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
@@ -198,44 +246,76 @@ You work ONLY on the change "<change>".
 )
 ```
 
-*OpenCode harness (`task` tool with tier-based subagents):*
-```javascript
-task(
-  subagent_type: "phasedev-<tier>", // phasedev-cheap | phasedev-standard | phasedev-strong (matching role's tier)
-  description: "<phase-name>: execute phase contract",
-  prompt: `Execute the current PhaseDev phase for change "<change>".
+*Cursor harness (`Task` tool — model from spawn-plan is mandatory):* same prompt body as Dynamic harness above; use `subagent_type: "generalPurpose"` and the spawn-plan model.
 
-<intake context: the goal description on the first \`change_intake\` dispatch, or the agreed decisions on a later one after a feedback reset — CHANGE_INTAKE PHASE ONLY; omit this line for every other phase>
-Your role: <role name from spawn-plan>. Mandatory skills: <the skills column from that role's spawn-plan line>.
-<Stage: fork analysis only — OPTIONAL STAGE LINE for stage 1 at technical_design and iteration_planning; omit otherwise>
-<Decisions already taken: <list> — OPTIONAL DECISIONS LINE for stage 2 fallback; omit otherwise>
+*OpenCode harness (`task` tool with tier-based subagents):* same prompt body as Dynamic harness above; use `subagent_type: "phasedev-<tier>"`.
 
-You work ONLY on the change "<change>".
+That is the entire validation prompt — the fixed body plus the role slot above, and nothing else. For `browser-qa`, use this same validation canonical body with `--role browser-qa`; there is no separate browser/manual auxiliary prompt.
 
-1. Run: phasedev phase --change <change> — to get the phase contract.
-2. Follow your role's mandatory skills and execute the phase contract.
-3. Stay strictly within the project workspace (never read, write, or run anything outside process.cwd(); no /tmp or home dir).
-4. Do not search code via git history/logs; search files and symbols via grep/find/file reading.
-5. Self-validate via the contract's check command before reporting.
-6. Do NOT run phasedev advance. Report results, blockers, and applied skills.`
-)
+**Infrastructure vs product outcomes (orchestrator)**
+
+- **Product full-gate failure** (command ran, tests failed): the `implementation-check` sub-agent records a concrete `MUST-FIX` finding with failing test/path evidence; `advance` may route to `finding_repair`.
+- **Infrastructure unavailable** (sandbox/network/binary/access exit before a truthful full-gate or browser result): report **blocked** via `record-gate`, remain in `final_validation`, do **not** `add-finding`, do **not** route to `finding_repair`; retry only the blocked role (`browser-qa` for missing browser / blocked localhost; `implementation-check` for blocked `full`) after environment or access changes.
+
+**Sequential command deduplication (orchestrator)**
+
+Reuse existing evidence instead of rerunning the exact command when a passed result still applies and no relevant code/test diff changed afterward. Rerun when code/commands changed or the previous result failed, blocked, or is unavailable.
+
+- **Implementation:** runs focused `unit`/`phase` commands only.
+- **6A:** consumes Implementation `Check Evidence`; reviewers and `implementation-check` run zero project checks.
+- **Finding repair:** reruns focused commands only when repair changed code/tests.
+- **Re-validation:** consumes repair evidence; no duplicate reruns of unchanged passed checks.
+- **6B wave 1:** reviewers and browser work run no `unit`/`phase`/`full`.
+- **6B wave 2:** `full` runs only once, owned solely by `implementation-check`.
+
+Do not add `check_runs.md` or new state fields for deduplication.
+
+**Finding repair dispatch (orchestrator)**
+
+Route repair from the **open finding class and required fix**, not from phase name alone. Dispatch an implementer only for findings whose repair requires code/test/plan/design work. The implementer does not own the `full` gate or browser validation. Do **not** dispatch an implementer when only validation-infrastructure retry or pending gate evidence remains — retry the owning validation role (`browser-qa` or `implementation-check`) in `final_validation` instead.
+
+*Test-only repair fast path (symmetric content diff check on dirty worktree):*
+Before dispatching the repair implementer:
+```bash
+PRE_NON_TEST_DIFF=$(git diff -- . ':!.phasedev' ':!test' ':!tests' ':!*test*' ':!*spec*')
+PRE_NON_TEST_UNTRACKED=$(git ls-files --others --exclude-standard -- . ':!.phasedev' ':!test' ':!tests' ':!*test*' ':!*spec*')
+PRE_TEST_DIFF=$(git diff -- test tests '*test*' '*spec*')
+PRE_TEST_UNTRACKED=$(git ls-files --others --exclude-standard -- test tests '*test*' '*spec*')
 ```
+After the repair implementer reports completion:
+```bash
+POST_NON_TEST_DIFF=$(git diff -- . ':!.phasedev' ':!test' ':!tests' ':!*test*' ':!*spec*')
+POST_NON_TEST_UNTRACKED=$(git ls-files --others --exclude-standard -- . ':!.phasedev' ':!test' ':!tests' ':!*test*' ':!*spec*')
+POST_TEST_DIFF=$(git diff -- test tests '*test*' '*spec*')
+POST_TEST_UNTRACKED=$(git ls-files --others --exclude-standard -- test tests '*test*' '*spec*')
+```
+- If `PRE_NON_TEST_DIFF != POST_NON_TEST_DIFF` or `PRE_NON_TEST_UNTRACKED != POST_NON_TEST_UNTRACKED`: production code was touched; full wave 1 (`code-review` + `security-review`) is mandatory.
+- Else if `PRE_TEST_DIFF != POST_TEST_DIFF` or `PRE_TEST_UNTRACKED != POST_TEST_UNTRACKED`: production code was untouched and only tests were changed by repair; skip wave 1 and proceed directly to wave 2 (`implementation-check`).
+- Else: neither production code nor tests changed; STOP with no-op repair failure.
 
-That is the entire prompt — the fixed body plus the four optional slots above, and nothing else: no context collection, no artifact paths, no previous phase data, and no embedded `phasedev phase` output (every sub-agent runs it itself, keeping the orchestrator's context thin). Artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. A bare self-check returning `OK … Run phasedev advance` passes; a sub-agent must not switch to `--phase` to make a check pass, and the orchestrator must not accept a `--phase` self-check when bare `check` fails. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. Sub-agents report applied skills concisely (e.g. `Skills: <skill> (APPLIED)` or `Skills: <skill> (N/A: reason)`). The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented.
+**Orchestrator boundary**
+
+The orchestrator never performs phase work, project checks, browsers, dev servers, or validation commands itself.
+
+Shared dispatch rules (both bodies): artifact self-validation and the final-response format are the sub-agent's duty under the contract; the orchestrator never inspects, judges, or fixes artifact content. A bare self-check returning `OK … Run phasedev advance` passes; a sub-agent must not switch to `--phase` to make a check pass, and the orchestrator must not accept a `--phase` self-check when bare `check` fails. If `phasedev check` returns issues after a sub-agent reported "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy), not a silent re-spawn loop. Sub-agents report applied skills concisely (e.g. `Skills: <skill> (APPLIED)` or `Skills: <skill> (N/A: reason)`). The orchestrator transmits exactly the skills `spawn-plan` printed for the chosen role — never more, never invented.
 
 ## Sub-Agent Report Reconciliation
 
 Read every sub-agent's final report in full; this is the orchestrator's only result channel and is not artifact inspection. `validation_findings.md` is state; report prose is not.
 
-If a validation, review, or QA report names concrete defects or gaps while the registry has no matching row and the verdict is `ready` or `ready_with_risks`, the phase is NOT done. This includes missing or skipped tests, an unrun or failed gate, deferred `R#`/`SC#` requirements, an incomplete review pass, or "gaps but not findings." Do not run `advance` and never report "0 findings" from the table alone when prose says otherwise.
+If a validation, review, or QA report names concrete **product** defects or gaps while the registry has no matching row and the verdict is `ready` or `ready_with_risks`, the phase is NOT done. This includes missing or skipped tests, unmet `R#`/`SC#` requirements, incomplete review passes, or "gaps but not findings." Do not run `advance` and never report "0 findings" from the table alone when prose names unrecorded **product** gaps.
 
-Either record every item directly:
+**Unrun or blocked gates are not missing findings.** When a report says `full` or browser gates were unrun, blocked by infrastructure, or localhost could not be opened because the environment blocked it, treat that as gate evidence (`record-gate` / blocked status), remain in `final_validation`, do **not** `add-finding`, and retry the owning role. Only product defects after a gate **ran** (failed tests, UI bugs found in browser) require findings rows.
+
+**Infrastructure blockers are not product findings.** When an `implementation-check` report says the full gate, sandbox, network, binary, or environment was unavailable, or `browser-qa` reports blocked localhost / missing browser tooling, treat it as blocked in `final_validation` — do not `add-finding`, do not route to `finding_repair`, and retry the owning role only after environment or access changes.
+
+Either record every product item directly:
 
 ```bash
 phasedev add-finding "<defect>" <severity> --required-fix "<fix>" --class <class> --change <change>
 ```
 
-Use MUST-FIX for a failed or unrun gate or an unmet `R#`/`SC#`; use RECOMMENDED for test gaps unless the report marks them blocking. Alternatively, re-dispatch the SAME role once to record the items. Then resume at `phasedev check`; `advance` routes to `finding_repair`.
+Use MUST-FIX for a failed product gate (command ran and tests failed) or an unmet `R#`/`SC#`; use RECOMMENDED for test gaps unless the report marks them blocking. Alternatively, re-dispatch the SAME role once to record the items. Then resume at `phasedev check`; `advance` routes to `finding_repair` only for product findings that require repair work.
 
 A report that gates passed is sub-agent evidence. Quote it as such — for example, "sub-agent reports 159 passed" — never as the orchestrator's own verification.
 
@@ -266,6 +346,10 @@ Your role: <role name from spawn-plan>. Mandatory skills: <the skills column fro
 
 You work ONLY on the change "<change>".
 
+CRITICAL CONSTRAINTS:
+- FORBIDDEN: phasedev advance, phasedev archive, git commit.
+- Report results to orchestrator.
+
 1. Run: phasedev feedback --change <change> — to get the feedback contract.
 2. Follow your role's mandatory skills and execute the feedback contract.
 3. Report results, blockers, and applied skills.`
@@ -280,7 +364,7 @@ This applies equally on a fresh session where the user says "I have feedback on 
 
 An artifact-invalid route (`invalid_prd`, `invalid_execution_contract`, `invalid_code_research`, `invalid_technical_design`, `invalid_iteration_planning`, `invalid_findings`) means the owning sub-agent reported completion without a passing self-check (or the state broke on resume: human edit, crashed session). `invalid_archive_state` is NOT included here — it is always a STOP. The orchestrator does NOT validate or fix the artifact; it gives the owning sub-agent exactly **one** recovery attempt:
 
-1. Spawn ONE sub-agent for the owning phase using the canonical dispatch prompt under the same role as the original dispatch, with the skills and model from the cached spawn-plan grid. Instruct it to run `phasedev phase` to get the contract, fix the artifact, and self-validate via `phasedev check` before reporting. Do NOT run `phasedev advance`.
+1. Spawn ONE sub-agent for the owning phase using the matching canonical dispatch body under the same role as the original dispatch, with the skills and model from the cached spawn-plan grid. Use the [validation canonical body](#canonical-dispatch-validation-phases-6a--6b) for `iteration_validation` / `final_validation`; otherwise use the [non-validation canonical body](#canonical-dispatch-non-validation-phases). Fix the artifact and self-validate via `phasedev check` before reporting. Do NOT run `phasedev advance`.
 2. After it returns, call `phasedev check`:
    - Phase valid → continue the loop.
    - Same phase still invalid → **STOP**. Report "Sub-agent failed to self-validate `<artifact>` after one recovery attempt" with the issues. Do not spawn again.
@@ -304,8 +388,15 @@ Your role: <role name from spawn-plan>. Mandatory skills: <the skills column fro
 
 You work ONLY on the change "<change>".
 
+CRITICAL CONSTRAINTS:
+- FORBIDDEN: phasedev advance, phasedev archive, git commit.
+- You are strictly an approval reviewer. Only the orchestrator advances the flow.
+
 1. Read the FULL content of every listed artifact.
-2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task.
+2. Evaluate each on the merits against the phase contract — completeness, coherence, fidelity to the original task:
+   - For technical_design of server applications (Profile A): verify that transport/routing, domain logic, and data storage are cleanly decoupled. If the design proposes placing all implementation code into a single monolithic file (e.g. src/index.ts or src/server.ts) without layer decomposition into router, domain, and repository — REJECT DESIGN with a finding demanding component decomposition (the design document itself remains in architecture/design.md). Confirm interfaces (Repository) are defined before coding.
+   - For CLI / libraries: verify separation of I/O from pure algorithms without forcing server layers.
+   - For iteration_planning: verify Spec Coverage (all R#/SC# mapped), zero placeholders (no TODO/TBD), and type consistency between Produces and Consumes.
 3. If — and only if — every artifact is genuinely good, approve each with: phasedev approve <file> --by "auto-approve-subagent" --change <change>
 4. If any artifact has a problem, do NOT approve it; report concrete findings.
 5. Report which artifacts were approved, which were not and why, and applied skills.`
@@ -313,7 +404,7 @@ You work ONLY on the change "<change>".
 ```
 
 After the sub-agent returns:
-- If it approved every listed artifact → retry `phasedev advance --change <change>`. If advance succeeds → continue the main loop. If it still refuses with the same `*_approval` or with "Approval integrity" (an artifact is `approved: true` but has empty `approved_by`) → **STOP**, report "Auto-approve failed to advance after sub-agent review." Do not loop.
+- If it approved every listed artifact → retry `PHASEDEV_ORCHESTRATOR=1 phasedev advance --change <change>`. If advance succeeds → continue the main loop. If it still refuses with the same `*_approval` or with "Approval integrity" (an artifact is `approved: true` but has empty `approved_by`) → **STOP**, report "Auto-approve failed to advance after sub-agent review." Do not loop.
 - If it did not approve (found problems) → apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy): spawn the owning phase sub-agent once with the reported findings, then retry from `phasedev check`.
 
 ## Termination
@@ -332,9 +423,9 @@ Stop when any is met:
 
 Archive starts once `phasedev advance` reports "Final validation passed. Flow complete." (all iterations `[x]`, final validation passed). From that point, `phasedev advance` has nothing further to do for this change — the archive mutation and the archive phase itself are driven entirely by `phasedev archive <change>`.
 
-1. Call `phasedev archive <change>`. On a change that just finished final validation, this performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`) and switches `state.json` to `activePhase: archive`. Called again later, it resumes a pending archive or recovers a pre-move crash — it is safe to call repeatedly.
-2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent using the canonical dispatch prompt with an appropriate role (e.g. `spec_sync`, using skills and model from the cached spawn-plan grid) to execute the contract, write delta specs, and set `.phase-archive.json` `status: "completed"`.
-3. After the sub-agent returns, call `phasedev archive <change>` again:
+1. Call `PHASEDEV_ORCHESTRATOR=1 phasedev archive <change>`. On a change that just finished final validation, this performs the archive mutation (moves the change directory to `.phasedev/changes/archive/`, creates `.phase-archive.json` with `status: "in_progress"`) and switches `state.json` to `activePhase: archive`. Called again later, it resumes a pending archive or recovers a pre-move crash — it is safe to call repeatedly.
+2. Call `phasedev phase --change <change>` to get the archive contract, then spawn an archive sub-agent using the [non-validation canonical dispatch body](#canonical-dispatch-non-validation-phases) with an appropriate role (e.g. `spec_sync`, using skills and model from the cached spawn-plan grid) to execute the contract, write delta specs, and set `.phase-archive.json` `status: "completed"`.
+3. After the sub-agent returns, call `PHASEDEV_ORCHESTRATOR=1 phasedev archive <change>` again:
    - If it reports the archive is complete → **flow complete** → STOP.
    - If it refuses or reports the archive still in progress → sub-agent did not finish → no-progress → STOP and report.
 
@@ -347,7 +438,7 @@ Archive starts once `phasedev advance` reports "Final validation passed. Flow co
 5. **ALWAYS use `phasedev config` to read settings** — never read `config.yaml` directly.
 6. **NEVER validate or fix phase artifacts yourself** — the owning sub-agent creates, self-checks, and self-heals each artifact; on `invalid_*` after "complete", apply the [Invalid-artifact recovery policy](#invalid-artifact-recovery-policy).
 7. **NEVER pass context between phases** — sub-agents read artifact files directly; the filesystem is the durable state.
-8. **NEVER re-describe phase contracts** — sub-agents get them from `phasedev phase`.
+8. **NEVER re-describe phase contracts** — non-validation sub-agents get them from bare `phasedev phase --change <change>`; validation sub-agents get them from `phasedev phase --change <change> --role <role>`.
 9. **NEVER write random log or trace files under `.phasedev/`** — the orchestrator is ephemeral; durable state lives exclusively in standard phase artifacts and git history.
 10. **Report phase status, never product readiness** — `check OK` or accepted `advance` means only that phase's gate passed. Before `advance` prints the terminal phrase, never say "implementation is ready/complete," "feature done," or "ready to archive." After it, say "final validation passed" and name archive as the remaining step. Every report states which gates ran, attributed to the sub-agent's report, and which have not run yet (for example, "full gate runs in `final_validation` — not executed yet").
 11. **Commit iteration changes** — when Phase 6A (iteration validation) passes, the validation sub-agent is read-only and does NOT commit code. The orchestrator commits the iteration code and updated `.phasedev` artifacts before running `phasedev advance`. If `.phasedev/` is git-ignored, commit code only, state that in the report, and never edit `.gitignore`; this is not a blocker.

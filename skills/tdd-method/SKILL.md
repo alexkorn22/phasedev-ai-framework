@@ -63,7 +63,7 @@ Then repeat: RED for the next behavior, GREEN to implement it, REFACTOR to clean
 
 The red-green-refactor cycle governs HOW you implement one behavior. HOW MANY items you run is owned by the host flow, not this skill. Inside an approved batch, continue item-to-item without artificial pauses — but stop the moment the host flow's boundary stops you.
 
-In PhaseDev's implementation phase the boundary is one iteration: the phase contract authorizes exactly the current iteration, then requires a transition through `phasedev advance` before the next. Do not continue into the next iteration in the same run, even though the full plan map is visible — implement the current iteration, then stop and report it ready for validation. Future iterations are boundary context, not authorization.
+In PhaseDev's implementation phase the boundary is one iteration: the phase contract authorizes exactly the current iteration, then requires the orchestrator to validate and advance before the next. Do NOT run phasedev advance yourself — implement the current iteration, then stop and report it ready for validation. Future iterations are boundary context, not authorization.
 
 Stop when: the host flow's boundary is reached (one iteration, in PhaseDev); every item in the authorized scope reached a terminal state; the user explicitly interrupts; or a genuine blocker requires a decision only the user can make.
 

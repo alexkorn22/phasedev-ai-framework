@@ -132,14 +132,18 @@ function parseRequiredChecks(lines: string[]): RequiredCheck[] {
     }
 
     const bulletMatch = trimmed.match(/^-\s+([^:]+):\s*(.+)$/);
-    if (!bulletMatch || bulletMatch[1] === undefined || bulletMatch[2] === undefined) {
+    if (bulletMatch?.[1] !== undefined && bulletMatch[2] !== undefined) {
+      const check = bulletMatch[1].trim().toLowerCase();
+      const command = stripInlineCode(bulletMatch[2]);
+      if (check.length > 0 && command.length > 0) {
+        checks.push({ check, command });
+      }
       continue;
     }
 
-    const check = bulletMatch[1].trim().toLowerCase();
-    const command = stripInlineCode(bulletMatch[2]);
-    if (check.length > 0 && command.length > 0) {
-      checks.push({ check, command });
+    const gateOnlyMatch = trimmed.match(/^-\s+(unit|phase|full)\s*$/i);
+    if (gateOnlyMatch?.[1] !== undefined) {
+      checks.push({ check: gateOnlyMatch[1].trim().toLowerCase(), command: "" });
     }
   }
 

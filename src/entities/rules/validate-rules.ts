@@ -1,11 +1,23 @@
 import * as fs from "fs";
 import { normalizeLineEndings } from "../../shared/markdown/normalize-line-endings";
 import { sectionLines } from "../../shared/markdown/headings";
-import { validateArtifactStructure, validateTableShape, type ArtifactStructureSpec, type TableShapeSpec } from "../artifact-structure";
+import {
+  validateArtifactStructure,
+  validateTableShape,
+  type ArtifactStructureSpec,
+  type TableShapeSpec
+} from "../artifact-structure";
+import {
+  validateFocusedCheckRecipe,
+  validateFullCheckRecipe
+} from "../test-commands/resolve-check-commands";
 
 const REQUIRED_SECTIONS = ["Test Commands", "Environment Notes"];
+const OPTIONAL_SECTIONS = ["Browser Validation"];
 const REQUIRED_COMMAND_KEYS = ["unit", "phase", "full"];
+const REQUIRED_BROWSER_VALIDATION_FIELDS = ["start", "url", "criteria"];
 const TABLE_HEADERS = ["Gate", "Command"];
+const BROWSER_VALIDATION_HEADERS = ["Field", "Value"];
 
 const STRUCTURE_SPEC: ArtifactStructureSpec = {
   artifactName: "execution_contract.md",
@@ -15,12 +27,20 @@ const STRUCTURE_SPEC: ArtifactStructureSpec = {
   checkHtmlComments: true,
   sections: {
     required: REQUIRED_SECTIONS,
+    optional: OPTIONAL_SECTIONS,
+    mustBeLastIfPresent: OPTIONAL_SECTIONS,
     membershipCaseInsensitive: true,
     orderCaseInsensitive: false
   }
 };
 
 const TEST_COMMANDS_TABLE: TableShapeSpec = { section: "Test Commands", headers: TABLE_HEADERS, mode: "filtered", rowChecks: false };
+const BROWSER_VALIDATION_TABLE: TableShapeSpec = {
+  section: "Browser Validation",
+  headers: BROWSER_VALIDATION_HEADERS,
+  mode: "filtered",
+  rowChecks: false
+};
 
 function validateTestCommands(lines: string[], issues: string[]): void {
   const tableLines = sectionLines(lines, "Test Commands").filter(line => line.trim().startsWith("|"));
@@ -45,6 +65,12 @@ function validateTestCommands(lines: string[], issues: string[]): void {
     if (value.length === 0) {
       issues.push(`Test Commands command \`${row.cells[0]}\` must be non-empty.`);
     }
+    if (key === "unit" || key === "phase") {
+      issues.push(...validateFocusedCheckRecipe(key, value));
+    }
+    if (key === "full") {
+      issues.push(...validateFullCheckRecipe(value));
+    }
   }
 
   const actualKeys = parsedRows.map(row => row.key);
@@ -61,6 +87,49 @@ function validateTestCommands(lines: string[], issues: string[]): void {
   }
 }
 
+function validateBrowserValidation(lines: string[], issues: string[]): void {
+  const sectionHeading = lines.some(line => /^##\s+Browser Validation\s*$/i.test(line.trim()));
+  if (!sectionHeading) {
+    return;
+  }
+
+  const dataRows = validateTableShape(lines, BROWSER_VALIDATION_TABLE, issues);
+  const parsedRows: Array<{ key: string; value: string }> = [];
+  for (const row of dataRows) {
+    if (row.cells.length !== BROWSER_VALIDATION_HEADERS.length) {
+      issues.push(`Browser Validation row ${row.rowNumber} must have exactly ${BROWSER_VALIDATION_HEADERS.length} cells.`);
+      continue;
+    }
+    const key = row.cells[0].toLowerCase();
+    const value = row.cells[1].replace(/^`(.+)`$/, "$1").trim();
+    parsedRows.push({ key, value });
+    if (!REQUIRED_BROWSER_VALIDATION_FIELDS.includes(key)) {
+      issues.push(`Browser Validation field \`${row.cells[0]}\` is not allowed; expected start, url, or criteria.`);
+    }
+    if (REQUIRED_BROWSER_VALIDATION_FIELDS.includes(key) && value.length === 0) {
+      issues.push(`Browser Validation field \`${row.cells[0]}\` must be non-empty.`);
+    }
+  }
+
+  const actualKeys = parsedRows.map(row => row.key);
+  if (
+    actualKeys.length !== REQUIRED_BROWSER_VALIDATION_FIELDS.length ||
+    actualKeys.some((key, index) => key !== REQUIRED_BROWSER_VALIDATION_FIELDS[index])
+  ) {
+    issues.push(
+      `Browser Validation must contain exactly these fields in order: ${REQUIRED_BROWSER_VALIDATION_FIELDS.map(key => `\`${key}\``).join(", ")}.`
+    );
+  }
+
+  const seen = new Set<string>();
+  for (const row of parsedRows) {
+    if (seen.has(row.key)) {
+      issues.push(`Browser Validation contains duplicate field \`${row.key}\`.`);
+    }
+    seen.add(row.key);
+  }
+}
+
 export function validateRulesArtifact(filePath: string): string[] {
   if (!fs.existsSync(filePath)) {
     return ["execution_contract.md does not exist."];
@@ -70,5 +139,6 @@ export function validateRulesArtifact(filePath: string): string[] {
   const { issues, lines } = validateArtifactStructure(content, STRUCTURE_SPEC);
 
   validateTestCommands(lines, issues);
+  validateBrowserValidation(lines, issues);
   return issues;
 }

@@ -3,10 +3,22 @@ import * as path from "path";
 import { resolveCurrentState } from "../phase-control/current-flow-state";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { buildChangePaths } from "../../entities/change/paths";
+import { parseBrowserValidation } from "../../entities/execution-contract/parse-browser-validation";
+import { FinalGateResult, parseFinalGateEvidence } from "../../entities/final-gate-evidence/parse-final-gate-evidence";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { readFrontmatter } from "../../shared/markdown/frontmatter";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } from "../../entities/validation-findings/blocking-severity";
+
+export type BrowserValidationStatus = "present" | "absent";
+export type FullGateEvidenceStatus = FinalGateResult | "missing";
+export type BrowserGateEvidenceStatus = FinalGateResult | "missing" | "not_required";
+
+export interface FinalGateStatus {
+  browserValidation: BrowserValidationStatus;
+  fullGateEvidence: FullGateEvidenceStatus;
+  browserGateEvidence: BrowserGateEvidenceStatus;
+}
 
 export interface FlowStatus {
   activeChange: string | null;
@@ -17,6 +29,7 @@ export interface FlowStatus {
   iterations: Array<{ id: number; name: string; status: string }>;
   validationFindings: { exists: boolean; verdict: string; type: string; openCount: number; blockingCount: number };
   blockingSeverity?: BlockingSeverity;
+  finalGates?: FinalGateStatus;
 }
 
 function artifactStatus(changeDir: string, relPath: string): { name: string; exists: boolean; approved: boolean } {
@@ -24,6 +37,34 @@ function artifactStatus(changeDir: string, relPath: string): { name: string; exi
   const exists = fs.existsSync(fullPath);
   const approved = exists ? readFrontmatter(fullPath)?.approved === true : false;
   return { name: relPath, exists, approved };
+}
+
+function isInvalidStatePhase(phase: string): boolean {
+  return phase.startsWith("INVALID STATE");
+}
+
+function shouldShowFinalGates(phase: string, findingsType: string): boolean {
+  if (isInvalidStatePhase(phase)) {
+    return false;
+  }
+  if (phase === "final_validation") {
+    return true;
+  }
+  return phase === "finding_repair" && findingsType === "final";
+}
+
+function resolveFinalGateStatus(paths: ReturnType<typeof buildChangePaths>): FinalGateStatus {
+  const browserValidation = parseBrowserValidation(paths.executionContractPath);
+  const artifact = parseFinalGateEvidence(paths.finalGateEvidencePath);
+  const fullRow = artifact.rows.find(row => row.gate === "full");
+
+  return {
+    browserValidation: browserValidation.present ? "present" : "absent",
+    fullGateEvidence: fullRow?.result ?? "missing",
+    browserGateEvidence: browserValidation.present
+      ? artifact.rows.find(row => row.gate === "browser")?.result ?? "missing"
+      : "not_required"
+  };
 }
 
 export function getFlowStatus(
@@ -58,6 +99,7 @@ export function getFlowStatus(
 
   let iterations: Array<{ id: number; name: string; status: string }> = [];
   let validationFindings: FlowStatus["validationFindings"] = { exists: false, verdict: "unknown", type: "unknown", openCount: 0, blockingCount: 0 };
+  let finalGates: FinalGateStatus | undefined;
 
   if (changeDir && !isQuick) {
     const paths = buildChangePaths(changeDir);
@@ -76,6 +118,10 @@ export function getFlowStatus(
       openCount: findings.openRows.length,
       blockingCount: findings.openBlockingRows.length
     };
+
+    if (shouldShowFinalGates(state.phase, findings.type)) {
+      finalGates = resolveFinalGateStatus(paths);
+    }
   }
 
   return {
@@ -86,7 +132,8 @@ export function getFlowStatus(
     artifacts,
     iterations,
     validationFindings,
-    blockingSeverity
+    blockingSeverity,
+    finalGates
   };
 }
 
@@ -129,6 +176,14 @@ export function renderFlowStatus(status: FlowStatus): string {
     lines.push(`  Type: ${status.validationFindings.type}`);
     lines.push(`  Open findings: ${status.validationFindings.openCount}`);
     lines.push(`  Blocking (${blockingLabel}): ${status.validationFindings.blockingCount}`);
+    lines.push("");
+  }
+
+  if (status.finalGates) {
+    lines.push("--- Final gates ---");
+    lines.push(`  Browser Validation: ${status.finalGates.browserValidation}`);
+    lines.push(`  full gate evidence: ${status.finalGates.fullGateEvidence}`);
+    lines.push(`  browser gate evidence: ${status.finalGates.browserGateEvidence}`);
   }
 
   return lines.join("\n");

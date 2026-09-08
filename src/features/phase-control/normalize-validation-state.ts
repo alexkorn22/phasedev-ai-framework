@@ -1,9 +1,11 @@
+import * as fs from "fs";
 import { ChangePaths } from "../../entities/change/paths";
 import { ActivePhase } from "../../entities/change/flow-state";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 import { parseValidationFindingsArtifact } from "../../entities/validation-findings/parse-validation-findings";
 import { parsePlan } from "../../entities/iteration-plan/parse-plan";
 import { resetVerdictToPending, setFindingsType } from "../artifact-ops/manage-findings";
+import { resetFinalGateEvidence } from "../artifact-ops/manage-gate-evidence";
 import { expectedFindingsType } from "./expected-findings-type";
 
 export interface ValidationStateNormalization {
@@ -27,21 +29,30 @@ export function enterValidationPhase(
 
   setFindingsType(paths.findingsPath, expected);
 
+  const notes: string[] = [];
+  let changed = false;
+
+  if (enteredPhase === "final_validation" && fs.existsSync(paths.finalGateEvidencePath)) {
+    resetFinalGateEvidence(paths.finalGateEvidencePath);
+    notes.push(
+      "Reset final_gate_evidence.md: final_validation is a new validation scope and prior gate evidence must be re-recorded with `phasedev record-gate`."
+    );
+    changed = true;
+  }
+
   const findings = parseValidationFindingsArtifact(paths.findingsPath, blockingSeverity);
   if (
     findings.exists &&
     (findings.verdict === "ready" || findings.verdict === "ready_with_risks") &&
     resetVerdictToPending(paths.findingsPath).ok
   ) {
-    return {
-      changed: true,
-      notes: [
-        `Reset the inherited \`${findings.verdict}\` verdict to \`pending\`: ${enteredPhase} is a new validation scope and starts unvalidated; run the validation, then set a terminal verdict with \`phasedev set-verdict\`.`
-      ]
-    };
+    notes.push(
+      `Reset the inherited \`${findings.verdict}\` verdict to \`pending\`: ${enteredPhase} is a new validation scope and starts unvalidated; run the validation, then set a terminal verdict with \`phasedev set-verdict\`.`
+    );
+    changed = true;
   }
 
-  return { changed: false, notes: [] };
+  return { changed, notes };
 }
 
 /**

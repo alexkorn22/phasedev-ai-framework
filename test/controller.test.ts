@@ -14,6 +14,8 @@ import { validatePhase, validatePhaseExit } from "../src/features/phase-control/
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -52,6 +54,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -240,6 +243,14 @@ Test fixture only.
   return changeDir;
 }
 
+function prepareGitContext(changeDir: string): void {
+  initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
+}
+
+function writePassedFullGate(changeDir: string, fullCommand = "bun test full"): void {
+  fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), passedFullGateEvidence(fullCommand), "utf-8");
+}
+
 describe("flow controller typed stages", () => {
   beforeEach(() => setupTestDir());
   afterEach(() => cleanupTestDir());
@@ -357,12 +368,15 @@ Test fixture only.
     expect(result.prompt).toContain("do not overwrite or reuse it");
     expect(result.prompt).toContain("Retrieval order: project instructions first, then package/test metadata, then only files or directories directly relevant to the requested change");
     expect(result.prompt).toContain("Context budget: at most one broad file listing, plus one focused package/workspace listing when needed for nested or monorepo package discovery");
-    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
+    expect(result.prompt).toContain("Stop condition: stop reading once you can fill `Intent`, `Usage Contract`, `Non-Goals`, `R#`, `SC#`, risk boundaries, and `execution_contract.md` gates without material assumptions");
+    expect(result.prompt).toContain("`prd.md` `Usage Contract` records at least one concrete I/O example");
+    expect(result.prompt).toContain("`prd.md` `Non-Goals` records modules, APIs, and behaviors that must not change");
     expect(result.prompt).toContain("embedded template is the only artifact structure");
     expect(result.prompt.match(/Canonical fill rules:/g) ?? []).toHaveLength(2);
     expect(result.prompt).not.toContain("Strict fill rules:");
     expect(result.prompt).toContain("Proceed without a separate confirmation stop when the current context already supplies enough acceptance, evidence, and risk data");
-    expect(result.prompt).toContain("`execution_contract.md` serves purely as the technical test runner manifest");
+    expect(result.prompt).toContain("Success-criteria evidence types stay in `prd.md`");
+    expect(result.prompt).toContain("also write `## Browser Validation` in `execution_contract.md`");
     expect(result.prompt).toContain("phasedev is a GLOBAL CLI. Invoke it directly as `phasedev <command>`");
     expect(result.prompt).toContain("Final response must use this compact template and include no extra sections");
     expect(result.prompt).toContain("Change slug: <slug>");
@@ -409,6 +423,9 @@ Test fixture only.
     expect(result.prompt).toContain("`not_applicable: <short reason>`");
     expect(result.prompt).toContain("not_applicable: <reason>` only when there is no material contract surface");
     expect(result.prompt).toContain("Optional Mermaid/callouts/visual markers must never change YAML frontmatter, table headers, required section structure");
+    expect(result.prompt).toContain("Mermaid is optional. Add a diagram only when it clarifies runtime flow");
+    expect(result.prompt).toContain("If you add a Mermaid diagram, use `flowchart`");
+    expect(result.prompt).not.toContain("a non-trivial package has at least one non-decorative Mermaid diagram");
     expect(result.prompt).toContain("Each linked subdocument must have a minimal review contract");
     expect(result.prompt).toContain("Use `## Executive Summary` as the compact visual review surface");
     expect(result.prompt).toContain("If evidence is incomplete but the missing detail does not change approval scope");
@@ -500,9 +517,16 @@ Test fixture only.
 - [ ] 2.1 Build page
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("iteration_validation");
+    expect(route.blocked).toBe(true);
+    expect(route.prompt).toContain("Allowed roles:");
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
+    expect(result.blocked).toBe(false);
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
     expect(result.prompt).toContain("Artifact Build Contract: validation_findings.md");
     expect(result.prompt).toContain("Check Evidence");
@@ -535,10 +559,10 @@ Test fixture only.
 - [ ] 2.1 Build page
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
-    expect(result.prompt).toContain("commit the iteration");
+    expect(result.prompt).toContain("from `[~]` to `[x]`");
   });
 
   test("completed single-phase route reports phase validation stage", () => {
@@ -549,7 +573,12 @@ Test fixture only.
 - [x] 1.1 Implement endpoint
 `);
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("iteration_validation");
+    expect(route.blocked).toBe(true);
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("iteration_validation");
     expect(result.prompt).toContain("Phase 6A. Iteration Validation.");
@@ -652,7 +681,7 @@ Complete API work.
     expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
   });
 
-  test("current phase implementation prompt uses required phase check commands", () => {
+  test("current phase implementation blocks when iteration checks list full gate", () => {
     setupChange(`
 # Plan
 
@@ -680,8 +709,9 @@ Complete API work.
     const result = getRoutePrompt(testTmpDir);
 
     expect(result.phase).toBe("implementation");
-    expect(result.prompt).toContain("- full: `bun test full`");
-    expect(result.prompt).not.toContain("- unit: `bun test unit`");
+    expect(result.blocked).toBe(true);
+    expect(result.prompt).toContain("full");
+    expect(result.prompt).not.toContain("Phase 5. Implementation.");
   });
 
   test("completed tasks with stale required check command evidence stay in implementation", () => {
@@ -726,7 +756,13 @@ Complete API work.
       findings: validationFindings("ready", "iteration")
     });
 
-    const result = getRoutePrompt(testTmpDir);
+    const route = getRoutePrompt(testTmpDir);
+
+    expect(route.phase).toBe("final_validation");
+    expect(route.blocked).toBe(true);
+    expect(route.prompt).toContain("Allowed roles:");
+
+    const result = getRoutePrompt(testTmpDir, DEFAULT_CONFIG, { validationRole: "implementation-check" });
 
     expect(result.phase).toBe("final_validation");
     expect(result.prompt).toContain("Phase 6B. Final Validation.");
@@ -963,6 +999,7 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -988,6 +1025,7 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1000,12 +1038,14 @@ Complete API work.
 ## Iteration 1: API [x]
 - [x] 1.1 Implement endpoint
 `, { findings: validationFindings("ready", "final") });
+    const wedgeChangeDir = path.join(testTmpDir, ".phasedev", "changes", "sample-change");
     fs.writeFileSync(
-      path.join(testTmpDir, ".phasedev", "changes", "sample-change", "state.json"),
+      path.join(wedgeChangeDir, "state.json"),
       JSON.stringify({ activePhase: "iteration_validation", activeIteration: 1, repairCycleCount: 0 }, null, 2) + "\n",
       "utf-8"
     );
 
+    prepareGitContext(wedgeChangeDir);
     // Second, untouched copy of the same wedged state for the read-only check/sync-state comparison.
     const testTmpDir2 = createTempWorkspace("flow-controller-wedge-copy");
     fs.cpSync(path.join(testTmpDir, ".phasedev"), path.join(testTmpDir2, ".phasedev"), { recursive: true });
@@ -1042,6 +1082,7 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1117,6 +1158,7 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1181,6 +1223,8 @@ Complete API work.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
+    writePassedFullGate(changeDir);
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
 
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
@@ -1212,7 +1256,7 @@ Complete API work.
     const promptResult = getRoutePrompt(testTmpDir, DEFAULT_CONFIG);
     expect(promptResult.phase).toBe("archive");
     expect(promptResult.blocked).toBe(true);
-    expect(promptResult.prompt).toContain("phasedev advance");
+    expect(promptResult.prompt).toContain("phasedev archive");
     expect(fs.existsSync(changeDir)).toBe(true);
 
     const result = startArchiveStage(testTmpDir, changeDir, new Date());
@@ -1577,6 +1621,7 @@ Test fixture only.
     // sets approved_by, so every approval here is "approved: true" with no approved_by.
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(false);
@@ -1602,6 +1647,7 @@ Test fixture only.
     }
     fs.writeFileSync(path.join(changeDir, "state.json"), JSON.stringify({ activePhase: "implementation", activeIteration: 1 }, null, 2) + "\n", "utf-8");
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, autoApprove: true });
 
     expect(result.ok).toBe(true);
@@ -1794,6 +1840,7 @@ Test fixture only.
       "utf-8"
     );
 
+    prepareGitContext(changeDir);
     const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
     expect(result.ok).toBe(true);
@@ -1812,6 +1859,8 @@ Test fixture only.
       findings: validationFindings("repair_required", "iteration", "| F1 | open | MUST-FIX | implementation | 1 | API response has an error. | Fix it. |\n")
     });
     const statePath = path.join(changeDir, "state.json");
+
+    prepareGitContext(changeDir);
 
     // Helper: write state and run advance. Each repair round uses a fresh
     // finding ID and rows accumulate (never deleted): the append-only baseline
@@ -1980,6 +2029,7 @@ Test fixture only.
         "utf-8"
       );
 
+      prepareGitContext(changeDir);
       const result = advanceFlow(testTmpDir, DEFAULT_CONFIG);
 
       expect(result.ok).toBe(true);
@@ -2030,6 +2080,7 @@ Test fixture only.
         "utf-8"
       );
       seedFindingsBaselineRows(changeDir, []);
+      writePassedFullGate(changeDir);
 
       const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
@@ -2168,6 +2219,7 @@ Test fixture only.
         "utf-8"
       );
 
+      prepareGitContext(changeDir);
       const checkFlowModule = require("../src/features/phase-control/check-flow");
       const result = checkFlowModule.checkValidationCompletion(testTmpDir, { scope: "iteration", iterationId: 1 });
 
@@ -2189,6 +2241,7 @@ Test fixture only.
         "utf-8"
       );
 
+      prepareGitContext(changeDir);
       const readyCheck = checkPhase(testTmpDir);
       expect(readyCheck.ok).toBe(true);
       expect(readyCheck.phase).toBe("iteration_validation");
@@ -2225,6 +2278,8 @@ Test fixture only.
       expect(refused.advanced).toBe(false);
 
       expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-09-07" }).ok).toBe(true);
+      writePassedFullGate(changeDir);
+      prepareGitContext(changeDir);
       const completed = advanceFlow(testTmpDir, config);
       expect(completed.ok).toBe(true);
       expect(completed.finished).toBe(true);
@@ -2247,6 +2302,7 @@ Test fixture only.
         "utf-8"
       );
 
+      prepareGitContext(changeDir);
       const result = advanceFlow(testTmpDir, { ...DEFAULT_CONFIG, requireIterationCommit: false });
 
       expect(result.ok).toBe(true);
@@ -2863,6 +2919,7 @@ Test fixture only.
         "utf-8"
       );
 
+      prepareGitContext(changeDir);
       const result = syncState(testTmpDir);
 
       expect(result.ok).toBe(true);
@@ -3058,7 +3115,52 @@ Test fixture only.
 
       expect(result.blocked).toBe(true);
       expect(result.prompt).toContain("phasedev sync-state");
+      expect(result.prompt).toContain('artifacts resolve to "finding_repair"');
+      expect(result.prompt).toContain('phasedev phase --change "sample-change"');
+      expect(result.prompt).not.toContain("--role");
       expect(result.prompt).not.toContain("Phase 6A. Iteration Validation.");
+    });
+
+    test("forward deadlock recovery uses role-scoped phase when reconciled target is final_validation", () => {
+      const changeDir = setupChange(`
+# Plan
+
+## Iteration 1: API [x]
+- [x] 1.1 Implement endpoint
+`, {
+        findings: validationFindings(
+          "repaired",
+          "final",
+          "| F1 | resolved | MUST-FIX | implementation | 1 | Fixed issue. | Resolved with test. |\n"
+        )
+      });
+      fs.writeFileSync(
+        path.join(changeDir, "state.json"),
+        JSON.stringify({
+          activePhase: "finding_repair",
+          activeIteration: null,
+          repairCycleCount: 1,
+          findingsBaseline: {
+            rows: [{
+              id: "F1",
+              status: "resolved",
+              severity: "NICE-TO-HAVE",
+              className: "implementation",
+              iteration: "1",
+              finding: "Fixed issue.",
+              requiredFix: "Resolved with test."
+            }]
+          }
+        }, null, 2) + "\n",
+        "utf-8"
+      );
+
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+
+      expect(result.blocked).toBe(true);
+      expect(result.prompt).toContain('artifacts resolve to "final_validation"');
+      expect(result.prompt).toContain('phasedev phase --change "sample-change" --role <name>');
+      expect(result.prompt).not.toMatch(/then run `phasedev phase`\./);
     });
 
     test("advance-pending same-rank drift: getPhasePrompt is not blocked and still renders the iteration_validation contract", () => {
@@ -3072,7 +3174,7 @@ Test fixture only.
       });
       writeState(changeDir, "iteration_validation", 1);
 
-      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG);
+      const result = getPhasePrompt(testTmpDir, DEFAULT_CONFIG, undefined, "implementation-check");
 
       expect(result.blocked).toBe(false);
       expect(result.prompt).toContain("Phase 6A. Iteration Validation.");

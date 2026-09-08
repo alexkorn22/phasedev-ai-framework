@@ -16,6 +16,7 @@ import { startArchiveStage } from "../src/features/phase-control/archive-stage";
 import { loadConfig } from "../src/entities/config/config";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { getClarifyPrompt } from "../src/features/phase-control/get-clarify-prompt";
+import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 function mkChange(root: string, name: string): string {
   const dir = path.join(root, ".phasedev", "changes", name);
@@ -41,6 +42,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |

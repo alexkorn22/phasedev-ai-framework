@@ -187,6 +187,18 @@ function verdictConsistencyIssue(verdict: string, rows: FindingTableRow[], block
   return null;
 }
 
+export function findingsVerdictConsistencyIssue(
+  filePath: string,
+  verdict: string,
+  blockingSeverity: BlockingSeverity = DEFAULT_BLOCKING_SEVERITY
+): string | null {
+  if (!fs.existsSync(filePath)) {
+    return verdictConsistencyIssue(verdict, [], blockingSeverity);
+  }
+  const parsed = parseTable(fs.readFileSync(filePath, "utf-8"));
+  return verdictConsistencyIssue(verdict, parsed.rows, blockingSeverity);
+}
+
 export function addFinding(
   filePath: string,
   id: string | null,

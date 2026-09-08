@@ -6,6 +6,7 @@ import { syncState } from "../src/features/phase-control/sync-state";
 import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 import { ActivePhase } from "../src/entities/change/flow-state";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ function validPrdBody(): string {
 | Target state | Exercise the flow controller stage prompt. |
 | Risk boundaries | Test fixture only; no production risk. |
 
+${prdUsageContractAndNonGoals()}
 ## Requirements
 
 | ID | Requirement |
@@ -223,7 +225,12 @@ interface StateSpec {
   repairCycleCount?: number;
 }
 
-function buildState(planSections: string[], findings: string | null, state: StateSpec): { root: string; changeDir: string } {
+function buildState(
+  planSections: string[],
+  findings: string | null,
+  state: StateSpec,
+  gateEvidence?: string
+): { root: string; changeDir: string } {
   const root = createTempWorkspace("anti-wedge-lattice");
   tempDirs.push(root);
 
@@ -250,6 +257,10 @@ Test fixture only.
 
   if (findings !== null) {
     fs.writeFileSync(path.join(changeDir, "validation_findings.md"), findings, "utf-8");
+  }
+
+  if (gateEvidence) {
+    fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), gateEvidence, "utf-8");
   }
 
   fs.writeFileSync(
@@ -353,6 +364,7 @@ interface LatticeCase {
   findings: string | null;
   state: StateSpec;
   expected: CaseResult;
+  gateEvidence?: string;
   /** Optional destination assertion beyond the generic progress/refuse check
    *  (see case 23 for why this is sometimes required: some buggy mis-routes
    *  satisfy the generic `progressed` check too). */
@@ -495,6 +507,7 @@ const LATTICE: LatticeCase[] = [
     name: "final_validation: verdict ready, type final (correct), all-complete -> progress to archive",
     plan: READY_ONE_ITER,
     findings: findingsArtifact("ready", "final", []),
+    gateEvidence: passedFullGateEvidence("bun test full"),
     state: { activePhase: "final_validation", activeIteration: null },
     // advance no longer mutates archive_ready -- it clean-completes without
     // touching state.json/findings/archive marker. The mutation now lives
@@ -505,6 +518,7 @@ const LATTICE: LatticeCase[] = [
     name: "final_validation: verdict ready_with_risks, type final, one open NIT (non-blocking), all-complete -> progress to archive",
     plan: READY_ONE_ITER,
     findings: findingsArtifact("ready_with_risks", "final", [{ id: "F1", status: "open", severity: "NIT", iteration: 1 }]),
+    gateEvidence: passedFullGateEvidence("bun test full"),
     state: { activePhase: "final_validation", activeIteration: null },
     // Same as above: archive_ready no longer mutates via advance.
     expected: "complete"
@@ -620,7 +634,8 @@ const LATTICE: LatticeCase[] = [
 
 describe("anti-wedge lattice: no reachable validation state wedges", () => {
   test.each(LATTICE.map(c => [c.name, c] as const))("%s", (_name, c) => {
-    const { root, changeDir } = buildState(c.plan, c.findings, c.state);
+    const { root, changeDir } = buildState(c.plan, c.findings, c.state, c.gateEvidence);
+
     const before = snapshot(changeDir);
 
     const advance = advanceFlow(root, DEFAULT_CONFIG);
