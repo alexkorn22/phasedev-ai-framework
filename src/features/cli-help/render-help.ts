@@ -175,6 +175,13 @@ Commands:
       Creates the file with an empty table when missing. Updates the date field.
       Side effects: modifies or creates validation_findings.md.
 
+  phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]
+      Record final gate evidence in final_gate_evidence.md for the active change.
+      For full, --command defaults to the execution contract full test command and must
+      match it when provided. For browser, the Browser Validation section must exist and
+      the stored command is its url (--command is optional and must match url when passed).
+      Side effects: modifies or creates final_gate_evidence.md.
+
   phasedev version
       Print the PhaseDev framework version.
       Aliases: phasedev --version, phasedev -V.
@@ -275,6 +282,7 @@ Options:
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
   --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
   --evidence <text>           New evidence for reopen-finding.
+  --result <passed|failed|blocked> Final gate result for record-gate.
   --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json, or "Final" during final validation.
   --tail N                    Show last N log entries.
   --archived                   Include archived changes (changes/list command).

@@ -23,6 +23,7 @@ import {
   deriveIterationLabel,
   FindingsCreateContext
 } from "./features/artifact-ops/manage-findings";
+import { recordFinalGate } from "./features/artifact-ops/manage-gate-evidence";
 import { todayIsoDate } from "./shared/time/today-iso-date";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
@@ -31,7 +32,7 @@ import { resetChange } from "./features/flow-state/reset-change";
 import { resolveChangeDir } from "./entities/change/active-change";
 import { AmbiguousChangeError, MissingPhasedevDirError, UnknownChangeError } from "./entities/change/change-errors";
 import { loadFlowState } from "./entities/change/flow-state";
-import { buildChangePaths, SYSTEM_DIR } from "./entities/change/paths";
+import { buildChangePaths, ChangePaths, SYSTEM_DIR } from "./entities/change/paths";
 import { acquireLock, FileLock, LockHeldError } from "./shared/fs/state-lock";
 import { createChange } from "./features/phase-control/create-change";
 import { reopenPhase, ReopenablePhase } from "./features/phase-control/reopen-phase";
@@ -118,6 +119,16 @@ function resolveFindingsPath(projectPath: string, changeName?: string): string {
     return buildChangePaths(changeDir).findingsPath;
   } catch {
     return "";
+  }
+}
+
+function resolveActiveChangePaths(projectPath: string, changeName?: string): ChangePaths | null {
+  try {
+    const changeDir = resolveChangeDir(projectPath, changeName);
+    if (!changeDir) return null;
+    return buildChangePaths(changeDir);
+  } catch {
+    return null;
   }
 }
 
@@ -479,6 +490,65 @@ function handleReopenFinding(ctx: CommandContext): void {
       humanMessage: `${prefix}: ${result.message}`,
       jsonMessage: result.message,
       data: { file: targetFile, id }
+    });
+  });
+}
+
+function handleRecordGate(ctx: CommandContext): void {
+  const gate = ctx.args[1];
+  const result = parseStringOption(ctx.args, "--result");
+  const evidence = parseStringOption(ctx.args, "--evidence");
+  const command = parseStringOption(ctx.args, "--command");
+
+  if (!gate || gate.startsWith("--")) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: <full|browser> is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  if (!result) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: --result passed|failed|blocked is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  if (!evidence) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage:
+        "[PHASEDEV RECORD-GATE] FAILED: --evidence <text> is required.\nUsage: phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]"
+    });
+    return;
+  }
+
+  const paths = resolveActiveChangePaths(ctx.projectPath, ctx.changeName);
+  if (!paths) {
+    reportCliResult(ctx.jsonMode, {
+      ok: false,
+      kind: "record-gate",
+      humanMessage: "[PHASEDEV RECORD-GATE] FAILED: could not resolve the active change path."
+    });
+    return;
+  }
+
+  runWithOptionalStateLock(ctx.projectPath, () => {
+    const recordResult = recordFinalGate(paths, gate, result, evidence, command);
+    const prefix = recordResult.ok ? "[PHASEDEV RECORD-GATE] OK" : "[PHASEDEV RECORD-GATE] FAILED";
+    reportCliResult(ctx.jsonMode, {
+      ok: recordResult.ok,
+      kind: "record-gate",
+      humanMessage: `${prefix}: ${recordResult.message}`,
+      jsonMessage: recordResult.message,
+      data: { file: paths.finalGateEvidencePath, gate, result }
     });
   });
 }
@@ -927,6 +997,7 @@ const COMMANDS: Record<string, CommandHandler> = {
   "resolve-finding": handleResolveFinding,
   "reopen-finding": handleReopenFinding,
   "set-verdict": handleSetVerdict,
+  "record-gate": handleRecordGate,
   changes: handleChanges, list: handleChanges,
   config: handleConfig,
   log: handleLog,

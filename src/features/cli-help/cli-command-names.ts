@@ -13,6 +13,7 @@ export const CLI_COMMAND_NAMES = [
   "resolve-finding",
   "reopen-finding",
   "set-verdict",
+  "record-gate",
   "changes",
   "list",
   "config",
