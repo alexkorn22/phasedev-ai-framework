@@ -12,6 +12,7 @@ import { resolveRoute } from "./flow-route";
 import { startArchiveStage } from "./archive-stage";
 import { checkArchiveCompletion } from "./check-archive";
 import { commitGateBlocks } from "./advance-shared";
+import { finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 import { archiveReadinessBlocker, finalCommitBlocker } from "./prompt-blockers";
 
 export interface ArchiveCommandResult {
@@ -122,6 +123,11 @@ function runStandardArchive(
   const route = resolveRoute(projectPath, changeName, config.blockingSeverity);
 
   if (route.kind === "archive_ready") {
+    const gateIssues = finalReadyGateIssuesWhenArchiveBound(route.paths);
+    if (gateIssues.length > 0) {
+      return refuse(gateIssues.join("\n"), "Final gate evidence incomplete");
+    }
+
     if (commitGateBlocks(projectPath, config)) {
       const blocker = finalCommitBlocker(path.basename(route.activeChangePath), changeName);
       return refuse(blocker.prompt, blocker.reason);

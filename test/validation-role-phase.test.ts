@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { getPhasePrompt } from "../src/features/phase-control/get-phase-prompt";
 import { getRoutePrompt } from "../src/features/phase-control/get-route-prompt";
-import { phaseRecoveryCommand } from "../src/features/phase-control/prompt-blockers";
+import { phaseRecoveryCommand, browserQaAbsentBlocker } from "../src/features/phase-control/prompt-blockers";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import {
   FINAL_VALIDATION_ROLES,
@@ -498,7 +498,19 @@ describe("validation role phase contracts", () => {
     expect(result.blocked).toBe(true);
     expect(result.phase).toBe("final_validation");
     expect(result.prompt).toContain("Browser Validation section is absent; do not dispatch browser-qa.");
+    expect(result.prompt).not.toContain("present but incomplete");
     expect(result.prompt).not.toContain("Phase 6B. Final Validation.");
+  });
+
+  test("browserQaAbsentBlocker distinguishes absent section from incomplete table", () => {
+    const absent = browserQaAbsentBlocker();
+    expect(absent.prompt).toContain("Browser Validation section is absent; do not dispatch browser-qa.");
+    expect(absent.prompt).not.toContain("present but incomplete");
+
+    const incomplete = browserQaAbsentBlocker(undefined, true);
+    expect(incomplete.prompt).toContain("Browser Validation section is present but incomplete");
+    expect(incomplete.prompt).not.toContain("section is absent");
+    expect(incomplete.blocked).toBe(true);
   });
 
   test("browser-qa on final_validation with Browser Validation section renders browser contract without full gate", () => {

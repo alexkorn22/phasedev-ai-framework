@@ -214,13 +214,16 @@ export function validationRoleBlocker(
   ].join("\n"), true, role === undefined ? "Missing validation role" : "Invalid validation role");
 }
 
-export function browserQaAbsentBlocker(changeName?: string): Prompt {
+export function browserQaAbsentBlocker(changeName?: string, sectionPresent = false): Prompt {
+  const detail = sectionPresent
+    ? "Browser Validation section is present but incomplete; do not dispatch browser-qa until start, url, and criteria are filled."
+    : "Browser Validation section is absent; do not dispatch browser-qa.";
   return prompt("phase", "final_validation", [
     "================================================================================",
-    "[FLOW CONTROLLER] BLOCKED: Browser Validation section is absent; do not dispatch browser-qa.",
-    `Recovery: add a Browser Validation section to execution_contract.md or run \`${phaseWithRoleCommand(changeName)}\` with a different role.`,
+    `[FLOW CONTROLLER] BLOCKED: ${detail}`,
+    `Recovery: add or complete the Browser Validation section in execution_contract.md or run \`${phaseWithRoleCommand(changeName)}\` with a different role.`,
     "================================================================================"
-  ].join("\n"), true, "Browser Validation section absent");
+  ].join("\n"), true, sectionPresent ? "Browser Validation section incomplete" : "Browser Validation section absent");
 }
 
 export function finalCommitBlocker(changeSlug: string, changeName?: string): Prompt {

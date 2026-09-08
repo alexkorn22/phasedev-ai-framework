@@ -280,8 +280,11 @@ export function renderFinalValidation(projectPath: string, config: Config, paths
 
   const browserValidation = parseBrowserValidation(paths.executionContractPath);
   if (role === "browser-qa") {
-    if (!browserValidation.present || !browserValidation.start || !browserValidation.url || !browserValidation.criteria) {
+    if (!browserValidation.present) {
       return browserQaAbsentBlocker(changeName);
+    }
+    if (!browserValidation.start || !browserValidation.url || !browserValidation.criteria) {
+      return browserQaAbsentBlocker(changeName, true);
     }
   }
 

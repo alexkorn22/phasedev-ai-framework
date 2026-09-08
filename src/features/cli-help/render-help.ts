@@ -281,8 +281,9 @@ Options:
   --class <class>             Finding class for add-finding.
   --required-fix <text>       Concrete required fix for add-finding (placeholders like TBD are rejected).
   --resolution <text>         Repair evidence for resolve-finding (placeholders like TBD are rejected).
-  --evidence <text>           New evidence for reopen-finding.
+  --evidence <text>           New evidence for reopen-finding, or gate evidence text for record-gate.
   --result <passed|failed|blocked> Final gate result for record-gate.
+  --command <text>            Optional gate command override for record-gate (must match execution contract).
   --iteration <iteration>     Iteration label for add-finding. Defaults to "Iteration <N>" from state.json, or "Final" during final validation.
   --tail N                    Show last N log entries.
   --archived                   Include archived changes (changes/list command).

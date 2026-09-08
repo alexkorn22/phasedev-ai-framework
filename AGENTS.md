@@ -129,6 +129,8 @@ PhaseDev is designed to be operated by a main **Orchestrator Agent** (shipped as
 - Severity levels: `must_fix`, `recommended`, `nit`.
 - Verdicts: `ready`, `ready_with_risks` (no open `must_fix`), `repair_required` (open `must_fix`), `repaired`.
 - Hand-editing `validation_findings.md` is **strictly prohibited** — only CLI commands may mutate it.
+- `final_gate_evidence.md` is CLI-owned (never hand-edited), same rule as findings — only `phasedev record-gate` may mutate it.
+- Unrun or infrastructure-blocked gates are missing/blocked gate evidence, not product findings; do not route that work to `finding_repair` — retry the owning validation role in `final_validation` and record with `phasedev record-gate`.
 - Entering `iteration_validation` or `final_validation` (via `advance` or a forward `sync-state`) resets an inherited terminal verdict (`ready`/`ready_with_risks`) to the CLI transient `pending`; every validation scope starts unvalidated, so final validation can never be skipped by a verdict carried over from iteration validation.
 
 ---
@@ -163,6 +165,7 @@ All commands support the global `--json` flag to print `{ ok, kind, phase?, mess
 - `phasedev resolve-finding <id> --resolution <text> [--file <path>]`: Marks finding resolved with verification evidence.
 - `phasedev reopen-finding <id> --evidence <text> [--file <path>]`: Reopens a resolved finding with new evidence.
 - `phasedev set-verdict <verdict> [--file <path>]`: Updates validation verdict (`ready | ready_with_risks | repair_required | repaired`).
+- `phasedev record-gate <full|browser> --result passed|failed|blocked --evidence <text> [--command <text>]`: Records final gate evidence in `final_gate_evidence.md` for the active change.
 - `phasedev check-validation --project-path <path> --scope iteration|final [--iteration-id <N>]`: Validates completion semantics of findings.
 - `phasedev check-archive --archive-path <path>`: Lints completed archive state and delta specs.
 - `phasedev reopen <design|plan> [--project-path <path>]`: Reopens approved design or plan phase for modifications.
@@ -187,6 +190,7 @@ All commands support the global `--json` flag to print `{ ok, kind, phase?, mess
   - Orchestrators: `phasedev-orchestrator`, `express-orchestrator`.
   - Core discipline: `dev-core`.
   - Method skills: `codebase-recon`, `design-fidelity-method`, `acceptance-criteria-method`, `tdd-method`, `debugging-method`, `verification-method`, `test-quality-method`, `code-review-method`, `security-review-method`, `spec-delta-method`.
+- Role catalog includes `browser-qa` (`final_validation` auxiliary only; dispatched when `execution_contract.md` contains a `## Browser Validation` section).
 
 ---
 

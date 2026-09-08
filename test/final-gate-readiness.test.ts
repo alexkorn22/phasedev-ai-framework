@@ -6,7 +6,7 @@ import { recordFinalGate } from "../src/features/artifact-ops/manage-gate-eviden
 import { addFinding, setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { validatePhase } from "../src/features/phase-control/phase-validators";
 import { finalReadyGateIssues } from "../src/features/phase-control/final-gate-readiness";
-import { passedFullGateEvidence, validRulesBody } from "./helpers/fixtures";
+import { passedBrowserGateEvidence, passedFullGateEvidence, validRulesBody } from "./helpers/fixtures";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -173,6 +173,18 @@ describe("set-verdict final gate enforcement", () => {
     const result = runCli(["set-verdict", "ready"]);
     expect(result.exitCode).toBe(0);
     expect(fs.readFileSync(paths.findingsPath, "utf-8")).toContain("verdict: ready");
+  });
+
+  test("set-verdict ready succeeds when browser validation is present and both gates passed", () => {
+    const changeDir = setupChange(`${validRulesBody()}\n${browserValidationTable()}`, {
+      findings: validFindings("final", "repaired"),
+      activePhase: "final_validation",
+      gateEvidence: passedBrowserGateEvidence("http://localhost:3000/app", "bun test full")
+    });
+
+    const result = runCli(["set-verdict", "ready"]);
+    expect(result.exitCode).toBe(0);
+    expect(fs.readFileSync(path.join(changeDir, "validation_findings.md"), "utf-8")).toContain("verdict: ready");
   });
 
   test("set-verdict ready fails when browser validation is present but only full gate passed", () => {

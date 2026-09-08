@@ -4,11 +4,13 @@ import * as path from "path";
 import { runArchive } from "../src/features/phase-control/archive-command";
 import { checkArchiveCompletion } from "../src/features/phase-control/check-archive";
 import { createArchiveState } from "../src/entities/change/archive-state";
+import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { UnknownChangeError } from "../src/entities/change/change-errors";
 import { readFindingsBaseline } from "../src/entities/change/flow-state";
+import { setFindingsVerdict } from "../src/features/artifact-ops/manage-findings";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
-import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
+import { passedFullGateEvidence, prdUsageContractAndNonGoals } from "./helpers/fixtures";
 
 let testTmpDir: string;
 
@@ -224,6 +226,11 @@ Test fixture only.
   );
   fs.writeFileSync(path.join(changeDir, "validation_findings.md"), validationFindings("ready", "final"), "utf-8");
   fs.writeFileSync(
+    path.join(changeDir, "final_gate_evidence.md"),
+    passedFullGateEvidence("bun test full"),
+    "utf-8"
+  );
+  fs.writeFileSync(
     path.join(changeDir, "state.json"),
     JSON.stringify({ activePhase: "final_validation", activeIteration: null, repairCycleCount: 0 }, null, 2) + "\n",
     "utf-8"
@@ -270,6 +277,33 @@ function mkArchived(name: string, status: "in_progress" | "completed"): string {
   );
   return dir;
 }
+
+describe("runArchive: archive_ready final gate enforcement", () => {
+  test("refuses archive_ready when final verdict is ready but full gate evidence is missing", () => {
+    const changeDir = setupArchiveReadyChange();
+    const paths = buildChangePaths(changeDir);
+    fs.unlinkSync(paths.finalGateEvidencePath);
+    expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-05-29" }).ok).toBe(true);
+
+    const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/full/i);
+    expect(fs.existsSync(changeDir)).toBe(true);
+  });
+
+  test("archive_ready passes final gate check when matching passed full row exists", () => {
+    const changeDir = setupArchiveReadyChange();
+    const paths = buildChangePaths(changeDir);
+    expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-05-29" }).ok).toBe(true);
+
+    const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
+
+    expect(result.ok).toBe(true);
+    expect(result.started).toBe(true);
+    expect(fs.existsSync(changeDir)).toBe(false);
+  });
+});
 
 describe("runArchive: archive_ready mutation", () => {
   test("moves the change directory and marks archive in_progress with state.json locked to archive", () => {
