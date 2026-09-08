@@ -15,7 +15,7 @@ import { buildChangePaths } from "../src/entities/change/paths";
 import { DEFAULT_CONFIG } from "../src/entities/config/config";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
-import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 import { reopenPhase, ReopenablePhase } from "../src/features/phase-control/reopen-phase";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { checkPhase, checkValidationCompletion } from "../src/features/phase-control/check-flow";
@@ -245,6 +245,10 @@ Test fixture only.
 
 function prepareGitContext(changeDir: string): void {
   initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
+}
+
+function writePassedFullGate(changeDir: string, fullCommand = "bun test full"): void {
+  fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), passedFullGateEvidence(fullCommand), "utf-8");
 }
 
 describe("flow controller typed stages", () => {
@@ -1220,6 +1224,7 @@ Complete API work.
     );
 
     prepareGitContext(changeDir);
+    writePassedFullGate(changeDir);
     expect(resolveRoute(testTmpDir).kind).toBe("archive_ready");
 
     const archiveMarkerPath = path.join(changeDir, ".phase-archive.json");
@@ -2272,6 +2277,7 @@ Test fixture only.
       expect(refused.advanced).toBe(false);
 
       expect(setFindingsVerdict(paths.findingsPath, "ready", { type: "final", date: "2026-09-07" }).ok).toBe(true);
+      writePassedFullGate(changeDir);
       prepareGitContext(changeDir);
       const completed = advanceFlow(testTmpDir, config);
       expect(completed.ok).toBe(true);

@@ -17,7 +17,7 @@ import { listChanges } from "../src/features/flow-status/list-changes";
 import { buildChangePaths, archiveRootPath } from "../src/entities/change/paths";
 import { syncState } from "../src/features/phase-control/sync-state";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
-import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -413,6 +413,7 @@ function buildLifecycleSteps(root: string, config: Config, name: string, fixture
     // runArchive moves the change dir into archive/.
     () => {
       writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+      writeFile(paths.finalGateEvidencePath, passedFullGateEvidence("echo full"));
       const result = advanceStep();
       expect(result.ok).toBe(true);
       expect(result.message).toBe("Final validation passed. Flow complete.");
@@ -733,6 +734,7 @@ describe("E2E flow via CLI subprocess", () => {
     // -----------------------------------------------------------------------
     const fvFindingsBody = makeValidationFindingsBody("ready", "final");
     writeFile(findingsPath, fvFindingsBody);
+    writeFile(path.join(cdir, "final_gate_evidence.md"), passedFullGateEvidence("echo full"));
     expectCheckSignalsReadyToAdvance();
 
     const adv7 = run(["advance"]);
@@ -1095,6 +1097,7 @@ describe("stale final verdict scope-change e2e", () => {
     expect(enteredFinalFindings).toContain("verdict: pending");
 
     writeFile(paths.findingsPath, makeValidationFindingsBody("ready", "final"));
+    writeFile(paths.finalGateEvidencePath, passedFullGateEvidence("echo full"));
 
     // (d) advance clean-completes at final_validation (no mutation); runArchive
     // then performs the archive mutation.

@@ -12,7 +12,7 @@ import { renderValidationRoleAllowlist, renderValidationRoleChecks, renderValida
 import { renderTemplate } from "../src/shared/templates/render-template";
 import { cleanupTempWorkspace, createTempWorkspace } from "./helpers/temp-workspace";
 import { initGitWorkspaceWithCommitLog } from "./helpers/git-workspace";
-import { prdUsageContractAndNonGoals } from "./helpers/fixtures";
+import { prdUsageContractAndNonGoals, passedFullGateEvidence } from "./helpers/fixtures";
 
 let testTmpDir: string;
 const cliPath = path.resolve(__dirname, "..", "src", "cli.ts");
@@ -1162,6 +1162,7 @@ autoApprove: true
       findings: validationFindings("ready", "final")
     });
     initGitWorkspaceWithCommitLog(testTmpDir, changeDir);
+    fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), passedFullGateEvidence("bun test full"), "utf-8");
     const result = runCheckValidation(["--scope", "final"]);
 
     expect(result.exitCode).toBe(0);

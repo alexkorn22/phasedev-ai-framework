@@ -19,11 +19,13 @@ import {
   resolveFinding,
   reopenFinding,
   setFindingsVerdict,
+  findingsVerdictConsistencyIssue,
   isPlaceholderRequiredFix,
   deriveIterationLabel,
   FindingsCreateContext
 } from "./features/artifact-ops/manage-findings";
 import { recordFinalGate } from "./features/artifact-ops/manage-gate-evidence";
+import { finalReadyGateIssues } from "./features/phase-control/final-gate-readiness";
 import { todayIsoDate } from "./shared/time/today-iso-date";
 import { listChanges, renderChanges } from "./features/flow-status/list-changes";
 import { viewLog } from "./features/flow-status/view-log";
@@ -143,6 +145,23 @@ function findingsCreateContext(projectPath: string, changeName?: string): Findin
 function findingsTypeCoercion(projectPath: string, changeName?: string): "iteration" | "final" | undefined {
   const state = loadFlowState(projectPath, changeName);
   return state ? (expectedFindingsType(state.activePhase) ?? undefined) : undefined;
+}
+
+function setVerdictFinalGateIssues(
+  projectPath: string,
+  changeName: string | undefined,
+  verdict: string
+): string[] {
+  if (verdict !== "ready" && verdict !== "ready_with_risks") {
+    return [];
+  }
+  const createContext = findingsCreateContext(projectPath, changeName);
+  const coerceType = findingsTypeCoercion(projectPath, changeName);
+  if (createContext.type !== "final" && coerceType !== "final") {
+    return [];
+  }
+  const paths = resolveActiveChangePaths(projectPath, changeName);
+  return paths ? finalReadyGateIssues(paths) : [];
 }
 
 const DEFAULT_LOCK_WAIT_MS = 15_000;
@@ -578,6 +597,31 @@ function handleSetVerdict(ctx: CommandContext): void {
 
   const config = loadConfig(resolveConfigPath(ctx.projectPath, parseConfigPath(ctx.args)));
   runWithOptionalStateLock(ctx.projectPath, () => {
+    const consistencyIssue = findingsVerdictConsistencyIssue(targetFile, verdict, config.blockingSeverity);
+    if (consistencyIssue) {
+      reportCliResult(ctx.jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: `[PHASEDEV SET-VERDICT] FAILED: ${consistencyIssue}`,
+        jsonMessage: consistencyIssue,
+        data: { file: targetFile, verdict }
+      });
+      return;
+    }
+
+    const gateIssues = setVerdictFinalGateIssues(ctx.projectPath, ctx.changeName, verdict);
+    if (gateIssues.length > 0) {
+      const message = gateIssues.join(" ");
+      reportCliResult(ctx.jsonMode, {
+        ok: false,
+        kind: "set-verdict",
+        humanMessage: `[PHASEDEV SET-VERDICT] FAILED: ${message}`,
+        jsonMessage: message,
+        data: { file: targetFile, verdict }
+      });
+      return;
+    }
+
     const result = setFindingsVerdict(
       targetFile,
       verdict,

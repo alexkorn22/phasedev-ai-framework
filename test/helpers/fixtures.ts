@@ -146,3 +146,22 @@ date: 2026-07-04
 |---|---|---|---|---|---|---|
 ${rows}`;
 }
+
+export function passedFullGateEvidence(fullCommand: string, evidence = "12 passed, 0 failed"): string {
+  return `# Final Gate Evidence
+
+| Gate | Result | Command | Evidence |
+|---|---|---|---|
+| full | passed | \`${fullCommand}\` | ${evidence} |
+`;
+}
+
+export function passedBrowserGateEvidence(url: string, fullCommand: string, evidence = "UI verified manually"): string {
+  return `# Final Gate Evidence
+
+| Gate | Result | Command | Evidence |
+|---|---|---|---|
+| full | passed | \`${fullCommand}\` | 12 passed, 0 failed |
+| browser | passed | \`${url}\` | ${evidence} |
+`;
+}

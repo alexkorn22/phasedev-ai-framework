@@ -8,6 +8,7 @@ import { Route, resolveRoute } from "./flow-route";
 import { resolveChangeDir } from "../../entities/change/active-change";
 import { FlowState, loadFlowState, locateChangeDir, isActivePhase, ActivePhase, readFindingsBaseline } from "../../entities/change/flow-state";
 import { validatePhase, validatePhaseExit, revalidationPendingMessage, validationPendingMessage } from "./phase-validators";
+import { finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 import { quickCheck } from "./quick-check";
 import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY } from "../../entities/validation-findings/blocking-severity";
 import { classifyStateRoute, StateRouteRelation } from "./state-route-consistency";
@@ -232,6 +233,10 @@ export function checkValidationCompletion(
     }
     if (findings.verdict === "pending") {
       issues.push(validationPendingMessage());
+    }
+
+    if (isReadyVerdict(findings.verdict) && paths) {
+      issues.push(...finalReadyGateIssuesWhenArchiveBound(paths));
     }
 
     if (isReadyVerdict(findings.verdict) && route.kind !== "archive_ready") {

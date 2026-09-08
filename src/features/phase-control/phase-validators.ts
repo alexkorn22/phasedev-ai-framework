@@ -17,6 +17,7 @@ import { BlockingSeverity, DEFAULT_BLOCKING_SEVERITY, blockingSeverityLabel } fr
 import { Config, loadConfig, projectConfigPath } from "../../entities/config/config";
 import { scanChangedFilesOutsidePhasedev, pathMatchesSurface } from "./changed-file-inventory";
 import { runGit } from "../../shared/shell/git";
+import { finalReadyGateIssues, finalReadyGateIssuesWhenArchiveBound } from "./final-gate-readiness";
 
 export interface PhaseValidation {
   ok: boolean;
@@ -208,6 +209,10 @@ export function validatePhase(
       }
       if (findings.verdict === "pending") {
         issues.push(validationPendingMessage());
+      }
+
+      if (findings.verdict === "ready" || findings.verdict === "ready_with_risks") {
+        issues.push(...finalReadyGateIssuesWhenArchiveBound(paths));
       }
 
       return issues.length === 0 ? okMessage(phase) : failMessage(phase, issues);
