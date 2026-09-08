@@ -3172,6 +3172,7 @@ describe("archive command", () => {
       findings: validationFindings("ready", "final")
     });
     writeStateJson(changeDir, "final_validation");
+    fs.writeFileSync(path.join(changeDir, "final_gate_evidence.md"), passedFullGateEvidence("bun test full"), "utf-8");
 
     const result = runCli(["archive", "sample-change", "--project-path", testTmpDir]);
 

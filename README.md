@@ -4,7 +4,7 @@
 
 # ⚙️ PhaseDev AI Framework
 
-[![Version](https://img.shields.io/badge/version-1.6.15-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
+[![Version](https://img.shields.io/badge/version-1.6.16-blue)](https://github.com/alexkorn22/phasedev-ai-framework/blob/main/package.json)
 [![Bun Supported](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

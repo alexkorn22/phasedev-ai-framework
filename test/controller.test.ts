@@ -2080,6 +2080,7 @@ Test fixture only.
         "utf-8"
       );
       seedFindingsBaselineRows(changeDir, []);
+      writePassedFullGate(changeDir);
 
       const result = runArchive(testTmpDir, DEFAULT_CONFIG, "sample-change");
 
